@@ -11,6 +11,10 @@
 
 🎯 Tujuan: sumber Neraca UI tersedia di repo, tidak bergantung pada link artifact.
 
+> ✔️ **Sudah dilakukan** (28 Oktober 2026): 37 file dari folder `project/` artifact (versi `1793189732-cefb`) sudah ada di `docs/design/neraca-ui/` — `README.md`, `design-system.json`, `tokens.json`, `components/bundle.css`, README + `preview.html` untuk 16 komponen, dan `components/Cover/preview.html`. Langkah ini cukup **diverifikasi** dengan cek di bawah. Ulangi pengunduhan hanya bila user mengubah artifact-nya.
+>
+> Catatan: `preview.html` tidak memuat `tokens.css`/`bundle.css` sendiri (di artifact keduanya disisipkan otomatis). Untuk melihatnya di browser lokal, tambahkan sementara `<link rel="stylesheet">` ke `src/styles/tokens.css` dan `src/styles/neraca.css` (dibuat di langkah 2.2–2.3), atau bandingkan lewat halaman `dev-ui.tsx` (langkah 2.6).
+
 Langkah:
 1. Baca file artifact [Neraca UI](https://claude.ai/artifact/6YqBk8Tgx4MTr9eJvNvCpK) dengan tool Artifact (`action: "read"`, `path`) untuk path berikut, lalu simpan apa adanya ke `docs/design/neraca-ui/` dengan struktur sama:
    - `project/README.md` → `docs/design/neraca-ui/README.md`

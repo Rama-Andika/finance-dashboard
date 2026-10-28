@@ -170,9 +170,10 @@ financeDashboard/
 │  ├─ progress.md                # log kemajuan (Fase 0)
 │  ├─ verification-report.md     # hasil Fase 16
 │  ├─ design/neraca-ui/          # salinan sumber design system (Fase 2)
-│  │  ├─ README.md
+│  │  ├─ README.md               # brand book (aturan warna, tipografi, layout)
+│  │  ├─ design-system.json
 │  │  ├─ tokens.json
-│  │  └─ components/…            # bundle.css + README tiap komponen
+│  │  └─ components/             # bundle.css + <Komponen>/README.md + preview.html (16 komponen + Cover)
 │  └─ sql/
 │     └─ dashboard-indexes.sql
 ├─ schema/                       # ekspor information_schema (gitignored)

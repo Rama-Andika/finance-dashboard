@@ -1,0 +1,55 @@
+<!-- @dsCard group="Charts" height=420 -->
+<!doctype html>
+<html><head><meta charset="utf-8"><title>CashflowChart</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  .halo { fill: var(--lime-soft); }
+  .cf-wrap { position: relative; }
+  .cf-tip { position: absolute; left: calc(76% - 78px); top: 0; }
+  .cf-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-3); }
+  .cf-total { margin: 4px 0 0; font-size: 32px; line-height: 36px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .cf-total .nr-cur { font-size: 18px; color: var(--ink-muted); margin-right: 6px; letter-spacing: 0; }
+</style></head>
+<body><div class="nr-stage" style="display:block">
+<section class="nr-card" style="max-width:760px">
+  <div class="nr-card-head"><h3 class="nr-card-title">Arus Kas</h3><button class="nr-select" type="button">Tahun berjalan<svg class="nr-icon nr-icon-sm" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button></div>
+  <div class="cf-head">
+    <div><span class="nr-muted" style="font-size:12px">Arus kas bersih Jan – Okt 2026</span><p class="cf-total"><span class="nr-cur">Rp</span>11,80 M</p></div>
+    <div class="nr-legend"><span><i class="nr-sw-in"></i>Kas masuk</span><span><i class="nr-sw-out"></i>Kas keluar</span></div>
+  </div>
+  <div class="cf-wrap">
+    <div class="cf-tip"><div class="nr-tooltip" role="tooltip"><span class="nr-tooltip-title">Agustus 2026</span><span class="nr-tooltip-row"><span>Kas masuk</span><b>Rp 9,54 M</b></span><span class="nr-tooltip-row"><span>Kas keluar</span><b>Rp 8,23 M</b></span></div></div>
+    <svg class="nr-chart" viewBox="0 0 720 248" role="img" aria-label="Kas masuk dan keluar per bulan, Januari sampai Oktober 2026. Tertinggi Agustus: masuk 9,54 miliar, keluar 8,23 miliar.">
+      <line class="grid" x1="56" x2="712" y1="30" y2="30"/><line class="grid" x1="56" x2="712" y1="75" y2="75"/><line class="grid" x1="56" x2="712" y1="165" y2="165"/><line class="grid" x1="56" x2="712" y1="210" y2="210"/>
+      <text class="tick" x="44" y="34" text-anchor="end">10 M</text><text class="tick" x="44" y="79" text-anchor="end">5 M</text><text class="tick" x="44" y="124" text-anchor="end">0</text><text class="tick" x="44" y="169" text-anchor="end">−5 M</text><text class="tick" x="44" y="214" text-anchor="end">−10 M</text>
+      <rect class="halo" x="524" y="26" width="48" height="176" rx="12"/>
+      <g class="in">
+        <rect x="73" y="46" width="32" height="74" rx="6"/><rect x="73" y="114" width="32" height="6"/>
+        <rect x="138" y="83" width="32" height="37" rx="6"/><rect x="138" y="114" width="32" height="6"/>
+        <rect x="204" y="63" width="32" height="57" rx="6"/><rect x="204" y="114" width="32" height="6"/>
+        <rect x="270" y="44" width="32" height="76" rx="6"/><rect x="270" y="114" width="32" height="6"/>
+        <rect x="335" y="66" width="32" height="54" rx="6"/><rect x="335" y="114" width="32" height="6"/>
+        <rect x="401" y="47" width="32" height="73" rx="6"/><rect x="401" y="114" width="32" height="6"/>
+        <rect x="466" y="85" width="32" height="35" rx="6"/><rect x="466" y="114" width="32" height="6"/>
+        <rect x="532" y="34" width="32" height="86" rx="6"/><rect x="532" y="114" width="32" height="6"/>
+        <rect x="598" y="56" width="32" height="64" rx="6"/><rect x="598" y="114" width="32" height="6"/>
+        <rect x="663" y="61" width="32" height="59" rx="6"/><rect x="663" y="114" width="32" height="6"/>
+      </g>
+      <g class="out">
+        <rect x="73" y="120" width="32" height="50" rx="6"/><rect x="73" y="120" width="32" height="6"/>
+        <rect x="138" y="120" width="32" height="71" rx="6"/><rect x="138" y="120" width="32" height="6"/>
+        <rect x="204" y="120" width="32" height="62" rx="6"/><rect x="204" y="120" width="32" height="6"/>
+        <rect x="270" y="120" width="32" height="26" rx="6"/><rect x="270" y="120" width="32" height="6"/>
+        <rect x="335" y="120" width="32" height="49" rx="6"/><rect x="335" y="120" width="32" height="6"/>
+        <rect x="401" y="120" width="32" height="35" rx="6"/><rect x="401" y="120" width="32" height="6"/>
+        <rect x="466" y="120" width="32" height="41" rx="6"/><rect x="466" y="120" width="32" height="6"/>
+        <rect x="532" y="120" width="32" height="74" rx="6"/><rect x="532" y="120" width="32" height="6"/>
+        <rect x="598" y="120" width="32" height="53" rx="6"/><rect x="598" y="120" width="32" height="6"/>
+        <rect x="663" y="120" width="32" height="46" rx="6"/><rect x="663" y="120" width="32" height="6"/>
+      </g>
+      <line class="axis" x1="56" x2="712" y1="120" y2="120"/>
+      <rect class="sel" x="531" y="33" width="34" height="162" rx="7" fill="none"/>
+      <text class="tick" x="89" y="236" text-anchor="middle">Jan</text><text class="tick" x="154" y="236" text-anchor="middle">Feb</text><text class="tick" x="220" y="236" text-anchor="middle">Mar</text><text class="tick" x="286" y="236" text-anchor="middle">Apr</text><text class="tick" x="351" y="236" text-anchor="middle">Mei</text><text class="tick" x="417" y="236" text-anchor="middle">Jun</text><text class="tick" x="482" y="236" text-anchor="middle">Jul</text><text class="tick" x="548" y="236" text-anchor="middle" style="fill:var(--ink);font-weight:600">Agu</text><text class="tick" x="614" y="236" text-anchor="middle">Sep</text><text class="tick" x="679" y="236" text-anchor="middle">Okt</text>
+    </svg>
+  </div>
+</section>
+</div></body></html>

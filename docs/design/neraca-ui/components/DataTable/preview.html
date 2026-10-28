@@ -1,0 +1,22 @@
+<!-- @dsCard group="Data display" height=380 -->
+<!doctype html>
+<html><head><meta charset="utf-8"><title>DataTable</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"></head>
+<body><div class="nr-stage" style="display:block">
+<section class="nr-card">
+  <div class="nr-card-head"><h3 class="nr-card-title">Tagihan Jatuh Tempo</h3>
+    <div style="display:flex;gap:var(--space-2)"><button class="nr-select" type="button">7 hari ke depan<svg class="nr-icon nr-icon-sm" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button><button class="nr-btn nr-btn-icon" type="button" aria-label="Ekspor CSV"><svg class="nr-icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></button></div>
+  </div>
+  <div class="nr-table-wrap">
+    <table class="nr-table">
+      <thead><tr><th>Vendor</th><th>Dokumen</th><th>Tanggal</th><th>Jatuh tempo</th><th class="nr-r">Sisa (Rp)</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="nr-name">CV Sumber Pangan Lestari</td><td class="nr-code">IN092514068</td><td>03 Okt 2026</td><td>17 Okt 2026</td><td class="nr-r">48.250.000</td><td><span class="nr-status nr-status-danger">Lewat jatuh tempo</span></td></tr>
+        <tr><td class="nr-name">PT Mitra Kemasan Nusa</td><td class="nr-code">IN092514102</td><td>08 Okt 2026</td><td>28 Okt 2026</td><td class="nr-r">12.730.500</td><td><span class="nr-status nr-status-warning">Disetujui, menunggu bayar</span></td></tr>
+        <tr><td class="nr-name">UD Segar Abadi</td><td class="nr-code">02891/SLS/10/26.6</td><td>12 Okt 2026</td><td>02 Nov 2026</td><td class="nr-r">6.118.000</td><td><span class="nr-status nr-status-warning">Diajukan</span></td></tr>
+        <tr><td class="nr-name">UD Segar Abadi<span class="nr-sub">Retur</span></td><td class="nr-code">RT10260145</td><td>15 Okt 2026</td><td>—</td><td class="nr-r">(1.250.000)</td><td><span class="nr-status nr-status-neutral">Kredit vendor</span></td></tr>
+        <tr><td class="nr-name">PT Daya Listrik Prima</td><td class="nr-code">APM/BPW/10/26/00412</td><td>20 Okt 2026</td><td>04 Nov 2026</td><td class="nr-r">3.402.900</td><td><span class="nr-status nr-status-neutral">Belum diajukan</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+</div></body></html>
