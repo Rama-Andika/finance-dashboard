@@ -1,0 +1,27 @@
+# dependencies & build output
+node_modules/
+.output/
+.vinxi/
+.tanstack/
+dist/
+coverage/
+
+# secrets
+.env
+.env.*
+!.env.example
+.dbclient.cnf
+*.cnf
+
+# database exports (may contain client data)
+schema/*.csv
+
+# temporary output of drizzle-kit pull
+drizzle/
+
+# editor & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
