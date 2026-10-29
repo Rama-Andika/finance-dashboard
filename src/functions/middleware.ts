@@ -23,5 +23,8 @@ export const authMiddleware = createMiddleware({ type: 'function' }).server(asyn
     throw new Error('UNAUTHORIZED')
   }
 
+  // Start the background refresh of the snapshot tables once per server process (no-op afterwards).
+  void import('~/server/dash/scheduler').then((m) => m.ensureDashScheduler()).catch(() => {})
+
   return next({ context: { userId } })
 })

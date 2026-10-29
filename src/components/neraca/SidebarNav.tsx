@@ -1,3 +1,4 @@
+import { DataFreshness } from '~/components/layout/DataFreshness'
 import { APP_NAME } from '~/lib/brand'
 import { useTranslation } from 'react-i18next'
 import { Link, useRouterState } from '@tanstack/react-router'
@@ -40,16 +41,12 @@ export const SETTINGS_NAV_ITEMS: NavItemDef[] = [
 
 export interface SidebarNavProps {
   onNavigate?: () => void
-  freshnessDate?: string
-  freshnessStatus?: string
   className?: string
   isTabletCollapsed?: boolean
 }
 
 export function SidebarNav({
   onNavigate,
-  freshnessDate,
-  freshnessStatus,
   className,
   isTabletCollapsed = false,
 }: SidebarNavProps) {
@@ -119,12 +116,7 @@ export function SidebarNav({
         })}
       </div>
 
-      {freshnessDate && (
-        <div className={cn('nr-freshness', isTabletCollapsed && 'md:hidden lg:flex')}>
-          <strong>{freshnessDate}</strong>
-          {freshnessStatus && <span>{freshnessStatus}</span>}
-        </div>
-      )}
+      <DataFreshness className={cn(isTabletCollapsed && 'md:hidden lg:flex')} />
     </nav>
   )
 }

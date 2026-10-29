@@ -493,7 +493,10 @@
       "closeFolder": "Tutup folder",
       "openFolder": "Buka folder",
       "allEntitiesPrint": "Semua Entitas",
-      "builtBy": "Dibuat oleh"
+      "builtBy": "Dibuat oleh",
+      "dataAsOf": "Data per {{when}}",
+      "refreshing": "Sedang diperbarui di latar belakang…",
+      "refreshFailed": "Pembaruan terakhir gagal; angka sebelumnya masih ditampilkan."
     },
     "table": {
       "sortBy": "Urutkan berdasarkan kolom ini",

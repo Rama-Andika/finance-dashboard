@@ -493,7 +493,10 @@
       "closeFolder": "Collapse folder",
       "openFolder": "Expand folder",
       "allEntitiesPrint": "All entities",
-      "builtBy": "Built by"
+      "builtBy": "Built by",
+      "dataAsOf": "Data as of {{when}}",
+      "refreshing": "Refreshing in the background…",
+      "refreshFailed": "The latest refresh failed; showing the previous numbers."
     },
     "table": {
       "sortBy": "Sort by this column",

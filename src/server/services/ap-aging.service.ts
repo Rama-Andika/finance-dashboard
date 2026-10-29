@@ -2,6 +2,7 @@ import '@tanstack/react-start/server-only'
 import { D, sum } from '~/lib/finance/money'
 import { addDays } from '~/lib/format/date'
 import { memoMetric } from '~/server/cache'
+import { apArSnapshotCovers, apArSnapshotInfo } from '~/server/dash/snapshot'
 import type { Id, MetricMeta, Money } from '~/lib/finance/types'
 import {
   type AppContextFilter,
@@ -45,6 +46,9 @@ async function compareAgingTotal(
   tree: CoaTree,
 ): Promise<Money | null> {
   if (!filter.compare || !filter.compare.asOf) return null
+  // Past dates are not in the snapshot (until month-end snapshots exist); computing them from the ERP tables
+  // takes minutes, so the comparison is left out instead of blocking the page.
+  if ((await apArSnapshotInfo()) && !(await apArSnapshotCovers(filter.compare.asOf))) return null
   const cmpAsOfPlusOne = addDays(filter.compare.asOf, 1)
   const [cmpA, cmpB] = await Promise.all([
     apOpenInvoices(cmpAsOfPlusOne, filter.locationIds),

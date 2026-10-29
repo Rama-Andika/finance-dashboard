@@ -35,3 +35,31 @@ export function intList(values: readonly number[]): SQL {
   }
   return sql.raw(values.join(', '))
 }
+
+export type AgingSide = 'ap' | 'ar'
+
+/** What differs between the AP and the AR aging: the module and the transaction types involved. */
+export const AGING_SIDES: Record<
+  AgingSide,
+  {
+    module: number
+    invoiceTypes: readonly number[]
+    /** Card types that settle an invoice through ap_ar_card_detail. */
+    settlementTypes: readonly number[]
+    /** Card types that can sit unallocated (no detail rows) and reduce the party balance. */
+    unallocatedTypes: readonly number[]
+  }
+> = {
+  ap: {
+    module: MODULE_TYPE.AP,
+    invoiceTypes: AP_INVOICE_TYPES,
+    settlementTypes: AP_PAYMENT_TYPES,
+    unallocatedTypes: AP_PAYMENT_TYPES,
+  },
+  ar: {
+    module: MODULE_TYPE.AR,
+    invoiceTypes: AR_INVOICE_TYPES,
+    settlementTypes: AR_SETTLEMENT_TYPES,
+    unallocatedTypes: [AR_UNALLOCATED_CREDIT_TYPE],
+  },
+}

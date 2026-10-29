@@ -4,11 +4,7 @@ import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
 import { chunk, chunkOrAll } from '~/server/db/chunk'
 import {
-  AP_INVOICE_TYPES,
-  AP_PAYMENT_TYPES,
-  AR_INVOICE_TYPES,
-  AR_SETTLEMENT_TYPES,
-  AR_UNALLOCATED_CREDIT_TYPE,
+  AGING_SIDES,
   AR_UNALLOCATED_RECEIPT_TYPE,
   EXPENSE_PAID_TYPES,
   IN_OUT_VALUES,
@@ -18,6 +14,8 @@ import {
 import { D } from '~/lib/finance/money'
 import { ACTIVE_VOUCHER_STATUSES } from '~/lib/finance/aging'
 import { memo } from '~/server/cache'
+import { addDays } from '~/lib/format/date'
+import { apArSnapshotCovers, snapshotOpenInvoices, snapshotUnallocated } from '~/server/dash/snapshot'
 import type { Id, IsoDate, Money } from '~/lib/finance/types'
 
 const AGING_CACHE_MS = 5 * 60 * 1000
@@ -163,32 +161,7 @@ export async function expensePaidUnallocated(
 
 type AgingSide = 'ap' | 'ar'
 
-const AGING_SIDES: Record<
-  AgingSide,
-  {
-    module: number
-    invoiceTypes: readonly number[]
-    /** Card types that settle an invoice through ap_ar_card_detail. */
-    settlementTypes: readonly number[]
-    /** Card types that can sit unallocated (no detail rows) and reduce the party balance. */
-    unallocatedTypes: readonly number[]
-  }
-> = {
-  ap: {
-    module: MODULE_TYPE.AP,
-    invoiceTypes: AP_INVOICE_TYPES,
-    settlementTypes: AP_PAYMENT_TYPES,
-    unallocatedTypes: AP_PAYMENT_TYPES,
-  },
-  ar: {
-    module: MODULE_TYPE.AR,
-    invoiceTypes: AR_INVOICE_TYPES,
-    settlementTypes: AR_SETTLEMENT_TYPES,
-    unallocatedTypes: [AR_UNALLOCATED_CREDIT_TYPE],
-  },
-}
-
-type AgingInvoice = {
+export type AgingInvoice = {
   invoiceId: Id
   invoiceNumber: string
   partyId: Id
@@ -201,7 +174,7 @@ type AgingInvoice = {
   balance: Money
 }
 
-type AgingUnallocated = {
+export type AgingUnallocated = {
   cardId: Id
   partyId: Id
   locationId: Id
@@ -219,14 +192,16 @@ function locKeyOf(locIds: Id[] | 'all'): string {
  * The cached array is shared by every caller: treat it as read-only. The party id is stored under
  * its final name (`vendorId` / `customerId`) once, so callers never copy the (up to ~160k) rows.
  */
-function agingInvoices<K extends 'vendorId' | 'customerId'>(
+async function agingInvoices<K extends 'vendorId' | 'customerId'>(
   side: AgingSide,
   asOfPlusOne: IsoDate,
   locIds: Id[] | 'all',
   partyKey: K,
 ): Promise<Array<Omit<AgingInvoice, 'partyId'> & Record<K, Id>>> {
   type Row = Omit<AgingInvoice, 'partyId'> & Record<K, Id>
-  if (locIds !== 'all' && locIds.length === 0) return Promise.resolve([])
+  if (locIds !== 'all' && locIds.length === 0) return []
+  // The current state is read from the snapshot table (small, indexed); only other dates hit the ERP tables.
+  if (await apArSnapshotCovers(addDays(asOfPlusOne, -1))) return snapshotOpenInvoices(side, locIds, partyKey)
   const cfg = AGING_SIDES[side]
 
   return memo(`${side}AgingInvoices:${asOfPlusOne}:${locKeyOf(locIds)}`, AGING_CACHE_MS, async () => {
@@ -292,14 +267,15 @@ function agingInvoices<K extends 'vendorId' | 'customerId'>(
 }
 
 /** Payments / credit notes with no allocation to any invoice (shared cached array: read-only). */
-function agingUnallocated<K extends 'vendorId' | 'customerId'>(
+async function agingUnallocated<K extends 'vendorId' | 'customerId'>(
   side: AgingSide,
   asOfPlusOne: IsoDate,
   locIds: Id[] | 'all',
   partyKey: K,
 ): Promise<Array<Omit<AgingUnallocated, 'partyId'> & Record<K, Id>>> {
   type Row = Omit<AgingUnallocated, 'partyId'> & Record<K, Id>
-  if (locIds !== 'all' && locIds.length === 0) return Promise.resolve([])
+  if (locIds !== 'all' && locIds.length === 0) return []
+  if (await apArSnapshotCovers(addDays(asOfPlusOne, -1))) return snapshotUnallocated(side, locIds, partyKey)
   const cfg = AGING_SIDES[side]
 
   return memo(`${side}AgingUnallocated:${asOfPlusOne}:${locKeyOf(locIds)}`, AGING_CACHE_MS, async () => {

@@ -134,6 +134,8 @@ Tabel 160 ribu baris: waktu respons per halaman < 1 detik (setelah Tahap C), pay
 
 ## Tahap C — halaman lambat dan data tidak muncul (poin 3, 4, 5, 6, 12)
 
+**Status (dikerjakan sebagian):** selesai untuk **AP/AR**: fitur migrasi drizzle-kit (`drizzle-dash/`, `npm run db:dash:*`), tabel `dash_snap_meta`, `dash_snap_ap_ar_open`, `dash_snap_ap_ar_unallocated`, job refresh (`npm run dash:refresh`, juga berjalan terjadwal di proses aplikasi tiap `DASH_REFRESH_MINUTES`), jalur baca dari snapshot, label "Data per …" di sidebar, dan tes pengaman tulis hanya ke `dash_*`. Rekonsiliasi pada DB demo cocok persis dengan query langsung ERP: AP 162.865 tagihan / 67.371.583.119,52; AR 1.467 / 21.812.423.929,39; belum teralokasi AP 145 dan AR 41 (jumlah dan total). Refresh penuh 245 dtk; AP Aging dari ±625 dtk menjadi ±10 dtk. **Belum dikerjakan:** snapshot GL bulanan (Summary/P&L/Revenue), `dash_snap_checks` (Data Checks, poin 12), snapshot akhir bulan (perbandingan AP/AR dengan periode lalu kini dikosongkan), tombol "Segarkan sekarang", dan uji di MySQL 5.7 sungguhan.
+
 ### Diagnosis (terukur di DB demo, MariaDB 10.4, semua index `idx_dash_*` sudah terpasang)
 | Query | Waktu |
 |---|---:|
