@@ -2,7 +2,7 @@ import '@tanstack/react-start/server-only'
 import { D, sum } from '~/lib/finance/money'
 import { addDays } from '~/lib/format/date'
 import { memoMetric } from '~/server/cache'
-import { apArSnapshotCovers, apArSnapshotInfo } from '~/server/dash/snapshot'
+import { apArSnapshotCovers, apArSnapshotInfo, memoBySnapshot } from '~/server/dash/snapshot'
 import type { Id, MetricMeta, Money } from '~/lib/finance/types'
 import {
   type AppContextFilter,
@@ -64,35 +64,45 @@ async function compareAgingTotal(
   }).total
 }
 
+/**
+ * The heavy, snapshot-derived part (all open items of the selected entities, party names, aging buckets).
+ * Cached for as long as the snapshot it was built from; it needs no GL read, so the party table can use it alone.
+ */
+async function arAgingCore(filter: AppContextFilter) {
+  return memoBySnapshot('arAgingCore', { loc: filter.locationIds, asOf: filter.asOf }, async () => {
+    const tree = await getCachedCoaTree()
+    const asOfPlusOne = addDays(filter.asOf, 1)
+
+    const [partA, partB] = await Promise.all([
+      arOpenInvoices(asOfPlusOne, filter.locationIds),
+      arUnallocatedReceipts(asOfPlusOne, filter.locationIds),
+    ])
+
+    const customerIds = Array.from(
+      new Set([...partA.map((a) => a.customerId), ...partB.map((b) => b.customerId)].filter(Boolean)),
+    )
+    const customers = await listCustomers(customerIds)
+    const customerMap = new Map(customers.map((v) => [v.customerId, { code: v.code, name: v.name }]))
+
+    const computed = calculateArAging({
+      partA,
+      partB,
+      asOf: filter.asOf,
+      customers: customerMap,
+      tree,
+    })
+    return { computed, customerMap, tree }
+  })
+}
+
+/** The rows of the vendor / customer table (no GL read, no reconciliation). */
+export async function computeArAgingParties(filter: AppContextFilter) {
+  return (await arAgingCore(filter)).computed.byCustomer
+}
+
 async function computeArAgingUncached(filter: AppContextFilter): Promise<ArAgingResult> {
   const meta = buildMetricMeta(filter)
-  const tree = await getCachedCoaTree()
-
-  const asOfPlusOne = addDays(filter.asOf, 1)
-
-  // 1. Fetch Part A and Part B items
-  const [partA, partB] = await Promise.all([
-    arOpenInvoices(asOfPlusOne, filter.locationIds),
-    arUnallocatedReceipts(asOfPlusOne, filter.locationIds),
-  ])
-
-  // 2. Fetch customer info
-  const customerIds = Array.from(
-    new Set([...partA.map((a) => a.customerId), ...partB.map((b) => b.customerId)].filter(Boolean)),
-  )
-  const customers = await listCustomers(customerIds)
-  const customerMap = new Map(
-    customers.map((c) => [c.customerId, { code: c.code, name: c.name }]),
-  )
-
-  // 3. Compute aging
-  const computed = calculateArAging({
-    partA,
-    partB,
-    asOf: filter.asOf,
-    customers: customerMap,
-    tree,
-  })
+  const { computed, customerMap, tree } = await arAgingCore(filter)
 
   // 4. Compare total and 5. GL reconciliation do not depend on each other
   const controlCoaIds = computed.controlAccounts.map((a) => a.coaId)

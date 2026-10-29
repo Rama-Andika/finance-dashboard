@@ -198,10 +198,21 @@ async function agingInvoices<K extends 'vendorId' | 'customerId'>(
   locIds: Id[] | 'all',
   partyKey: K,
 ): Promise<Array<Omit<AgingInvoice, 'partyId'> & Record<K, Id>>> {
-  type Row = Omit<AgingInvoice, 'partyId'> & Record<K, Id>
   if (locIds !== 'all' && locIds.length === 0) return []
   // The current state is read from the snapshot table (small, indexed); only other dates hit the ERP tables.
   if (await apArSnapshotCovers(addDays(asOfPlusOne, -1))) return snapshotOpenInvoices(side, locIds, partyKey)
+  return liveAgingInvoices(side, asOfPlusOne, locIds, partyKey)
+}
+
+/** The ERP query behind `agingInvoices` (slow on a large ERP); exported so tests can compare it with the snapshot. */
+export function liveAgingInvoices<K extends 'vendorId' | 'customerId'>(
+  side: AgingSide,
+  asOfPlusOne: IsoDate,
+  locIds: Id[] | 'all',
+  partyKey: K,
+): Promise<Array<Omit<AgingInvoice, 'partyId'> & Record<K, Id>>> {
+  type Row = Omit<AgingInvoice, 'partyId'> & Record<K, Id>
+  if (locIds !== 'all' && locIds.length === 0) return Promise.resolve([])
   const cfg = AGING_SIDES[side]
 
   return memo(`${side}AgingInvoices:${asOfPlusOne}:${locKeyOf(locIds)}`, AGING_CACHE_MS, async () => {
@@ -273,9 +284,20 @@ async function agingUnallocated<K extends 'vendorId' | 'customerId'>(
   locIds: Id[] | 'all',
   partyKey: K,
 ): Promise<Array<Omit<AgingUnallocated, 'partyId'> & Record<K, Id>>> {
-  type Row = Omit<AgingUnallocated, 'partyId'> & Record<K, Id>
   if (locIds !== 'all' && locIds.length === 0) return []
   if (await apArSnapshotCovers(addDays(asOfPlusOne, -1))) return snapshotUnallocated(side, locIds, partyKey)
+  return liveAgingUnallocated(side, asOfPlusOne, locIds, partyKey)
+}
+
+/** The ERP query behind `agingUnallocated`; exported for the snapshot comparison test. */
+export function liveAgingUnallocated<K extends 'vendorId' | 'customerId'>(
+  side: AgingSide,
+  asOfPlusOne: IsoDate,
+  locIds: Id[] | 'all',
+  partyKey: K,
+): Promise<Array<Omit<AgingUnallocated, 'partyId'> & Record<K, Id>>> {
+  type Row = Omit<AgingUnallocated, 'partyId'> & Record<K, Id>
+  if (locIds !== 'all' && locIds.length === 0) return Promise.resolve([])
   const cfg = AGING_SIDES[side]
 
   return memo(`${side}AgingUnallocated:${asOfPlusOne}:${locKeyOf(locIds)}`, AGING_CACHE_MS, async () => {

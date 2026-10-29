@@ -28,12 +28,17 @@ export const BANK_PAYMENT_CHANNEL_TYPES = [1, 2] as const
 export const BANK_PAYMENT_STATUS = { UNSETTLED: 0, SETTLED: 1 } as const
 
 /** Literal integer list for `IN (...)`. Only integers are accepted, so it is safe to inline. */
-export function intList(values: readonly number[]): SQL {
-  if (values.length === 0) throw new Error('intList: empty list')
+export function ints(values: readonly number[]): string {
+  if (values.length === 0) throw new Error('ints: empty list')
   for (const v of values) {
-    if (!Number.isInteger(v)) throw new Error(`intList: not an integer: ${v}`)
+    if (!Number.isInteger(v)) throw new Error(`ints: not an integer: ${v}`)
   }
-  return sql.raw(values.join(', '))
+  return values.join(', ')
+}
+
+/** The same list as a SQL fragment for drizzle templates. */
+export function intList(values: readonly number[]): SQL {
+  return sql.raw(ints(values))
 }
 
 export type AgingSide = 'ap' | 'ar'

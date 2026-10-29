@@ -53,15 +53,6 @@ export async function checkQ7(locIds: Id[] | 'all'): Promise<number> {
   const locClause =
     locIds !== 'all' ? sql`AND c.location_id IN (${inList(locIds)})` : sql``
 
-  const queryVendor = sql`
-    SELECT COUNT(*) AS n
-    FROM ap_ar_card c
-    WHERE c.module_type = ${MODULE_TYPE.AP}
-      AND c.owner_id IS NOT NULL AND c.owner_id != ''
-      AND NOT EXISTS (SELECT 1 FROM vendor v WHERE v.vendor_id = c.owner_id)
-      ${locClause}
-  `
-
   const queryCustomer = sql`
     SELECT COUNT(*) AS n
     FROM ap_ar_card c
@@ -71,12 +62,33 @@ export async function checkQ7(locIds: Id[] | 'all'): Promise<number> {
       ${locClause}
   `
 
-  const [resV, resC] = await Promise.all([
-    rows<{ n: number | string }>(queryVendor),
-    rows<{ n: number | string }>(queryCustomer),
-  ])
+  const [apCount, resC] = await Promise.all([apCardsWithUnknownVendor(locIds), rows<{ n: number | string }>(queryCustomer)])
 
-  return Number(resV[0]?.n || 0) + Number(resC[0]?.n || 0)
+  return apCount + Number(resC[0]?.n || 0)
+}
+
+/**
+ * AP cards whose owner is not in the vendor master. A row-by-row anti-join over all AP cards took ~3 minutes on the
+ * demo ERP (about 2 million cards). Instead the distinct owners of all cards (a few thousand, straight from the
+ * owner_id index) are checked against the vendor master first, and only the cards of the owners that are no vendor
+ * are counted (~2 seconds on the same data). Same result as the anti-join.
+ */
+async function apCardsWithUnknownVendor(locIds: Id[] | 'all'): Promise<number> {
+  const locClause = locIds !== 'all' ? sql`AND c.location_id IN (${inList(locIds)})` : sql``
+  // No module_type condition inside the query: with it the optimizer walks all ~2M AP cards (~90 s). The module is
+  // picked from the grouped result instead.
+  const res = await rows<{ moduleType: number | string; n: number | string }>(sql`
+    SELECT c.module_type AS moduleType, COUNT(*) AS n
+    FROM ap_ar_card c
+    WHERE c.owner_id IN (
+        SELECT o.owner_id
+        FROM (SELECT DISTINCT owner_id FROM ap_ar_card WHERE owner_id IS NOT NULL AND owner_id != '') o
+        WHERE o.owner_id NOT IN (SELECT vendor_id FROM vendor)
+      )
+      ${locClause}
+    GROUP BY c.module_type
+  `)
+  return Number(res.find((r) => Number(r.moduleType) === MODULE_TYPE.AP)?.n || 0)
 }
 
 export async function checkQ8(): Promise<number> {

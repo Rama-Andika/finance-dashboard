@@ -19,6 +19,7 @@
     "db:dash:migrate": "tsx scripts/dash-migrate.ts",
     "db:dash:status": "tsx scripts/dash-migrate.ts --status",
     "dash:refresh": "tsx scripts/dash-refresh.ts",
+    "dash:refresh-gl": "tsx scripts/dash-refresh-gl.ts",
     "seed": "tsx scripts/seed/index.ts"
   },
   "dependencies": {

@@ -32,7 +32,10 @@ describe('Metrics DB integration (demo data window)', () => {
     const revenue = await computeRevenue(filter)
     const top = [...revenue.byEntity].sort((a, b) => D(b.amount).cmp(D(a.amount)))[0]
     entityCode = top?.code ?? 'all'
-    entityFilter = await resolveFilter({ entity: entityCode, preset: 'last-month', p13: false })
+    // The `entity` parameter takes location ids, not codes
+    const { entities } = await getCachedEntities()
+    const entityId = entities.find((e) => e.code === entityCode)?.locationId ?? 'all'
+    entityFilter = await resolveFilter({ entity: entityId, preset: 'last-month', p13: false })
   }, TEST_TIMEOUT)
 
   it('pins today inside the demo data window', () => {

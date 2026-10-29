@@ -9,6 +9,7 @@ import { D } from '~/lib/finance/money'
 import { diffDays } from '~/lib/format/date'
 import { mergeJournalPages } from '~/lib/finance/journal-page'
 import { glMovementsCache, hashIds, type CachedMovementRow } from '~/server/cache'
+import { GL_SNAPSHOT_SEGMENT_COLUMN, builtGlPeriods, snapshotMovements } from '~/server/dash/gl-snapshot'
 import type { AccountGroup, Id, IsoDate, Money, Period } from '~/lib/finance/types'
 
 export type MovementRow = CachedMovementRow
@@ -21,6 +22,8 @@ export type MovementsByPeriodsOptions = {
   accountGroups?: AccountGroup[]
   byPeriod?: boolean
   byLocation?: boolean
+  /** Read closed periods from the dash_snap_gl_monthly snapshot when they are in it (default true; tests turn it off). */
+  useSnapshot?: boolean
 }
 
 /**
@@ -151,10 +154,17 @@ export async function movementsByPeriods(opts: MovementsByPeriodsOptions): Promi
         else uncachedClosed.push(p)
       }
 
-      const [closedRows, openRows] = await Promise.all([
-        queryMovementsFromDb(tableName, uncachedClosed, { ...opts, byPeriod: true }),
+      // Closed periods that are in the snapshot are read from it (small, indexed); the rest from the ERP tables.
+      const built = opts.useSnapshot !== false && opts.segCol === GL_SNAPSHOT_SEGMENT_COLUMN ? await builtGlPeriods() : new Set<string>()
+      const fromSnapshot = uncachedClosed.filter((p) => built.has(p.periodeId))
+      const fromErp = uncachedClosed.filter((p) => !built.has(p.periodeId))
+
+      const [snapshotRows, erpRows, openRows] = await Promise.all([
+        fromSnapshot.length > 0 ? snapshotMovements(fromSnapshot.map((p) => p.periodeId), opts) : Promise.resolve([]),
+        queryMovementsFromDb(tableName, fromErp, { ...opts, byPeriod: true }),
         queryMovementsFromDb(tableName, toQuery, opts),
       ])
+      const closedRows = snapshotRows.concat(erpRows)
 
       const byPeriod = new Map<string, MovementRow[]>(uncachedClosed.map((p) => [p.periodeId, []]))
       for (const r of closedRows) byPeriod.get(r.periodId ?? '')?.push(r)

@@ -496,7 +496,14 @@
       "builtBy": "Dibuat oleh",
       "dataAsOf": "Data per {{when}}",
       "refreshing": "Sedang diperbarui di latar belakang…",
-      "refreshFailed": "Pembaruan terakhir gagal; angka sebelumnya masih ditampilkan."
+      "refreshFailed": "Pembaruan terakhir gagal; angka sebelumnya masih ditampilkan.",
+      "noSnapshot": "Data langsung (lambat)",
+      "snapshotStale": "Angka sudah lama: pembaruan di latar belakang tertunda.",
+      "snapshotProblem": {
+        "not-migrated": "Jalankan \"npm run db:dash:migrate\" untuk membuat tabel snapshot.",
+        "not-refreshed": "Snapshot pertama belum selesai dibuat.",
+        "disabled": "Pembaruan latar belakang dimatikan (DASH_REFRESH_ENABLED=0)."
+      }
     },
     "table": {
       "sortBy": "Urutkan berdasarkan kolom ini",

@@ -9,7 +9,17 @@ export function DataFreshness({ className }: { className?: string }) {
   const { data } = useQuery(snapshotInfoOptions())
   if (!data) return null
 
-  const when = new Date(data.refreshedAt).toLocaleString('en-GB', {
+  // No snapshot: the numbers come from the slow live queries; say why instead of staying silent.
+  if (!data.info) {
+    return (
+      <div className={cn('nr-freshness', className)} role="status">
+        <strong>{t('ui.shell.noSnapshot')}</strong>
+        {data.problem && <span>{t(`ui.shell.snapshotProblem.${data.problem}`)}</span>}
+      </div>
+    )
+  }
+
+  const when = new Date(data.info.checkedAt).toLocaleString('en-GB', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -20,8 +30,9 @@ export function DataFreshness({ className }: { className?: string }) {
   return (
     <div className={cn('nr-freshness', className)}>
       <strong>{t('ui.shell.dataAsOf', { when })}</strong>
-      {data.status === 'running' && <span>{t('ui.shell.refreshing')}</span>}
-      {data.status === 'failed' && <span>{t('ui.shell.refreshFailed')}</span>}
+      {data.stale && <span role="alert">{t('ui.shell.snapshotStale')}</span>}
+      {data.info.status === 'running' && <span>{t('ui.shell.refreshing')}</span>}
+      {data.info.status === 'failed' && <span>{t('ui.shell.refreshFailed')}</span>}
     </div>
   )
 }

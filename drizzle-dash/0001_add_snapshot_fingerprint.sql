@@ -1,0 +1,1 @@
+ALTER TABLE `dash_snap_meta` ADD `fingerprint` varchar(191);

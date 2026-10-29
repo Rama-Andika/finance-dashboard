@@ -5,6 +5,8 @@ export const DASH_TABLES = {
   meta: 'dash_snap_meta',
   apArOpen: 'dash_snap_ap_ar_open',
   apArUnallocated: 'dash_snap_ap_ar_unallocated',
+  glMonthly: 'dash_snap_gl_monthly',
+  glPeriods: 'dash_snap_gl_periods',
 } as const
 
 export const SNAPSHOT_AP_AR = 'ap_ar'
@@ -18,8 +20,4 @@ export function dashTable(name: string): string {
 }
 
 /** Integers for an inlined `IN (...)` list (only numbers from code constants, never user input). */
-export function ints(values: readonly number[]): string {
-  if (values.length === 0) throw new Error('ints: empty list')
-  for (const v of values) if (!Number.isInteger(v)) throw new Error(`ints: not an integer: ${v}`)
-  return values.join(', ')
-}
+export { ints } from '~/server/db/erp-codes'

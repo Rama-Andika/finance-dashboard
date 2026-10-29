@@ -496,7 +496,14 @@
       "builtBy": "Built by",
       "dataAsOf": "Data as of {{when}}",
       "refreshing": "Refreshing in the background…",
-      "refreshFailed": "The latest refresh failed; showing the previous numbers."
+      "refreshFailed": "The latest refresh failed; showing the previous numbers.",
+      "noSnapshot": "Live data (slow)",
+      "snapshotStale": "The numbers are out of date: the background refresh is delayed.",
+      "snapshotProblem": {
+        "not-migrated": "Run \"npm run db:dash:migrate\" to create the snapshot tables.",
+        "not-refreshed": "The first snapshot has not been built yet.",
+        "disabled": "The background refresh is switched off (DASH_REFRESH_ENABLED=0)."
+      }
     },
     "table": {
       "sortBy": "Sort by this column",

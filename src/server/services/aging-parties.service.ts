@@ -1,7 +1,7 @@
 import '@tanstack/react-start/server-only'
 import type { AppContextFilter } from '~/server/context'
-import { computeApAging } from '~/server/services/ap-aging.service'
-import { computeArAging } from '~/server/services/ar-aging.service'
+import { computeApAgingParties } from '~/server/services/ap-aging.service'
+import { computeArAgingParties } from '~/server/services/ar-aging.service'
 import {
   agingPartyComparators,
   toPartyRow,
@@ -13,14 +13,12 @@ import { paginate, type Page, type TableQuery } from '~/lib/table/query'
 /** Upper bound for a CSV export of the whole table */
 const EXPORT_LIMIT = 100_000
 
-/** Every vendor / customer of the aging result. The aging itself is memoized, so paging never re-queries the DB. */
+/** Every vendor / customer of the aging core. It lives as long as the snapshot, so paging never re-queries the DB or the GL. */
 async function loadParties(side: AgingSide, filter: AppContextFilter): Promise<AgingPartyRow[]> {
   if (side === 'ap') {
-    const result = await computeApAging(filter)
-    return result.byVendor.map((v) => toPartyRow({ ...v, id: v.vendorId }))
+    return (await computeApAgingParties(filter)).map((v) => toPartyRow({ ...v, id: v.vendorId }))
   }
-  const result = await computeArAging(filter)
-  return result.byCustomer.map((c) => toPartyRow({ ...c, id: c.customerId }))
+  return (await computeArAgingParties(filter)).map((c) => toPartyRow({ ...c, id: c.customerId }))
 }
 
 /** One sorted page of the vendor / customer table (sorting happens on the whole result, not on the page). */

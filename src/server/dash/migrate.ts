@@ -5,7 +5,7 @@ import { migrate } from 'drizzle-orm/mysql2/migrator'
 import { db, pool } from '~/server/db/client'
 
 /** Where `drizzle-kit generate --config drizzle.dash.config.ts` writes the SQL files. */
-const MIGRATIONS_FOLDER = path.resolve(process.cwd(), 'drizzle-dash')
+const MIGRATIONS_FOLDER = path.resolve(process.env.DASH_MIGRATIONS_DIR ?? path.join(process.cwd(), 'drizzle-dash'))
 /** Tracking table (the name must start with dash_ like every table the dashboard owns). */
 export const MIGRATIONS_TABLE = 'dash_migrations'
 const LOCK_NAME = 'dash_migrate'
@@ -14,7 +14,9 @@ type JournalEntry = { tag: string; when: number }
 
 function readJournal(): JournalEntry[] {
   const file = path.join(MIGRATIONS_FOLDER, 'meta', '_journal.json')
-  if (!fs.existsSync(file)) return []
+  if (!fs.existsSync(file)) {
+    throw new Error(`Migration folder not found: ${MIGRATIONS_FOLDER} (run from the project root or set DASH_MIGRATIONS_DIR)`)
+  }
   return (JSON.parse(fs.readFileSync(file, 'utf8')) as { entries: JournalEntry[] }).entries
 }
 
