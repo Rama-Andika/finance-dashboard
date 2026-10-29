@@ -8,7 +8,7 @@ export type Horizon = (typeof HORIZONS)[number]
 export const MONTH_KEY_RE = /^\d{4}-(0[1-9]|1[0-2])$/
 
 export const globalSearchSchema = z.object({
-  entity: z.string().regex(/^[A-Za-z0-9_.~,-]{1,2000}$/).catch('all'), // 'all' or a comma-separated list of codes (F1)
+  entity: z.string().regex(/^[A-Za-z0-9_.~,-]{1,4000}$/).catch('all'), // 'all' or a comma-separated list of location ids (F1)
   preset: z.enum(PRESETS).catch('this-month'),
   p13: z.boolean().catch(false), // "Include period 13" toggle
   // Explicit month range ('YYYY-MM'); when both are set they replace `preset`.

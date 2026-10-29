@@ -7,6 +7,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '~/co
 import { cn } from '~/lib/cn'
 
 export type EntityItem = {
+  /** Location id (the value used in the URL) */
+  id: string
   code: string
   name: string
   isActive: boolean
@@ -14,7 +16,7 @@ export type EntityItem = {
 
 export interface EntityPickerProps {
   entities: EntityItem[]
-  selectedToken: string // 'all' or comma-separated codes
+  selectedToken: string // 'all' or comma-separated location ids
   onApply: (newEntityToken: string) => void
   disabled?: boolean
 }
@@ -42,7 +44,7 @@ export function EntityPicker({
   // Resolve initial selected set from selectedToken
   const initialSelected = useMemo(() => {
     if (!selectedToken || selectedToken === 'all') {
-      return new Set(entities.map((e) => e.code))
+      return new Set(entities.map((e) => e.id))
     }
     const codes = selectedToken.split(',').map((c) => c.trim()).filter(Boolean)
     return new Set(codes)
@@ -82,7 +84,7 @@ export function EntityPicker({
   }
 
   const handleSelectAll = () => {
-    setTempSelected(new Set(entities.map((e) => e.code)))
+    setTempSelected(new Set(entities.map((e) => e.id)))
   }
 
   const handleClearAll = () => {
@@ -95,8 +97,8 @@ export function EntityPicker({
       onApply('all')
     } else {
       const codeList = entities
-        .filter((e) => tempSelected.has(e.code))
-        .map((e) => e.code)
+        .filter((e) => tempSelected.has(e.id))
+        .map((e) => e.id)
       onApply(codeList.join(','))
     }
     setOpen(false)
@@ -112,7 +114,7 @@ export function EntityPicker({
     if (!selectedToken || selectedToken === 'all' || initialSelected.size === entities.length) {
       return t('common.allEntities')
     }
-    return `${initialSelected.size} dari ${entities.length}`
+    return t('common.entitiesSelected', { count: initialSelected.size, total: entities.length })
   }, [selectedToken, initialSelected, entities, t])
 
   const pickerContent = (
@@ -159,14 +161,14 @@ export function EntityPicker({
         className="flex-1 max-h-75 overflow-y-auto p-1.5 space-y-0.5"
       >
         {filteredEntities.map((entity) => {
-          const isChecked = tempSelected.has(entity.code)
+          const isChecked = tempSelected.has(entity.id)
           return (
             <div
-              key={entity.code}
+              key={entity.id}
               role="option"
               aria-checked={isChecked}
               aria-selected={isChecked}
-              onClick={() => handleToggle(entity.code)}
+              onClick={() => handleToggle(entity.id)}
               className="nr-check group"
             >
               <span className="nr-box shrink-0">

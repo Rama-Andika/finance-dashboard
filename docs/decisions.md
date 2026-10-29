@@ -81,7 +81,7 @@ Kalau ada keputusan yang berubah, ubah baris di tabel dan tambahkan catatan di b
 
 | # | Keputusan | Catatan |
 |---|---|---|
-| F1 | Entitas: **±87 lokasi** (DB `demo`), daftar datar (tanpa grup), **multi-select** + pencarian + "Pilih semua / Kosongkan" | URL memakai token `all` atau kode pendek, bukan ID panjang |
+| F1 | Entitas: **±87 lokasi** (DB `demo`), daftar datar (tanpa grup), **multi-select** + pencarian + "Pilih semua / Kosongkan" | URL memakai `all` atau daftar `location_id` dipisah koma (string, bukan kode pendek) — diubah 2026-10-29 atas permintaan user |
 | F2 | Tahun buku **Januari–Desember** | |
 | F3 | Periode: **preset cepat saja** (Bulan ini, Bulan lalu, Kuartal ini, YTD, 12 bulan terakhir) | Tidak ada rentang bebas & tidak ada toggle "bandingkan periode" |
 | F4 | Daily Payment Plan memakai **preset ke depan**: 7 / 14 / 30 hari | Payment plan melihat masa depan, bukan masa lalu |

@@ -26,7 +26,8 @@
     "language": "Language",
     "loading": "Loading...",
     "noData": "No data available",
-    "dash": "—"
+    "dash": "—",
+    "entitiesSelected": "{{count}} of {{total}}"
   },
   "auth": {
     "title": "Sign in to Oxy Finance Dashboard",
@@ -402,7 +403,8 @@
       "enUs": "en-US",
       "entity": "Entity",
       "period": "Period",
-      "printedOn": "Printed on"
+      "printedOn": "Printed on",
+      "entityCount": "{{count}} entities"
     },
     "agingBar": {
       "percent": "percent",

@@ -4,7 +4,8 @@ import type { Preset } from '~/lib/filters/search-schema'
 import type { IsoDate } from '~/lib/finance/types'
 
 export type FilterOptions = {
-  entities: Array<{ code: string; name: string; isActive: boolean }> // no long IDs (F1)
+  /** `id` is the location id: the `entity` URL parameter is a comma-separated list of these (kept as strings). */
+  entities: Array<{ id: string; code: string; name: string; isActive: boolean }>
   presets: Array<{ preset: Preset; from: IsoDate; to: IsoDate }> // month hints for PeriodSelect
   /** Calendar months that exist in the periode table (regular periods), newest first. */
   months: Array<{ month: string; status: 'Open' | 'Pre Closed' | 'Closed' }>
@@ -41,6 +42,7 @@ export const getFilterOptionsFn = createServerFn({ method: 'GET' })
 
     return {
       entities: entities.map((e) => ({
+        id: e.locationId,
         code: e.code,
         name: e.name,
         isActive: e.isActive,

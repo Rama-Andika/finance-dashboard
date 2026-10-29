@@ -3,6 +3,9 @@ import React from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Lang } from '~/lib/finance/types'
 import { formatDate } from '~/lib/format/date'
+import { useQuery } from '@tanstack/react-query'
+import { describeEntityToken } from '~/lib/filters/entity-token'
+import { filterOptionsQueryOptions } from '~/queries/filters.queries'
 
 export interface PrintHeaderProps {
   title: string
@@ -14,6 +17,15 @@ export interface PrintHeaderProps {
 export function PrintHeader({ title, entity, preset, asOf }: PrintHeaderProps) {
   const { t, i18n } = useTranslation()
   const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
+  // The URL holds location ids; print the entity codes instead.
+  const { data: filterOptions } = useQuery(filterOptionsQueryOptions())
+  const entityInfo = describeEntityToken(entity ?? 'all', filterOptions?.entities ?? [])
+  const entityText =
+    entityInfo.kind === 'all'
+      ? t('ui.shell.allEntitiesPrint')
+      : entityInfo.kind === 'codes'
+        ? entityInfo.codes.join(', ')
+        : t('ui.printHeader.entityCount', { count: entityInfo.count })
   const printTimestamp = new Date().toLocaleString(t('ui.printHeader.enUs'), {
     dateStyle: 'medium',
     timeStyle: 'short',
@@ -28,7 +40,7 @@ export function PrintHeader({ title, entity, preset, asOf }: PrintHeaderProps) {
           </h1>
           <p className="text-xs text-neutral-600 mt-1 mb-0">
             {t('ui.printHeader.entity')}:{' '}
-            <span className="font-semibold">{entity || t('ui.shell.allEntitiesPrint')}</span>
+            <span className="font-semibold">{entityText}</span>
             {' · '}
             {t('ui.printHeader.period')}:{' '}
             <span className="font-semibold">{preset || 'this-month'}</span>

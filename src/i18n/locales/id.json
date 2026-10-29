@@ -26,7 +26,8 @@
     "language": "Bahasa",
     "loading": "Memuat...",
     "noData": "Belum ada data",
-    "dash": "—"
+    "dash": "—",
+    "entitiesSelected": "{{count}} dari {{total}}"
   },
   "auth": {
     "title": "Masuk ke Oxy Finance Dashboard",
@@ -402,7 +403,8 @@
       "enUs": "id-ID",
       "entity": "Entitas",
       "period": "Periode",
-      "printedOn": "Waktu Cetak"
+      "printedOn": "Waktu Cetak",
+      "entityCount": "{{count}} entitas"
     },
     "agingBar": {
       "percent": "persen",
