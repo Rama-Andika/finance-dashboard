@@ -194,10 +194,10 @@ export function DonutBreakdown({
             )
           })}
         </g>
-        <text className="nr-donut-caption" x="80" y="72" text-anchor="middle">
+        <text className="nr-donut-caption" x="80" y="72" textAnchor="middle">
           {totalLabel}
         </text>
-        <text className="nr-donut-center" x="80" y="94" text-anchor="middle">
+        <text className="nr-donut-center" x="80" y="94" textAnchor="middle">
           {totalFormatted}
         </text>
       </svg>

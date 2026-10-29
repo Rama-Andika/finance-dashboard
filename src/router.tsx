@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { createRouter } from '@tanstack/react-router'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
+import { NotFound } from '~/components/layout/NotFound'
 import { routeTree } from './routeTree.gen'
 
 export function getRouter() {
@@ -13,6 +14,7 @@ export function getRouter() {
     context: { queryClient },
     // Hover/touch must not start a heavy report that nobody opened; pages load when they are visited.
     defaultPreload: false,
+    defaultNotFoundComponent: NotFound,
     scrollRestoration: true,
   })
   setupRouterSsrQueryIntegration({ router, queryClient })

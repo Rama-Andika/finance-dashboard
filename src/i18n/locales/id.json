@@ -27,7 +27,10 @@
     "loading": "Memuat...",
     "noData": "Belum ada data",
     "dash": "—",
-    "entitiesSelected": "{{count}} dari {{total}}"
+    "entitiesSelected": "{{count}} dari {{total}}",
+    "notFoundTitle": "Halaman tidak ditemukan",
+    "notFoundBody": "Halaman yang Anda cari tidak ada atau sudah dipindahkan.",
+    "backToDashboard": "Kembali ke dasbor"
   },
   "auth": {
     "title": "Masuk ke Oxy Finance Dashboard",
