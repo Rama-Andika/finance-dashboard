@@ -1,3 +1,6 @@
+import { memoMetric } from '~/server/cache'
+import { paginate, type Page, type TableQuery } from '~/lib/table/query'
+import { paymentBillComparators } from '~/lib/finance/payment-plan-bills'
 import type { PaymentPlanBill } from '~/lib/finance/payment-plan'
 import '@tanstack/react-start/server-only'
 import { D } from '~/lib/finance/money'
@@ -45,7 +48,14 @@ export type PaymentPlanOptions = {
   inflow: boolean
 }
 
-export async function computePaymentPlan(
+export function computePaymentPlan(
+  filter: AppContextFilter,
+  opts: PaymentPlanOptions,
+): Promise<PaymentPlanResult> {
+  return memoMetric('paymentPlan', { filter, opts }, () => computePaymentPlanUncached(filter, opts))
+}
+
+async function computePaymentPlanUncached(
   filter: AppContextFilter,
   opts: PaymentPlanOptions,
 ): Promise<PaymentPlanResult> {
@@ -153,4 +163,24 @@ export async function computePaymentPlan(
     days: res.days,
     bills,
   }
+}
+
+/** One sorted page of the bills due in the horizon (the plan itself is memoized, so paging does not re-query). */
+export async function listPaymentPlanBills(
+  filter: AppContextFilter,
+  opts: PaymentPlanOptions,
+  query: TableQuery,
+): Promise<Page<PaymentPlanBill>> {
+  const plan = await computePaymentPlan(filter, opts)
+  return paginate(plan.bills, query, paymentBillComparators)
+}
+
+/** All bills of the horizon in the requested order, for the CSV export. */
+export async function exportPaymentPlanBills(
+  filter: AppContextFilter,
+  opts: PaymentPlanOptions,
+  query: Pick<TableQuery, 'sortBy' | 'sortDir'>,
+): Promise<PaymentPlanBill[]> {
+  const plan = await computePaymentPlan(filter, opts)
+  return paginate(plan.bills, { ...query, page: 1, pageSize: Math.max(plan.bills.length, 1) }, paymentBillComparators).rows
 }

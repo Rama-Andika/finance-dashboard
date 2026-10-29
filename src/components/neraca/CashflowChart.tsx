@@ -181,11 +181,11 @@ export function CashflowChart({
                     <span className="nr-tooltip-title">{fullMonth}</span>
                     <span className="nr-tooltip-row">
                       <span>{t('ui.cashflowChart.cashIn')}</span>
-                      <b>Rp {formatMoneyFull(item.rawIn, lang)}</b>
+                      <b>IDR {formatMoneyFull(item.rawIn, lang)}</b>
                     </span>
                     <span className="nr-tooltip-row">
                       <span>{t('ui.cashflowChart.cashOut')}</span>
-                      <b>Rp {formatMoneyFull(item.rawOut, lang)}</b>
+                      <b>IDR {formatMoneyFull(item.rawOut, lang)}</b>
                     </span>
                   </div>
                 )

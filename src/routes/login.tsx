@@ -1,3 +1,6 @@
+import { safeRedirectSchema } from '~/lib/filters/safe-redirect'
+import { AppFooter } from '~/components/layout/AppFooter'
+import { APP_NAME } from '~/lib/brand'
 import { useState, type FormEvent } from 'react'
 import { createFileRoute, useRouter, redirect } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
@@ -5,12 +8,11 @@ import { z } from 'zod'
 import { getCurrentUserFn, loginFn } from '~/functions/auth.fn'
 import { Button } from '~/components/neraca/Button'
 import { Notice } from '~/components/neraca/Notice'
-import { Route as RootRoute } from '~/routes/__root'
-import { setPrefsFn } from '~/functions/prefs.fn'
+import { usePrefs } from '~/components/layout/prefs-context'
 import { Sun, Moon } from 'lucide-react'
 
 const searchSchema = z.object({
-  redirect: z.string().startsWith('/').catch('/summary'),
+  redirect: safeRedirectSchema,
 })
 
 export const Route = createFileRoute('/login')({
@@ -18,7 +20,7 @@ export const Route = createFileRoute('/login')({
   beforeLoad: async ({ search }) => {
     const user = await getCurrentUserFn()
     if (user) {
-      throw redirect({ to: search.redirect })
+      throw redirect({ href: search.redirect })
     }
   },
   component: LoginPage,
@@ -27,7 +29,7 @@ export const Route = createFileRoute('/login')({
 function LoginPage() {
   const router = useRouter()
   const search = Route.useSearch()
-  const { prefs } = RootRoute.useRouteContext()
+  const { prefs, setTheme, setLang } = usePrefs()
   const { t } = useTranslation()
 
   const [loginId, setLoginId] = useState('')
@@ -35,17 +37,8 @@ function LoginPage() {
   const [error, setError] = useState<'invalid' | 'tooMany' | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const toggleTheme = async () => {
-    const nextTheme = prefs.theme === 'light' ? 'dark' : 'light'
-    await setPrefsFn({ data: { theme: nextTheme } })
-    await router.invalidate()
-  }
-
-  const toggleLang = async () => {
-    const nextLang = prefs.lang === 'id' ? 'en' : 'id'
-    await setPrefsFn({ data: { lang: nextLang } })
-    await router.invalidate()
-  }
+  const toggleTheme = () => setTheme(prefs.theme === 'light' ? 'dark' : 'light')
+  const toggleLang = () => setLang(prefs.lang === 'id' ? 'en' : 'id')
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -69,7 +62,7 @@ function LoginPage() {
       }
 
       await router.invalidate()
-      router.navigate({ to: search.redirect })
+      router.history.push(search.redirect)
     } catch {
       setError('invalid')
       setIsSubmitting(false)
@@ -106,7 +99,7 @@ function LoginPage() {
       <div className="w-full max-w-sm flex flex-col items-center">
         {/* Brand */}
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold tracking-tight text-ink">Neraca</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-ink">{APP_NAME}</h1>
           <p className="text-sm text-ink-muted mt-1">{t('auth.title')}</p>
         </div>
 
@@ -171,6 +164,7 @@ function LoginPage() {
             </div>
           </form>
         </div>
+        <AppFooter className="mt-6" />
       </div>
     </div>
   )

@@ -281,3 +281,19 @@ body { margin: 0; font-family: var(--font-sans); font-size: 14px; line-height: 2
   font-weight: 600;
   color: var(--ink);
 }
+
+/* Smooth theme switch: only colour properties, only on the big surfaces (never `transition: all`). */
+body, .nr-card, .nr-topbar, .nr-sidebar, .nr-table-wrap, .nr-select {
+  transition: background-color 150ms ease-out, color 150ms ease-out, border-color 150ms ease-out;
+}
+
+/* Sortable headers and the table pager */
+.nr-sort-btn { display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-transform: inherit; letter-spacing: inherit; }
+.nr-sort-btn:hover { color: var(--ink); }
+.nr-sort-idle { opacity: 0.35; }
+.nr-pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-muted); }
+.nr-pager-size { display: inline-flex; align-items: center; gap: var(--space-2); }
+.nr-pager-size .nr-select { height: 32px; }
+.nr-pager-nav { display: inline-flex; align-items: center; gap: var(--space-2); }
+.nr-pager-nav .nr-btn { height: 32px; padding: 0 var(--space-2); }
+.nr-pager-nav .nr-btn:disabled { opacity: 0.4; cursor: not-allowed; }

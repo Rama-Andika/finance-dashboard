@@ -72,11 +72,25 @@ function resolvePeriodIds(
   return { periodIds, missingMonths, hasOpenPeriod: hasOpen }
 }
 
+export type MonthRange = { from?: string; to?: string }
+
+const MAX_RANGE_MONTHS = 60
+
+/** Number of months from `from` to `to` inclusive, or 0 when the range is invalid. */
+function rangeLength(range: MonthRange | undefined): number {
+  if (!range?.from || !range.to) return 0
+  const [fy, fm] = range.from.split('-').map(Number)
+  const [ty, tm] = range.to.split('-').map(Number)
+  const count = (ty! - fy!) * 12 + (tm! - fm!) + 1
+  return count >= 1 && count <= MAX_RANGE_MONTHS ? count : 0
+}
+
 export function resolvePeriod(
   preset: Preset,
   includeP13: boolean,
   today: IsoDate,
   periods: Period[],
+  range?: MonthRange,
 ): ResolvedPeriod {
   const [yearStr, monthStr] = today.split('-')
   const y = Number(yearStr)
@@ -90,9 +104,29 @@ export function resolvePeriod(
   let compareD1: string = ''
   let compareAsOf: string = ''
 
-  const isP13Allowed = preset === 'ytd' || preset === 'last-12m'
+  const customCount = rangeLength(range)
+  const isP13Allowed = customCount > 0 || preset === 'ytd' || preset === 'last-12m'
 
-  switch (preset) {
+  switch (customCount > 0 ? 'custom' : preset) {
+    case 'custom': {
+      const [fy, fm] = range!.from!.split('-').map(Number) as [number, number]
+      const [ty, tm] = range!.to!.split('-').map(Number) as [number, number]
+      months = generateMonthsList(fy, fm, customCount)
+      d1 = `${fy}-${pad(fm)}-01`
+      const end = lastDayOfMonth(ty, tm)
+      asOf = end > today ? today : end
+
+      // Comparison = the range of the same length that ends right before this one
+      const prevIndex = fy * 12 + (fm - 1) - customCount
+      const pY = Math.floor(prevIndex / 12)
+      const pM = (prevIndex % 12) + 1
+      compareMonths = generateMonthsList(pY, pM, customCount)
+      compareD1 = `${pY}-${pad(pM)}-01`
+      const endIndex = prevIndex + customCount - 1
+      compareAsOf = lastDayOfMonth(Math.floor(endIndex / 12), (endIndex % 12) + 1)
+      break
+    }
+
     case 'this-month': {
       months = [`${y}-${pad(m)}`]
       d1 = `${y}-${pad(m)}-01`

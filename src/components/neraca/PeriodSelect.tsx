@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Calendar } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/popover'
@@ -13,8 +13,16 @@ export interface PresetHint {
   to: string
 }
 
+export type PeriodMonthOption = { month: string; status: 'Open' | 'Pre Closed' | 'Closed' }
+
 export interface PeriodSelectProps {
   preset: Preset
+  /** Explicit month range ('YYYY-MM'); when both are set they replace the preset. */
+  from?: string
+  to?: string
+  /** Months that exist in the periode table, newest first. */
+  months?: PeriodMonthOption[]
+  onRangeChange?: (from: string, to: string) => void
   p13: boolean
   onPresetChange: (preset: Preset) => void
   onP13Change: (p13: boolean) => void
@@ -27,6 +35,10 @@ export interface PeriodSelectProps {
 
 export function PeriodSelect({
   preset,
+  from,
+  to,
+  months = [],
+  onRangeChange,
   p13,
   onPresetChange,
   onP13Change,
@@ -68,7 +80,21 @@ export function PeriodSelect({
     { id: '30', label: t('period.next30') },
   ]
 
-  const isP13Supported = preset === 'ytd' || preset === 'last-12m'
+  const hasRange = Boolean(from && to)
+  const isP13Supported = hasRange || preset === 'ytd' || preset === 'last-12m'
+
+  const [draftFrom, setDraftFrom] = useState(from ?? months[0]?.month ?? '')
+  const [draftTo, setDraftTo] = useState(to ?? months[0]?.month ?? '')
+  useEffect(() => {
+    // The month list arrives after the first render, and the URL range can change from outside
+    setDraftFrom(from ?? months[0]?.month ?? '')
+    setDraftTo(to ?? months[0]?.month ?? '')
+  }, [from, to, months])
+  const draftInvalid = !draftFrom || !draftTo || draftFrom > draftTo
+
+  const statusLabel = (status: PeriodMonthOption['status']) =>
+    t(`period.picker.${status === 'Open' ? 'open' : status === 'Pre Closed' ? 'preClosed' : 'closed'}`)
+  const monthLabel = (month: string) => formatMonthYear(`${month}-01`, lang)
 
   // Current trigger display text
   const currentLabel = useMemo(() => {
@@ -76,11 +102,14 @@ export function PeriodSelect({
       const match = forwardPresets.find((p) => p.id === horizon)
       return match ? match.label : '7 hari'
     }
+    if (from && to) {
+      return from === to ? monthLabel(from) : `${monthLabel(from)} – ${monthLabel(to)}`
+    }
     const match = standardPresets.find((p) => p.id === preset)
     const label = match ? match.label : t('period.thisMonth')
     const hint = hintsMap.get(preset)
     return hint ? `${label} · ${hint}` : label
-  }, [isForwardMode, horizon, preset, hintsMap, t, standardPresets, forwardPresets])
+  }, [isForwardMode, horizon, preset, from, to, hintsMap, t, standardPresets, forwardPresets])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -133,7 +162,7 @@ export function PeriodSelect({
           ) : (
             <>
               {standardPresets.map((item) => {
-                const isSelected = item.id === preset
+                const isSelected = !hasRange && item.id === preset
                 const hint = hintsMap.get(item.id)
                 return (
                   <div
@@ -159,25 +188,59 @@ export function PeriodSelect({
 
               <div className="nr-menu-sep h-px bg-line my-1" role="separator" />
 
-              {/* Period 13 Switch */}
-              <div
-                className={cn(
-                  'flex items-center justify-between px-3 py-2 rounded text-sm transition-opacity',
-                  isP13Supported ? 'opacity-100' : 'opacity-40 cursor-not-allowed',
-                )}
-              >
-                <div className="flex flex-col">
-                  <span className="font-medium">{t('period.includeP13')}</span>
-                  <span className="text-[11px] text-ink-muted">
-                    {t('period.includeP13Hint') || 'Penyesuaian akhir tahun'}
-                  </span>
+              {/* Choose real periods (months of the periode table) */}
+              {months.length > 0 && onRangeChange && (
+                <div className="px-3 py-2 space-y-2">
+                  <span className="text-xs font-semibold text-ink-muted">{t('period.picker.custom')}</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="flex flex-col gap-1 text-[11px] text-ink-muted">
+                      {t('period.picker.from')}
+                      <select
+                        className="nr-select h-8 text-sm text-ink w-full"
+                        value={draftFrom}
+                        onChange={(e) => setDraftFrom(e.target.value)}
+                      >
+                        {months.map((m) => (
+                          <option key={m.month} value={m.month}>
+                            {monthLabel(m.month)} · {statusLabel(m.status)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1 text-[11px] text-ink-muted">
+                      {t('period.picker.to')}
+                      <select
+                        className="nr-select h-8 text-sm text-ink w-full"
+                        value={draftTo}
+                        onChange={(e) => setDraftTo(e.target.value)}
+                      >
+                        {months.map((m) => (
+                          <option key={m.month} value={m.month}>
+                            {monthLabel(m.month)} · {statusLabel(m.status)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  {draftFrom > draftTo && (
+                    <p className="text-[11px] text-danger" role="alert">{t('period.picker.invalidRange')}</p>
+                  )}
+                  <button
+                    type="button"
+                    className="nr-btn w-full justify-center text-sm"
+                    disabled={draftInvalid}
+                    onClick={() => {
+                      onRangeChange(draftFrom, draftTo)
+                      setOpen(false)
+                    }}
+                  >
+                    {t('period.picker.apply')}
+                  </button>
                 </div>
-                <Switch
-                  checked={p13}
-                  disabled={!isP13Supported}
-                  onCheckedChange={(checked) => onP13Change(checked)}
-                />
-              </div>
+              )}
+
+              <div className="nr-menu-sep h-px bg-line my-1" role="separator" />
+
             </>
           )}
         </div>

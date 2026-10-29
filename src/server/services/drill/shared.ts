@@ -61,6 +61,11 @@ export type DrillContext = {
   offset: number
 }
 
+/** One page (`PAGE_SIZE` rows from `offset`) of an already sorted list, and whether more rows follow. */
+export function pageOf<T>(rows: readonly T[], offset: number): { page: T[]; hasMore: boolean } {
+  return { page: rows.slice(offset, offset + PAGE_SIZE), hasMore: offset + PAGE_SIZE < rows.length }
+}
+
 export function empty(titleKey: string, titleLabel: string): DrillResult {
   return { titleKey, titleLabel, columns: [], rows: [], nextKind: null, hasMore: false }
 }

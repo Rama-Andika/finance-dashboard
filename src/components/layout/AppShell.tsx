@@ -4,6 +4,7 @@ import { SidebarNav } from '~/components/neraca/SidebarNav'
 import { TopBar } from '~/components/neraca/TopBar'
 import { MobileDrawer } from '~/components/layout/MobileDrawer'
 import { DrillSheet } from '~/components/drill/DrillSheet'
+import { AppFooter } from '~/components/layout/AppFooter'
 import { DataChecksPanel } from '~/components/data-checks/DataChecksPanel'
 import { useGlobalMetricInput } from '~/components/layout/useGlobalMetricInput'
 import { dataChecksOptions } from '~/queries/data-checks.queries'
@@ -49,6 +50,7 @@ export function AppShell({ children, user }: AppShellProps) {
         <main className="flex-1 min-w-0">
           {children}
         </main>
+        <AppFooter />
       </div>
 
       {/* Global Drill-Down Sheet */}

@@ -10,8 +10,7 @@ import {
   LogOut,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Route as RootRoute } from '~/routes/__root'
-import { setPrefsFn } from '~/functions/prefs.fn'
+import { usePrefs } from '~/components/layout/prefs-context'
 import { logoutFn } from '~/functions/auth.fn'
 import { filterOptionsQueryOptions } from '~/queries/filters.queries'
 import { EntityPicker } from '~/components/neraca/EntityPicker'
@@ -55,7 +54,7 @@ export function TopBar({
 }: TopBarProps) {
   const router = useRouter()
   const routerState = useRouterState()
-  const { prefs } = RootRoute.useRouteContext()
+  const { prefs, setTheme, setLang } = usePrefs()
   const { t } = useTranslation()
 
   const userName = user?.name || t('ui.topBar.user')
@@ -67,9 +66,11 @@ export function TopBar({
     .join('') || 'U'
 
   const handleLogout = async () => {
+    // Read the page BEFORE logging out: invalidate() makes the auth guard bounce to /login at once.
+    const here = router.state.location.href
     await logoutFn()
     await router.invalidate()
-    router.navigate({ to: '/login', search: { redirect: '/summary' } })
+    router.navigate({ to: '/login', search: { redirect: here } })
   }
 
   const currentPath = routerState.location.pathname
@@ -86,6 +87,8 @@ export function TopBar({
   const currentEntity = (search.entity as string) || 'all'
   const currentPreset = (search.preset as Preset) || 'this-month'
   const currentP13 = Boolean(search.p13)
+  const currentFrom = search.from
+  const currentTo = search.to
   const currentHorizon = (search.horizon as Horizon) || '7'
 
   const mergeSearch = (patch: Record<string, unknown>) => {
@@ -97,7 +100,12 @@ export function TopBar({
   }
 
   const handlePresetChange = (newPreset: Preset) => {
-    mergeSearch({ preset: newPreset })
+    // A preset replaces any explicit month range
+    mergeSearch({ preset: newPreset, from: undefined, to: undefined })
+  }
+
+  const handleRangeChange = (from: string, to: string) => {
+    mergeSearch({ from, to })
   }
 
   const handleP13Change = (newP13: boolean) => {
@@ -108,17 +116,8 @@ export function TopBar({
     mergeSearch({ horizon: newHorizon })
   }
 
-  const toggleTheme = async () => {
-    const nextTheme = prefs.theme === 'light' ? 'dark' : 'light'
-    await setPrefsFn({ data: { theme: nextTheme } })
-    router.invalidate()
-  }
-
-  const toggleLang = async () => {
-    const nextLang = prefs.lang === 'en' ? 'id' : 'en'
-    await setPrefsFn({ data: { lang: nextLang } })
-    router.invalidate()
-  }
+  const toggleTheme = () => setTheme(prefs.theme === 'light' ? 'dark' : 'light')
+  const toggleLang = () => setLang(prefs.lang === 'en' ? 'id' : 'en')
 
   return (
     <header className={cn('nr-topbar flex-col md:flex-row gap-3', className)}>
@@ -209,6 +208,10 @@ export function TopBar({
 
         <PeriodSelect
           preset={currentPreset}
+          from={currentFrom}
+          to={currentTo}
+          months={filterOptions?.months}
+          onRangeChange={handleRangeChange}
           p13={currentP13}
           onPresetChange={handlePresetChange}
           onP13Change={handleP13Change}

@@ -62,4 +62,43 @@ describe('resolvePeriod', () => {
     const res = resolvePeriod('ytd', false, today, partialPeriods)
     expect(res.missingMonths).toContain('2026-05')
   })
+
+  describe('explicit month range', () => {
+    it('resolves one closed month and compares with the month before it', () => {
+      const res = resolvePeriod('this-month', false, today, mockPeriods, { from: '2026-09', to: '2026-09' })
+      expect(res.months).toEqual(['2026-09'])
+      expect(res.d1).toBe('2026-09-01')
+      expect(res.asOf).toBe('2026-09-30')
+      expect(res.compare.d1).toBe('2026-08-01')
+      expect(res.compare.asOf).toBe('2026-08-31')
+    })
+
+    it('resolves a multi-month range and compares with the range of the same length before it', () => {
+      const res = resolvePeriod('ytd', false, today, mockPeriods, { from: '2026-07', to: '2026-09' })
+      expect(res.months).toEqual(['2026-07', '2026-08', '2026-09'])
+      expect(res.asOf).toBe('2026-09-30')
+      expect(res.compare.d1).toBe('2026-04-01')
+      expect(res.compare.asOf).toBe('2026-06-30')
+      expect(res.compare.periodIds.length).toBe(3)
+    })
+
+    it('never goes past today', () => {
+      const res = resolvePeriod('ytd', false, today, mockPeriods, { from: '2026-09', to: '2026-12' })
+      expect(res.asOf).toBe(today)
+    })
+
+    it('crosses a year boundary for the comparison range', () => {
+      const res = resolvePeriod('ytd', false, today, mockPeriods, { from: '2026-01', to: '2026-02' })
+      expect(res.compare.d1).toBe('2025-11-01')
+      expect(res.compare.asOf).toBe('2025-12-31')
+    })
+
+    it('ignores an inverted or incomplete range and falls back to the preset', () => {
+      const inverted = resolvePeriod('last-month', false, today, mockPeriods, { from: '2026-09', to: '2026-03' })
+      const partial = resolvePeriod('last-month', false, today, mockPeriods, { from: '2026-09' })
+      expect(inverted.d1).toBe('2026-09-01')
+      expect(inverted.months).toEqual(['2026-09'])
+      expect(partial.months).toEqual(['2026-09'])
+    })
+  })
 })

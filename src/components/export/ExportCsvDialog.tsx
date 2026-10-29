@@ -44,6 +44,8 @@ export interface ExportCsvDialogProps<T> {
   open: boolean
   onOpenChange: (open: boolean) => void
   rows: T[]
+  /** Loads the rows when the user downloads (for tables that only hold one page in the browser) */
+  loadRows?: () => Promise<T[]>
   columns: CsvColumn<T>[]
   filename: string
 }
@@ -52,15 +54,31 @@ export function ExportCsvDialog<T>({
   open,
   onOpenChange,
   rows,
+  loadRows,
   columns,
   filename,
 }: ExportCsvDialogProps<T>) {
+  const [loading, setLoading] = useState(false)
+  const [failed, setFailed] = useState(false)
   const { t } = useTranslation()
   const [format, setFormat] = useState<CsvFormat>(getSavedCsvFormat)
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     saveCsvFormat(format)
-    const csvContent = buildCsv(rows, columns, format)
+    let exportRows = rows
+    if (loadRows) {
+      setLoading(true)
+      setFailed(false)
+      try {
+        exportRows = await loadRows()
+      } catch {
+        setFailed(true)
+        return
+      } finally {
+        setLoading(false)
+      }
+    }
+    const csvContent = buildCsv(exportRows, columns, format)
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -142,7 +160,12 @@ export function ExportCsvDialog<T>({
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
             {t('export.cancel')}
           </Button>
-          <Button variant="primary" icon={Download} onClick={handleDownload}>
+          {failed && (
+            <span className="text-xs text-danger self-center" role="alert">
+              {t('export.failed')}
+            </span>
+          )}
+          <Button variant="primary" icon={Download} onClick={handleDownload} disabled={loading}>
             {t('export.download')}
           </Button>
         </DialogFooter>
@@ -153,12 +176,14 @@ export function ExportCsvDialog<T>({
 
 export function ExportCsvButton<T>({
   rows,
+  loadRows,
   columns,
   filename,
   variant = 'secondary',
   className,
 }: {
-  rows: T[]
+  rows?: T[]
+  loadRows?: () => Promise<T[]>
   columns: CsvColumn<T>[]
   filename: string
   variant?: 'primary' | 'secondary' | 'accent' | 'ghost'
@@ -181,7 +206,8 @@ export function ExportCsvButton<T>({
       <ExportCsvDialog
         open={open}
         onOpenChange={setOpen}
-        rows={rows}
+        rows={rows ?? []}
+        loadRows={loadRows}
         columns={columns}
         filename={filename}
       />

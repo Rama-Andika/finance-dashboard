@@ -40,6 +40,8 @@ export const Route = createFileRoute('/_authed/profit-loss')({
   loaderDeps: ({ search }) => ({
     entity: search.entity,
     preset: search.preset,
+    from: search.from,
+    to: search.to,
     p13: search.p13,
   }),
   loader: ({ context, deps }) =>
@@ -86,7 +88,7 @@ function ProfitLossPage() {
 
   if (!pnlData) return null
 
-  const compareLabel = getCompareLabel(deps.preset, lang)
+  const compareLabel = getCompareLabel(deps.from && deps.to ? 'custom' : deps.preset, lang)
 
   // Map PnL lines for KPIs
   const lineMap = new Map(pnlData.lines.map((l) => [l.key, l]))
@@ -185,7 +187,7 @@ function ProfitLossPage() {
       <PrintHeader
         title={t('nav.profitLoss')}
         entity={deps.entity}
-        preset={deps.preset}
+        preset={deps.from && deps.to ? `${deps.from} – ${deps.to}` : deps.preset}
         asOf={pnlData.meta.asOf}
       />
       {pnlData.meta.hasOpenPeriod && (
@@ -268,7 +270,7 @@ function ProfitLossPage() {
                   { header: t('ui.col.amount'), value: (r) => r.amount, kind: 'money' },
                   { header: t('ui.col.marginPct'), value: (r) => (r.margin ? `${r.margin}%` : ''), kind: 'text' },
                 ]}
-                filename={formatExportFilename('profit_loss', deps.entity, deps.preset)}
+                filename={formatExportFilename('profit_loss', deps.entity, deps.from && deps.to ? `${deps.from}_${deps.to}` : deps.preset)}
               />
               <PrintButton />
             </div>
@@ -400,7 +402,7 @@ function ProfitLossPage() {
                     { header: t('ui.col.fixedCostFolder'), value: (r) => r.label, kind: 'text' },
                     { header: t('ui.col.amount'), value: (r) => r.amount, kind: 'money' },
                   ]}
-                  filename={formatExportFilename('fixed_cost', deps.entity, deps.preset)}
+                  filename={formatExportFilename('fixed_cost', deps.entity, deps.from && deps.to ? `${deps.from}_${deps.to}` : deps.preset)}
                 />
                 <PrintButton />
               </div>

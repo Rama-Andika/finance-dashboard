@@ -41,6 +41,8 @@ export const Route = createFileRoute('/_authed/cash-flow')({
   loaderDeps: ({ search }) => ({
     entity: search.entity,
     preset: search.preset,
+    from: search.from,
+    to: search.to,
     p13: search.p13,
     chart: search.chart,
   }),
@@ -223,7 +225,7 @@ function CashFlowPage() {
       <PrintHeader
         title={t('nav.cashFlow')}
         entity={deps.entity}
-        preset={deps.preset}
+        preset={deps.from && deps.to ? `${deps.from} – ${deps.to}` : deps.preset}
         asOf={cfData.meta.asOf}
       />
       {cfData.meta.hasOpenPeriod && (
@@ -386,7 +388,7 @@ function CashFlowPage() {
                   { header: t('ui.col.cashFlowActivity'), value: (r) => r.name, kind: 'text' },
                   { header: t('ui.col.amount'), value: (r) => r.amount, kind: 'money' },
                 ]}
-                filename={formatExportFilename('cash_flow_activities', deps.entity, deps.preset)}
+                filename={formatExportFilename('cash_flow_activities', deps.entity, deps.from && deps.to ? `${deps.from}_${deps.to}` : deps.preset)}
               />
               <PrintButton />
             </div>
@@ -450,7 +452,7 @@ function CashFlowPage() {
                     { header: t('ui.col.expenseCategory'), value: (r) => r.label, kind: 'text' },
                     { header: t('ui.col.amount'), value: (r) => r.amount, kind: 'money' },
                   ]}
-                  filename={formatExportFilename('expense_paid', deps.entity, deps.preset)}
+                  filename={formatExportFilename('expense_paid', deps.entity, deps.from && deps.to ? `${deps.from}_${deps.to}` : deps.preset)}
                 />
                 <PrintButton />
               </div>

@@ -3,9 +3,11 @@ import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Download } from 'lucide-react'
 import { chartSearchSchema, drillSearchSchema } from '~/lib/filters/search-schema'
-import { summaryMetricOptions } from '~/queries/metrics.queries'
+import { summaryMetricOptions, paymentBillsOptions, exportPaymentBills } from '~/queries/metrics.queries'
+import { tableSearchSchema } from '~/lib/table/query'
+import { PAYMENT_BILL_SORT_KEYS } from '~/lib/finance/payment-plan-bills'
+import { useTableSearch } from '~/components/neraca/useTableSearch'
 import { MetricSkeleton } from '~/components/neraca/MetricSkeleton'
 import { MetricError } from '~/components/neraca/MetricError'
 import { Notice } from '~/components/neraca/Notice'
@@ -15,7 +17,6 @@ import { CashflowChart } from '~/components/neraca/CashflowChart'
 import { DonutBreakdown } from '~/components/neraca/DonutBreakdown'
 import { DataTable, type ColumnDef } from '~/components/neraca/DataTable'
 import { StatusPill } from '~/components/neraca/StatusPill'
-import { Button } from '~/components/neraca/Button'
 import { ExportCsvButton, formatExportFilename } from '~/components/export/ExportCsvDialog'
 import { PrintButton } from '~/components/export/PrintButton'
 import { PrintHeader } from '~/components/export/PrintHeader'
@@ -25,10 +26,12 @@ import type { Lang } from '~/lib/finance/types'
 import type { PaymentPlanBill } from '~/lib/finance/payment-plan'
 
 export const Route = createFileRoute('/_authed/summary')({
-  validateSearch: chartSearchSchema.extend(drillSearchSchema.shape),
+  validateSearch: chartSearchSchema.extend(drillSearchSchema.shape).extend(tableSearchSchema(PAYMENT_BILL_SORT_KEYS).shape),
   loaderDeps: ({ search }) => ({
     entity: search.entity,
     preset: search.preset,
+    from: search.from,
+    to: search.to,
     p13: search.p13,
     chart: search.chart,
   }),
@@ -44,13 +47,15 @@ function SummaryPage() {
   const navigate = useNavigate()
   const { data } = useQuery(summaryMetricOptions(deps))
   const { t, i18n } = useTranslation()
+  const table = useTableSearch(PAYMENT_BILL_SORT_KEYS)
+  const bills = useQuery(paymentBillsOptions({ entity: deps.entity, preset: deps.preset, from: deps.from, to: deps.to, p13: deps.p13, ...table.query }))
   const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
 
   const [donutTab, setDonutTab] = useState<'revenue' | 'expense'>('revenue')
 
   if (!data) return null
 
-  const compareLabel = getCompareLabel(deps.preset, lang)
+  const compareLabel = getCompareLabel(deps.from && deps.to ? 'custom' : deps.preset, lang)
 
   const handleRangeChange = (r: 'ytd' | 'last-12m') => {
     navigate({
@@ -65,6 +70,7 @@ function SummaryPage() {
   const columns: ColumnDef<PaymentPlanBill, any>[] = [
     {
       accessorKey: 'vendorName',
+      meta: { sortKey: 'vendorName' },
       header: t('ui.col.vendor'),
       cell: ({ row }) => (
         <div>
@@ -75,17 +81,19 @@ function SummaryPage() {
     },
     {
       accessorKey: 'dueDate',
+      meta: { sortKey: 'dueDate' },
       header: t('ui.col.dueDate'),
       cell: ({ getValue }) => formatDate(getValue() as string, lang),
     },
     {
       accessorKey: 'balance',
       header: t('ui.col.balance'),
-      meta: { align: 'right' },
+      meta: { align: 'right', sortKey: 'balance', sortDefault: 'desc' },
       cell: ({ getValue }) => formatMoneyFull(getValue() as string, lang),
     },
     {
       accessorKey: 'status',
+      meta: { sortKey: 'status' },
       header: t('ui.col.status'),
       cell: ({ row }) => {
         const s = row.original.status
@@ -118,7 +126,7 @@ function SummaryPage() {
       <PrintHeader
         title={t('nav.summary')}
         entity={deps.entity}
-        preset={deps.preset}
+        preset={deps.from && deps.to ? `${deps.from} – ${deps.to}` : deps.preset}
         asOf={data.meta.asOf}
       />
       {/* Notice: Open period / missing months */}
@@ -224,13 +232,19 @@ function SummaryPage() {
       <DataTable
         title={t('metric.billsDue7Days')}
         columns={columns}
-        data={data.paymentPlan7Days.bills || []}
+        data={bills.data?.rows ?? []}
         getRowId={(r) => r.invoiceId}
+        sort={table.sort}
+        onSortChange={table.setSort}
+        pagination={bills.data ? { page: bills.data.page, pageSize: bills.data.pageSize, total: bills.data.total } : undefined}
+        onPageChange={table.setPage}
+        onPageSizeChange={table.setPageSize}
+        isFetching={bills.isFetching}
         onRowClick={() => navigate({ to: '/payment-plan', search: searchUpdater((prev) => prev) })}
         headerActions={
           <div className="flex items-center gap-2">
             <ExportCsvButton
-              rows={data.paymentPlan7Days.bills || []}
+              loadRows={() => exportPaymentBills({ entity: deps.entity, preset: deps.preset, from: deps.from, to: deps.to, p13: deps.p13, sortBy: table.query.sortBy, sortDir: table.query.sortDir })}
               columns={[
                 { header: t('ui.col.billNumber'), value: (r) => r.invoiceNumber, kind: 'text' },
                 { header: t('ui.col.vendor'), value: (r) => r.vendorName, kind: 'text' },
@@ -238,7 +252,7 @@ function SummaryPage() {
                 { header: t('ui.col.payableBalance'), value: (r) => r.balance, kind: 'money' },
                 { header: t('ui.col.planStatus'), value: (r) => r.status, kind: 'text' },
               ]}
-              filename={formatExportFilename('summary_bills_7d', deps.entity, deps.preset)}
+              filename={formatExportFilename('summary_bills_7d', deps.entity, deps.from && deps.to ? `${deps.from}_${deps.to}` : deps.preset)}
             />
             <PrintButton />
           </div>

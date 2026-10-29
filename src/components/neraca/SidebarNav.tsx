@@ -1,3 +1,4 @@
+import { APP_NAME } from '~/lib/brand'
 import { useTranslation } from 'react-i18next'
 import { Link, useRouterState } from '@tanstack/react-router'
 import {
@@ -58,12 +59,12 @@ export function SidebarNav({
 
   return (
     <nav
-      className={cn('nr-sidebar min-h-full', isTabletCollapsed && 'md:w-16 lg:w-[var(--sidebar-width)]', className)}
+      className={cn('nr-sidebar min-h-full', isTabletCollapsed && 'md:w-16 lg:w-(--sidebar-width)', className)}
       aria-label={t('ui.shell.mainMenu')}
     >
       <div className="nr-brand">
         <Asterisk className="nr-icon" size={18} strokeWidth={1.75} aria-hidden="true" />
-        <span className={cn(isTabletCollapsed && 'md:hidden lg:inline')}>Neraca</span>
+        <span className={cn(isTabletCollapsed && 'md:hidden lg:inline')}>Dashboard</span>
       </div>
 
       <div className="nr-nav flex-1">

@@ -28,7 +28,7 @@ export function CashBalanceCard({
 }: CashBalanceCardProps) {
   const { t, i18n } = useTranslation()
   const lang: Lang = i18n.language?.startsWith('id') ? 'id' : 'en'
-  const currency = lang === 'id' ? 'Rp' : 'IDR'
+  const currency = 'IDR'
 
   // Cash Position = Cash + Bank (D-decisions §5); deposit and funds in settlement are shown but excluded.
   const total = D(cash).plus(D(bank)).toFixed(2)

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { drillOptions } from '~/queries/drill.queries'
-import { drillSchema, PRESETS, type DrillState, type Preset } from '~/lib/filters/search-schema'
+import { drillSchema, MONTH_KEY_RE, PRESETS, type DrillState, type Preset } from '~/lib/filters/search-schema'
 
 export type DrillSearchParams = {
   entity?: string
   preset?: string
+  from?: string
+  to?: string
   p13?: boolean
   chart?: 'ytd' | 'last-12m'
   drill?: unknown
@@ -43,6 +45,8 @@ export function useDrillData(search: DrillSearchParams, drill: DrillState | null
     ...drillOptions({
       entity: search.entity ?? 'all',
       preset,
+      from: MONTH_KEY_RE.test(search.from ?? '') ? search.from : undefined,
+      to: MONTH_KEY_RE.test(search.to ?? '') ? search.to : undefined,
       p13: Boolean(search.p13),
       chart: search.chart,
       drill: drill ?? { metric: '', steps: [] },

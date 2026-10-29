@@ -4,6 +4,8 @@ import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from '@tanst
 import { I18nextProvider } from 'react-i18next'
 import { getPrefsFn } from '~/functions/prefs.fn'
 import { createI18n } from '~/i18n'
+import { APP_NAME } from '~/lib/brand'
+import { PrefsProvider, type Prefs } from '~/components/layout/prefs-context'
 import appCss from '~/styles/app.css?url'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -14,7 +16,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'Neraca — Finance Dashboard' },
+      { title: APP_NAME },
     ],
     links: [
       { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
@@ -38,7 +40,16 @@ function RootComponent() {
 }
 
 function RootDocument({ children }: { children: ReactNode }) {
-  const { prefs } = Route.useRouteContext()
+  const { prefs: initialPrefs } = Route.useRouteContext()
+
+  return (
+    <PrefsProvider initial={initialPrefs}>
+      {(prefs) => <Document prefs={prefs}>{children}</Document>}
+    </PrefsProvider>
+  )
+}
+
+function Document({ prefs, children }: { prefs: Prefs; children: ReactNode }) {
   const i18nInstance = useMemo(() => createI18n(prefs.lang), [prefs.lang])
 
   return (

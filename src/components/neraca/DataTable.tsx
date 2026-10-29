@@ -13,13 +13,31 @@ import {
 import { flexRender, type ExpandedState } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { cn } from '~/lib/cn'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, ChevronLeft, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
+import { PAGE_SIZES, type SortDir } from '~/lib/table/query'
 
 export type { ColumnDef }
+
+/** Column `meta` understood by the table. A column is sortable when it has a `sortKey`. */
+export type TableColumnMeta = {
+  align?: 'left' | 'right' | 'center'
+  sortKey?: string
+  /** Direction of the first click on this column (amounts usually start with the largest) */
+  sortDefault?: SortDir
+}
 
 export interface DataTableProps<T extends Record<string, any>> {
   columns: ColumnDef<T, any>[]
   data: T[]
+  /** Server-side sort: the table only shows the state and reports clicks; it never reorders rows itself. */
+  sort?: { by?: string; dir: SortDir }
+  onSortChange?: (by: string, dir: SortDir) => void
+  /** Server-side paging: `data` is already one page; `total` is the size of the whole result. */
+  pagination?: { page: number; pageSize: number; total: number }
+  onPageChange?: (page: number) => void
+  onPageSizeChange?: (pageSize: number) => void
+  /** True while a new page / sort is loading (the old rows stay visible, dimmed) */
+  isFetching?: boolean
   getRowId?: (row: T) => string
   getSubRows?: (row: T) => T[] | undefined
   onRowClick?: (row: T) => void
@@ -34,6 +52,12 @@ export interface DataTableProps<T extends Record<string, any>> {
 export function DataTable<T extends Record<string, any>>({
   columns,
   data,
+  sort,
+  onSortChange,
+  pagination,
+  onPageChange,
+  onPageSizeChange,
+  isFetching = false,
   getRowId,
   getSubRows,
   onRowClick,
@@ -65,6 +89,16 @@ export function DataTable<T extends Record<string, any>>({
 
   const rows = table.getRowModel().rows
   const isVirtual = rows.length > 200
+
+  const requestSort = (sortKey: string, sortDefault: SortDir = 'asc') => {
+    if (!onSortChange) return
+    const next: SortDir = sort?.by === sortKey ? (sort.dir === 'asc' ? 'desc' : 'asc') : sortDefault
+    onSortChange(sortKey, next)
+  }
+
+  const pageCount = pagination ? Math.max(1, Math.ceil(pagination.total / pagination.pageSize)) : 1
+  const firstShown = pagination && pagination.total > 0 ? (pagination.page - 1) * pagination.pageSize + 1 : 0
+  const lastShown = pagination ? Math.min(pagination.total, pagination.page * pagination.pageSize) : 0
 
   const tableContainerRef = React.useRef<HTMLDivElement>(null)
 
@@ -160,24 +194,56 @@ export function DataTable<T extends Record<string, any>>({
       <div
         ref={tableContainerRef}
         className="nr-table-wrap"
-        style={isVirtual ? { maxHeight: '600px', overflowY: 'auto' } : undefined}
+        style={{
+          ...(isVirtual ? { maxHeight: '600px', overflowY: 'auto' as const } : {}),
+          opacity: isFetching ? 0.6 : 1,
+          transition: 'opacity 120ms ease-out',
+        }}
+        aria-busy={isFetching}
       >
         <table className="nr-table">
           <thead>
             {table.getHeaderGroups().map((headerGroup: LegacyHeaderGroup<T>) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header: LegacyHeader<T, any>) => {
-                  const meta = header.column.columnDef.meta as { align?: 'left' | 'right' | 'center' } | undefined
+                  const meta = header.column.columnDef.meta as TableColumnMeta | undefined
                   const isRight =
                     meta?.align === 'right' ||
                     header.column.id.toLowerCase().includes('amount') ||
                     header.column.id.toLowerCase().includes('sisa') ||
                     header.column.id.toLowerCase().includes('saldo')
+                  const sortKey = onSortChange ? meta?.sortKey : undefined
+                  const isSorted = sortKey !== undefined && sort?.by === sortKey
+                  const content = header.isPlaceholder
+                    ? null
+                    : flexRender(header.column.columnDef.header, header.getContext())
                   return (
-                    <th key={header.id} className={isRight ? 'nr-r' : undefined}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
+                    <th
+                      key={header.id}
+                      className={isRight ? 'nr-r' : undefined}
+                      aria-sort={isSorted ? (sort?.dir === 'asc' ? 'ascending' : 'descending') : sortKey ? 'none' : undefined}
+                    >
+                      {sortKey ? (
+                        <button
+                          type="button"
+                          className="nr-sort-btn"
+                          onClick={() => requestSort(sortKey, meta?.sortDefault)}
+                          title={t('ui.table.sortBy')}
+                        >
+                          {content}
+                          {isSorted ? (
+                            sort?.dir === 'asc' ? (
+                              <ArrowUp className="nr-icon nr-icon-sm" aria-hidden="true" />
+                            ) : (
+                              <ArrowDown className="nr-icon nr-icon-sm" aria-hidden="true" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="nr-icon nr-icon-sm nr-sort-idle" aria-hidden="true" />
+                          )}
+                        </button>
+                      ) : (
+                        content
+                      )}
                     </th>
                   )
                 })}
@@ -221,6 +287,53 @@ export function DataTable<T extends Record<string, any>>({
           </tbody>
         </table>
       </div>
+
+      {pagination && (
+        <nav className="nr-pager" aria-label={t('ui.table.pagination')}>
+          <span className="nr-pager-info">
+            {t('ui.table.range', {
+              from: firstShown.toLocaleString('en-US'),
+              to: lastShown.toLocaleString('en-US'),
+              total: pagination.total.toLocaleString('en-US'),
+            })}
+          </span>
+          <label className="nr-pager-size">
+            {t('ui.table.rowsPerPage')}
+            <select
+              value={pagination.pageSize}
+              onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
+              className="nr-select"
+            >
+              {PAGE_SIZES.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="nr-pager-nav">
+            <button
+              type="button"
+              className="nr-btn"
+              disabled={pagination.page <= 1}
+              onClick={() => onPageChange?.(pagination.page - 1)}
+              aria-label={t('ui.table.prev')}
+            >
+              <ChevronLeft className="nr-icon nr-icon-sm" aria-hidden="true" />
+            </button>
+            <span className="nr-pager-page">{t('ui.table.pageOf', { page: pagination.page, pages: pageCount })}</span>
+            <button
+              type="button"
+              className="nr-btn"
+              disabled={pagination.page >= pageCount}
+              onClick={() => onPageChange?.(pagination.page + 1)}
+              aria-label={t('ui.table.next')}
+            >
+              <ChevronRight className="nr-icon nr-icon-sm" aria-hidden="true" />
+            </button>
+          </div>
+        </nav>
+      )}
 
       {/* Mobile cards view (active on screens < 768px when mobileCard prop is provided) */}
       {mobileCard && (

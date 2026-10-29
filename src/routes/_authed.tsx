@@ -6,7 +6,7 @@ import { globalSearchSchema } from '~/lib/filters/search-schema'
 export const Route = createFileRoute('/_authed')({
   validateSearch: globalSearchSchema,
   search: {
-    middlewares: [retainSearchParams(['entity', 'preset', 'p13'])],
+    middlewares: [retainSearchParams(['entity', 'preset', 'p13', 'from', 'to'])],
   },
   beforeLoad: async ({ location }) => {
     const user = await getCurrentUserFn()

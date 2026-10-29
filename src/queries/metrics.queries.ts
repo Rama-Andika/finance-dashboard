@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { keepPreviousData, queryOptions } from '@tanstack/react-query'
 import { qk } from '~/queries/keys'
 import type { MetricInput, PaymentPlanSearch } from '~/lib/filters/search-schema'
 
@@ -69,6 +69,39 @@ export function arAgingMetricOptions(input: MetricInput) {
     queryKey: qk.metric('arAging', input),
     queryFn: () => getArAgingFn({ data: input }),
   })
+}
+
+import { getAgingPartiesFn, exportAgingPartiesFn, type AgingPartiesInput } from '~/functions/metrics/aging-parties.fn'
+
+/** One page of the vendor / customer aging table; the previous page stays visible while the next one loads. */
+export function agingPartiesOptions(input: AgingPartiesInput) {
+  return queryOptions({
+    queryKey: qk.metric('agingParties', input),
+    queryFn: () => getAgingPartiesFn({ data: input }),
+    placeholderData: keepPreviousData,
+  })
+}
+
+import { getPaymentBillsFn, type PaymentBillsInput } from '~/functions/metrics/payment-bills.fn'
+
+export function paymentBillsOptions(input: PaymentBillsInput) {
+  return queryOptions({
+    queryKey: qk.metric('paymentBills', input),
+    queryFn: () => getPaymentBillsFn({ data: input }),
+    placeholderData: keepPreviousData,
+  })
+}
+
+import { exportPaymentBillsFn, type PaymentBillsExportInput } from '~/functions/metrics/payment-bills.fn'
+
+export function exportPaymentBills(input: PaymentBillsExportInput) {
+  return exportPaymentBillsFn({ data: input })
+}
+
+export type AgingPartiesExportInput = Omit<AgingPartiesInput, 'page' | 'pageSize'>
+
+export function exportAgingParties(input: AgingPartiesExportInput) {
+  return exportAgingPartiesFn({ data: input })
 }
 
 export function fixedCostMetricOptions(input: MetricInput) {

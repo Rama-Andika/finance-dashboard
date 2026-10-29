@@ -1,3 +1,4 @@
+import { APP_NAME } from '~/lib/brand'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Lang } from '~/lib/finance/types'
@@ -23,7 +24,7 @@ export function PrintHeader({ title, entity, preset, asOf }: PrintHeaderProps) {
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-xl font-bold tracking-tight m-0 text-black">
-            Neraca — {title}
+            {APP_NAME} — {title}
           </h1>
           <p className="text-xs text-neutral-600 mt-1 mb-0">
             {t('ui.printHeader.entity')}:{' '}

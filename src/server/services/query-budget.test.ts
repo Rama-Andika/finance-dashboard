@@ -44,6 +44,7 @@ vi.mock('~/server/services/balance.service', () => ({ balancesAt: (...a: unknown
 
 const { computePnl } = await import('./pnl.service')
 const { computeApAging } = await import('./ap-aging.service')
+const { listAgingParties } = await import('./aging-parties.service')
 const { clearCache } = await import('~/server/cache')
 
 function filterFor(id: string) {
@@ -125,5 +126,27 @@ describe('metric query budgets', () => {
     })
     await computeApAging(filterFor('ap-parallel'))
     expect(order.slice(0, 2)).toEqual(['invoices:start', 'payments:start'])
+  })
+
+  it('paging and sorting the vendor table never reads the DB again', async () => {
+    apOpenInvoices.mockResolvedValue(
+      Array.from({ length: 120 }, (_, n) => ({
+        invoiceId: `i${n}`, vendorId: `v${n}`, locationId: 'l1', coaId: '3', txDate: '2026-09-01',
+        dueDate: '2026-10-01', itemType: 0, originalAmount: '10.00', balance: String(n + 1),
+      })),
+    )
+    const filter = { ...filterFor('parties'), compare: { d1: '', asOf: '', periodIds: [] as string[] } }
+
+    const first = await listAgingParties('ap', filter, { page: 1, pageSize: 25, sortBy: 'total', sortDir: 'desc' })
+    const last = await listAgingParties('ap', filter, { page: 5, pageSize: 25, sortBy: 'total', sortDir: 'desc' })
+    await listAgingParties('ap', filter, { page: 2, pageSize: 50, sortBy: 'name', sortDir: 'asc' })
+
+    expect(first.total).toBe(120)
+    expect(first.rows).toHaveLength(25)
+    expect(first.rows[0]!.total).toBe('120.00')
+    expect(last.rows).toHaveLength(20)
+    expect(last.rows.at(-1)!.total).toBe('1.00')
+    expect(apOpenInvoices).toHaveBeenCalledTimes(1)
+    expect(listVendors).toHaveBeenCalledTimes(1)
   })
 })

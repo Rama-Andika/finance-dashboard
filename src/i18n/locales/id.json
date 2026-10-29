@@ -29,7 +29,7 @@
     "dash": "—"
   },
   "auth": {
-    "title": "Masuk ke Neraca",
+    "title": "Masuk ke Oxy Finance Dashboard",
     "loginId": "Nama pengguna / Login ID",
     "password": "Kata sandi",
     "submit": "Masuk",
@@ -46,7 +46,17 @@
     "includeP13": "Termasuk Periode 13",
     "next7": "7 Hari Ke Depan",
     "next14": "14 Hari Ke Depan",
-    "next30": "30 Hari Ke Depan"
+    "next30": "30 Hari Ke Depan",
+    "picker": {
+      "custom": "Pilih periode",
+      "from": "Dari",
+      "to": "Sampai",
+      "apply": "Terapkan",
+      "invalidRange": "Bulan awal tidak boleh setelah bulan akhir",
+      "open": "Terbuka",
+      "preClosed": "Pra-tutup",
+      "closed": "Tertutup"
+    }
   },
   "settings": {
     "title": "Pemetaan Akun",
@@ -188,7 +198,8 @@
     "commaDot": "Koma (,) + titik desimal (Standar Internasional)",
     "semicolonComma": "Titik koma (;) + koma desimal (Excel Indonesia / Eropa)",
     "download": "Unduh CSV",
-    "cancel": "Batal"
+    "cancel": "Batal",
+    "failed": "Ekspor gagal disiapkan. Silakan coba lagi."
   },
   "dataChecks": {
     "title": "Data Perlu Dicek",
@@ -196,7 +207,7 @@
     "viewDetail": "Lihat rincian",
     "Q1b": {
       "title": "Tagihan AP non-dagang lunas tanpa rincian transaksi",
-      "body": "{{count}} tagihan (Rp {{amount}}) berstatus lunas namun tidak memiliki riwayat kartu pelunasan."
+      "body": "{{count}} tagihan (IDR {{amount}}) berstatus lunas namun tidak memiliki riwayat kartu pelunasan."
     },
     "Q7": {
       "title": "Vendor atau pelanggan di kartu tidak ditemukan di master",
@@ -208,15 +219,15 @@
     },
     "Q9": {
       "title": "Dana belum cair tertahan > 7 hari atau di masa depan",
-      "body": "{{count}} transaksi (Rp {{amount}}) berstatus belum cair dengan umur lebih dari 7 hari atau tanggal di masa depan."
+      "body": "{{count}} transaksi (IDR {{amount}}) berstatus belum cair dengan umur lebih dari 7 hari atau tanggal di masa depan."
     },
     "AR_UNALLOC": {
       "title": "Pembayaran pelanggan tanpa alokasi",
-      "body": "Penerimaan kas sebesar Rp {{amount}} belum dialokasikan ke faktur pelanggan tertentu."
+      "body": "Penerimaan kas sebesar IDR {{amount}} belum dialokasikan ke faktur pelanggan tertentu."
     },
     "CF_UNCLASSIFIED": {
       "title": "Mutasi kas belum terklasifikasi",
-      "body": "Sebesar Rp {{amount}} mutasi kas belum dipetakan ke aktivitas operasi, investasi, atau pendanaan."
+      "body": "Sebesar IDR {{amount}} mutasi kas belum dipetakan ke aktivitas operasi, investasi, atau pendanaan."
     },
     "CF_IDENTITY": {
       "title": "Selisih identitas arus kas terdeteksi",
@@ -224,11 +235,11 @@
     },
     "REC_TRANSIT": {
       "title": "Selisih rekonsiliasi dana dalam pencairan",
-      "body": "Saldo akun Buku Besar berbeda sebesar Rp {{amount}} dengan register pencairan bank."
+      "body": "Saldo akun Buku Besar berbeda sebesar IDR {{amount}} dengan register pencairan bank."
     },
     "REC_AP": {
       "title": "Selisih rekonsiliasi utang usaha (AP)",
-      "body": "Saldo buku pembantu utang berbeda sebesar Rp {{amount}} dengan akun kontrol Buku Besar."
+      "body": "Saldo buku pembantu utang berbeda sebesar IDR {{amount}} dengan akun kontrol Buku Besar."
     },
     "UNPOSTED": {
       "title": "Jurnal belum di-posting terdeteksi",
@@ -481,7 +492,17 @@
       "periodChoices": "Pilihan Periode",
       "closeFolder": "Tutup folder",
       "openFolder": "Buka folder",
-      "allEntitiesPrint": "Semua Entitas"
+      "allEntitiesPrint": "Semua Entitas",
+      "builtBy": "Dibuat oleh"
+    },
+    "table": {
+      "sortBy": "Urutkan berdasarkan kolom ini",
+      "pagination": "Halaman tabel",
+      "range": "{{from}}–{{to}} dari {{total}}",
+      "rowsPerPage": "Baris per halaman",
+      "prev": "Halaman sebelumnya",
+      "next": "Halaman berikutnya",
+      "pageOf": "Halaman {{page}} dari {{pages}}"
     }
   },
   "cf": {

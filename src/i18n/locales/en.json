@@ -29,7 +29,7 @@
     "dash": "—"
   },
   "auth": {
-    "title": "Sign in to Neraca",
+    "title": "Sign in to Oxy Finance Dashboard",
     "loginId": "Username / Login ID",
     "password": "Password",
     "submit": "Sign In",
@@ -46,7 +46,17 @@
     "includeP13": "Include Period 13",
     "next7": "Next 7 Days",
     "next14": "Next 14 Days",
-    "next30": "Next 30 Days"
+    "next30": "Next 30 Days",
+    "picker": {
+      "custom": "Choose periods",
+      "from": "From",
+      "to": "To",
+      "apply": "Apply",
+      "invalidRange": "The start month must not be after the end month",
+      "open": "Open",
+      "preClosed": "Pre-closed",
+      "closed": "Closed"
+    }
   },
   "settings": {
     "title": "Account Mapping",
@@ -188,7 +198,8 @@
     "commaDot": "Comma (,) + decimal dot (International Standard)",
     "semicolonComma": "Semicolon (;) + decimal comma (Excel Indonesia / European)",
     "download": "Download CSV",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "failed": "The export could not be prepared. Please try again."
   },
   "dataChecks": {
     "title": "Data Verification Required",
@@ -481,7 +492,17 @@
       "periodChoices": "Period options",
       "closeFolder": "Collapse folder",
       "openFolder": "Expand folder",
-      "allEntitiesPrint": "All entities"
+      "allEntitiesPrint": "All entities",
+      "builtBy": "Built by"
+    },
+    "table": {
+      "sortBy": "Sort by this column",
+      "pagination": "Table pages",
+      "range": "{{from}}–{{to}} of {{total}}",
+      "rowsPerPage": "Rows per page",
+      "prev": "Previous page",
+      "next": "Next page",
+      "pageOf": "Page {{page}} of {{pages}}"
     }
   },
   "cf": {

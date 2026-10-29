@@ -25,6 +25,8 @@ export const Route = createFileRoute('/_authed/budget')({
   loaderDeps: ({ search }) => ({
     entity: search.entity,
     preset: search.preset,
+    from: search.from,
+    to: search.to,
     p13: search.p13,
   }),
   loader: ({ context, deps }) =>
@@ -114,7 +116,7 @@ function BudgetPage() {
       <PrintHeader
         title={t('nav.budget')}
         entity={deps.entity}
-        preset={deps.preset}
+        preset={deps.from && deps.to ? `${deps.from} – ${deps.to}` : deps.preset}
         asOf={data.meta.asOf}
       />
       {data.meta.hasOpenPeriod && (
@@ -178,7 +180,7 @@ function BudgetPage() {
                 { header: t('ui.col.variance'), value: (r) => r.variance, kind: 'money' },
                 { header: t('ui.col.variancePct'), value: (r) => (r.variancePercent ? `${r.variancePercent}%` : ''), kind: 'text' },
               ]}
-              filename={formatExportFilename('budget_vs_actual', deps.entity, deps.preset)}
+              filename={formatExportFilename('budget_vs_actual', deps.entity, deps.from && deps.to ? `${deps.from}_${deps.to}` : deps.preset)}
             />
             <PrintButton />
           </div>

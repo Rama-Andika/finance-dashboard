@@ -29,6 +29,8 @@ export const Route = createFileRoute('/_authed/cash-position')({
   loaderDeps: ({ search }) => ({
     entity: search.entity,
     preset: search.preset,
+    from: search.from,
+    to: search.to,
     p13: search.p13,
   }),
   loader: ({ context, deps }) =>
@@ -52,7 +54,7 @@ function CashPositionPage() {
 
   if (!data) return null
 
-  const compareLabel = getCompareLabel(deps.preset, lang)
+  const compareLabel = getCompareLabel(deps.from && deps.to ? 'custom' : deps.preset, lang)
 
   // Category labels come from the server in neutral form; translate cash/bank here.
   const byFolder: Breakdown[] = data.byFolder.map((c) =>
@@ -155,7 +157,7 @@ function CashPositionPage() {
       <PrintHeader
         title={t('nav.cashPosition')}
         entity={deps.entity}
-        preset={deps.preset}
+        preset={deps.from && deps.to ? `${deps.from} – ${deps.to}` : deps.preset}
         asOf={data.meta.asOf}
       />
       {data.meta.hasOpenPeriod && (
@@ -240,7 +242,7 @@ function CashPositionPage() {
                 { header: t('ui.col.categoryFolder'), value: (r) => r.label, kind: 'text' },
                 { header: t('ui.col.balanceAmount'), value: (r) => r.amount, kind: 'money' },
               ]}
-              filename={formatExportFilename('cash_position', deps.entity, deps.preset)}
+              filename={formatExportFilename('cash_position', deps.entity, deps.from && deps.to ? `${deps.from}_${deps.to}` : deps.preset)}
             />
             <PrintButton />
           </div>

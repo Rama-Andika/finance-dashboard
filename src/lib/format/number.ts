@@ -1,23 +1,25 @@
 import Decimal from 'decimal.js'
 import type { Lang, Money } from '~/lib/finance/types'
 
+// One number style for every language: 1,000,000.50 (the `lang` parameters below are kept only so
+// call sites do not change; they no longer affect separators or units).
 const THIN_SPACE = '\u2009'
-const NBSP = '\u00a0'
 const MINUS_SIGN = '\u2212'
+const CURRENCY_PREFIX = 'IDR'
 
 type Tier = {
   threshold: Decimal
-  unit: { id: string; en: string }
+  unit: string
 }
 
 const TIERS: Tier[] = [
-  { threshold: new Decimal(1e12), unit: { id: 'T', en: 'T' } },
-  { threshold: new Decimal(1e9), unit: { id: 'M', en: 'B' } },
-  { threshold: new Decimal(1e6), unit: { id: 'Jt', en: 'M' } },
-  { threshold: new Decimal(1e3), unit: { id: 'Rb', en: 'K' } },
+  { threshold: new Decimal(1e12), unit: 'T' },
+  { threshold: new Decimal(1e9), unit: 'B' },
+  { threshold: new Decimal(1e6), unit: 'M' },
+  { threshold: new Decimal(1e3), unit: 'K' },
 ]
 
-function getScaledShort(absVal: Decimal, lang: Lang): { formattedNum: string; unit: string } {
+function getScaledShort(absVal: Decimal): { formattedNum: string; unit: string } {
   if (absVal.lt(1000)) {
     const roundedZero = absVal.toFixed(0, Decimal.ROUND_HALF_UP)
     if (new Decimal(roundedZero).lt(1000)) {
@@ -36,43 +38,40 @@ function getScaledShort(absVal: Decimal, lang: Lang): { formattedNum: string; un
         const higherTier = TIERS[i - 1]!
         const higherScaled = absVal.div(higherTier.threshold)
         const higherRounded = higherScaled.toFixed(2, Decimal.ROUND_HALF_UP)
-        const higherFormatted = lang === 'id' ? higherRounded.replace('.', ',') : higherRounded
-        return { formattedNum: higherFormatted, unit: higherTier.unit[lang] }
+        return { formattedNum: higherRounded, unit: higherTier.unit }
       }
-      const formatted = lang === 'id' ? rounded.replace('.', ',') : rounded
-      return { formattedNum: formatted, unit: tier.unit[lang] }
+      return { formattedNum: rounded, unit: tier.unit }
     }
   }
 
   return { formattedNum: absVal.toFixed(0, Decimal.ROUND_HALF_UP), unit: '' }
 }
 
-export function formatMoneyShort(value: Money, lang: Lang): string {
+export function formatMoneyShort(value: Money, _lang?: Lang): string {
   const d = new Decimal(value || 0)
   const isNeg = d.isNegative() && !d.isZero()
   const abs = d.abs()
 
-  const prefix = lang === 'id' ? 'Rp' : 'IDR'
-  const { formattedNum, unit } = getScaledShort(abs, lang)
+  const { formattedNum, unit } = getScaledShort(abs)
 
-  const unitStr = unit ? (lang === 'id' ? `${NBSP}${unit}` : unit) : ''
+  const unitStr = unit
   const minus = isNeg ? MINUS_SIGN : ''
 
-  return `${minus}${prefix}${THIN_SPACE}${formattedNum}${unitStr}`
+  return `${minus}${CURRENCY_PREFIX}${THIN_SPACE}${formattedNum}${unitStr}`
 }
 
 /** Same as formatMoneyShort but without the currency prefix (the KPI card renders it separately). */
-export function formatAmountShort(value: Money, lang: Lang): string {
+export function formatAmountShort(value: Money, _lang?: Lang): string {
   const d = new Decimal(value || 0)
   const isNeg = d.isNegative() && !d.isZero()
-  const { formattedNum, unit } = getScaledShort(d.abs(), lang)
-  const unitStr = unit ? (lang === 'id' ? `${NBSP}${unit}` : unit) : ''
+  const { formattedNum, unit } = getScaledShort(d.abs())
+  const unitStr = unit
   return `${isNeg ? MINUS_SIGN : ''}${formattedNum}${unitStr}`
 }
 
 export function formatMoneyFull(
   value: Money,
-  lang: Lang,
+  _lang?: Lang,
   opts?: { decimals?: 0 | 2 },
 ): string {
   const decimals = opts?.decimals ?? 0
@@ -83,8 +82,8 @@ export function formatMoneyFull(
   const roundedStr = abs.toFixed(decimals, Decimal.ROUND_HALF_UP)
   const [intPart = '', decPart] = roundedStr.split('.')
 
-  const thousandSep = lang === 'id' ? '.' : ','
-  const decimalSep = lang === 'id' ? ',' : '.'
+  const thousandSep = ','
+  const decimalSep = '.'
 
   const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandSep)
   const result = decPart !== undefined && decimals > 0 ? `${formattedInt}${decimalSep}${decPart}` : formattedInt
@@ -94,25 +93,24 @@ export function formatMoneyFull(
 
 export function formatPercent(
   ratio: string | null,
-  lang: Lang = 'id',
+  _lang?: Lang,
   decimals: number = 2,
 ): string {
   if (ratio === null || ratio === undefined || ratio === '') return '—'
   const d = new Decimal(ratio).times(100)
   const rounded = d.toFixed(decimals, Decimal.ROUND_HALF_UP)
-  const formatted = lang === 'id' ? rounded.replace('.', ',') : rounded
-  return `${formatted}%`
+  return `${rounded}%`
 }
 
-export function formatAxisShort(value: number, lang: Lang): string {
+export function formatAxisShort(value: number, _lang?: Lang): string {
   const d = new Decimal(value)
   if (d.isZero()) return '0'
   const isNeg = d.isNegative()
   const abs = d.abs()
 
-  const { formattedNum, unit } = getScaledShort(abs, lang)
-  const cleanNum = formattedNum.replace(/[,.]00$/, '')
-  const unitStr = unit ? (lang === 'id' ? ` ${unit}` : unit) : ''
+  const { formattedNum, unit } = getScaledShort(abs)
+  const cleanNum = formattedNum.replace(/\.00$/, '')
+  const unitStr = unit
   const minus = isNeg ? MINUS_SIGN : ''
 
   return `${minus}${cleanNum}${unitStr}`

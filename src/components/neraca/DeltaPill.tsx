@@ -18,7 +18,7 @@ export function DeltaPill({ change, higherIsBetter, lang, className }: DeltaPill
   const val = Number.parseFloat(raw)
 
   if (Number.isNaN(val) || val === 0) {
-    const formattedZero = lang === 'id' ? '0,00%' : '0.00%'
+    const formattedZero = '0.00%'
     return <span className={cn('nr-delta nr-delta-flat', className)}>– {formattedZero}</span>
   }
 
@@ -26,7 +26,7 @@ export function DeltaPill({ change, higherIsBetter, lang, className }: DeltaPill
   const isGood = isUp ? higherIsBetter : !higherIsBetter
   const arrow = isUp ? '▲' : '▼'
   const absVal = Math.abs(val).toFixed(2)
-  const displayVal = lang === 'id' ? absVal.replace('.', ',') : absVal
+  const displayVal = absVal
 
   const toneClass = isGood ? 'nr-delta-up' : 'nr-delta-down'
 

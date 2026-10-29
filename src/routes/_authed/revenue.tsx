@@ -34,6 +34,8 @@ export const Route = createFileRoute('/_authed/revenue')({
   loaderDeps: ({ search }) => ({
     entity: search.entity,
     preset: search.preset,
+    from: search.from,
+    to: search.to,
     p13: search.p13,
     chart: search.chart,
   }),
@@ -63,7 +65,7 @@ function RevenuePage() {
 
   if (!data) return null
 
-  const compareLabel = getCompareLabel(deps.preset, lang)
+  const compareLabel = getCompareLabel(deps.from && deps.to ? 'custom' : deps.preset, lang)
 
   const handleSelectFolder = (folderId: string, folderLabel?: string) => {
     const folder = data.byFolder.find((f) => f.id === folderId)
@@ -107,7 +109,7 @@ function RevenuePage() {
       <PrintHeader
         title={t('nav.revenue')}
         entity={deps.entity}
-        preset={deps.preset}
+        preset={deps.from && deps.to ? `${deps.from} – ${deps.to}` : deps.preset}
         asOf={data.meta.asOf}
       />
       {data.meta.hasOpenPeriod && (
@@ -248,7 +250,7 @@ function RevenuePage() {
                 { header: t('ui.col.categoryFolder'), value: (r) => r.label, kind: 'text' },
                 { header: t('ui.col.total'), value: (r) => r.amount, kind: 'money' },
               ]}
-              filename={formatExportFilename('revenue', deps.entity, deps.preset)}
+              filename={formatExportFilename('revenue', deps.entity, deps.from && deps.to ? `${deps.from}_${deps.to}` : deps.preset)}
             />
             <PrintButton />
           </div>

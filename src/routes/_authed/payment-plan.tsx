@@ -40,6 +40,8 @@ export const Route = createFileRoute('/_authed/payment-plan')({
   loaderDeps: ({ search }) => ({
     entity: search.entity,
     preset: search.preset,
+    from: search.from,
+    to: search.to,
     p13: search.p13,
     horizon: search.horizon,
     inflow: search.inflow,
@@ -166,7 +168,7 @@ function PaymentPlanPage() {
       <PrintHeader
         title={t('nav.paymentPlan')}
         entity={deps.entity}
-        preset={deps.preset}
+        preset={deps.from && deps.to ? `${deps.from} – ${deps.to}` : deps.preset}
         asOf={data.meta.asOf}
       />
       {data.meta.hasOpenPeriod && (
@@ -325,7 +327,7 @@ function PaymentPlanPage() {
                 { header: t('ui.col.outflow'), value: (r) => r.outflow, kind: 'money' },
                 { header: t('ui.col.closingBalance'), value: (r) => r.closing, kind: 'money' },
               ]}
-              filename={formatExportFilename('payment_plan', deps.entity, deps.preset)}
+              filename={formatExportFilename('payment_plan', deps.entity, deps.from && deps.to ? `${deps.from}_${deps.to}` : deps.preset)}
             />
             <PrintButton />
           </div>

@@ -52,7 +52,7 @@ export async function resolveFilter(input: MetricInput): Promise<AppContextFilte
   const periods = await getCachedPeriods()
 
   const today = appToday()
-  const resolvedPer = resolvePeriod(input.preset, input.p13, today, periods)
+  const resolvedPer = resolvePeriod(input.preset, input.p13, today, periods, { from: input.from, to: input.to })
   const { locationIds } = parseEntityToken(input.entity, entities)
 
   let segmentDetailIds: Id[] | 'all' = 'all'

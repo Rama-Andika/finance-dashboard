@@ -7,10 +7,7 @@ import { computePnl } from '~/server/services/pnl.service'
 import { computeApAging } from '~/server/services/ap-aging.service'
 import { computeCashFlow } from '~/server/services/cash-flow.service'
 import { computeRunwayMetrics } from '~/server/services/runway.service'
-import {
-  computePaymentPlan,
-  type PaymentPlanBill,
-} from '~/server/services/payment-plan.service'
+import { computePaymentPlan } from '~/server/services/payment-plan.service'
 import { computeFixedCost } from '~/server/services/fixed-cost.service'
 
 export type SummaryResult = {
@@ -65,7 +62,6 @@ export type SummaryResult = {
       closing: Money
       isNegative: boolean
     }>
-    bills: PaymentPlanBill[]
   }
 }
 
@@ -152,7 +148,6 @@ export async function computeSummary(
         closing: d.closing,
         isNegative: d.isNegative,
       })),
-      bills: paymentPlan.bills,
     },
   }
 }

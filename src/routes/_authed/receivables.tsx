@@ -4,7 +4,10 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Download } from 'lucide-react'
 import { drillSearchSchema } from '~/lib/filters/search-schema'
-import { arAgingMetricOptions } from '~/queries/metrics.queries'
+import { tableSearchSchema } from '~/lib/table/query'
+import { AGING_PARTY_SORT_KEYS, type AgingPartyRow } from '~/lib/finance/aging-parties'
+import { useTableSearch } from '~/components/neraca/useTableSearch'
+import { arAgingMetricOptions, agingPartiesOptions, exportAgingParties } from '~/queries/metrics.queries'
 import { MetricSkeleton } from '~/components/neraca/MetricSkeleton'
 import { MetricError } from '~/components/neraca/MetricError'
 import { Notice } from '~/components/neraca/Notice'
@@ -19,13 +22,14 @@ import { formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
 import { formatMonthYear, getCompareLabel } from '~/lib/format/date'
 import { sum } from '~/lib/finance/money'
 import type { Lang } from '~/lib/finance/types'
-import type { CustomerAgingSummary } from '~/lib/finance/apar'
 
 export const Route = createFileRoute('/_authed/receivables')({
-  validateSearch: drillSearchSchema,
+  validateSearch: drillSearchSchema.extend(tableSearchSchema(AGING_PARTY_SORT_KEYS).shape),
   loaderDeps: ({ search }) => ({
     entity: search.entity,
     preset: search.preset,
+    from: search.from,
+    to: search.to,
     p13: search.p13,
   }),
   loader: ({ context, deps }) =>
@@ -40,6 +44,10 @@ function ReceivablesPage() {
   const navigate = useNavigate()
   const { data } = useQuery(arAgingMetricOptions(deps))
   const { t, i18n } = useTranslation()
+  const table = useTableSearch(AGING_PARTY_SORT_KEYS)
+  const parties = useQuery(
+    agingPartiesOptions({ ...deps, side: 'ar', ...table.query }),
+  )
   const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
 
   if (!data) return null
@@ -57,20 +65,20 @@ function ReceivablesPage() {
     })
   }
 
-  const handleSelectCustomer = (customer: CustomerAgingSummary) => {
+  const handleSelectCustomer = (customer: AgingPartyRow) => {
     navigate({
       to: '/receivables',
       search: searchUpdater((prev) => ({
         ...prev,
         drill: {
           metric: 'arAging',
-          steps: [{ kind: 'customer', id: customer.customerId, label: customer.name }],
+          steps: [{ kind: 'customer', id: customer.id, label: customer.name }],
         },
       })),
     })
   }
 
-  const compareLabel = getCompareLabel(deps.preset, lang)
+  const compareLabel = getCompareLabel(deps.from && deps.to ? 'custom' : deps.preset, lang)
 
   // Not due sum (sum of 4 due buckets)
   const notDueSum = sum([
@@ -108,9 +116,10 @@ function ReceivablesPage() {
     },
   ]
 
-  const columns: ColumnDef<CustomerAgingSummary, any>[] = [
+  const columns: ColumnDef<AgingPartyRow, any>[] = [
     {
       accessorKey: 'name',
+      meta: { sortKey: 'name' },
       header: t('ui.receivables.customer'),
       cell: ({ row }) => (
         <div>
@@ -122,26 +131,16 @@ function ReceivablesPage() {
     {
       accessorKey: 'total',
       header: t('ui.receivables.totalReceivableIdr'),
-      meta: { align: 'right' },
+      meta: { align: 'right', sortKey: 'total', sortDefault: 'desc' },
       cell: ({ getValue }) => formatMoneyFull(getValue() as string, lang),
     },
     {
       id: 'overdue',
       header: t('ui.receivables.overdueIdr'),
-      meta: { align: 'right' },
-      cell: ({ row }) => {
-        const customerOverdue = sum([
-          row.original.buckets.overdue0_30,
-          row.original.buckets.overdue31_60,
-          row.original.buckets.overdue61_90,
-          row.original.buckets.overdue90plus,
-        ])
-        return (
-          <span className="text-warning font-semibold">
-            {formatMoneyFull(customerOverdue, lang)}
-          </span>
-        )
-      },
+      meta: { align: 'right', sortKey: 'overdue', sortDefault: 'desc' },
+      cell: ({ row }) => (
+        <span className="text-warning font-semibold">{formatMoneyFull(row.original.overdue, lang)}</span>
+      ),
     },
   ]
 
@@ -150,7 +149,7 @@ function ReceivablesPage() {
       <PrintHeader
         title={t('nav.receivables')}
         entity={deps.entity}
-        preset={deps.preset}
+        preset={deps.from && deps.to ? `${deps.from} – ${deps.to}` : deps.preset}
         asOf={data.meta.asOf}
       />
       {data.meta.hasOpenPeriod && (
@@ -225,42 +224,47 @@ function ReceivablesPage() {
       <DataTable
         title={t('ui.receivables.receivablesByCustomer')}
         columns={columns}
-        data={data.byCustomer}
-        getRowId={(r) => r.customerId}
+        data={parties.data?.rows ?? []}
+        getRowId={(r) => r.id}
+        sort={table.sort}
+        onSortChange={table.setSort}
+        pagination={
+          parties.data
+            ? { page: parties.data.page, pageSize: parties.data.pageSize, total: parties.data.total }
+            : undefined
+        }
+        onPageChange={table.setPage}
+        onPageSizeChange={table.setPageSize}
+        isFetching={parties.isFetching}
         onRowClick={handleSelectCustomer}
         emptyMessage={t('common.noData')}
         headerActions={
           <div className="flex items-center gap-2">
             <ExportCsvButton
-              rows={data.byCustomer}
+              loadRows={() =>
+                exportAgingParties({
+                  ...deps,
+                  side: 'ar',
+                  sortBy: table.query.sortBy,
+                  sortDir: table.query.sortDir,
+                })
+              }
               columns={[
                 { header: t('ui.col.customerCode'), value: (r) => r.code, kind: 'text' },
                 { header: t('ui.col.customerName'), value: (r) => r.name || t('ui.col.unknownCustomer'), kind: 'text' },
                 { header: t('ui.col.totalReceivable'), value: (r) => r.total, kind: 'money' },
                 {
                   header: t('ui.col.overdueAmount'),
-                  value: (r) =>
-                    sum([
-                      r.buckets.overdue0_30,
-                      r.buckets.overdue31_60,
-                      r.buckets.overdue61_90,
-                      r.buckets.overdue90plus,
-                    ]),
+                  value: (r) => r.overdue,
                   kind: 'money',
                 },
               ]}
-              filename={formatExportFilename('receivables', deps.entity, deps.preset)}
+              filename={formatExportFilename('receivables', deps.entity, deps.from && deps.to ? `${deps.from}_${deps.to}` : deps.preset)}
             />
             <PrintButton />
           </div>
         }
         mobileCard={(r) => {
-          const customerOverdue = sum([
-            r.buckets.overdue0_30,
-            r.buckets.overdue31_60,
-            r.buckets.overdue61_90,
-            r.buckets.overdue90plus,
-          ])
           return (
             <div className="space-y-1">
               <div className="flex justify-between items-start">
@@ -270,10 +274,10 @@ function ReceivablesPage() {
                 </div>
                 <span className="font-semibold tabular-nums">{formatMoneyFull(r.total, lang)}</span>
               </div>
-              {Number(customerOverdue) > 0 && (
+              {Number(r.overdue) > 0 && (
                 <div className="text-xs text-warning flex justify-between">
                   <span>{t('ui.receivables.overdue')}</span>
-                  <span>{formatMoneyFull(customerOverdue, lang)}</span>
+                  <span>{formatMoneyFull(r.overdue, lang)}</span>
                 </div>
               )}
             </div>

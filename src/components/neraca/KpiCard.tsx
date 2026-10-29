@@ -15,7 +15,7 @@ export interface KpiCardProps {
   higherIsBetter?: boolean
   onOpen?: () => void
   hint?: string
-  /** Defaults to "Rp" (ID) / "IDR" (EN). */
+  /** Defaults to "IDR". */
   currency?: string
   className?: string
 }
@@ -47,7 +47,7 @@ export function KpiCard({
 }: KpiCardProps) {
   const { i18n } = useTranslation()
   const lang: Lang = i18n.language?.startsWith('id') ? 'id' : 'en'
-  const currencyLabel = currency ?? (lang === 'id' ? 'Rp' : 'IDR')
+  const currencyLabel = currency ?? 'IDR'
 
   const valueIsMoney = isMoney(value)
   const changePercent = computeChangePercent(value, compareValue)

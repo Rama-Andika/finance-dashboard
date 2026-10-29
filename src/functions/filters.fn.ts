@@ -6,6 +6,8 @@ import type { IsoDate } from '~/lib/finance/types'
 export type FilterOptions = {
   entities: Array<{ code: string; name: string; isActive: boolean }> // no long IDs (F1)
   presets: Array<{ preset: Preset; from: IsoDate; to: IsoDate }> // month hints for PeriodSelect
+  /** Calendar months that exist in the periode table (regular periods), newest first. */
+  months: Array<{ month: string; status: 'Open' | 'Pre Closed' | 'Closed' }>
   today: IsoDate
 }
 
@@ -29,6 +31,14 @@ export const getFilterOptionsFn = createServerFn({ method: 'GET' })
       }
     })
 
+    const monthStatus = new Map<string, 'Open' | 'Pre Closed' | 'Closed'>()
+    for (const p of periods) {
+      if (p.type === 0) monthStatus.set(p.startDate.slice(0, 7), p.status)
+    }
+    const months = Array.from(monthStatus.entries())
+      .map(([month, status]) => ({ month, status }))
+      .sort((a, b) => b.month.localeCompare(a.month))
+
     return {
       entities: entities.map((e) => ({
         code: e.code,
@@ -36,6 +46,7 @@ export const getFilterOptionsFn = createServerFn({ method: 'GET' })
         isActive: e.isActive,
       })),
       presets: presetsHints,
+      months,
       today,
     }
   })
