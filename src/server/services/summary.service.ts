@@ -84,7 +84,7 @@ export async function computeSummary(
     paymentPlan,
     fixedCost,
   ] = await Promise.all([
-    computeCashPosition(filter),
+    computeCashPosition(filter, { includeByEntity: false }),
     computeRevenue(filter),
     computePnl(filter),
     computeApAging(filter),
@@ -109,7 +109,7 @@ export async function computeSummary(
       bank: cashPos.bank,
       deposit: cashPos.deposit,
       inTransit: cashPos.inTransit,
-      entityCount: cashPos.byEntity.length,
+      entityCount: filter.entityCount,
     },
     revenue: {
       total: revenue.total,

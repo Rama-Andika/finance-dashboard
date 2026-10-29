@@ -82,7 +82,7 @@ function ReceivablesPage() {
   const agingSegments = [
     {
       key: 'notDue' as const,
-      label: lang === 'id' ? 'Belum jatuh tempo' : 'Not due',
+      label: t('ui.receivables.notDue'),
       amount: notDueSum,
     },
     {
@@ -110,23 +110,23 @@ function ReceivablesPage() {
   const columns: ColumnDef<CustomerAgingSummary, any>[] = [
     {
       accessorKey: 'name',
-      header: lang === 'id' ? 'Pelanggan' : 'Customer',
+      header: t('ui.receivables.customer'),
       cell: ({ row }) => (
         <div>
-          <span className="nr-name">{row.original.name}</span>
+          <span className="nr-name">{row.original.name || t('ui.col.unknownCustomer')}</span>
           <span className="nr-sub">{row.original.code}</span>
         </div>
       ),
     },
     {
       accessorKey: 'total',
-      header: lang === 'id' ? 'Total Piutang (Rp)' : 'Total Receivable (IDR)',
+      header: t('ui.receivables.totalReceivableIdr'),
       meta: { align: 'right' },
       cell: ({ getValue }) => formatMoneyFull(getValue() as string, lang),
     },
     {
       id: 'overdue',
-      header: lang === 'id' ? 'Jatuh Tempo (Rp)' : 'Overdue (IDR)',
+      header: t('ui.receivables.overdueIdr'),
       meta: { align: 'right' },
       cell: ({ row }) => {
         const customerOverdue = sum([
@@ -173,14 +173,13 @@ function ReceivablesPage() {
         <Notice
           tone="warning"
           title={
-            lang === 'id'
-              ? `Selisih saldo kontrol GL dan kartu piutang: ${formatMoneyShort(data.reconciliation.diff, lang)}.`
-              : `Discrepancy between GL control and AR cards: ${formatMoneyShort(data.reconciliation.diff, lang)}.`
+            t('ui.receivables.reconciliationDiff', { amount: formatMoneyShort(data.reconciliation.diff, lang) })
           }
           body={
-            lang === 'id'
-              ? `GL: ${formatMoneyFull(data.reconciliation.gl, lang)} · Kartu: ${formatMoneyFull(data.reconciliation.subledger, lang)}`
-              : `GL: ${formatMoneyFull(data.reconciliation.gl, lang)} · Cards: ${formatMoneyFull(data.reconciliation.subledger, lang)}`
+            t('ui.receivables.reconciliationDetail', {
+              gl: formatMoneyFull(data.reconciliation.gl, lang),
+              cards: formatMoneyFull(data.reconciliation.subledger, lang),
+            })
           }
         />
       )}
@@ -188,24 +187,24 @@ function ReceivablesPage() {
       {/* KPI Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
-          label={lang === 'id' ? 'Piutang Usaha (Neto)' : 'Accounts Receivable (Net)'}
+          label={t('ui.receivables.accountsReceivableNet')}
           value={data.total}
           compareValue={data.compareTotal}
           compareLabel={compareLabel}
           higherIsBetter={true}
         />
         <KpiCard
-          label={lang === 'id' ? 'Belum Tertagih' : 'Unpaid Invoices'}
+          label={t('ui.receivables.unpaidInvoices')}
           value={data.unpaidInvoices}
           higherIsBetter={true}
         />
         <KpiCard
-          label={lang === 'id' ? 'Lewat Jatuh Tempo' : 'Total Overdue'}
+          label={t('ui.receivables.totalOverdue')}
           value={data.overdueSubtotal}
           higherIsBetter={false}
         />
         <KpiCard
-          label={lang === 'id' ? 'Piutang Non-Dagang' : 'Non-Trade Receivables'}
+          label={t('ui.receivables.nonTradeReceivables')}
           value={data.nonTrade}
           higherIsBetter={true}
         />
@@ -213,7 +212,7 @@ function ReceivablesPage() {
 
       {/* Aging Bar */}
       <AgingBar
-        title={lang === 'id' ? 'Umur Piutang Usaha' : 'Accounts Receivable Aging'}
+        title={t('ui.receivables.accountsReceivableAging')}
         asOf={data.meta.asOf}
         total={data.total}
         segments={agingSegments}
@@ -223,7 +222,7 @@ function ReceivablesPage() {
 
       {/* Customer Table */}
       <DataTable
-        title={lang === 'id' ? 'Rincian Piutang per Pelanggan' : 'Receivables by Customer'}
+        title={t('ui.receivables.receivablesByCustomer')}
         columns={columns}
         data={data.byCustomer}
         getRowId={(r) => r.customerId}
@@ -234,11 +233,11 @@ function ReceivablesPage() {
             <ExportCsvButton
               rows={data.byCustomer}
               columns={[
-                { header: 'Kode Pelanggan', value: (r) => r.code, kind: 'text' },
-                { header: 'Nama Pelanggan', value: (r) => r.name, kind: 'text' },
-                { header: 'Total Piutang (Rp)', value: (r) => r.total, kind: 'money' },
+                { header: t('ui.col.customerCode'), value: (r) => r.code, kind: 'text' },
+                { header: t('ui.col.customerName'), value: (r) => r.name || t('ui.col.unknownCustomer'), kind: 'text' },
+                { header: t('ui.col.totalReceivable'), value: (r) => r.total, kind: 'money' },
                 {
-                  header: 'Jatuh Tempo (Rp)',
+                  header: t('ui.col.overdueAmount'),
                   value: (r) =>
                     sum([
                       r.buckets.overdue0_30,
@@ -265,14 +264,14 @@ function ReceivablesPage() {
             <div className="space-y-1">
               <div className="flex justify-between items-start">
                 <div>
-                  <span className="font-semibold">{r.name}</span>
+                  <span className="font-semibold">{r.name || t('ui.col.unknownCustomer')}</span>
                   <span className="text-xs text-muted block font-mono">{r.code}</span>
                 </div>
                 <span className="font-semibold tabular-nums">{formatMoneyFull(r.total, lang)}</span>
               </div>
               {Number(customerOverdue) > 0 && (
                 <div className="text-xs text-warning flex justify-between">
-                  <span>{lang === 'id' ? 'Lewat tempo' : 'Overdue'}</span>
+                  <span>{t('ui.receivables.overdue')}</span>
                   <span>{formatMoneyFull(customerOverdue, lang)}</span>
                 </div>
               )}

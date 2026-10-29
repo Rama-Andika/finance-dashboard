@@ -3,6 +3,7 @@ import Decimal from 'decimal.js'
 import type { IsoDate, Lang, Money } from '~/lib/finance/types'
 import { formatMoneyShort } from '~/lib/format/number'
 import { formatDate } from '~/lib/format/date'
+import { useTranslation } from 'react-i18next'
 
 export type AgingBucketKey = 'notDue' | 'd0_30' | 'd31_60' | 'd61_90' | 'd90plus'
 
@@ -31,6 +32,7 @@ const BUCKET_CLASS_MAP: Record<AgingBucketKey, string> = {
 }
 
 export function AgingBar({ title, asOf, total, segments, lang, onSelect }: AgingBarProps) {
+  const { t } = useTranslation()
   const totalDec = new Decimal(total || '0').abs()
   const segmentMap = new Map(segments.map((s) => [s.key, s]))
 
@@ -69,7 +71,7 @@ export function AgingBar({ title, asOf, total, segments, lang, onSelect }: Aging
 
   // Accessible description
   const ariaParts = orderedSegments
-    .map((s, idx) => `${s.label} ${percentages[idx]} ${lang === 'id' ? 'persen' : 'percent'}`)
+    .map((s, idx) => `${s.label} ${percentages[idx]} ${t('ui.agingBar.percent')}`)
     .join(', ')
 
   return (
@@ -77,8 +79,8 @@ export function AgingBar({ title, asOf, total, segments, lang, onSelect }: Aging
       <div className="nr-card-head" style={{ margin: 0 }}>
         <h3 className="nr-card-title">{title}</h3>
         <span className="nr-muted nr-num" style={{ fontSize: 13 }}>
-          {lang === 'id' ? 'Total' : 'Total'} {formatMoneyShort(total, lang)}{' '}
-          {lang === 'id' ? 'per' : 'as of'} {formatDate(asOf, lang)}
+          {t('ui.agingBar.total')} {formatMoneyShort(total, lang)}{' '}
+          {t('ui.agingBar.asOf')} {formatDate(asOf, lang)}
         </span>
       </div>
 

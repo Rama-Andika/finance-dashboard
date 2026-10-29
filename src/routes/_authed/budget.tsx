@@ -14,6 +14,7 @@ import { Button } from '~/components/neraca/Button'
 import { ExportCsvButton, formatExportFilename } from '~/components/export/ExportCsvDialog'
 import { PrintButton } from '~/components/export/PrintButton'
 import { PrintHeader } from '~/components/export/PrintHeader'
+import { useOpenDrill } from '~/components/drill/useOpenDrill'
 import { formatMoneyFull } from '~/lib/format/number'
 import { formatMonthYear } from '~/lib/format/date'
 import type { Lang } from '~/lib/finance/types'
@@ -38,13 +39,14 @@ function BudgetPage() {
   const { data } = useQuery(budgetMetricOptions(deps))
   const { t, i18n } = useTranslation()
   const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
+  const openDrill = useOpenDrill()
 
   if (!data) return null
 
   const columns: ColumnDef<BudgetRow, any>[] = [
     {
       accessorKey: 'name',
-      header: lang === 'id' ? 'Pos Anggaran' : 'Budget Item',
+      header: t('ui.budget.budgetItem'),
       cell: ({ row }) => {
         const isHeader = Boolean(row.original.children && row.original.children.length > 0)
         return (
@@ -56,7 +58,7 @@ function BudgetPage() {
     },
     {
       accessorKey: 'budget',
-      header: lang === 'id' ? 'Anggaran (Rp)' : 'Budget (IDR)',
+      header: t('ui.budget.budgetIdr'),
       meta: { align: 'right' },
       cell: ({ getValue, row }) => {
         const isHeader = Boolean(row.original.children && row.original.children.length > 0)
@@ -69,7 +71,7 @@ function BudgetPage() {
     },
     {
       accessorKey: 'actual',
-      header: lang === 'id' ? 'Realisasi (Rp)' : 'Actual (IDR)',
+      header: t('ui.budget.actualIdr'),
       meta: { align: 'right' },
       cell: ({ getValue, row }) => {
         const isHeader = Boolean(row.original.children && row.original.children.length > 0)
@@ -82,7 +84,7 @@ function BudgetPage() {
     },
     {
       accessorKey: 'variance',
-      header: lang === 'id' ? 'Selisih (Rp)' : 'Variance (IDR)',
+      header: t('ui.budget.varianceIdr'),
       meta: { align: 'right' },
       cell: ({ getValue, row }) => {
         const isHeader = Boolean(row.original.children && row.original.children.length > 0)
@@ -95,7 +97,7 @@ function BudgetPage() {
     },
     {
       id: 'variancePercent',
-      header: 'Selisih %',
+      header: t('ui.col.variancePct'),
       meta: { align: 'right' },
       cell: ({ row }) => (
         <DeltaPill
@@ -134,17 +136,17 @@ function BudgetPage() {
       {/* KPI Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiCard
-          label={lang === 'id' ? 'Total Anggaran' : 'Total Budget'}
+          label={t('ui.budget.totalBudget')}
           value={data.summary.budget}
           higherIsBetter={true}
         />
         <KpiCard
-          label={lang === 'id' ? 'Total Realisasi' : 'Total Actual'}
+          label={t('ui.budget.totalActual')}
           value={data.summary.actual}
           higherIsBetter={true}
         />
         <KpiCard
-          label={lang === 'id' ? 'Selisih Bersih' : 'Net Variance'}
+          label={t('ui.budget.netVariance')}
           value={data.summary.variance}
           compareLabel={
             data.summary.variancePercent
@@ -157,23 +159,24 @@ function BudgetPage() {
 
       {/* Budget vs Actual Table */}
       <DataTable
-        title={lang === 'id' ? 'Realisasi Anggaran vs Aktual' : 'Budget vs Actual Performance'}
+        title={t('ui.budget.budgetVsActualPerformance')}
         columns={columns}
         data={data.rows}
         getSubRows={(r) => r.children}
         getRowId={(r) => r.coaId}
+        onRowClick={(r) => openDrill('budget', [{ kind: 'account', id: r.coaId, label: r.name }])}
         emptyMessage={t('common.noData')}
         headerActions={
           <div className="flex items-center gap-2">
             <ExportCsvButton
               rows={data.rows}
               columns={[
-                { header: 'Kode Akun', value: (r) => r.code, kind: 'text' },
-                { header: 'Nama Akun / Kategori', value: (r) => r.name, kind: 'text' },
-                { header: 'Anggaran (Rp)', value: (r) => r.budget, kind: 'money' },
-                { header: 'Realisasi (Rp)', value: (r) => r.actual, kind: 'money' },
-                { header: 'Selisih (Rp)', value: (r) => r.variance, kind: 'money' },
-                { header: 'Selisih (%)', value: (r) => (r.variancePercent ? `${r.variancePercent}%` : ''), kind: 'text' },
+                { header: t('ui.col.accountCode'), value: (r) => r.code, kind: 'text' },
+                { header: t('ui.col.accountCategory'), value: (r) => r.name, kind: 'text' },
+                { header: t('ui.col.budget'), value: (r) => r.budget, kind: 'money' },
+                { header: t('ui.col.actual'), value: (r) => r.actual, kind: 'money' },
+                { header: t('ui.col.variance'), value: (r) => r.variance, kind: 'money' },
+                { header: t('ui.col.variancePct'), value: (r) => (r.variancePercent ? `${r.variancePercent}%` : ''), kind: 'text' },
               ]}
               filename={formatExportFilename('budget_vs_actual', deps.entity, deps.preset)}
             />

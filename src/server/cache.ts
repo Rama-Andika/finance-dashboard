@@ -6,7 +6,22 @@ type CacheEntry<T> = {
   expiresAt: number
 }
 
-const memoryCache = new Map<string, CacheEntry<any>>()
+/** Upper bound for memo entries; the oldest entry is evicted first. */
+const MEMO_MAX_ENTRIES = 200
+
+const memoryCache = new Map<string, CacheEntry<unknown>>()
+const inflight = new Map<string, Promise<unknown>>()
+
+function evictMemo(now: number) {
+  for (const [k, entry] of memoryCache) {
+    if (entry.expiresAt <= now) memoryCache.delete(k)
+  }
+  while (memoryCache.size >= MEMO_MAX_ENTRIES) {
+    const oldestKey = memoryCache.keys().next().value
+    if (oldestKey === undefined) break
+    memoryCache.delete(oldestKey)
+  }
+}
 
 export async function memo<T>(
   key: string,
@@ -19,9 +34,26 @@ export async function memo<T>(
     return hit.value as T
   }
 
-  const val = await loader()
-  memoryCache.set(key, { value: val, expiresAt: now + ttlMs })
-  return val
+  // Concurrent callers for the same key share one load instead of querying twice.
+  const pending = inflight.get(key)
+  if (pending) return pending as Promise<T>
+
+  const load = loader()
+    .then((val) => {
+      evictMemo(Date.now())
+      memoryCache.set(key, { value: val, expiresAt: Date.now() + ttlMs })
+      return val
+    })
+    .finally(() => {
+      inflight.delete(key)
+    })
+  inflight.set(key, load)
+  return load
+}
+
+/** Number of memo entries (for tests). */
+export function memoSize(): number {
+  return memoryCache.size
 }
 
 export type LruCache<V> = {

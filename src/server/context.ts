@@ -13,6 +13,11 @@ import { resolvePeriod } from '~/lib/finance/periods'
 
 const TEN_MINUTES = 10 * 60 * 1000
 
+/** "Today" for all metrics: APP_TODAY when set (tests, reconciliation), else the date in APP_TIMEZONE. */
+export function appToday(): string {
+  return env.APP_TODAY ?? todayIn(env.APP_TIMEZONE)
+}
+
 export async function getCachedEntities() {
   return memo('entities:all', TEN_MINUTES, async () => {
     const seg = await getEntitySegment()
@@ -46,7 +51,7 @@ export async function resolveFilter(input: MetricInput): Promise<AppContextFilte
   const { segment, entities } = await getCachedEntities()
   const periods = await getCachedPeriods()
 
-  const today = todayIn(env.APP_TIMEZONE)
+  const today = appToday()
   const resolvedPer = resolvePeriod(input.preset, input.p13, today, periods)
   const { locationIds } = parseEntityToken(input.entity, entities)
 

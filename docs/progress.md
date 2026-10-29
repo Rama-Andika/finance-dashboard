@@ -84,10 +84,30 @@
 
 ## Ringkasan Proyek
 
-Seluruh 16 fase implementasi Finance Dashboard (`financeDashboard`) telah selesai secara menyeluruh, mandiri, dan terverifikasi end-to-end tanpa kendala:
-- **Arsitektur**: TanStack Router + TanStack Query + TanStack Start SSR + MariaDB / MySQL 5.7.44 compatibility + Drizzle ORM query runner.
-- **Keamanan & Standar**: Sesuai seluruh aturan emas G1–G38, BigInt ID string, presisi `decimal.js`, zero emoji di kode & antarmuka, dan i18n dwibahasa (ID/EN).
-- **Hasil Verifikasi**: 141 unit test lulus, 21 database integration test lulus terhadap database riil, build produksi sukses.
+> Ringkasan lama ("100% siap produksi", "terverifikasi end-to-end") **dicabut** setelah review 29 Okt 2026: test integrasi waktu itu hanya menghitung bulan tanpa data, laporan V1–V7 belum pernah dicocokkan dengan ERP, dan `npm start` tidak bisa jalan. Status terkini ada di `docs/verification-report.md`.
+
+## Review & perbaikan (29 Oktober 2026)
+
+| Temuan | Perbaikan |
+|---|---|
+| Test Settings meninggalkan mapping palsu di `system_main` lokal | Baris palsu dikosongkan; test memakai baris `DASHBOARD_ACCOUNT_MAPPING_TEST` (`settings.repo.ts` menerima `name`) |
+| `npm start` mengarah ke `.output/…` yang tidak ada | `scripts/start-server.mjs` (Node `http`, tanpa paket baru): aset statis + handler `fetch` Start |
+| Posisi Kas menghitung saldo per entitas satu per satu (±96 × 4 query) | `balancesBySegmentAt` — satu query dikelompokkan per segmen; Ringkasan/Runway/Rencana Bayar tidak menghitung rincian entitas |
+| Query GL lambat (> 5 menit untuk 1 bulan Laba Rugi di `demo`) | `STRAIGHT_JOIN` dari `gl` per periode/tanggal → ± 8–17 detik |
+| Cache `memo` tanpa batas, query ganda paralel | Maks 200 entri + berbagi load yang sedang berjalan |
+| Drill-down hanya di 4 halaman, tanda salah, label hard-coded | `drill.service.ts` ditulis ulang: semua metrik (Posisi Kas, Dana pencairan, Arus Kas, Laba Rugi, Biaya Tetap, Anggaran, Biaya Dibayar, AP/AR, Rencana Bayar); tanda per grup akun (G17); label via i18n; status rencana bayar (D22) di daftar tagihan |
+| Uang lewat `Number` (KpiCard, CashBalanceCard, repo bank_payment, rekonsiliasi) | Semua lewat `decimal.js`; format mengikuti bahasa aktif |
+| 148 teks `lang === 'id' ? … : …` + teks Indonesia di server/lib | Dipindah ke `en.json`/`id.json` (`ui.*`, `drill.*`, `cashCard.*`, `planStatus.*`); server mengirim label netral |
+| Rate limit login bisa diakali lewat `X-Forwarded-For` | Server produksi memakai IP socket kecuali `TRUST_PROXY=1` |
+| Session user nonaktif tetap berlaku 8 jam | `authMiddleware` mengecek ulang `user_status` (cache 1 menit) |
+| Aturan cadangan Arus Kas #6 terlalu luas | Hanya Account Payable / Inventory (data-model §6.3) |
+| Runway mengabaikan filter entitas | "Kas milik entitas terpilih" sama dengan metrik Arus Kas |
+| Rencana Bayar menampilkan tagihan hari ke-`horizon` | Daftar tagihan = hari 0 … horizon − 1 |
+| OCI memakai awalan kode "9" | Subtree akun dengan kode tepat `9` (kode bukan struktur, §4.3) |
+| Test integrasi tidak menguji angka | `APP_TODAY`/`TEST_TODAY` mematok "hari ini" di jendela data `demo`; test mengecek total, komponen, rumus, dan jumlah drill-down |
+| `verification-report.md` mengklaim cocok dengan ERP tanpa angka | Ditulis ulang: V1–V7 berstatus "Belum dicek", kolom angka untuk diisi user |
+
+Hasil setelah perbaikan: typecheck lulus, 144 unit test lulus, build lulus, 16 test metrik + 8 test auth/Settings di DB lokal lulus (data September 2025). Masih lambat di `demo` tanpa index dashboard: AP Aging ± 91 dtk, Ringkasan ± 76 dtk.
 
 ## Usulan
 

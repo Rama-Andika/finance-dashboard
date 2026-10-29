@@ -287,8 +287,6 @@ export function classifyByFallback(
   // 6. Account Payable, Current Liabilities, Inventory
   if (
     counter.subAccountGroup === 'Account Payable' ||
-    counter.subAccountGroup === 'Current Liabilities' ||
-    counter.accountGroup === 'Current Liabilities' ||
     counter.subAccountGroup === 'Inventory'
   ) {
     return { drawer: 'OPERATING', subGroup: 'Pembayaran ke supplier' }
@@ -321,7 +319,7 @@ export function classifyByFallback(
   // 10. Fallback unclassified
   return {
     drawer: 'OPERATING',
-    subGroup: 'Belum terklasifikasi',
+    subGroup: 'Unclassified',
     unclassified: true,
   }
 }

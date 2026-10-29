@@ -8,46 +8,54 @@ import { drillOptions } from '~/queries/drill.queries'
 import { JournalList, type JournalItem } from './JournalList'
 import { Skeleton } from '~/components/neraca/Skeleton'
 import { MetricError } from '~/components/neraca/MetricError'
+import { StatusPill } from '~/components/neraca/StatusPill'
 import { formatMoneyFull } from '~/lib/format/number'
 import { formatDate } from '~/lib/format/date'
 import type { Lang } from '~/lib/finance/types'
-import type { DrillState, DrillStep, DrillStepKind } from '~/server/services/drill.service'
+import {
+  drillSchema,
+  PRESETS,
+  type DrillState,
+  type DrillStep,
+  type DrillStepKind,
+  type Preset,
+} from '~/lib/filters/search-schema'
 
-const METRIC_TITLES: Record<string, { id: string; en: string }> = {
-  revenue: { id: 'Pendapatan', en: 'Revenue' },
-  cashPosition: { id: 'Posisi Kas', en: 'Cash Position' },
-  inTransit: { id: 'Kas Dalam Perjalanan', en: 'In-Transit Cash' },
-  cashFlow: { id: 'Arus Kas', en: 'Cash Flow' },
-  pnl: { id: 'Laba Rugi', en: 'Profit & Loss' },
-  expensePaid: { id: 'Beban Dibayar', en: 'Expense Paid' },
-  apAging: { id: 'Utang Usaha', en: 'Accounts Payable' },
-  arAging: { id: 'Piutang Usaha', en: 'Accounts Receivable' },
-  fixedCost: { id: 'Beban Tetap', en: 'Fixed Cost' },
-  paymentPlan: { id: 'Rencana Bayar', en: 'Payment Plan' },
-  budget: { id: 'Anggaran', en: 'Budget' },
+type DrillSearchParams = {
+  entity?: string
+  preset?: string
+  p13?: boolean
+  chart?: 'ytd' | 'last-12m'
+  drill?: unknown
+}
+
+type SearchUpdater = (prev: Record<string, unknown>) => Record<string, unknown>
+
+const STATUS_TONE: Record<string, 'neutral' | 'warning' | 'danger'> = {
+  notSubmitted: 'neutral',
+  submitted: 'warning',
+  approved: 'warning',
+}
+
+function parseDrill(raw: unknown): DrillState | null {
+  if (!raw) return null
+  try {
+    const value = typeof raw === 'string' ? JSON.parse(raw) : raw
+    const parsed = drillSchema.safeParse(value)
+    return parsed.success ? parsed.data : null
+  } catch {
+    return null
+  }
 }
 
 export function DrillSheet() {
-  const search = useSearch({ strict: false }) as any
+  const search = useSearch({ strict: false }) as DrillSearchParams
   const navigate = useNavigate()
-  const { i18n } = useTranslation()
+  const { t, i18n } = useTranslation()
   const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
 
-  // Parse drill state safely
-  let drill: DrillState | null = null
-  if (search?.drill) {
-    if (typeof search.drill === 'string') {
-      try {
-        drill = JSON.parse(search.drill)
-      } catch {
-        drill = null
-      }
-    } else if (typeof search.drill === 'object' && search.drill.metric) {
-      drill = search.drill
-    }
-  }
-
-  const isOpen = Boolean(drill && drill.metric && drill.steps?.length)
+  const drill = parseDrill(search.drill)
+  const isOpen = Boolean(drill && drill.metric && drill.steps.length)
 
   // Focus restoration
   const previousActiveElementRef = useRef<HTMLElement | null>(null)
@@ -65,83 +73,63 @@ export function DrillSheet() {
   const [allRows, setAllRows] = useState<Array<Record<string, string | null>>>([])
   const drillKey = drill ? `${drill.metric}:${drill.steps.map((s) => `${s.kind}-${s.id}`).join('/')}` : ''
 
-  // Reset pagination on drill path change
   useEffect(() => {
     setOffset(0)
     setAllRows([])
   }, [drillKey])
 
-  // Query
-  const queryInput = {
-    entity: (search?.entity ?? 'all') as string,
-    preset: (search?.preset ?? 'this-month') as any,
-    p13: Boolean(search?.p13),
-    chart: search?.chart,
-    drill: drill as any,
-    offset,
-  }
+  const preset: Preset = (PRESETS as readonly string[]).includes(search.preset ?? '')
+    ? (search.preset as Preset)
+    : 'this-month'
 
   const { data, isLoading, isFetching, error, refetch } = useQuery({
-    ...drillOptions(queryInput),
+    ...drillOptions({
+      entity: search.entity ?? 'all',
+      preset,
+      p13: Boolean(search.p13),
+      chart: search.chart,
+      drill: drill ?? { metric: '', steps: [] },
+      offset,
+    }),
     enabled: isOpen,
   })
 
-  // Accumulate rows
   useEffect(() => {
-    if (data?.rows) {
-      if (offset === 0) {
-        setAllRows(data.rows)
-      } else {
-        setAllRows((prev) => {
-          const seen = new Set(prev.map((r) => r.id))
-          const fresh = data.rows.filter((r) => !seen.has(r.id))
-          return [...prev, ...fresh]
-        })
-      }
+    if (!data?.rows) return
+    if (offset === 0) {
+      setAllRows(data.rows)
+    } else {
+      setAllRows((prev) => {
+        const seen = new Set(prev.map((r) => r.id))
+        return [...prev, ...data.rows.filter((r) => !seen.has(r.id))]
+      })
     }
   }, [data?.rows, offset])
 
+  const updateSearch = (updater: SearchUpdater) => {
+    navigate({ to: '.', search: updater as never })
+  }
+
   const handleClose = () => {
-    navigate({
-      search: ((prev: any) => {
-        const next = { ...prev }
-        delete next.drill
-        return next
-      }) as any,
+    updateSearch((prev) => {
+      const next = { ...prev }
+      delete next.drill
+      return next
     })
   }
 
-  const handleBack = () => {
-    if (!drill || drill.steps.length <= 1) {
-      handleClose()
-    } else {
-      navigate({
-        search: ((prev: any) => ({
-          ...prev,
-          drill: {
-            metric: drill!.metric,
-            steps: drill!.steps.slice(0, -1),
-          },
-        })) as any,
-      })
-    }
-  }
-
-  const handleStepClick = (index: number) => {
+  const goToSteps = (steps: DrillStep[]) => {
     if (!drill) return
-    if (index === -1) {
+    if (steps.length === 0) {
       handleClose()
       return
     }
-    navigate({
-      search: ((prev: any) => ({
-        ...prev,
-        drill: {
-          metric: drill!.metric,
-          steps: drill!.steps.slice(0, index + 1),
-        },
-      })) as any,
-    })
+    updateSearch((prev) => ({ ...prev, drill: { metric: drill.metric, steps } }))
+  }
+
+  const handleBack = () => {
+    if (!drill) return
+    goToSteps(drill.steps.slice(0, -1))
   }
 
   const handleRowDrill = (row: Record<string, string | null>) => {
@@ -149,23 +137,41 @@ export function DrillSheet() {
     const nextStep: DrillStep = {
       kind: data.nextKind as DrillStepKind,
       id: row.id || '',
-      label: row.name || row.label || row.code || row.txNumber || row.invoiceNumber || row.id || '',
+      label: (row.name || row.label || row.code || row.docNumber || row.invoiceNumber || row.id || '').slice(0, 200),
     }
-    navigate({
-      search: ((prev: any) => ({
-        ...prev,
-        drill: {
-          metric: drill!.metric,
-          steps: [...drill!.steps, nextStep],
-        },
-      })) as any,
-    })
+    goToSteps([...drill.steps, nextStep])
   }
 
   if (!isOpen || !drill) return null
 
-  const metricRootTitle = METRIC_TITLES[drill.metric]?.[lang] || drill.metric
+  const metricRootTitle = t(`drill.metric.${drill.metric}`, { defaultValue: drill.metric })
+  const title = data ? t(data.titleKey, { label: data.titleLabel }) : metricRootTitle
   const isJournalLeaf = Boolean(data?.columns.some((c) => c.id === 'journalNumber'))
+  const journalItems: JournalItem[] = isJournalLeaf
+    ? allRows.map((r) => ({
+        id: r.id ?? '',
+        journalNumber: r.journalNumber ?? '',
+        transDate: r.transDate ?? '',
+        journalTypeLabel: `${t(`journalType.${r.journalTypeKey ?? 'adjustment'}`)} (${r.journalType ?? ''})`,
+        memo: r.memo ?? '',
+        debet: r.debet ?? '0.00',
+        credit: r.credit ?? '0.00',
+      }))
+    : []
+
+  const loadMore = data?.hasMore ? (
+    <div className="pt-4 pb-2 flex justify-center">
+      <button
+        type="button"
+        onClick={() => setOffset((prev) => prev + 200)}
+        disabled={isFetching}
+        className="nr-btn text-sm flex items-center gap-2"
+      >
+        {isFetching && <Loader2 className="w-4 h-4 animate-spin" />}
+        {t('drill.loadMore')}
+      </button>
+    </div>
+  ) : null
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && handleClose()}>
@@ -175,11 +181,8 @@ export function DrillSheet() {
         showCloseButton={false}
         className="w-full sm:max-w-2xl md:max-w-3xl p-0 flex flex-col gap-0 border-l border-line bg-surface overflow-hidden"
       >
-        <SheetTitle className="sr-only">
-          {data?.title || 'Rincian Transaksi'}
-        </SheetTitle>
+        <SheetTitle className="sr-only">{title}</SheetTitle>
 
-        {/* Header */}
         <div className="nr-sheet-head">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
@@ -187,37 +190,34 @@ export function DrillSheet() {
                 type="button"
                 onClick={handleBack}
                 className="p-1.5 -ml-1.5 rounded text-ink-muted hover:text-ink hover:bg-canvas transition"
-                title={lang === 'id' ? 'Kembali' : 'Back'}
-                aria-label={lang === 'id' ? 'Kembali' : 'Back'}
+                title={t('drill.back')}
+                aria-label={t('drill.back')}
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <h2 className="text-base font-semibold text-ink truncate">
-                {data?.title || metricRootTitle}
-              </h2>
+              <h2 className="text-base font-semibold text-ink truncate">{title}</h2>
             </div>
             <button
               type="button"
               onClick={handleClose}
               className="p-1.5 rounded text-ink-muted hover:text-ink hover:bg-canvas transition"
-              title={lang === 'id' ? 'Tutup' : 'Close'}
-              aria-label={lang === 'id' ? 'Tutup' : 'Close'}
+              title={t('drill.close')}
+              aria-label={t('drill.close')}
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Breadcrumb Trail */}
-          <nav aria-label="Drill breadcrumbs" className="nr-sheet-breadcrumbs">
+          <nav aria-label={t('drill.breadcrumbs')} className="nr-sheet-breadcrumbs">
             <button
               type="button"
-              onClick={() => handleStepClick(-1)}
+              onClick={() => goToSteps([])}
               className="hover:text-ink transition underline-offset-2 hover:underline"
             >
               {metricRootTitle}
             </button>
             {drill.steps.map((step, idx) => {
-              const isLast = idx === drill!.steps.length - 1
+              const isLast = idx === drill.steps.length - 1
               return (
                 <React.Fragment key={`${step.kind}-${step.id}-${idx}`}>
                   <ChevronRight className="w-3.5 h-3.5 text-muted shrink-0" />
@@ -228,7 +228,7 @@ export function DrillSheet() {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => handleStepClick(idx)}
+                      onClick={() => goToSteps(drill.steps.slice(0, idx + 1))}
                       className="hover:text-ink transition truncate max-w-[160px] underline-offset-2 hover:underline"
                       title={step.label}
                     >
@@ -241,38 +241,20 @@ export function DrillSheet() {
           </nav>
         </div>
 
-        {/* Body */}
         <div className="nr-sheet-body">
           {isLoading && offset === 0 ? (
             <div className="space-y-3 py-4">
               <Skeleton className="h-6 w-1/3" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
+              {Array.from({ length: 5 }, (_, i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
             </div>
           ) : error ? (
-            <MetricError
-              error={error}
-              reset={() => refetch()}
-            />
+            <MetricError error={error} reset={() => refetch()} />
           ) : isJournalLeaf ? (
             <>
-              <JournalList items={allRows as unknown as JournalItem[]} lang={lang} />
-              {data?.hasMore && (
-                <div className="pt-4 pb-2 flex justify-center">
-                  <button
-                    type="button"
-                    onClick={() => setOffset((prev) => prev + 200)}
-                    disabled={isFetching}
-                    className="nr-btn nr-btn-secondary text-sm flex items-center gap-2"
-                  >
-                    {isFetching && <Loader2 className="w-4 h-4 animate-spin" />}
-                    {lang === 'id' ? 'Muat 200 baris lagi' : 'Load 200 more lines'}
-                  </button>
-                </div>
-              )}
+              <JournalList items={journalItems} lang={lang} />
+              {loadMore}
             </>
           ) : (
             <div className="space-y-4">
@@ -280,12 +262,9 @@ export function DrillSheet() {
                 <table className="nr-table">
                   <thead>
                     <tr>
-                      {data?.columns.map((col) => (
-                        <th
-                          key={col.id}
-                          className={col.kind === 'money' ? 'nr-r' : undefined}
-                        >
-                          {col.label}
+                      {data?.columns.map((c) => (
+                        <th key={c.id} className={c.kind === 'money' || c.kind === 'number' ? 'nr-r' : undefined}>
+                          {t(c.labelKey)}
                         </th>
                       ))}
                       {data?.nextKind && <th className="w-10"></th>}
@@ -298,41 +277,59 @@ export function DrillSheet() {
                           colSpan={(data?.columns.length || 0) + (data?.nextKind ? 1 : 0)}
                           className="text-center py-10 text-muted text-sm"
                         >
-                          {lang === 'id' ? 'Tidak ada data untuk rincian ini' : 'No data for this detail'}
+                          {t('drill.empty')}
                         </td>
                       </tr>
                     ) : (
-                      allRows.map((row) => (
+                      allRows.map((row, rowIdx) => (
                         <tr
-                          key={row.id || Math.random()}
+                          key={row.id ?? rowIdx}
                           onClick={() => handleRowDrill(row)}
                           className={data?.nextKind ? 'cursor-pointer hover:bg-canvas/60 transition' : undefined}
                         >
-                          {data?.columns.map((col) => {
-                            const val = row[col.id]
-                            if (col.kind === 'money') {
+                          {data?.columns.map((c) => {
+                            const val = row[c.id]
+                            if (c.kind === 'money') {
                               return (
-                                <td key={col.id} className="nr-r font-mono text-sm">
-                                  {val ? formatMoneyFull(val, lang) : '0,00'}
+                                <td key={c.id} className="nr-r nr-num text-sm">
+                                  {formatMoneyFull(val ?? '0', lang)}
                                 </td>
                               )
                             }
-                            if (col.kind === 'code') {
+                            if (c.kind === 'number') {
                               return (
-                                <td key={col.id}>
+                                <td key={c.id} className="nr-r nr-num text-sm">
+                                  {val ?? '—'}
+                                </td>
+                              )
+                            }
+                            if (c.kind === 'code') {
+                              return (
+                                <td key={c.id}>
                                   <span className="nr-code">{val || '—'}</span>
                                 </td>
                               )
                             }
-                            if (col.kind === 'date') {
+                            if (c.kind === 'date') {
                               return (
-                                <td key={col.id} className="text-sm">
+                                <td key={c.id} className="text-sm">
                                   {val ? formatDate(val, lang) : '—'}
                                 </td>
                               )
                             }
+                            if (c.kind === 'status') {
+                              return (
+                                <td key={c.id}>
+                                  {val ? (
+                                    <StatusPill tone={STATUS_TONE[val] ?? 'neutral'}>{t(`planStatus.${val}`)}</StatusPill>
+                                  ) : (
+                                    '—'
+                                  )}
+                                </td>
+                              )
+                            }
                             return (
-                              <td key={col.id} className="text-sm">
+                              <td key={c.id} className="text-sm">
                                 {val || '—'}
                               </td>
                             )
@@ -348,20 +345,7 @@ export function DrillSheet() {
                   </tbody>
                 </table>
               </div>
-
-              {data?.hasMore && (
-                <div className="pt-2 pb-2 flex justify-center">
-                  <button
-                    type="button"
-                    onClick={() => setOffset((prev) => prev + 200)}
-                    disabled={isFetching}
-                    className="nr-btn nr-btn-secondary text-sm flex items-center gap-2"
-                  >
-                    {isFetching && <Loader2 className="w-4 h-4 animate-spin" />}
-                    {lang === 'id' ? 'Muat lebih banyak' : 'Load more'}
-                  </button>
-                </div>
-              )}
+              {loadMore}
             </div>
           )}
         </div>

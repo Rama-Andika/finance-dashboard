@@ -27,13 +27,14 @@ export function getJournalGroupKey(typeNumber: number): JournalGroupKey {
   return 'adjustment'
 }
 
-export const JOURNAL_GROUP_LABELS: Record<JournalGroupKey, { id: string; en: string }> = {
-  cashIn: { id: 'Uang Masuk', en: 'Cash In' },
-  cashOut: { id: 'Uang Keluar', en: 'Cash Out' },
-  sales: { id: 'Penjualan & Piutang', en: 'Sales & Receivables' },
-  purchase: { id: 'Pembelian & Utang', en: 'Purchases & Payables' },
-  loan: { id: 'Pinjaman', en: 'Loans' },
-  fixedAsset: { id: 'Aset Tetap', en: 'Fixed Assets' },
-  adjustment: { id: 'Penyesuaian Non-Kas', en: 'Non-Cash Adjustments' },
-  wasteBank: { id: 'Bank Sampah', en: 'Waste Bank' },
-}
+/** All group keys; their labels live in the i18n files under `journalType.<key>`. */
+export const JOURNAL_GROUP_KEYS: readonly JournalGroupKey[] = [
+  'cashIn',
+  'cashOut',
+  'sales',
+  'purchase',
+  'loan',
+  'fixedAsset',
+  'adjustment',
+  'wasteBank',
+]

@@ -14,6 +14,14 @@ const envSchema = z.object({
   DB_POOL_SIZE: z.coerce.number().int().min(1).max(10).default(5),
   SESSION_SECRET: z.string().min(32),
   APP_TIMEZONE: z.string().default('Asia/Jakarta'),
+  // Optional fixed "today" (YYYY-MM-DD) for tests and ERP reconciliation against historical data.
+  APP_TODAY: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+  ),
   PNL_OCI_ROOT_CODES: z.string().default('9'),
   ERP_APP_ID_INDEX: z.coerce.number().int().min(0).max(99).default(7),
   NODE_ENV: z.string().default('development'),

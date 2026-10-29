@@ -61,10 +61,10 @@ export async function computePaymentPlan(
   const asOfPlusOne = addDays(today, 1)
 
   // 1. Opening Cash = Cash Position at today
-  const cashPos = await computeCashPosition({
-    ...filter,
-    asOf: today,
-  })
+  const cashPos = await computeCashPosition(
+    { ...filter, asOf: today },
+    { includeByEntity: false, includeCompare: false },
+  )
   const openingCash = cashPos.cashPosition
 
   // 2. AP items due at today or later, or overdue
@@ -140,10 +140,10 @@ export async function computePaymentPlan(
   })
 
   // 5. Bills due in horizon
-  const horizonDate = addDays(today, horizon)
+  const lastDay = addDays(today, horizon - 1)
   const horizonBills = apPositive.filter((a) => {
     const d = a.dueDate || a.txDate
-    return d <= horizonDate
+    return d <= lastDay
   })
   const vendorIds = Array.from(new Set(horizonBills.map((b) => b.vendorId)))
   const vendorList = await listVendors(vendorIds)

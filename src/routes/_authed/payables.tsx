@@ -82,7 +82,7 @@ function PayablesPage() {
   const agingSegments = [
     {
       key: 'notDue' as const,
-      label: lang === 'id' ? 'Belum jatuh tempo' : 'Not due',
+      label: t('ui.payables.notDue'),
       amount: notDueSum,
     },
     {
@@ -110,23 +110,23 @@ function PayablesPage() {
   const columns: ColumnDef<VendorAgingSummary, any>[] = [
     {
       accessorKey: 'name',
-      header: 'Vendor',
+      header: t('ui.col.vendor'),
       cell: ({ row }) => (
         <div>
-          <span className="nr-name">{row.original.name}</span>
+          <span className="nr-name">{row.original.name || t('ui.col.unknownVendor')}</span>
           <span className="nr-sub">{row.original.code}</span>
         </div>
       ),
     },
     {
       accessorKey: 'total',
-      header: lang === 'id' ? 'Total Utang (Rp)' : 'Total Payable (IDR)',
+      header: t('ui.payables.totalPayableIdr'),
       meta: { align: 'right' },
       cell: ({ getValue }) => formatMoneyFull(getValue() as string, lang),
     },
     {
       id: 'overdue',
-      header: lang === 'id' ? 'Jatuh Tempo (Rp)' : 'Overdue (IDR)',
+      header: t('ui.payables.overdueIdr'),
       meta: { align: 'right' },
       cell: ({ row }) => {
         const vendorOverdue = sum([
@@ -173,14 +173,13 @@ function PayablesPage() {
         <Notice
           tone="warning"
           title={
-            lang === 'id'
-              ? `Selisih saldo kontrol GL dan kartu utang: ${formatMoneyShort(data.reconciliation.diff, lang)}.`
-              : `Discrepancy between GL control and AP cards: ${formatMoneyShort(data.reconciliation.diff, lang)}.`
+            t('ui.payables.reconciliationDiff', { amount: formatMoneyShort(data.reconciliation.diff, lang) })
           }
           body={
-            lang === 'id'
-              ? `GL: ${formatMoneyFull(data.reconciliation.gl, lang)} · Kartu: ${formatMoneyFull(data.reconciliation.subledger, lang)}`
-              : `GL: ${formatMoneyFull(data.reconciliation.gl, lang)} · Cards: ${formatMoneyFull(data.reconciliation.subledger, lang)}`
+            t('ui.payables.reconciliationDetail', {
+              gl: formatMoneyFull(data.reconciliation.gl, lang),
+              cards: formatMoneyFull(data.reconciliation.subledger, lang),
+            })
           }
         />
       )}
@@ -188,24 +187,24 @@ function PayablesPage() {
       {/* KPI Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
-          label={lang === 'id' ? 'Utang Usaha (Neto)' : 'Accounts Payable (Net)'}
+          label={t('ui.payables.accountsPayableNet')}
           value={data.total}
           compareValue={data.compareTotal}
           compareLabel={compareLabel}
           higherIsBetter={false}
         />
         <KpiCard
-          label={lang === 'id' ? 'Tagihan Belum Lunas' : 'Unpaid Bills'}
+          label={t('ui.payables.unpaidBills')}
           value={data.unpaidBills}
           higherIsBetter={false}
         />
         <KpiCard
-          label={lang === 'id' ? 'Lewat Jatuh Tempo' : 'Total Overdue'}
+          label={t('ui.payables.totalOverdue')}
           value={data.overdueSubtotal}
           higherIsBetter={false}
         />
         <KpiCard
-          label={lang === 'id' ? 'Kredit & Retur Vendor' : 'Vendor Credits'}
+          label={t('ui.payables.vendorCredits')}
           value={data.vendorCredits}
           higherIsBetter={true}
         />
@@ -213,7 +212,7 @@ function PayablesPage() {
 
       {/* Aging Bar */}
       <AgingBar
-        title={lang === 'id' ? 'Umur Utang Usaha' : 'Accounts Payable Aging'}
+        title={t('ui.payables.accountsPayableAging')}
         asOf={data.meta.asOf}
         total={data.total}
         segments={agingSegments}
@@ -223,7 +222,7 @@ function PayablesPage() {
 
       {/* Vendor Table */}
       <DataTable
-        title={lang === 'id' ? 'Rincian Utang per Vendor' : 'Payable by Vendor'}
+        title={t('ui.payables.payableByVendor')}
         columns={columns}
         data={data.byVendor}
         getRowId={(r) => r.vendorId}
@@ -234,11 +233,11 @@ function PayablesPage() {
             <ExportCsvButton
               rows={data.byVendor}
               columns={[
-                { header: 'Kode Vendor', value: (r) => r.code, kind: 'text' },
-                { header: 'Nama Vendor', value: (r) => r.name, kind: 'text' },
-                { header: 'Total Utang (Rp)', value: (r) => r.total, kind: 'money' },
+                { header: t('ui.col.vendorCode'), value: (r) => r.code, kind: 'text' },
+                { header: t('ui.col.vendorName'), value: (r) => r.name || t('ui.col.unknownVendor'), kind: 'text' },
+                { header: t('ui.col.totalPayable'), value: (r) => r.total, kind: 'money' },
                 {
-                  header: 'Jatuh Tempo (Rp)',
+                  header: t('ui.col.overdueAmount'),
                   value: (r) =>
                     sum([
                       r.buckets.overdue0_30,
@@ -265,14 +264,14 @@ function PayablesPage() {
             <div className="space-y-1">
               <div className="flex justify-between items-start">
                 <div>
-                  <span className="font-semibold">{r.name}</span>
+                  <span className="font-semibold">{r.name || t('ui.col.unknownVendor')}</span>
                   <span className="text-xs text-muted block font-mono">{r.code}</span>
                 </div>
                 <span className="font-semibold tabular-nums">{formatMoneyFull(r.total, lang)}</span>
               </div>
               {Number(vendorOverdue) > 0 && (
                 <div className="text-xs text-warning flex justify-between">
-                  <span>{lang === 'id' ? 'Lewat tempo' : 'Overdue'}</span>
+                  <span>{t('ui.payables.overdue')}</span>
                   <span>{formatMoneyFull(vendorOverdue, lang)}</span>
                 </div>
               )}

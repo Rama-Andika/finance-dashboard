@@ -60,7 +60,7 @@ export function reconcileInTransit(
   registerUnsettled: Money,
 ): CashPositionReconciliation {
   const diff = D(glInTransit).minus(D(registerUnsettled)).toFixed(2)
-  const inSync = Math.abs(Number(diff)) < 1
+  const inSync = D(diff).abs().lt(1)
 
   return {
     glInTransit,
@@ -189,7 +189,7 @@ export function buildCashPositionBreakdown(
     }
   }
 
-  const cashCategory = buildCategory('Kas', 'cash', cashIds)
+  const cashCategory = buildCategory('Cash', 'cash', cashIds)
   const bankCategory = buildCategory('Bank', 'bank', bankIds)
 
   return [cashCategory, bankCategory]

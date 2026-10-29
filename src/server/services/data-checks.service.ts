@@ -48,7 +48,7 @@ export async function computeDataChecks(
     checkQ9(filter.entitySegmentColumn, filter.segmentDetailIds, filter.asOf),
     checkUnpostedJournals(activePeriods),
     getMappingRow(),
-    computeCashPosition(filter).catch(() => null),
+    computeCashPosition(filter, { includeByEntity: false, includeCompare: false }).catch(() => null),
     computeCashFlow(filter).catch(() => null),
     computeApAging(filter).catch(() => null),
     computeArAging(filter).catch(() => null),

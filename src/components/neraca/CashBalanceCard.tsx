@@ -1,5 +1,8 @@
-import type { IsoDate, Money } from '~/lib/finance/types'
+import { useTranslation } from 'react-i18next'
+import type { IsoDate, Lang, Money } from '~/lib/finance/types'
 import { FigureTooltip } from '~/components/neraca/FigureTooltip'
+import { D } from '~/lib/finance/money'
+import { formatAmountShort, formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
 import { cn } from '~/lib/cn'
 
 export interface CashBalanceCardProps {
@@ -10,19 +13,7 @@ export interface CashBalanceCardProps {
   deposit: Money
   inTransit: Money
   onOpen?: () => void
-  currency?: string
   className?: string
-}
-
-function formatShortMock(val: Money | null): string {
-  if (val === null) return '0'
-  const n = Number.parseFloat(val)
-  if (Number.isNaN(n)) return val
-  const abs = Math.abs(n)
-  if (abs >= 1e12) return `${(n / 1e12).toFixed(2).replace('.', ',')} T`
-  if (abs >= 1e9) return `${(n / 1e9).toFixed(2).replace('.', ',')} M`
-  if (abs >= 1e6) return `${(n / 1e6).toFixed(2).replace('.', ',')} jt`
-  return n.toLocaleString('id-ID')
 }
 
 export function CashBalanceCard({
@@ -33,25 +24,21 @@ export function CashBalanceCard({
   deposit,
   inTransit,
   onOpen,
-  currency = 'Rp',
   className,
 }: CashBalanceCardProps) {
-  const cashNum = Number.parseFloat(cash) || 0
-  const bankNum = Number.parseFloat(bank) || 0
-  const totalNum = cashNum + bankNum
+  const { t, i18n } = useTranslation()
+  const lang: Lang = i18n.language?.startsWith('id') ? 'id' : 'en'
+  const currency = lang === 'id' ? 'Rp' : 'IDR'
 
-  const headlineShort = formatShortMock(totalNum.toString())
-  const headlineFull = `${currency} ${totalNum.toLocaleString('id-ID')}`
+  // Cash Position = Cash + Bank (D-decisions §5); deposit and funds in settlement are shown but excluded.
+  const total = D(cash).plus(D(bank)).toFixed(2)
+  const headlineFull = `${currency} ${formatMoneyFull(total, lang, { decimals: 2 })}`
 
   const isClickable = Boolean(onOpen)
 
   return (
     <article
-      className={cn(
-        'nr-balance nr-on-forest',
-        isClickable && 'cursor-pointer',
-        className,
-      )}
+      className={cn('nr-balance nr-on-forest', isClickable && 'cursor-pointer', className)}
       onClick={onOpen}
       onKeyDown={(e) => {
         if (onOpen && (e.key === 'Enter' || e.key === ' ')) {
@@ -68,27 +55,25 @@ export function CashBalanceCard({
         <circle cx="120" cy="120" r="119" />
       </svg>
       <div>
-        <p className="nr-overline">
-          Kas &amp; Bank · {entityCount} entitas
-        </p>
-        <h3 className="nr-balance-name">Posisi Kas</h3>
+        <p className="nr-overline">{t('cashCard.overline', { count: entityCount })}</p>
+        <h3 className="nr-balance-name">{t('cashCard.title')}</h3>
       </div>
       <FigureTooltip full={headlineFull}>
         <p className="nr-balance-value">
           <span className="nr-cur">{currency}</span>
-          {headlineShort}
+          {formatAmountShort(total, lang)}
         </p>
       </FigureTooltip>
       <dl className="nr-balance-rows">
-        <dt>Kas</dt>
-        <dd>{currency} {formatShortMock(cash)}</dd>
-        <dt>Bank</dt>
-        <dd>{currency} {formatShortMock(bank)}</dd>
+        <dt>{t('cashCard.cash')}</dt>
+        <dd>{formatMoneyShort(cash, lang)}</dd>
+        <dt>{t('cashCard.bank')}</dt>
+        <dd>{formatMoneyShort(bank, lang)}</dd>
         <span className="nr-sep" />
-        <dt>Deposito (terpisah)</dt>
-        <dd>{currency} {formatShortMock(deposit)}</dd>
-        <dt>Dana dalam pencairan</dt>
-        <dd>{currency} {formatShortMock(inTransit)}</dd>
+        <dt>{t('cashCard.deposit')}</dt>
+        <dd>{formatMoneyShort(deposit, lang)}</dd>
+        <dt>{t('cashCard.inTransit')}</dt>
+        <dd>{formatMoneyShort(inTransit, lang)}</dd>
       </dl>
     </article>
   )

@@ -63,14 +63,25 @@ const mockPnlRows: CoaRow[] = [
     subAccountGroup: '',
     saldoNormal: 'DEBET',
   },
-  // 9 OCI (Root 9)
+  // 9 OCI: the root HEADER has code '9'; OCI = its subtree (codes are not structural, §4.3)
+  {
+    coaId: '9000',
+    parentId: '0',
+    code: '9',
+    name: 'OCI',
+    status: 'HEADER',
+    level: 1,
+    accountGroup: 'Other Revenue',
+    subAccountGroup: '',
+    saldoNormal: 'CREDIT',
+  },
   {
     coaId: '9110',
-    parentId: '0',
+    parentId: '9000',
     code: '9-1100',
     name: 'Keuntungan Selisih Kurs Valas OCI',
     status: 'POSTABLE',
-    level: 1,
+    level: 2,
     accountGroup: 'Other Revenue',
     subAccountGroup: '',
     saldoNormal: 'CREDIT',
@@ -82,6 +93,8 @@ describe('pnl calculations', () => {
     const tree = buildCoaTree(mockPnlRows)
     const ociCoaIds = findOciCoaIds(tree, ['9'])
     expect(ociCoaIds.has('9110')).toBe(true)
+    // A code that merely starts with "9" outside the subtree is not OCI
+    expect(findOciCoaIds(buildCoaTree([...mockPnlRows, { ...mockPnlRows[0]!, coaId: '9990', code: '99-00', parentId: '0' }]), ['9']).has('9990')).toBe(false)
 
     // Complete fixture:
     // Revenue 1000, COGS 600, OPEX 200, OtherRev 50, OtherExp 30, OCI 20

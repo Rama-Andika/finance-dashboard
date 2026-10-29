@@ -65,3 +65,12 @@ describe('formatAxisShort', () => {
     expect(formatAxisShort(-5000000000, 'en')).toBe('\u22125B')
   })
 })
+
+describe('formatAmountShort', () => {
+  it('abbreviates without the currency prefix', async () => {
+    const { formatAmountShort } = await import('./number')
+    expect(formatAmountShort('42560118400', 'id')).toBe('42,56\u00a0M')
+    expect(formatAmountShort('42560118400', 'en')).toBe('42.56B')
+    expect(formatAmountShort('-1200000', 'id')).toBe('\u22121,20\u00a0Jt')
+  })
+})

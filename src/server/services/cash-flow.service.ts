@@ -2,7 +2,8 @@ import '@tanstack/react-start/server-only'
 import Decimal from 'decimal.js'
 import { D, sum } from '~/lib/finance/money'
 import { addDays } from '~/lib/format/date'
-import type { Id, MetricMeta, Money } from '~/lib/finance/types'
+import type { Id, MetricMeta, Money, Period } from '~/lib/finance/types'
+import type { CoaTree } from '~/lib/finance/coa-tree'
 import {
   type AppContextFilter,
   buildMetricMeta,
@@ -24,6 +25,7 @@ import {
   isSetupValid,
   type DrawerKey,
   type CfLine,
+  type CfSetupRow,
   type ClassifiedPortion,
 } from '~/lib/finance/cashflow'
 
@@ -47,6 +49,89 @@ export type CashFlowResult = {
     erpMethod: Money
     diff: Money
   }>
+}
+
+export type ClassifiedCashPortion = {
+  glId: Id
+  journalType: number
+  periodId: Id
+  counterCoaId: Id
+  portion: Money
+  drawer: DrawerKey
+  subGroup: string
+  unclassified?: boolean
+}
+
+/** Sub-row label for portions that no cash_flow_setup row accepts (D27). */
+export const UNCLASSIFIED_SUBGROUP = 'Unclassified'
+
+/**
+ * Loads the cash journals of the selected periods, allocates cash proportionally to the
+ * counter lines and classifies every portion (data-model §6.3). Shared by the Cash Flow
+ * metric and its drill-down so both always show the same numbers.
+ */
+export async function loadClassifiedPortions(
+  filter: AppContextFilter,
+  ctx?: { tree?: CoaTree; periods?: Period[]; cashEquivIds?: Id[] },
+): Promise<{
+  lines: CfLine[]
+  portions: ClassifiedCashPortion[]
+  setupValid: boolean
+  setup: CfSetupRow[]
+  cashEquivIds: Id[]
+  isOurCash: (l: CfLine) => boolean
+}> {
+  const tree = ctx?.tree ?? (await getCachedCoaTree())
+  const periods = ctx?.periods ?? (await getCachedPeriods())
+  let cashEquivIds = ctx?.cashEquivIds
+  if (!cashEquivIds) {
+    const resolved = resolveBaskets(await loadAccountMapping(tree), tree)
+    cashEquivIds = Array.from(new Set([...resolved.cash, ...resolved.bank, ...resolved.deposit]))
+  }
+
+  const cashSet = new Set(cashEquivIds)
+  const segIdSet = filter.segmentDetailIds === 'all' ? null : new Set(filter.segmentDetailIds)
+  const isOurCash = (l: CfLine) => {
+    if (!cashSet.has(l.coaId)) return false
+    if (!segIdSet) return true
+    return l.segmentDetailId ? segIdSet.has(l.segmentDetailId) : false
+  }
+
+  const setup = await getCashFlowSetup()
+  const setupValid = isSetupValid(setup)
+
+  const activePeriods = periods.filter((p) => filter.periodIds.includes(p.periodeId))
+  if (cashEquivIds.length === 0 || activePeriods.length === 0) {
+    return { lines: [], portions: [], setupValid, setup, cashEquivIds, isOurCash }
+  }
+
+  const lines: CfLine[] = await linesOfCashJournals({
+    periods: activePeriods,
+    segCol: filter.entitySegmentColumn,
+    segIds: filter.segmentDetailIds,
+    cashCoaIds: cashEquivIds,
+  })
+
+  const portions: ClassifiedCashPortion[] = allocateCash(lines, isOurCash).map((p) => {
+    const counterNode = tree.byId.get(p.counterCoaId)
+    const counter = {
+      accountGroup: counterNode?.accountGroup ?? '',
+      subAccountGroup: counterNode?.subAccountGroup ?? '',
+    }
+    let classified: ClassifiedPortion
+    if (setupValid) {
+      const res = classifyBySetup(p.portion, counter, setup)
+      classified =
+        res === 'UNCLASSIFIED'
+          ? { drawer: 'OPERATING', subGroup: UNCLASSIFIED_SUBGROUP, unclassified: true }
+          : res
+    } else {
+      classified = classifyByFallback(p.portion, counter, p.journalType)
+    }
+    return { ...p, ...classified }
+  })
+
+  return { lines, portions, setupValid, setup, cashEquivIds, isOurCash }
 }
 
 export async function computeCashFlow(
@@ -110,30 +195,12 @@ export async function computeCashFlow(
     cashEquivIds.map((id) => clRes.byCoa.get(id) ?? '0.00'),
   )
 
-  // 3. Lines of cash journals
-  const activePeriods = periods.filter((p) => filter.periodIds.includes(p.periodeId))
-  const lines: CashJournalLineRow[] = await linesOfCashJournals({
-    periods: activePeriods,
-    segCol: filter.entitySegmentColumn,
-    segIds: filter.segmentDetailIds,
-    cashCoaIds: cashEquivIds,
+  // 3–5. Cash journal lines, proportional allocation and classification
+  const { lines, portions, setupValid, setup, isOurCash } = await loadClassifiedPortions(filter, {
+    tree,
+    periods,
+    cashEquivIds,
   })
-
-  // 4. Allocate cash
-  const segIdSet =
-    filter.segmentDetailIds === 'all' ? null : new Set(filter.segmentDetailIds)
-
-  const isOurCash = (l: CfLine) => {
-    if (!cashEquivIds.includes(l.coaId)) return false
-    if (!segIdSet) return true
-    return l.segmentDetailId ? segIdSet.has(l.segmentDetailId) : false
-  }
-
-  const portions = allocateCash(lines, isOurCash)
-
-  // 5. Setup & Classification
-  const setup = await getCashFlowSetup()
-  const setupValid = isSetupValid(setup)
   const source: 'setup' | 'fallback' = setupValid ? 'setup' : 'fallback'
 
   type RowItem = { subGroup: string; amount: Decimal; unclassified?: boolean }
@@ -149,36 +216,14 @@ export async function computeCashFlow(
     const pDec = D(p.portion)
     netCashFlowDec = netCashFlowDec.plus(pDec)
 
-    const counterNode = tree.byId.get(p.counterCoaId)
-    const counter = {
-      accountGroup: counterNode?.accountGroup ?? '',
-      subAccountGroup: counterNode?.subAccountGroup ?? '',
-    }
-
-    let classified: ClassifiedPortion
-    if (setupValid) {
-      const res = classifyBySetup(p.portion, counter, setup)
-      if (res === 'UNCLASSIFIED') {
-        classified = {
-          drawer: 'OPERATING',
-          subGroup: 'Belum terklasifikasi',
-          unclassified: true,
-        }
-      } else {
-        classified = res
-      }
-    } else {
-      classified = classifyByFallback(p.portion, counter, p.journalType)
-    }
-
-    const drawerMap = drawerRowsMap[classified.drawer]
-    const existing = drawerMap.get(classified.subGroup) ?? {
-      subGroup: classified.subGroup,
+    const drawerMap = drawerRowsMap[p.drawer]
+    const existing = drawerMap.get(p.subGroup) ?? {
+      subGroup: p.subGroup,
       amount: D(0),
-      unclassified: classified.unclassified,
+      unclassified: p.unclassified,
     }
     existing.amount = existing.amount.plus(pDec)
-    drawerMap.set(classified.subGroup, existing)
+    drawerMap.set(p.subGroup, existing)
   }
 
   const netCashFlow = netCashFlowDec.toFixed(2)

@@ -9,6 +9,7 @@ import { Skeleton } from '~/components/neraca/Skeleton'
 import { dataChecksOptions } from '~/queries/data-checks.queries'
 import { formatMoneyFull } from '~/lib/format/number'
 import type { Lang } from '~/lib/finance/types'
+import { PRESETS, type Preset } from '~/lib/filters/search-schema'
 
 export interface DataChecksPanelProps {
   open: boolean
@@ -16,15 +17,15 @@ export interface DataChecksPanelProps {
 }
 
 export function DataChecksPanel({ open, onOpenChange }: DataChecksPanelProps) {
-  const search = useSearch({ strict: false }) as any
+  const search = useSearch({ strict: false }) as { entity?: string; preset?: string; p13?: boolean }
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
 
   const queryInput = {
-    entity: (search?.entity ?? 'all') as string,
-    preset: (search?.preset ?? 'this-month') as any,
-    p13: Boolean(search?.p13),
+    entity: search.entity ?? 'all',
+    preset: ((PRESETS as readonly string[]).includes(search.preset ?? '') ? search.preset : 'this-month') as Preset,
+    p13: Boolean(search.p13),
   }
 
   const { data: checks, isLoading, error } = useQuery({
@@ -34,10 +35,9 @@ export function DataChecksPanel({ open, onOpenChange }: DataChecksPanelProps) {
 
   const handleNavigateTo = (link: string) => {
     onOpenChange(false)
-    navigate({
-      to: link,
-      search: (prev: any) => prev,
-    } as any)
+    // Keep the global filters (entity, period) when jumping to the related page.
+    const keep = (prev: Record<string, unknown>) => prev
+    navigate({ to: link, search: keep as never })
   }
 
   return (

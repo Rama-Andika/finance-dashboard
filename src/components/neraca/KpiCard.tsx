@@ -1,38 +1,37 @@
-import type { Money } from '~/lib/finance/types'
+import Decimal from 'decimal.js'
+import { useTranslation } from 'react-i18next'
+import type { Lang, Money } from '~/lib/finance/types'
 import { DeltaPill } from '~/components/neraca/DeltaPill'
 import { FigureTooltip } from '~/components/neraca/FigureTooltip'
+import { formatAmountShort, formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
 import { cn } from '~/lib/cn'
 
 export interface KpiCardProps {
   label: string
+  /** A money string ("1234.50"), or plain text such as a runway label. */
   value: Money | null
   compareValue?: Money | null
   compareLabel?: string
   higherIsBetter?: boolean
   onOpen?: () => void
   hint?: string
+  /** Defaults to "Rp" (ID) / "IDR" (EN). */
   currency?: string
   className?: string
 }
 
-function computeChangePercent(current: Money | null, previous: Money | null | undefined): string | null {
-  if (current === null || previous === null || previous === undefined) return null
-  const curr = Number.parseFloat(current)
-  const prev = Number.parseFloat(previous)
-  if (Number.isNaN(curr) || Number.isNaN(prev) || prev === 0) return null
-  const change = ((curr - prev) / Math.abs(prev)) * 100
-  return change.toFixed(2)
+const MONEY_RE = /^-?\d+(\.\d+)?$/
+
+function isMoney(value: string | null | undefined): value is Money {
+  return typeof value === 'string' && MONEY_RE.test(value)
 }
 
-function formatShortMock(val: Money | null): string {
-  if (val === null) return '–'
-  const n = Number.parseFloat(val)
-  if (Number.isNaN(n)) return val
-  const abs = Math.abs(n)
-  if (abs >= 1e12) return `${(n / 1e12).toFixed(2).replace('.', ',')} T`
-  if (abs >= 1e9) return `${(n / 1e9).toFixed(2).replace('.', ',')} M`
-  if (abs >= 1e6) return `${(n / 1e6).toFixed(2).replace('.', ',')} jt`
-  return n.toLocaleString('id-ID')
+/** Percent change against the comparison value, computed with decimal.js (G12). */
+function computeChangePercent(current: Money | null, previous: Money | null | undefined): string | null {
+  if (!isMoney(current) || !isMoney(previous)) return null
+  const prev = new Decimal(previous)
+  if (prev.isZero()) return null
+  return new Decimal(current).minus(prev).div(prev.abs()).times(100).toFixed(2)
 }
 
 export function KpiCard({
@@ -43,13 +42,18 @@ export function KpiCard({
   higherIsBetter,
   onOpen,
   hint,
-  currency = 'Rp',
+  currency,
   className,
 }: KpiCardProps) {
+  const { i18n } = useTranslation()
+  const lang: Lang = i18n.language?.startsWith('id') ? 'id' : 'en'
+  const currencyLabel = currency ?? (lang === 'id' ? 'Rp' : 'IDR')
+
+  const valueIsMoney = isMoney(value)
   const changePercent = computeChangePercent(value, compareValue)
-  const shortValue = formatShortMock(value)
-  const fullValue = value ? `${currency} ${Number.parseFloat(value).toLocaleString('id-ID')}` : '–'
-  const compareShort = compareValue ? `${currency} ${formatShortMock(compareValue)}` : ''
+  const shortValue = value === null ? '–' : valueIsMoney ? formatAmountShort(value, lang) : value
+  const fullValue = valueIsMoney ? `${currencyLabel} ${formatMoneyFull(value, lang, { decimals: 2 })}` : (value ?? '–')
+  const compareShort = isMoney(compareValue) ? formatMoneyShort(compareValue, lang) : ''
 
   const isClickable = Boolean(onOpen)
 
@@ -69,7 +73,7 @@ export function KpiCard({
       }}
       tabIndex={isClickable ? 0 : undefined}
       role={isClickable ? 'button' : undefined}
-      aria-label={isClickable ? `${label}: ${shortValue}` : undefined}
+      aria-label={isClickable ? `${label}: ${fullValue}` : undefined}
     >
       <div className="flex items-center justify-between gap-2">
         <h3 className="nr-kpi-label">{label}</h3>
@@ -78,7 +82,7 @@ export function KpiCard({
 
       <FigureTooltip full={fullValue}>
         <p className="nr-kpi-value">
-          <span className="nr-cur">{currency}</span>
+          {valueIsMoney && <span className="nr-cur">{currencyLabel}</span>}
           {shortValue}
         </p>
       </FigureTooltip>
@@ -86,7 +90,7 @@ export function KpiCard({
       {(changePercent !== null || compareLabel) && (
         <div className="nr-kpi-foot">
           {changePercent !== null && (
-            <DeltaPill change={changePercent} higherIsBetter={higherIsBetter ?? true} lang="id" />
+            <DeltaPill change={changePercent} higherIsBetter={higherIsBetter ?? true} lang={lang} />
           )}
           {compareLabel && (
             <span>

@@ -39,7 +39,7 @@ export async function computeRunwayMetrics(
   const periods = await getCachedPeriods()
 
   // 1. Cash Position at asOf
-  const cashPos = await computeCashPosition(filter)
+  const cashPos = await computeCashPosition(filter, { includeByEntity: false, includeCompare: false })
   const cashPosition = cashPos.cashPosition
 
   // 2. Average Burn over the last 3 full months (months ending before month of asOf)
@@ -72,7 +72,10 @@ export async function computeRunwayMetrics(
         cashCoaIds: cashEquivIds,
       })
 
-      const isOurCash = (l: CfLine) => cashEquivIds.includes(l.coaId)
+      const cashSet = new Set(cashEquivIds)
+      const segIdSet = filter.segmentDetailIds === 'all' ? null : new Set(filter.segmentDetailIds)
+      const isOurCash = (l: CfLine) =>
+        cashSet.has(l.coaId) && (!segIdSet || (l.segmentDetailId !== null && segIdSet.has(l.segmentDetailId)))
       const portions = allocateCash(priorLines, isOurCash)
 
       const periodMonthMap = new Map(

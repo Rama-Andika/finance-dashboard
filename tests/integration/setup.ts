@@ -8,6 +8,10 @@ if (fs.existsSync(envPath)) {
   }
 }
 
+// Metrics are computed relative to "today". The local demo DB holds journals up to mid-October 2025, so
+// integration tests pin today inside that window (override with TEST_TODAY=YYYY-MM-DD).
+process.env.APP_TODAY = process.env.TEST_TODAY ?? '2025-10-15'
+
 if (process.env.TEST_DATABASE_URL) {
   process.env.DATABASE_URL = process.env.TEST_DATABASE_URL
 }

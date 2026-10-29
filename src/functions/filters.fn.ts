@@ -12,15 +12,13 @@ export type FilterOptions = {
 export const getFilterOptionsFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .handler(async (): Promise<FilterOptions> => {
-    const { getCachedEntities, getCachedPeriods } = await import('~/server/context')
+    const { getCachedEntities, getCachedPeriods, appToday } = await import('~/server/context')
     const { resolvePeriod } = await import('~/lib/finance/periods')
-    const { todayIn } = await import('~/lib/format/date')
-    const { env } = await import('~/server/env')
     const { PRESETS } = await import('~/lib/filters/search-schema')
 
     const { entities } = await getCachedEntities()
     const periods = await getCachedPeriods()
-    const today = todayIn(env.APP_TIMEZONE)
+    const today = appToday()
 
     const presetsHints = PRESETS.map((preset) => {
       const res = resolvePeriod(preset, false, today, periods)

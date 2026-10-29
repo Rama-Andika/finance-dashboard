@@ -29,6 +29,7 @@ import { Button } from '~/components/neraca/Button'
 import { ExportCsvButton, formatExportFilename } from '~/components/export/ExportCsvDialog'
 import { PrintButton } from '~/components/export/PrintButton'
 import { PrintHeader } from '~/components/export/PrintHeader'
+import { useOpenDrill } from '~/components/drill/useOpenDrill'
 import { formatAxisShort, formatMoneyFull, formatMoneyShort, formatPercent } from '~/lib/format/number'
 import { formatMonth, formatMonthYear, getCompareLabel } from '~/lib/format/date'
 import type { Breakdown, Lang } from '~/lib/finance/types'
@@ -81,6 +82,7 @@ function ProfitLossPage() {
   const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
 
   const [activeTab, setActiveTab] = useState<'pnl' | 'fixedCost'>('pnl')
+  const openDrill = useOpenDrill()
 
   if (!pnlData) return null
 
@@ -108,7 +110,7 @@ function ProfitLossPage() {
   const pnlColumns: ColumnDef<PnlLine, any>[] = [
     {
       accessorKey: 'key',
-      header: lang === 'id' ? 'Pos Laba Rugi' : 'P&L Line',
+      header: t('ui.profitLoss.pLLine'),
       cell: ({ row }) => {
         const item = row.original
         const isOperating = item.key === 'operatingProfit'
@@ -123,9 +125,7 @@ function ProfitLossPage() {
               <span
                 className="text-xs text-muted inline-flex items-center cursor-help"
                 title={
-                  lang === 'id'
-                    ? 'Belum dikurangi depresiasi'
-                    : 'Before depreciation deduction'
+                  t('ui.profitLoss.beforeDepreciationDeduction')
                 }
               >
                 <Info className="nr-icon nr-icon-sm" />
@@ -137,7 +137,7 @@ function ProfitLossPage() {
     },
     {
       accessorKey: 'margin',
-      header: 'Margin %',
+      header: t('ui.col.marginPct'),
       meta: { align: 'right' },
       cell: ({ getValue, row }) => {
         const val = getValue() as string | null
@@ -152,7 +152,7 @@ function ProfitLossPage() {
     },
     {
       accessorKey: 'amount',
-      header: lang === 'id' ? 'Total (Rp)' : 'Total (IDR)',
+      header: t('ui.profitLoss.totalIdr'),
       meta: { align: 'right' },
       cell: ({ getValue, row }) => {
         const isSubtotal = SUBTOTAL_KEYS.has(row.original.key)
@@ -169,12 +169,12 @@ function ProfitLossPage() {
   const fixedColumns: ColumnDef<Breakdown, any>[] = [
     {
       accessorKey: 'label',
-      header: lang === 'id' ? 'Folder Biaya Tetap' : 'Fixed Cost Folder',
+      header: t('ui.profitLoss.fixedCostFolder'),
       cell: ({ row }) => <span className="nr-name">{row.original.label}</span>,
     },
     {
       accessorKey: 'amount',
-      header: lang === 'id' ? 'Jumlah (Rp)' : 'Amount (IDR)',
+      header: t('ui.profitLoss.amountIdr'),
       meta: { align: 'right' },
       cell: ({ getValue }) => formatMoneyFull(getValue() as string, lang),
     },
@@ -207,13 +207,13 @@ function ProfitLossPage() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiCard
-          label={lang === 'id' ? 'Pendapatan' : 'Revenue'}
+          label={t('ui.profitLoss.revenue')}
           value={revLine?.amount || '0'}
           compareLabel={compareLabel}
           higherIsBetter={true}
         />
         <KpiCard
-          label={lang === 'id' ? 'Laba Kotor' : 'Gross Profit'}
+          label={t('ui.profitLoss.grossProfit')}
           value={gpLine?.amount || '0'}
           compareLabel={
             gpLine?.margin ? `Margin: ${formatPercent(gpLine.margin, lang)}` : undefined
@@ -221,7 +221,7 @@ function ProfitLossPage() {
           higherIsBetter={true}
         />
         <KpiCard
-          label={lang === 'id' ? 'Laba Bersih' : 'Net Profit'}
+          label={t('ui.profitLoss.netProfit')}
           value={npLine?.amount || '0'}
           compareLabel={
             npLine?.margin ? `Margin: ${formatPercent(npLine.margin, lang)}` : undefined
@@ -234,7 +234,7 @@ function ProfitLossPage() {
       <div className="w-72">
         <Tabs
           tabs={[
-            { id: 'pnl', label: lang === 'id' ? 'Laba Rugi' : 'P&L Statement' },
+            { id: 'pnl', label: t('ui.profitLoss.pLStatement') },
             { id: 'fixedCost', label: t('metric.tabs.fixedCost') },
           ]}
           value={activeTab}
@@ -245,10 +245,15 @@ function ProfitLossPage() {
       {/* Tab 1: PnL Statement Table */}
       {activeTab === 'pnl' && (
         <DataTable
-          title={lang === 'id' ? 'Laporan Laba Rugi' : 'Profit & Loss Statement'}
+          title={t('ui.profitLoss.profitLossStatement')}
           columns={pnlColumns}
           data={pnlData.lines}
           getRowId={(r) => r.key}
+          onRowClick={(r) => {
+            // Subtotals are computed lines; only account-backed lines open a drill-down.
+            if (SUBTOTAL_KEYS.has(r.key)) return
+            openDrill('pnl', [{ kind: 'section', id: r.key, label: PNL_LINE_LABELS[r.key]?.[lang] || r.key }])
+          }}
           emptyMessage={t('common.noData')}
           headerActions={
             <div className="flex items-center gap-2">
@@ -256,12 +261,12 @@ function ProfitLossPage() {
                 rows={pnlData.lines}
                 columns={[
                   {
-                    header: 'Baris Laba Rugi',
+                    header: t('ui.col.pnlLine'),
                     value: (r) => PNL_LINE_LABELS[r.key]?.[lang] || r.key,
                     kind: 'text',
                   },
-                  { header: 'Jumlah (Rp)', value: (r) => r.amount, kind: 'money' },
-                  { header: 'Margin (%)', value: (r) => (r.margin ? `${r.margin}%` : ''), kind: 'text' },
+                  { header: t('ui.col.amount'), value: (r) => r.amount, kind: 'money' },
+                  { header: t('ui.col.marginPct'), value: (r) => (r.margin ? `${r.margin}%` : ''), kind: 'text' },
                 ]}
                 filename={formatExportFilename('profit_loss', deps.entity, deps.preset)}
               />
@@ -295,10 +300,10 @@ function ProfitLossPage() {
           <div className="nr-card space-y-4">
             <div className="nr-card-head" style={{ margin: 0 }}>
               <h3 className="nr-card-title">
-                {lang === 'id' ? 'Biaya Tetap vs Variabel' : 'Fixed vs Variable Costs'}
+                {t('ui.profitLoss.fixedVsVariableCosts')}
               </h3>
               <span className="nr-muted nr-num" style={{ fontSize: 13 }}>
-                {lang === 'id' ? 'Rata-rata tetap:' : 'Average fixed:'}{' '}
+                {t('ui.profitLoss.averageFixed')}{' '}
                 {formatMoneyShort(fixedData.averageFixed, lang)}
               </span>
             </div>
@@ -380,18 +385,20 @@ function ProfitLossPage() {
 
           {/* Folder table */}
           <DataTable
-            title={lang === 'id' ? 'Folder Biaya Tetap' : 'Fixed Cost Folders'}
+            title={t('ui.profitLoss.fixedCostFolders')}
             columns={fixedColumns}
             data={fixedData.byFolder}
             getRowId={(r) => r.id}
+            getSubRows={(r) => r.children}
+            onRowClick={(r) => openDrill('fixedCost', [{ kind: 'folder', id: r.id, label: r.label }])}
             emptyMessage={t('common.noData')}
             headerActions={
               <div className="flex items-center gap-2">
                 <ExportCsvButton
                   rows={fixedData.byFolder}
                   columns={[
-                    { header: 'Folder Biaya Tetap', value: (r) => r.label, kind: 'text' },
-                    { header: 'Jumlah (Rp)', value: (r) => r.amount, kind: 'money' },
+                    { header: t('ui.col.fixedCostFolder'), value: (r) => r.label, kind: 'text' },
+                    { header: t('ui.col.amount'), value: (r) => r.amount, kind: 'money' },
                   ]}
                   filename={formatExportFilename('fixed_cost', deps.entity, deps.preset)}
                 />

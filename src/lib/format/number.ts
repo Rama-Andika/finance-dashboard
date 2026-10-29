@@ -61,6 +61,15 @@ export function formatMoneyShort(value: Money, lang: Lang): string {
   return `${minus}${prefix}${THIN_SPACE}${formattedNum}${unitStr}`
 }
 
+/** Same as formatMoneyShort but without the currency prefix (the KPI card renders it separately). */
+export function formatAmountShort(value: Money, lang: Lang): string {
+  const d = new Decimal(value || 0)
+  const isNeg = d.isNegative() && !d.isZero()
+  const { formattedNum, unit } = getScaledShort(d.abs(), lang)
+  const unitStr = unit ? (lang === 'id' ? `${NBSP}${unit}` : unit) : ''
+  return `${isNeg ? MINUS_SIGN : ''}${formattedNum}${unitStr}`
+}
+
 export function formatMoneyFull(
   value: Money,
   lang: Lang,

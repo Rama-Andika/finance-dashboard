@@ -93,7 +93,7 @@ export async function computeArAging(
   }
 
   const diff = D(glTotal).minus(D(computed.total)).toFixed(2)
-  const inSync = Math.abs(Number(diff)) < 1
+  const inSync = D(diff).abs().lt(1)
 
   return {
     meta,

@@ -64,7 +64,7 @@ function SummaryPage() {
   const columns: ColumnDef<PaymentPlanBill, any>[] = [
     {
       accessorKey: 'vendorName',
-      header: 'Vendor',
+      header: t('ui.col.vendor'),
       cell: ({ row }) => (
         <div>
           <span className="nr-name">{row.original.vendorName}</span>
@@ -74,18 +74,18 @@ function SummaryPage() {
     },
     {
       accessorKey: 'dueDate',
-      header: 'Jatuh tempo',
+      header: t('ui.col.dueDate'),
       cell: ({ getValue }) => formatDate(getValue() as string, lang),
     },
     {
       accessorKey: 'balance',
-      header: 'Sisa (Rp)',
+      header: t('ui.col.balance'),
       meta: { align: 'right' },
       cell: ({ getValue }) => formatMoneyFull(getValue() as string, lang),
     },
     {
       accessorKey: 'status',
-      header: 'Status',
+      header: t('ui.col.status'),
       cell: ({ row }) => {
         const s = row.original.status
         const tone =
@@ -172,7 +172,7 @@ function SummaryPage() {
           label={t('nav.payables')}
           value={data.apAging.total}
           compareValue={data.apAging.overdueSubtotal}
-          compareLabel={lang === 'id' ? 'Overdue' : 'Overdue'}
+          compareLabel={t('ui.summary.overdue')}
           higherIsBetter={false}
           onOpen={() => navigate({ to: '/payables', search: (prev: any) => prev })}
         />
@@ -195,7 +195,7 @@ function SummaryPage() {
 
         <div className="lg:col-span-1">
           <DonutBreakdown
-            title={lang === 'id' ? 'Komposisi' : 'Composition'}
+            title={t('ui.summary.composition')}
             tabs={[
               { id: 'revenue', label: t('metric.tabs.revenue') },
               { id: 'expense', label: t('metric.tabs.expense') },
@@ -205,12 +205,8 @@ function SummaryPage() {
             items={donutItems}
             totalLabel={
               donutTab === 'revenue'
-                ? lang === 'id'
-                  ? 'Total pendapatan'
-                  : 'Total revenue'
-                : lang === 'id'
-                  ? 'Total beban'
-                  : 'Total expense'
+                ? t('ui.summary.totalRevenue')
+                : t('ui.summary.totalExpense')
             }
             lang={lang}
             onSelect={() =>
@@ -235,11 +231,11 @@ function SummaryPage() {
             <ExportCsvButton
               rows={data.paymentPlan7Days.bills || []}
               columns={[
-                { header: 'No. Tagihan', value: (r) => r.invoiceNumber, kind: 'text' },
-                { header: 'Vendor', value: (r) => r.vendorName, kind: 'text' },
-                { header: 'Jatuh Tempo', value: (r) => r.dueDate, kind: 'date' },
-                { header: 'Sisa Utang (Rp)', value: (r) => r.balance, kind: 'money' },
-                { header: 'Status Rencana Bayar', value: (r) => r.status, kind: 'text' },
+                { header: t('ui.col.billNumber'), value: (r) => r.invoiceNumber, kind: 'text' },
+                { header: t('ui.col.vendor'), value: (r) => r.vendorName, kind: 'text' },
+                { header: t('ui.col.dueDate'), value: (r) => r.dueDate, kind: 'date' },
+                { header: t('ui.col.payableBalance'), value: (r) => r.balance, kind: 'money' },
+                { header: t('ui.col.planStatus'), value: (r) => r.status, kind: 'text' },
               ]}
               filename={formatExportFilename('summary_bills_7d', deps.entity, deps.preset)}
             />

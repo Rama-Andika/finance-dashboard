@@ -36,9 +36,7 @@ export function findOciCoaIds(tree: CoaTree, ociRootCodes: string[]): Set<Id> {
   const ociSet = new Set<Id>()
   for (const node of tree.byId.values()) {
     if (node.coaId === '__orphans__') continue
-    const matchesRoot = ociRootCodes.some(
-      (prefix) => node.code === prefix || node.code.startsWith(`${prefix}-`) || node.code.startsWith(prefix),
-    )
+    const matchesRoot = ociRootCodes.includes(node.code)
     if (matchesRoot) {
       if (node.status === 'POSTABLE') {
         ociSet.add(node.coaId)

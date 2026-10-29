@@ -78,12 +78,12 @@ function RevenuePage() {
   const columns: ColumnDef<Breakdown, any>[] = [
     {
       accessorKey: 'label',
-      header: lang === 'id' ? 'Kategori / Folder' : 'Category / Folder',
+      header: t('ui.revenue.categoryFolder'),
       cell: ({ row }) => <span className="nr-name">{row.original.label}</span>,
     },
     {
       accessorKey: 'amount',
-      header: lang === 'id' ? 'Total (Rp)' : 'Total (IDR)',
+      header: t('ui.revenue.totalIdr'),
       meta: { align: 'right' },
       cell: ({ getValue }) => formatMoneyFull(getValue() as string, lang),
     },
@@ -130,7 +130,7 @@ function RevenuePage() {
         <div className="nr-card lg:col-span-2 space-y-4">
           <div className="nr-card-head" style={{ margin: 0 }}>
             <h3 className="nr-card-title">
-              {lang === 'id' ? 'Tren Pendapatan Bulanan' : 'Monthly Revenue Trend'}
+              {t('ui.revenue.monthlyRevenueTrend')}
             </h3>
             <span className="nr-muted nr-num" style={{ fontSize: 13 }}>
               {formatMoneyShort(data.total, lang)}
@@ -191,13 +191,13 @@ function RevenuePage() {
         {/* Donut Composition */}
         <div className="lg:col-span-1">
           <DonutBreakdown
-            title={lang === 'id' ? 'Komposisi Pendapatan' : 'Revenue Composition'}
+            title={t('ui.revenue.revenueComposition')}
             items={data.byFolder.map((f) => ({
               id: f.id,
               name: f.label,
               amount: f.amount,
             }))}
-            totalLabel={lang === 'id' ? 'Total pendapatan' : 'Total revenue'}
+            totalLabel={t('ui.revenue.totalRevenue')}
             lang={lang}
             periodLabel={formatMonthYear(data.meta.asOf, lang)}
             onSelect={handleSelectFolder}
@@ -207,7 +207,7 @@ function RevenuePage() {
 
       {/* Folder breakdown table */}
       <DataTable
-        title={lang === 'id' ? 'Rincian Folder Pendapatan' : 'Revenue by Folder'}
+        title={t('ui.revenue.revenueByFolder')}
         columns={columns}
         data={data.byFolder}
         getRowId={(r) => r.id}
@@ -218,8 +218,8 @@ function RevenuePage() {
             <ExportCsvButton
               rows={data.byFolder}
               columns={[
-                { header: 'Kategori / Folder', value: (r) => r.label, kind: 'text' },
-                { header: 'Total (Rp)', value: (r) => r.amount, kind: 'money' },
+                { header: t('ui.col.categoryFolder'), value: (r) => r.label, kind: 'text' },
+                { header: t('ui.col.total'), value: (r) => r.amount, kind: 'money' },
               ]}
               filename={formatExportFilename('revenue', deps.entity, deps.preset)}
             />

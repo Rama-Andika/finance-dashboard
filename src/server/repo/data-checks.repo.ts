@@ -93,7 +93,7 @@ export async function checkQ9(
     return { count: 0, amount: '0.00' }
   }
 
-  const baseDate = asOfDate || todayIn(env.APP_TIMEZONE)
+  const baseDate = asOfDate || env.APP_TODAY || todayIn(env.APP_TIMEZONE)
   const cutoffPast = addDays(baseDate, -7)
   const cutoffFuture = addDays(baseDate, 1)
 

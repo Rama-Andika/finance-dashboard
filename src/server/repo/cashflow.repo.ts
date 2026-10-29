@@ -79,7 +79,8 @@ export async function linesOfCashJournals(
             FROM ${glIdent} g
             JOIN ${glDetailIdent} d ON d.gl_id = g.gl_id
             JOIN (
-              SELECT DISTINCT d2.gl_id
+              -- STRAIGHT_JOIN: start from the selected periods, not from the cash accounts' full history
+              SELECT DISTINCT STRAIGHT_JOIN d2.gl_id
               FROM ${glIdent} g2
               JOIN ${glDetailIdent} d2 ON d2.gl_id = g2.gl_id
               WHERE g2.posted_status = 1

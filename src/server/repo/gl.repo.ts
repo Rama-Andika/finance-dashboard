@@ -4,6 +4,7 @@ import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
 import { glTablesOf, groupPeriodsByTable } from '~/server/db/gl-tables'
 import { D } from '~/lib/finance/money'
+import { diffDays } from '~/lib/format/date'
 import { glMovementsCache, hashIds } from '~/server/cache'
 import type { AccountGroup, Id, IsoDate, Money, Period } from '~/lib/finance/types'
 
@@ -78,8 +79,10 @@ async function queryMovementsFromDb(
   for (const pChunk of periodChunks) {
     for (const cChunk of coaChunks) {
       for (const sChunk of segChunks) {
+        // STRAIGHT_JOIN: drive from gl (period index) → gl_detail (gl_id) → coa. Without it the optimizer
+        // starts from coa and scans the whole gl_detail history of those accounts (minutes on 13M rows).
         const query = sql`
-          SELECT d.coa_id AS coaId
+          SELECT STRAIGHT_JOIN d.coa_id AS coaId
                  ${opts.byPeriod ? sql`, g.period_id AS periodId` : sql``}
                  ${opts.byLocation ? sql`, sd.location_id AS locationId` : sql``}
                  , SUM(d.debet) AS debet, SUM(d.credit) AS credit
@@ -192,11 +195,14 @@ export type MovementsByDateOptions = {
   segIds: Id[] | 'all'
   coaIds?: Id[]
   byDate?: boolean
+  /** Group by the entity segment column (one row per coa × segment detail). */
+  bySegment?: boolean
 }
 
 export type DateMovementRow = {
   coaId: Id
   transDate?: IsoDate
+  segmentDetailId?: Id
   debet: Money
   credit: Money
 }
@@ -236,11 +242,16 @@ export async function movementsByDate(opts: MovementsByDateOptions): Promise<Dat
       segChunks.push(undefined)
     }
 
+    // Short ranges: drive from gl's trans_date index (see movementsByPeriods). Long ranges (trial-balance
+    // fallback over the whole history) are better served by the coa_id index, so the optimizer decides.
+    const driveFromGl = diffDays(opts.to, opts.from) <= 400
+
     for (const cChunk of coaChunks) {
       for (const sChunk of segChunks) {
         const query = sql`
-          SELECT d.coa_id AS coaId
+          SELECT ${driveFromGl ? sql`STRAIGHT_JOIN ` : sql``}d.coa_id AS coaId
                  ${opts.byDate ? sql`, DATE(g.trans_date) AS transDate` : sql``}
+                 ${opts.bySegment ? sql`, d.${segIdent} AS segmentDetailId` : sql``}
                  , SUM(d.debet) AS debet, SUM(d.credit) AS credit
           FROM ${glIdent} g
           JOIN ${glDetailIdent} d ON d.gl_id = g.gl_id
@@ -252,11 +263,13 @@ export async function movementsByDate(opts: MovementsByDateOptions): Promise<Dat
             ${sChunk ? sql`AND d.${segIdent} IN (${inList(sChunk)})` : sql``}
           GROUP BY d.coa_id
                    ${opts.byDate ? sql`, DATE(g.trans_date)` : sql``}
+                   ${opts.bySegment ? sql`, d.${segIdent}` : sql``}
         `
 
         const queryRows = await rows<{
           coaId: string
           transDate?: string
+          segmentDetailId?: string | null
           debet: string | number
           credit: string | number
         }>(query)
@@ -264,7 +277,8 @@ export async function movementsByDate(opts: MovementsByDateOptions): Promise<Dat
         for (const r of queryRows) {
           const coaId = String(r.coaId)
           const transDate = r.transDate ? String(r.transDate).slice(0, 10) : undefined
-          const key = `${coaId}|${transDate ?? ''}`
+          const segmentDetailId = opts.bySegment ? String(r.segmentDetailId ?? '') : undefined
+          const key = `${coaId}|${transDate ?? ''}|${segmentDetailId ?? ''}`
 
           const existing = resultMap.get(key)
           if (existing) {
@@ -274,6 +288,7 @@ export async function movementsByDate(opts: MovementsByDateOptions): Promise<Dat
             resultMap.set(key, {
               coaId,
               transDate,
+              segmentDetailId,
               debet: D(r.debet || 0).toFixed(2),
               credit: D(r.credit || 0).toFixed(2),
             })
@@ -288,6 +303,7 @@ export async function movementsByDate(opts: MovementsByDateOptions): Promise<Dat
 
 export type OpeningBalanceRow = {
   coaId: Id
+  segmentDetailId?: Id
   opening: Money
 }
 
@@ -296,6 +312,8 @@ export async function openingBalances(opts: {
   segCol: string
   segIds: Id[] | 'all'
   coaIds: Id[]
+  /** Group by segment1_id (one row per coa × segment detail). */
+  bySegment?: boolean
 }): Promise<OpeningBalanceRow[]> {
   if (opts.coaIds.length === 0) return []
 
@@ -319,29 +337,38 @@ export async function openingBalances(opts: {
     segChunks.push(undefined)
   }
 
-  const resultMap = new Map<Id, Money>()
+  const resultMap = new Map<string, OpeningBalanceRow>()
 
   for (const cChunk of coaChunks) {
     for (const sChunk of segChunks) {
       const query = sql`
-        SELECT o.coa_id AS coaId, SUM(o.opening_balance) AS opening
+        SELECT o.coa_id AS coaId
+               ${opts.bySegment ? sql`, o.segment1_id AS segmentDetailId` : sql``}
+               , SUM(o.opening_balance) AS opening
         FROM coa_opening_balance_location o
         WHERE o.periode_id = ${opts.periodeId}
           AND o.coa_id IN (${inList(cChunk)})
           ${sChunk ? sql`AND o.segment1_id IN (${inList(sChunk)})` : sql``}
-        GROUP BY o.coa_id
+        GROUP BY o.coa_id ${opts.bySegment ? sql`, o.segment1_id` : sql``}
       `
 
-      const queryRows = await rows<{ coaId: string; opening: string | number }>(query)
+      const queryRows = await rows<{
+        coaId: string
+        segmentDetailId?: string | null
+        opening: string | number
+      }>(query)
       for (const r of queryRows) {
         const coaId = String(r.coaId)
-        const current = resultMap.get(coaId) ?? '0.00'
-        resultMap.set(coaId, D(current).plus(D(r.opening || 0)).toFixed(2))
+        const segmentDetailId = opts.bySegment ? String(r.segmentDetailId ?? '') : undefined
+        const key = `${coaId}|${segmentDetailId ?? ''}`
+        const current = resultMap.get(key)
+        const opening = D(current?.opening ?? 0).plus(D(r.opening || 0)).toFixed(2)
+        resultMap.set(key, { coaId, segmentDetailId, opening })
       }
     }
   }
 
-  return Array.from(resultMap.entries()).map(([coaId, opening]) => ({ coaId, opening }))
+  return Array.from(resultMap.values())
 }
 
 export async function countOpeningRows(periodeId: Id): Promise<number> {
@@ -481,7 +508,7 @@ export async function journalLines(opts: JournalLinesOptions): Promise<JournalLi
         : sql``
 
     const query = sql`
-      SELECT g.gl_id AS glId,
+      SELECT STRAIGHT_JOIN g.gl_id AS glId,
              g.journal_number AS journalNumber,
              DATE(g.trans_date) AS transDate,
              g.journal_type AS journalType,
@@ -526,5 +553,47 @@ export async function journalLines(opts: JournalLinesOptions): Promise<JournalLi
     }
   }
 
+  return results
+}
+
+export type JournalHeaderRow = {
+  glId: Id
+  journalNumber: string
+  transDate: IsoDate
+  journalType: number
+  memo: string
+}
+
+/** Journal header fields for a page of gl_ids (drill-down leaves built from cash portions). */
+export async function journalHeaders(opts: { tables: string[]; glIds: Id[] }): Promise<JournalHeaderRow[]> {
+  if (opts.tables.length === 0 || opts.glIds.length === 0) return []
+  const results: JournalHeaderRow[] = []
+  for (const tableName of opts.tables) {
+    const { gl } = glTablesOf(tableName)
+    for (let i = 0; i < opts.glIds.length; i += 1000) {
+      const chunk = opts.glIds.slice(i, i + 1000)
+      const res = await rows<{
+        glId: string
+        journalNumber: string | null
+        transDate: string
+        journalType: number | string
+        memo: string | null
+      }>(sql`
+        SELECT g.gl_id AS glId, g.journal_number AS journalNumber, DATE(g.trans_date) AS transDate,
+               g.journal_type AS journalType, g.memo AS memo
+        FROM ${sql.identifier(gl)} g
+        WHERE g.gl_id IN (${inList(chunk)})
+      `)
+      for (const r of res) {
+        results.push({
+          glId: String(r.glId),
+          journalNumber: r.journalNumber ?? '',
+          transDate: String(r.transDate).slice(0, 10),
+          journalType: Number(r.journalType) || 0,
+          memo: r.memo ?? '',
+        })
+      }
+    }
+  }
   return results
 }

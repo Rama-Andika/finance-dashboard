@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useOpenDrill } from '~/components/drill/useOpenDrill'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Download, AlertTriangle, Info } from 'lucide-react'
@@ -56,6 +57,8 @@ type CashFlowActivityRow = {
   name: string
   amount: string
   isUnclassified?: boolean
+  /** Server sub-group value, used as the drill-down id. */
+  subGroupId?: string
   isDrawerHeader?: boolean
   drawerKey?: string
 }
@@ -64,13 +67,25 @@ function CashFlowPage() {
   const deps = Route.useLoaderDeps()
   const navigate = useNavigate()
   const { data: cfData } = useQuery(cashFlowMetricOptions(deps))
-  const { data: expData } = useQuery(expensePaidMetricOptions(deps))
+  const { data: expDataRaw } = useQuery(expensePaidMetricOptions(deps))
   const { t, i18n } = useTranslation()
   const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
 
   const [activeTab, setActiveTab] = useState<'activities' | 'expensePaid'>('activities')
+  const openDrill = useOpenDrill()
 
   if (!cfData) return null
+
+  // Server labels are language-neutral; translate the fixed categories and unknown vendors here.
+  const localizeExpense = (b: Breakdown): Breakdown => ({
+    ...b,
+    label:
+      b.id === 'apBills' || b.id === 'unallocated'
+        ? t(`ui.col.${b.id}`)
+        : b.label || t('ui.col.unknownVendor'),
+    children: b.children?.map(localizeExpense),
+  })
+  const expData = expDataRaw ? { ...expDataRaw, byCategory: expDataRaw.byCategory.map(localizeExpense) } : undefined
 
   const handleRangeChange = (r: 'ytd' | 'last-12m') => {
     navigate({
@@ -142,7 +157,8 @@ function CashFlowPage() {
     for (const r of d.rows) {
       activityRows.push({
         id: `row-${d.drawer}-${r.subGroup}`,
-        name: r.subGroup,
+        name: r.unclassified ? t('ui.col.unclassified') : r.subGroup,
+        subGroupId: r.subGroup,
         amount: r.amount,
         isUnclassified: r.unclassified,
         drawerKey: d.drawer,
@@ -153,7 +169,7 @@ function CashFlowPage() {
   const activityColumns: ColumnDef<CashFlowActivityRow, any>[] = [
     {
       accessorKey: 'name',
-      header: lang === 'id' ? 'Aktivitas Arus Kas' : 'Cash Flow Activity',
+      header: t('ui.cashFlow.cashFlowActivity'),
       cell: ({ row }) => {
         const item = row.original
         if (item.isDrawerHeader) {
@@ -175,7 +191,7 @@ function CashFlowPage() {
     },
     {
       accessorKey: 'amount',
-      header: lang === 'id' ? 'Arus Kas (Rp)' : 'Cash Flow (IDR)',
+      header: t('ui.cashFlow.cashFlowIdr'),
       meta: { align: 'right' },
       cell: ({ getValue, row }) => (
         <span className={row.original.isDrawerHeader ? 'font-bold' : undefined}>
@@ -189,12 +205,12 @@ function CashFlowPage() {
   const expenseColumns: ColumnDef<Breakdown, any>[] = [
     {
       accessorKey: 'label',
-      header: lang === 'id' ? 'Kategori Beban' : 'Expense Category',
+      header: t('ui.cashFlow.expenseCategory'),
       cell: ({ row }) => <span className="nr-name">{row.original.label}</span>,
     },
     {
       accessorKey: 'amount',
-      header: lang === 'id' ? 'Dibayarkan (Rp)' : 'Paid Amount (IDR)',
+      header: t('ui.cashFlow.paidAmountIdr'),
       meta: { align: 'right' },
       cell: ({ getValue }) => formatMoneyFull(getValue() as string, lang),
     },
@@ -228,15 +244,11 @@ function CashFlowPage() {
       <div className="text-xs text-muted flex items-center gap-1.5">
         <Info className="nr-icon nr-icon-sm" />
         <span>
-          {lang === 'id' ? 'Sumber klasifikasi:' : 'Classification source:'}{' '}
+          {t('ui.cashFlow.classificationSource')}{' '}
           <strong className="text-ink">
             {cfData.source === 'setup'
-              ? lang === 'id'
-                ? 'Tabel Cash Flow Setup'
-                : 'Cash Flow Setup Table'
-              : lang === 'id'
-                ? 'Fallback Lawan Transaksi'
-                : 'Offset Account Fallback'}
+              ? t('ui.cashFlow.cashFlowSetupTable')
+              : t('ui.cashFlow.offsetAccountFallback')}
           </strong>
         </span>
       </div>
@@ -266,7 +278,7 @@ function CashFlowPage() {
         <div className="nr-card space-y-4">
           <div className="nr-card-head" style={{ margin: 0 }}>
             <h3 className="nr-card-title">
-              {lang === 'id' ? 'Aliran Arus Kas (Waterfall)' : 'Cash Flow Waterfall'}
+              {t('ui.cashFlow.cashFlowWaterfall')}
             </h3>
             <span className="nr-muted nr-num" style={{ fontSize: 13 }}>
               {formatMoneyShort(cfData.netCashFlow, lang)}
@@ -325,7 +337,7 @@ function CashFlowPage() {
 
         {/* Dual Bar Inflow vs Outflow */}
         <CashflowChart
-          title={lang === 'id' ? 'Arus Kas Bulanan' : 'Monthly Cash Flow'}
+          title={t('ui.cashFlow.monthlyCashFlow')}
           data={cfData.monthly}
           net={cfData.netCashFlow}
           rangeLabel={deps.chart === 'last-12m' ? t('period.last12m') : t('period.ytd')}
@@ -339,7 +351,7 @@ function CashFlowPage() {
       <div className="w-72">
         <Tabs
           tabs={[
-            { id: 'activities', label: lang === 'id' ? 'Aktivitas Arus Kas' : 'Activities' },
+            { id: 'activities', label: t('ui.cashFlow.activities') },
             { id: 'expensePaid', label: t('metric.tabs.expensePaid') },
           ]}
           value={activeTab}
@@ -350,18 +362,27 @@ function CashFlowPage() {
       {/* Tab 1: Activities Table */}
       {activeTab === 'activities' && (
         <DataTable
-          title={lang === 'id' ? 'Rincian Aktivitas' : 'Activities Breakdown'}
+          title={t('ui.cashFlow.activitiesBreakdown')}
           columns={activityColumns}
           data={activityRows}
           getRowId={(r) => r.id}
+          onRowClick={(r) => {
+            if (!r.drawerKey) return
+            const drawerLabel = activityRows.find((a) => a.isDrawerHeader && a.drawerKey === r.drawerKey)?.name ?? r.drawerKey
+            const drawerStep = { kind: 'section' as const, id: r.drawerKey, label: drawerLabel }
+            openDrill(
+              'cashFlow',
+              r.isDrawerHeader ? [drawerStep] : [drawerStep, { kind: 'subrow' as const, id: r.subGroupId ?? r.name, label: r.name }],
+            )
+          }}
           emptyMessage={t('common.noData')}
           headerActions={
             <div className="flex items-center gap-2">
               <ExportCsvButton
                 rows={activityRows}
                 columns={[
-                  { header: 'Aktivitas Arus Kas', value: (r) => r.name, kind: 'text' },
-                  { header: 'Jumlah (Rp)', value: (r) => r.amount, kind: 'money' },
+                  { header: t('ui.col.cashFlowActivity'), value: (r) => r.name, kind: 'text' },
+                  { header: t('ui.col.amount'), value: (r) => r.amount, kind: 'money' },
                 ]}
                 filename={formatExportFilename('cash_flow_activities', deps.entity, deps.preset)}
               />
@@ -382,35 +403,50 @@ function CashFlowPage() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <KpiCard
-              label={lang === 'id' ? 'Total Biaya Dibayar' : 'Total Expense Paid'}
+              label={t('ui.cashFlow.totalExpensePaid')}
               value={expData.total}
               higherIsBetter={false}
             />
             <KpiCard
-              label={lang === 'id' ? 'Pelunasan Utang Vendor' : 'AP Payments'}
+              label={t('ui.cashFlow.apPayments')}
               value={expData.apPayments}
               higherIsBetter={false}
             />
             <KpiCard
-              label={lang === 'id' ? 'Pembayaran Langsung' : 'Direct Payments'}
+              label={t('ui.cashFlow.directPayments')}
               value={expData.directPayments}
               higherIsBetter={false}
             />
           </div>
 
           <DataTable
-            title={lang === 'id' ? 'Beban Dibayar per Kategori' : 'Expense Paid by Category'}
+            title={t('ui.cashFlow.expensePaidByCategory')}
             columns={expenseColumns}
             data={expData.byCategory}
             getRowId={(r) => r.id}
+            getSubRows={(r) => r.children}
+            onRowClick={(r) => {
+              const isCategory = expData.byCategory.some((c) => c.id === r.id)
+              const parent = expData.byCategory.find((c) => (c.children ?? []).some((ch) => ch.id === r.id))
+              if (isCategory) {
+                openDrill('expensePaid', [{ kind: r.id === 'apBills' || r.id === 'unallocated' ? 'section' : 'folder', id: r.id, label: r.label }])
+              } else if (parent) {
+                const parentKind = parent.id === 'apBills' || parent.id === 'unallocated' ? 'section' : 'folder'
+                const childKind = parentKind === 'section' ? 'vendor' : 'account'
+                openDrill('expensePaid', [
+                  { kind: parentKind, id: parent.id, label: parent.label },
+                  { kind: childKind, id: r.id, label: r.label },
+                ])
+              }
+            }}
             emptyMessage={t('common.noData')}
             headerActions={
               <div className="flex items-center gap-2">
                 <ExportCsvButton
                   rows={expData.byCategory}
                   columns={[
-                    { header: 'Kategori Beban', value: (r) => r.label, kind: 'text' },
-                    { header: 'Jumlah (Rp)', value: (r) => r.amount, kind: 'money' },
+                    { header: t('ui.col.expenseCategory'), value: (r) => r.label, kind: 'text' },
+                    { header: t('ui.col.amount'), value: (r) => r.amount, kind: 'money' },
                   ]}
                   filename={formatExportFilename('expense_paid', deps.entity, deps.preset)}
                 />

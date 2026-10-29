@@ -11,9 +11,9 @@ export interface PrintHeaderProps {
 }
 
 export function PrintHeader({ title, entity, preset, asOf }: PrintHeaderProps) {
-  const { i18n } = useTranslation()
+  const { t, i18n } = useTranslation()
   const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
-  const printTimestamp = new Date().toLocaleString(lang === 'id' ? 'id-ID' : 'en-US', {
+  const printTimestamp = new Date().toLocaleString(t('ui.printHeader.enUs'), {
     dateStyle: 'medium',
     timeStyle: 'short',
   })
@@ -26,10 +26,10 @@ export function PrintHeader({ title, entity, preset, asOf }: PrintHeaderProps) {
             Neraca — {title}
           </h1>
           <p className="text-xs text-neutral-600 mt-1 mb-0">
-            {lang === 'id' ? 'Entitas' : 'Entity'}:{' '}
+            {t('ui.printHeader.entity')}:{' '}
             <span className="font-semibold">{entity || 'Semua Entitas (All)'}</span>
             {' · '}
-            {lang === 'id' ? 'Periode' : 'Period'}:{' '}
+            {t('ui.printHeader.period')}:{' '}
             <span className="font-semibold">{preset || 'this-month'}</span>
             {asOf && (
               <>
@@ -41,7 +41,7 @@ export function PrintHeader({ title, entity, preset, asOf }: PrintHeaderProps) {
         </div>
         <div className="text-right text-[11px] text-neutral-500">
           <span>
-            {lang === 'id' ? 'Waktu Cetak' : 'Printed on'}: {printTimestamp}
+            {t('ui.printHeader.printedOn')}: {printTimestamp}
           </span>
         </div>
       </div>

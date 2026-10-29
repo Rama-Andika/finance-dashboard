@@ -14,6 +14,7 @@ import type { Lang } from '~/lib/finance/types'
 import type { Money } from '~/lib/finance/types'
 import { formatAxisShort, formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
 import { formatMonth, formatMonthYear } from '~/lib/format/date'
+import { useTranslation } from 'react-i18next'
 
 export type CashflowMonthData = {
   month: string // 'YYYY-MM'
@@ -44,6 +45,7 @@ export function CashflowChart({
   selectedMonth,
   onSelectMonth,
 }: CashflowChartProps) {
+  const { t } = useTranslation()
   // Transform to numeric values for recharts coordinates
   const chartData = data.map((d) => {
     const rawIn = Math.abs(Number(d.cashIn) || 0)
@@ -70,13 +72,11 @@ export function CashflowChart({
   }
 
   const ariaLabel =
-    lang === 'id'
-      ? `Kas masuk dan keluar per bulan, ${rangeLabel}. Tertinggi ${maxMonth ? formatMonth(maxMonth, 'id') : '-'}.`
-      : `Cash in and out per month, ${rangeLabel}. Peak in ${maxMonth ? formatMonth(maxMonth, 'en') : '-'}.`
+    t('ui.cashflowChart.ariaLabel', { range: rangeLabel, peak: maxMonth ? formatMonth(maxMonth, lang) : '-' })
 
   const rangeOptions = [
-    { id: 'ytd', label: lang === 'id' ? 'Tahun berjalan' : 'Year to date' },
-    { id: 'last-12m', label: lang === 'id' ? '12 bulan terakhir' : 'Last 12 months' },
+    { id: 'ytd', label: t('ui.cashflowChart.yearToDate') },
+    { id: 'last-12m', label: t('ui.cashflowChart.last12Months') },
   ] as const
 
   return (
@@ -88,7 +88,7 @@ export function CashflowChart({
             className="nr-select"
             value={range}
             onChange={(e) => onRangeChange(e.target.value as 'ytd' | 'last-12m')}
-            aria-label={lang === 'id' ? 'Rentang grafik arus kas' : 'Cash flow chart range'}
+            aria-label={t('ui.cashflowChart.cashFlowChartRange')}
           >
             {rangeOptions.map((opt) => (
               <option key={opt.id} value={opt.id}>
@@ -132,11 +132,11 @@ export function CashflowChart({
         <div className="nr-legend">
           <span>
             <i className="nr-sw-in"></i>
-            {lang === 'id' ? 'Kas masuk' : 'Cash in'}
+            {t('ui.cashflowChart.cashIn')}
           </span>
           <span>
             <i className="nr-sw-out"></i>
-            {lang === 'id' ? 'Kas keluar' : 'Cash out'}
+            {t('ui.cashflowChart.cashOut')}
           </span>
         </div>
       </div>
@@ -183,11 +183,11 @@ export function CashflowChart({
                   <div className="nr-tooltip" role="tooltip">
                     <span className="nr-tooltip-title">{fullMonth}</span>
                     <span className="nr-tooltip-row">
-                      <span>{lang === 'id' ? 'Kas masuk' : 'Cash in'}</span>
+                      <span>{t('ui.cashflowChart.cashIn')}</span>
                       <b>Rp {formatMoneyFull(item.rawIn, lang)}</b>
                     </span>
                     <span className="nr-tooltip-row">
-                      <span>{lang === 'id' ? 'Kas keluar' : 'Cash out'}</span>
+                      <span>{t('ui.cashflowChart.cashOut')}</span>
                       <b>Rp {formatMoneyFull(item.rawOut, lang)}</b>
                     </span>
                   </div>

@@ -2,6 +2,7 @@ import React from 'react'
 import Decimal from 'decimal.js'
 import type { Lang, Money } from '~/lib/finance/types'
 import { formatMoneyShort } from '~/lib/format/number'
+import { useTranslation } from 'react-i18next'
 
 export interface DonutBreakdownItem {
   id: string
@@ -36,6 +37,7 @@ export function DonutBreakdown({
   onSelect,
   periodLabel,
 }: DonutBreakdownProps) {
+  const { t } = useTranslation()
   // Sort items descending by absolute amount
   const sorted = [...items]
     .map((item) => ({ ...item, decAmount: new Decimal(item.amount || '0').abs() }))
@@ -53,7 +55,7 @@ export function DonutBreakdown({
       ...top4,
       {
         id: 'other',
-        name: lang === 'id' ? 'Lainnya' : 'Other',
+        name: t('ui.donutBreakdown.other'),
         amount: otherSum.toFixed(0),
         decAmount: otherSum,
       },
@@ -118,14 +120,18 @@ export function DonutBreakdown({
   const topSegment = displayItems[0]
   const topPct = percentages[0] ?? 0
   const ariaLabel =
-    lang === 'id'
-      ? `${title ?? 'Komposisi'} ${periodLabel ?? ''}, total ${totalFormatted}. Terbesar ${topSegment ? topSegment.name : '—'} ${topPct} persen.`
-      : `${title ?? 'Composition'} ${periodLabel ?? ''}, total ${totalFormatted}. Largest ${topSegment ? topSegment.name : '—'} ${topPct} percent.`
+    t('ui.donutBreakdown.ariaLabel', {
+      title: title ?? t('ui.donutBreakdown.composition'),
+      period: periodLabel ?? '',
+      total: totalFormatted,
+      top: topSegment ? topSegment.name : '—',
+      pct: topPct,
+    })
 
   return (
     <section className="nr-card nr-donut">
       <div className="nr-card-head" style={{ margin: 0 }}>
-        <h3 className="nr-card-title">{title ?? (lang === 'id' ? 'Komposisi' : 'Composition')}</h3>
+        <h3 className="nr-card-title">{title ?? (t('ui.donutBreakdown.composition'))}</h3>
         {periodLabel && (
           <span className="nr-muted nr-num" style={{ fontSize: 13 }}>
             {periodLabel}

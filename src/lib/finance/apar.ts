@@ -8,12 +8,28 @@ import {
 } from './aging'
 import type { Id, IsoDate, Money } from './types'
 import type { CoaTree } from './coa-tree'
-import type {
-  ApAgingPartARow,
-  ApAgingPartBRow,
-  ArAgingPartARow,
-  ArAgingPartBRow,
-} from '~/server/repo/apar.repo'
+
+// Row shapes produced by src/server/repo/apar.repo.ts. Declared here so pure logic never imports server code.
+type AgingItemBase = {
+  invoiceId: Id
+  locationId: Id
+  coaId: Id
+  txDate: IsoDate
+  dueDate: IsoDate | null
+  itemType: number
+  balance: Money
+}
+type AgingPaymentBase = {
+  cardId: Id
+  locationId: Id
+  coaId: Id
+  txDate: IsoDate
+  balance: Money
+}
+export type ApAgingPartARow = AgingItemBase & { vendorId: Id }
+export type ApAgingPartBRow = AgingPaymentBase & { vendorId: Id }
+export type ArAgingPartARow = AgingItemBase & { customerId: Id }
+export type ArAgingPartBRow = AgingPaymentBase & { customerId: Id }
 
 export type VendorAgingSummary = {
   vendorId: Id
@@ -152,7 +168,7 @@ export function computeApAging(input: {
       return {
         vendorId,
         code: v?.code || '',
-        name: v?.name || '(Vendor tidak dikenal)',
+        name: v?.name || '', // empty = unknown vendor (Q7); the page shows a translated label
         total: acc.total.toFixed(2),
         buckets: formatBuckets(acc.buckets),
       }
@@ -279,7 +295,7 @@ export function computeArAging(input: {
       return {
         customerId,
         code: c?.code || '',
-        name: c?.name || '(Pelanggan tidak dikenal)',
+        name: c?.name || '', // empty = unknown customer (Q7)
         total: acc.total.toFixed(2),
         buckets: formatBuckets(acc.buckets),
       }

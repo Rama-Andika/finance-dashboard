@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
 import { addDays } from '~/lib/format/date'
+import { D } from '~/lib/finance/money'
 import type { Id, IsoDate, Money } from '~/lib/finance/types'
 
 export type UnsettledChannelRow = {
@@ -86,7 +87,7 @@ export async function unsettledByChannel(
           segmentDetailId: r.segmentDetailId ? String(r.segmentDetailId) : '',
           txDate: String(r.txDate).slice(0, 10),
           n: Number(r.n) || 0,
-          amount: Number(r.amount || 0).toFixed(2),
+          amount: D(r.amount || 0).toFixed(2),
         })
       }
     }
@@ -146,4 +147,53 @@ export async function settlementLag(
   }
 
   return result
+}
+
+export type UnsettledTransactionRow = {
+  id: Id
+  number: string
+  txDate: IsoDate
+  amount: Money
+}
+
+/** Unsettled register rows of one channel (drill-down leaf, D30). */
+export async function unsettledTransactions(opts: {
+  coaId: Id
+  asOf: IsoDate
+  segCol: string
+  segIds: Id[] | 'all'
+  txDate?: IsoDate
+  limit: number
+  offset: number
+}): Promise<UnsettledTransactionRow[]> {
+  if (opts.segIds !== 'all' && opts.segIds.length === 0) return []
+  if (!/^segment([1-9]|1[0-5])_id$/.test(opts.segCol)) {
+    throw new Error(`Invalid segment column: ${opts.segCol}`)
+  }
+  const segIdent = sql.identifier(opts.segCol)
+  const asOfPlusOne = addDays(opts.asOf, 1)
+  const segIds = opts.segIds === 'all' ? null : opts.segIds.slice(0, 1000)
+
+  const res = await rows<{ id: string; number: string | null; txDate: string; amount: string | number }>(sql`
+    SELECT bp.bank_payment_id AS id,
+           COALESCE(bp.number, '') AS number,
+           DATE(bp.transaction_date) AS txDate,
+           bp.amount AS amount
+    FROM bank_payment bp
+    WHERE bp.type IN (1, 2)
+      AND bp.status = 0
+      AND bp.coa_id = ${opts.coaId}
+      AND bp.transaction_date < ${asOfPlusOne}
+      ${opts.txDate ? sql`AND bp.transaction_date >= ${opts.txDate} AND bp.transaction_date < ${addDays(opts.txDate, 1)}` : sql``}
+      ${segIds ? sql`AND bp.${segIdent} IN (${inList(segIds)})` : sql``}
+    ORDER BY bp.transaction_date, bp.bank_payment_id
+    LIMIT ${opts.limit} OFFSET ${opts.offset}
+  `)
+
+  return res.map((r) => ({
+    id: String(r.id),
+    number: r.number ?? '',
+    txDate: String(r.txDate).slice(0, 10),
+    amount: D(r.amount || 0).toFixed(2),
+  }))
 }

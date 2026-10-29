@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { getJournalGroupKey, JOURNAL_GROUP_LABELS } from './journal-type'
+import { getJournalGroupKey, JOURNAL_GROUP_KEYS } from './journal-type'
+import en from '~/i18n/locales/en.json'
+import id from '~/i18n/locales/id.json'
 
 describe('journal-type classification', () => {
   it('maps cash in types correctly', () => {
@@ -36,11 +38,10 @@ describe('journal-type classification', () => {
     expect(getJournalGroupKey(999)).toBe('adjustment')
   })
 
-  it('has valid labels for all groups', () => {
-    const groups = Object.keys(JOURNAL_GROUP_LABELS) as (keyof typeof JOURNAL_GROUP_LABELS)[]
-    for (const g of groups) {
-      expect(JOURNAL_GROUP_LABELS[g].id).toBeTruthy()
-      expect(JOURNAL_GROUP_LABELS[g].en).toBeTruthy()
+  it('has an EN and ID label for every group', () => {
+    for (const g of JOURNAL_GROUP_KEYS) {
+      expect((en.journalType as Record<string, string>)[g]).toBeTruthy()
+      expect((id.journalType as Record<string, string>)[g]).toBeTruthy()
     }
   })
 })

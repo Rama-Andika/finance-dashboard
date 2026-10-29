@@ -117,30 +117,30 @@ function PaymentPlanPage() {
   const columns: ColumnDef<PaymentPlanDay, any>[] = [
     {
       accessorKey: 'date',
-      header: lang === 'id' ? 'Tanggal' : 'Date',
+      header: t('ui.paymentPlan.date'),
       cell: ({ getValue }) => <span className="nr-name">{formatDate(getValue() as string, lang)}</span>,
     },
     {
       accessorKey: 'opening',
-      header: lang === 'id' ? 'Saldo Awal (Rp)' : 'Opening (IDR)',
+      header: t('ui.paymentPlan.openingIdr'),
       meta: { align: 'right' },
       cell: ({ getValue }) => formatMoneyFull(getValue() as string, lang),
     },
     {
       accessorKey: 'inflow',
-      header: lang === 'id' ? 'Masuk (Rp)' : 'Inflow (IDR)',
+      header: t('ui.paymentPlan.inflowIdr'),
       meta: { align: 'right' },
       cell: ({ getValue }) => formatMoneyFull(getValue() as string, lang),
     },
     {
       accessorKey: 'outflow',
-      header: lang === 'id' ? 'Keluar (Rp)' : 'Outflow (IDR)',
+      header: t('ui.paymentPlan.outflowIdr'),
       meta: { align: 'right' },
       cell: ({ getValue }) => formatMoneyFull(getValue() as string, lang),
     },
     {
       accessorKey: 'closing',
-      header: lang === 'id' ? 'Saldo Akhir (Rp)' : 'Closing (IDR)',
+      header: t('ui.paymentPlan.closingIdr'),
       meta: { align: 'right' },
       cell: ({ getValue, row }) => (
         <span className={row.original.isNegative ? 'text-danger font-semibold' : undefined}>
@@ -150,7 +150,7 @@ function PaymentPlanPage() {
     },
     {
       id: 'status',
-      header: 'Status',
+      header: t('ui.col.status'),
       cell: ({ row }) => {
         if (row.original.isNegative) {
           return <StatusPill tone="danger">{t('metric.minusBalance')}</StatusPill>
@@ -181,7 +181,7 @@ function PaymentPlanPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted font-medium">
-            {lang === 'id' ? 'Horizon:' : 'Horizon:'}
+            {t('ui.paymentPlan.horizon')}
           </span>
           <div className="nr-tabs" role="tablist">
             {(['7', '14', '30'] as Horizon[]).map((h) => (
@@ -193,7 +193,7 @@ function PaymentPlanPage() {
                 aria-selected={deps.horizon === h}
                 onClick={() => handleHorizonChange(h)}
               >
-                {h} {lang === 'id' ? 'Hari' : 'Days'}
+                {h} {t('ui.paymentPlan.days')}
               </button>
             ))}
           </div>
@@ -214,9 +214,7 @@ function PaymentPlanPage() {
         <Notice
           tone="warning"
           title={
-            lang === 'id'
-              ? `Ada tagihan lewat jatuh tempo sebesar ${formatMoneyShort(data.overdue, lang)}.`
-              : `There is ${formatMoneyShort(data.overdue, lang)} in overdue bills.`
+            t('ui.paymentPlan.overdueNotice', { amount: formatMoneyShort(data.overdue, lang) })
           }
         />
       )}
@@ -224,17 +222,17 @@ function PaymentPlanPage() {
       {/* KPI Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiCard
-          label={lang === 'id' ? 'Saldo Kas Awal' : 'Opening Cash'}
+          label={t('ui.paymentPlan.openingCash')}
           value={data.openingBalance}
           higherIsBetter={true}
         />
         <KpiCard
-          label={lang === 'id' ? 'Total Rencana Keluar' : 'Total Planned Outflows'}
+          label={t('ui.paymentPlan.totalPlannedOutflows')}
           value={totalOutflow}
           higherIsBetter={false}
         />
         <KpiCard
-          label={lang === 'id' ? 'Saldo Akhir Terendah' : 'Lowest Projected Balance'}
+          label={t('ui.paymentPlan.lowestProjectedBalance')}
           value={minClosing}
           higherIsBetter={true}
         />
@@ -244,10 +242,10 @@ function PaymentPlanPage() {
       <div className="nr-card space-y-4">
         <div className="nr-card-head" style={{ margin: 0 }}>
           <h3 className="nr-card-title">
-            {lang === 'id' ? 'Proyeksi Saldo Kas Harian' : 'Daily Projected Cash Balance'}
+            {t('ui.paymentPlan.dailyProjectedCashBalance')}
           </h3>
           <span className="nr-muted nr-num" style={{ fontSize: 13 }}>
-            {deps.horizon} {lang === 'id' ? 'hari ke depan' : 'days projection'}
+            {deps.horizon} {t('ui.paymentPlan.daysProjection')}
           </span>
         </div>
 
@@ -287,7 +285,7 @@ function PaymentPlanPage() {
                           {formatMoneyFull(item.rawClosing, lang)}
                         </div>
                         {item.isNegative && (
-                          <div className="text-xs text-danger mt-0.5">Saldo minus</div>
+                          <div className="text-xs text-danger mt-0.5">{t('ui.col.negativeClosing')}</div>
                         )}
                       </div>
                     )
@@ -310,7 +308,7 @@ function PaymentPlanPage() {
 
       {/* Daily Calendar Table */}
       <DataTable
-        title={lang === 'id' ? 'Jadwal Rencana Bayar Harian' : 'Daily Payment Schedule'}
+        title={t('ui.paymentPlan.dailyPaymentSchedule')}
         columns={columns}
         data={data.days}
         getRowId={(r) => r.date}
@@ -321,10 +319,10 @@ function PaymentPlanPage() {
             <ExportCsvButton
               rows={data.days}
               columns={[
-                { header: 'Tanggal', value: (r) => r.date, kind: 'date' },
-                { header: 'Penerimaan (Rp)', value: (r) => r.inflow, kind: 'money' },
-                { header: 'Pengeluaran (Rp)', value: (r) => r.outflow, kind: 'money' },
-                { header: 'Saldo Akhir (Rp)', value: (r) => r.closing, kind: 'money' },
+                { header: t('ui.col.date'), value: (r) => r.date, kind: 'date' },
+                { header: t('ui.col.inflow'), value: (r) => r.inflow, kind: 'money' },
+                { header: t('ui.col.outflow'), value: (r) => r.outflow, kind: 'money' },
+                { header: t('ui.col.closingBalance'), value: (r) => r.closing, kind: 'money' },
               ]}
               filename={formatExportFilename('payment_plan', deps.entity, deps.preset)}
             />

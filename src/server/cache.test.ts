@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createLruCache, hashIds } from './cache'
+import { createLruCache, hashIds, memo, memoSize, clearCache } from './cache'
 
 describe('LRU Cache & Closed Period Caching (Phase 14)', () => {
   it('returns cached item on second call and does not call loader', () => {
@@ -104,5 +104,24 @@ describe('LRU Cache & Closed Period Caching (Phase 14)', () => {
     expect(closedCache.get('mv|gl|p-1|Closed')).toBe('data')
     expect(closedCache.get('mv|gl|p-2|Open')).toBeUndefined()
     expect(closedCache.get('mv|gl|p-3|Pre Closed')).toBeUndefined()
+  })
+})
+
+describe('memo', () => {
+  it('shares one in-flight load between concurrent callers', async () => {
+    clearCache()
+    const loader = vi.fn(async () => 'v')
+    const [a, b] = await Promise.all([memo('k-shared', 1000, loader), memo('k-shared', 1000, loader)])
+    expect(a).toBe('v')
+    expect(b).toBe('v')
+    expect(loader).toHaveBeenCalledTimes(1)
+  })
+
+  it('never keeps more than 200 entries', async () => {
+    clearCache()
+    for (let i = 0; i < 250; i++) {
+      await memo(`k-${i}`, 60_000, async () => i)
+    }
+    expect(memoSize()).toBeLessThanOrEqual(200)
   })
 })

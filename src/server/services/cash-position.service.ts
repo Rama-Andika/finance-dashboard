@@ -9,7 +9,7 @@ import {
 } from '~/server/context'
 import { loadAccountMapping } from '~/server/services/mapping.helper'
 import { resolveBaskets } from '~/lib/finance/basket-resolver'
-import { balancesAt } from '~/server/services/balance.service'
+import { balancesAt, balancesBySegmentAt } from '~/server/services/balance.service'
 import { unsettledByChannel } from '~/server/repo/bank-payment.repo'
 import {
   buildCashPositionBreakdown,
@@ -34,9 +34,19 @@ export type CashPositionResult = {
   reconciliation: CashPositionReconciliation
 }
 
+export type CashPositionOptions = {
+  /** Per-entity breakdown (one grouped query). Callers that only need totals pass false. */
+  includeByEntity?: boolean
+  /** Balance at compare.asOf for the KPI comparison. */
+  includeCompare?: boolean
+}
+
 export async function computeCashPosition(
   filter: AppContextFilter,
+  opts: CashPositionOptions = {},
 ): Promise<CashPositionResult> {
+  const includeByEntity = opts.includeByEntity ?? true
+  const includeCompare = opts.includeCompare ?? true
   const meta = buildMetricMeta(filter)
   const tree = await getCachedCoaTree()
   const mapping = await loadAccountMapping(tree)
@@ -82,7 +92,7 @@ export async function computeCashPosition(
 
   // 2. Compare cash position at compare.asOf
   let compareCashPosition: Money | null = null
-  if (filter.compare && filter.compare.asOf) {
+  if (includeCompare && filter.compare && filter.compare.asOf) {
     const compareRes = await balancesAt({
       asOf: filter.compare.asOf,
       coaIds: Array.from(new Set([...cashIds, ...bankIds])),
@@ -137,36 +147,38 @@ export async function computeCashPosition(
   const registerUnsettledTotal = sum(unsettled.map((u) => u.amount))
   const reconciliation = reconcileInTransit(totals.inTransit, registerUnsettledTotal)
 
-  // 6. By Entity
-  const { entities } = await getCachedEntities()
-  const targetEntities =
-    filter.locationIds === 'all'
-      ? entities
-      : entities.filter((e) => filter.locationIds.includes(e.locationId))
+  // 6. By Entity — one grouped query for all entities (not one balance run per entity)
+  let byEntityList: CashPositionResult['byEntity'] = []
+  if (includeByEntity) {
+    const { entities } = await getCachedEntities()
+    const targetEntities =
+      filter.locationIds === 'all'
+        ? entities
+        : entities.filter((e) => filter.locationIds.includes(e.locationId))
 
-  const cashAndBankIds = Array.from(new Set([...cashIds, ...bankIds]))
+    const cashAndBankIds = Array.from(new Set([...cashIds, ...bankIds]))
+    const { bySegment } = await balancesBySegmentAt({
+      asOf: filter.asOf,
+      coaIds: cashAndBankIds,
+      filter,
+    })
 
-  const byEntityList = await Promise.all(
-    targetEntities.map(async (e) => {
-      const entRes = await balancesAt({
-        asOf: filter.asOf,
-        coaIds: cashAndBankIds,
-        filter: {
-          ...filter,
-          locationIds: [e.locationId],
-          segmentDetailIds: e.segmentDetailIds,
-        },
-      })
-
-      const entSum = sum(cashAndBankIds.map((id) => entRes.byCoa.get(id) ?? '0.00'))
+    byEntityList = targetEntities.map((e) => {
+      const amounts: Money[] = []
+      for (const segId of e.segmentDetailIds) {
+        const segBalances = bySegment.get(segId)
+        if (!segBalances) continue
+        for (const id of cashAndBankIds) amounts.push(segBalances.get(id) ?? '0.00')
+      }
+      const entSum = sum(amounts)
       return {
         code: e.code,
         name: e.name,
         amount: entSum,
         isNegative: D(entSum).lt(0),
       }
-    }),
-  )
+    })
+  }
 
   return {
     meta,

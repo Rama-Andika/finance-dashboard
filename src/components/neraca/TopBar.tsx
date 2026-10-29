@@ -57,7 +57,7 @@ export function TopBar({
   const { prefs } = RootRoute.useRouteContext()
   const { t } = useTranslation()
 
-  const userName = user?.name || (prefs.lang === 'id' ? 'Pengguna' : 'User')
+  const userName = user?.name || t('ui.topBar.user')
   const initials = userName
     .split(' ')
     .filter(Boolean)

@@ -12,6 +12,8 @@ import type { Id, IsoDate, Money } from '~/lib/finance/types'
 
 export type ExpensePaidAllocatedRow = {
   cardId: Id
+  cardNumber: string
+  txDate: IsoDate
   locationId: Id
   vendorId: Id
   itemType: number
@@ -20,6 +22,8 @@ export type ExpensePaidAllocatedRow = {
 
 export type ExpensePaidUnallocatedRow = {
   cardId: Id
+  cardNumber: string
+  txDate: IsoDate
   locationId: Id
   vendorId: Id
   signedAmount: Money
@@ -46,6 +50,8 @@ export async function expensePaidAllocated(
   for (const lChunk of locChunks) {
     const query = sql`
       SELECT p.ap_ar_card_id AS cardId,
+             COALESCE(p.transaction_number, '') AS cardNumber,
+             DATE(p.transaction_date) AS txDate,
              p.location_id AS locationId,
              i.owner_id AS vendorId,
              i.transaction_type AS itemType,
@@ -59,11 +65,13 @@ export async function expensePaidAllocated(
         AND p.transaction_date >= ${d1}
         AND p.transaction_date < ${d2PlusOne}
         ${lChunk ? sql`AND p.location_id IN (${inList(lChunk)})` : sql``}
-      GROUP BY p.ap_ar_card_id, p.location_id, i.owner_id, i.transaction_type
+      GROUP BY p.ap_ar_card_id, p.transaction_number, DATE(p.transaction_date), p.location_id, i.owner_id, i.transaction_type
     `
 
     const res = await rows<{
       cardId: string
+      cardNumber: string
+      txDate: string
       locationId: string | null
       vendorId: string | null
       itemType: number | string
@@ -73,6 +81,8 @@ export async function expensePaidAllocated(
     for (const r of res) {
       results.push({
         cardId: String(r.cardId),
+        cardNumber: r.cardNumber ?? '',
+        txDate: String(r.txDate).slice(0, 10),
         locationId: r.locationId ? String(r.locationId) : '',
         vendorId: r.vendorId ? String(r.vendorId) : '',
         itemType: Number(r.itemType) || 0,
@@ -105,6 +115,8 @@ export async function expensePaidUnallocated(
   for (const lChunk of locChunks) {
     const query = sql`
       SELECT p.ap_ar_card_id AS cardId,
+             COALESCE(p.transaction_number, '') AS cardNumber,
+             DATE(p.transaction_date) AS txDate,
              p.location_id AS locationId,
              p.owner_id AS vendorId,
              p.amount * p.in_out AS signedAmount
@@ -121,6 +133,8 @@ export async function expensePaidUnallocated(
 
     const res = await rows<{
       cardId: string
+      cardNumber: string
+      txDate: string
       locationId: string | null
       vendorId: string | null
       signedAmount: number | string
@@ -129,6 +143,8 @@ export async function expensePaidUnallocated(
     for (const r of res) {
       results.push({
         cardId: String(r.cardId),
+        cardNumber: r.cardNumber ?? '',
+        txDate: String(r.txDate).slice(0, 10),
         locationId: r.locationId ? String(r.locationId) : '',
         vendorId: r.vendorId ? String(r.vendorId) : '',
         signedAmount: D(r.signedAmount || 0).toFixed(2),

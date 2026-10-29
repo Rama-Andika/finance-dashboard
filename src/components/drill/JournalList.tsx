@@ -1,6 +1,7 @@
 import type { Lang } from '~/lib/finance/types'
 import { formatDate } from '~/lib/format/date'
 import { formatMoneyFull } from '~/lib/format/number'
+import { useTranslation } from 'react-i18next'
 
 export type JournalItem = {
   id: string
@@ -18,10 +19,11 @@ export interface JournalListProps {
 }
 
 export function JournalList({ items, lang }: JournalListProps) {
+  const { t } = useTranslation()
   if (items.length === 0) {
     return (
       <div className="text-center py-8 text-muted text-sm">
-        {lang === 'id' ? 'Tidak ada baris jurnal' : 'No journal lines'}
+        {t('ui.journalList.noJournalLines')}
       </div>
     )
   }
@@ -31,12 +33,12 @@ export function JournalList({ items, lang }: JournalListProps) {
       <table className="nr-table">
         <thead>
           <tr>
-            <th>{lang === 'id' ? 'No. Jurnal' : 'Journal No.'}</th>
-            <th>{lang === 'id' ? 'Tanggal' : 'Date'}</th>
-            <th>{lang === 'id' ? 'Tipe' : 'Type'}</th>
-            <th>{lang === 'id' ? 'Keterangan' : 'Memo'}</th>
-            <th className="nr-r">{lang === 'id' ? 'Debet (Rp)' : 'Debit (IDR)'}</th>
-            <th className="nr-r">{lang === 'id' ? 'Kredit (Rp)' : 'Credit (IDR)'}</th>
+            <th>{t('ui.journalList.journalNo')}</th>
+            <th>{t('ui.journalList.date')}</th>
+            <th>{t('ui.journalList.type')}</th>
+            <th>{t('ui.journalList.memo')}</th>
+            <th className="nr-r">{t('ui.journalList.debitIdr')}</th>
+            <th className="nr-r">{t('ui.journalList.creditIdr')}</th>
           </tr>
         </thead>
         <tbody>

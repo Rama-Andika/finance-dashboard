@@ -18,6 +18,7 @@ import { Button } from '~/components/neraca/Button'
 import { ExportCsvButton, formatExportFilename } from '~/components/export/ExportCsvDialog'
 import { PrintButton } from '~/components/export/PrintButton'
 import { PrintHeader } from '~/components/export/PrintHeader'
+import { useOpenDrill } from '~/components/drill/useOpenDrill'
 import { formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
 import { formatMonthYear, getCompareLabel } from '~/lib/format/date'
 import type { Breakdown, Lang } from '~/lib/finance/types'
@@ -47,20 +48,35 @@ function CashPositionPage() {
   const { t, i18n } = useTranslation()
   const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
 
+  const openDrill = useOpenDrill()
+
   if (!data) return null
 
   const compareLabel = getCompareLabel(deps.preset, lang)
+
+  // Category labels come from the server in neutral form; translate cash/bank here.
+  const byFolder: Breakdown[] = data.byFolder.map((c) =>
+    c.id === 'cash' || c.id === 'bank' ? { ...c, label: t(`cashCard.${c.id}`) } : c,
+  )
+
+  // Cash & bank rows: category (cash/bank) → folder → account; each level opens the matching drill step.
+  const categoryIds = new Set(data.byFolder.map((c) => c.id))
+  const folderIds = new Set(data.byFolder.flatMap((c) => (c.children ?? []).map((f) => f.id)))
+  const openCashRow = (r: Breakdown) => {
+    const kind = categoryIds.has(r.id) ? 'section' : folderIds.has(r.id) ? 'folder' : 'account'
+    openDrill('cashPosition', [{ kind, id: r.id, label: r.label }])
+  }
 
   // 1. Folders columns
   const folderColumns: ColumnDef<Breakdown, any>[] = [
     {
       accessorKey: 'label',
-      header: lang === 'id' ? 'Kategori Kas & Bank' : 'Cash & Bank Category',
+      header: t('ui.cashPosition.cashBankCategory'),
       cell: ({ row }) => <span className="nr-name">{row.original.label}</span>,
     },
     {
       accessorKey: 'amount',
-      header: lang === 'id' ? 'Saldo (Rp)' : 'Balance (IDR)',
+      header: t('ui.cashPosition.balanceIdr'),
       meta: { align: 'right' },
       cell: ({ getValue }) => formatMoneyFull(getValue() as string, lang),
     },
@@ -70,34 +86,34 @@ function CashPositionPage() {
   const inTransitColumns: ColumnDef<InTransitDetailItem, any>[] = [
     {
       accessorKey: 'name',
-      header: 'Channel',
+      header: t('ui.col.channel'),
       cell: ({ row }) => <span className="nr-name">{row.original.name}</span>,
     },
     {
       accessorKey: 'count',
-      header: lang === 'id' ? 'Jml Transaksi' : 'Tx Count',
+      header: t('ui.cashPosition.txCount'),
       meta: { align: 'right' },
       cell: ({ getValue }) => getValue(),
     },
     {
       accessorKey: 'oldestAgeDays',
-      header: lang === 'id' ? 'Umur Tertua' : 'Oldest Age',
-      cell: ({ getValue }) => `${getValue()} ${lang === 'id' ? 'hari' : 'days'}`,
+      header: t('ui.cashPosition.oldestAge'),
+      cell: ({ getValue }) => `${getValue()} ${t('ui.cashPosition.days')}`,
     },
     {
       accessorKey: 'amount',
-      header: lang === 'id' ? 'Nilai (Rp)' : 'Amount (IDR)',
+      header: t('ui.cashPosition.amountIdr'),
       meta: { align: 'right' },
       cell: ({ getValue }) => formatMoneyFull(getValue() as string, lang),
     },
     {
       id: 'status',
-      header: 'Status',
+      header: t('ui.col.status'),
       cell: ({ row }) =>
         row.original.overThreeDays ? (
-          <StatusPill tone="warning">{lang === 'id' ? 'Lewat 3 hari' : 'Over 3 days'}</StatusPill>
+          <StatusPill tone="warning">{t('ui.cashPosition.over3Days')}</StatusPill>
         ) : (
-          <StatusPill tone="neutral">{lang === 'id' ? 'Lancar' : 'Normal'}</StatusPill>
+          <StatusPill tone="neutral">{t('ui.cashPosition.normal')}</StatusPill>
         ),
     },
   ]
@@ -109,13 +125,13 @@ function CashPositionPage() {
   >[] = [
     {
       accessorKey: 'name',
-      header: lang === 'id' ? 'Entitas' : 'Entity',
+      header: t('ui.cashPosition.entity'),
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <span className="nr-name">{row.original.name}</span>
           <span className="nr-sub">{row.original.code}</span>
           {row.original.isNegative && (
-            <span title="Saldo negatif">
+            <span title={t('ui.col.negativeBalance')}>
               <AlertCircle className="nr-icon nr-icon-sm text-danger" />
             </span>
           )}
@@ -124,7 +140,7 @@ function CashPositionPage() {
     },
     {
       accessorKey: 'amount',
-      header: lang === 'id' ? 'Saldo (Rp)' : 'Balance (IDR)',
+      header: t('ui.cashPosition.balanceIdr'),
       meta: { align: 'right' },
       cell: ({ getValue, row }) => (
         <span className={row.original.isNegative ? 'text-danger font-semibold' : undefined}>
@@ -163,14 +179,10 @@ function CashPositionPage() {
         <Notice
           tone="danger"
           title={
-            lang === 'id'
-              ? `Saldo GL dan register pencairan selisih ${formatMoneyShort(data.reconciliation.diff, lang)}.`
-              : `GL balance and settlement register differ by ${formatMoneyShort(data.reconciliation.diff, lang)}.`
+            t('ui.cashPosition.registerDiff', { amount: formatMoneyShort(data.reconciliation.diff, lang) })
           }
           body={
-            lang === 'id'
-              ? 'Kemungkinan ada jurnal pencairan yang belum diposting.'
-              : 'Likely some settlement journals have not been posted yet.'
+            t('ui.cashPosition.likelySomeSettlementJournalsHave')
           }
         />
       )}
@@ -187,7 +199,7 @@ function CashPositionPage() {
         />
 
         <KpiCard
-          label={lang === 'id' ? 'Dana dalam Pencairan' : 'In Transit'}
+          label={t('ui.cashPosition.inTransit')}
           value={data.inTransit}
           compareLabel={`${data.inTransitDetail.length} channel`}
           higherIsBetter={false}
@@ -213,18 +225,20 @@ function CashPositionPage() {
 
       {/* Table 1: Kas / Bank per folder */}
       <DataTable
-        title={lang === 'id' ? 'Rincian Kas & Bank' : 'Cash & Bank Breakdown'}
+        title={t('ui.cashPosition.cashBankBreakdown')}
         columns={folderColumns}
-        data={data.byFolder}
+        data={byFolder}
         getRowId={(r) => r.id}
+        getSubRows={(r) => r.children}
+        onRowClick={openCashRow}
         emptyMessage={t('common.noData')}
         headerActions={
           <div className="flex items-center gap-2">
             <ExportCsvButton
-              rows={data.byFolder}
+              rows={byFolder}
               columns={[
-                { header: 'Kategori / Folder', value: (r) => r.label, kind: 'text' },
-                { header: 'Saldo (Rp)', value: (r) => r.amount, kind: 'money' },
+                { header: t('ui.col.categoryFolder'), value: (r) => r.label, kind: 'text' },
+                { header: t('ui.col.balanceAmount'), value: (r) => r.amount, kind: 'money' },
               ]}
               filename={formatExportFilename('cash_position', deps.entity, deps.preset)}
             />
@@ -241,10 +255,11 @@ function CashPositionPage() {
 
       {/* Table 2: Dana Dalam Pencairan per channel */}
       <DataTable
-        title={lang === 'id' ? 'Dana Dalam Pencairan per Channel' : 'In Transit by Channel'}
+        title={t('ui.cashPosition.inTransitByChannel')}
         columns={inTransitColumns}
         data={data.inTransitDetail}
         getRowId={(r) => r.coaId}
+        onRowClick={(r) => openDrill('inTransit', [{ kind: 'channel', id: r.coaId, label: r.name }])}
         emptyMessage={t('common.noData')}
         mobileCard={(r) => (
           <div className="space-y-1">
@@ -254,7 +269,7 @@ function CashPositionPage() {
             </div>
             <div className="text-xs text-muted flex justify-between">
               <span>{r.count} transaksi · tertua {r.oldestAgeDays} hari</span>
-              {r.overThreeDays && <StatusPill tone="warning">Lewat 3 hari</StatusPill>}
+              {r.overThreeDays && <StatusPill tone="warning">{t('ui.col.overThreeDays')}</StatusPill>}
             </div>
           </div>
         )}
@@ -262,7 +277,7 @@ function CashPositionPage() {
 
       {/* Table 3: Saldo per Entitas */}
       <DataTable
-        title={lang === 'id' ? 'Saldo Kas per Entitas' : 'Cash Balance by Entity'}
+        title={t('ui.cashPosition.cashBalanceByEntity')}
         columns={entityColumns}
         data={data.byEntity}
         getRowId={(r) => r.code}

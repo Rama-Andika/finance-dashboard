@@ -46,6 +46,9 @@ export const drillSchema = z.object({
   metric: z.string().max(40),
   steps: z.array(drillStepSchema).max(8),
 })
+export type DrillStep = z.infer<typeof drillStepSchema>
+export type DrillStepKind = DrillStep['kind']
+export type DrillState = z.infer<typeof drillSchema>
 
 export const drillSearchSchema = z.object({
   drill: z

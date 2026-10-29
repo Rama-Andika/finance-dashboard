@@ -61,7 +61,7 @@ export function computeExpensePaidBreakdown(input: {
       const v = vendorNames.get(vId)
       return {
         id: vId,
-        label: v?.name || '(Vendor tidak dikenal)',
+        label: v?.name || '', // empty = unknown vendor (Q7)
         code: v?.code,
         amount: amt.toFixed(2),
       }
@@ -70,7 +70,7 @@ export function computeExpensePaidBreakdown(input: {
 
   const apCategory: Breakdown = {
     id: 'apBills',
-    label: 'Pembayaran Tagihan AP',
+    label: 'AP bill payments', // translated on the page by id
     amount: apSum.toFixed(2),
     children: apVendorChildren,
   }
@@ -94,7 +94,7 @@ export function computeExpensePaidBreakdown(input: {
     const v = vendorNames.get(vId)
     return {
       id: vId,
-      label: v?.name || '(Vendor tidak dikenal)',
+      label: v?.name || '', // empty = unknown vendor (Q7)
       code: v?.code,
       amount: amt.toFixed(2),
     }
@@ -102,7 +102,7 @@ export function computeExpensePaidBreakdown(input: {
 
   const unallocCategory: Breakdown = {
     id: 'unallocated',
-    label: 'Pembayaran Belum Dialokasikan',
+    label: 'Unallocated payments', // translated on the page by id
     amount: unallocSum.toFixed(2),
     children: unallocVendorChildren,
   }
