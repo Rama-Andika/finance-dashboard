@@ -45,7 +45,8 @@ export function DrillSheet() {
   const { offset, setOffset, allRows, data, isLoading, isFetching, error, refetch } = useDrillData(search, drill, isOpen)
 
   const updateSearch = (updater: SearchUpdater) => {
-    navigate({ to: '.', search: updater as never })
+    // Opening or stepping through a drill must not scroll the page behind the sheet to the top
+    navigate({ to: '.', search: updater as never, resetScroll: false })
   }
 
   const handleClose = () => {

@@ -20,7 +20,8 @@ export function useTableSearch<K extends string>(sortKeys: readonly K[]) {
   }
 
   const patch = (next: Partial<TableSearch>) =>
-    navigate({ to: '.', search: searchUpdater((prev) => ({ ...prev, ...next })), replace: true })
+    // resetScroll: false keeps the reader where they are; the router would otherwise jump to the top
+    navigate({ to: '.', search: searchUpdater((prev) => ({ ...prev, ...next })), replace: true, resetScroll: false })
 
   return {
     query,

@@ -55,6 +55,7 @@ function ReceivablesPage() {
   const handleSelectBucket = (bucket: string) => {
     navigate({
       to: '/receivables',
+      resetScroll: false,
       search: searchUpdater((prev) => ({
         ...prev,
         drill: {
@@ -68,6 +69,7 @@ function ReceivablesPage() {
   const handleSelectCustomer = (customer: AgingPartyRow) => {
     navigate({
       to: '/receivables',
+      resetScroll: false,
       search: searchUpdater((prev) => ({
         ...prev,
         drill: {

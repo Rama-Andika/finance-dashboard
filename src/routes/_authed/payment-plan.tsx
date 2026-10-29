@@ -65,6 +65,7 @@ function PaymentPlanPage() {
   const handleHorizonChange = (h: Horizon) => {
     navigate({
       to: '/payment-plan',
+      resetScroll: false,
       search: searchUpdater((prev) => ({
         ...prev,
         horizon: h,
@@ -75,6 +76,7 @@ function PaymentPlanPage() {
   const handleToggleInflow = () => {
     navigate({
       to: '/payment-plan',
+      resetScroll: false,
       search: searchUpdater((prev) => ({
         ...prev,
         inflow: !deps.inflow,
@@ -85,6 +87,7 @@ function PaymentPlanPage() {
   const handleSelectDay = (date: string) => {
     navigate({
       to: '/payment-plan',
+      resetScroll: false,
       search: searchUpdater((prev) => ({
         ...prev,
         drill: {

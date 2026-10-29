@@ -11,6 +11,6 @@ export function useOpenDrill() {
       ...prev,
       drill: { metric, steps: steps.map((s) => ({ ...s, label: s.label.slice(0, 200) })) },
     })
-    navigate({ to: '.', search: updater as never })
+    navigate({ to: '.', search: updater as never, resetScroll: false })
   }
 }

@@ -71,6 +71,7 @@ function RevenuePage() {
     const folder = data.byFolder.find((f) => f.id === folderId)
     navigate({
       to: '/revenue',
+      resetScroll: false,
       search: searchUpdater((prev) => ({
         ...prev,
         drill: {

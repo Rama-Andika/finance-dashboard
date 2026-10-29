@@ -60,6 +60,7 @@ function SummaryPage() {
   const handleRangeChange = (r: 'ytd' | 'last-12m') => {
     navigate({
       to: '/summary',
+      resetScroll: false,
       search: searchUpdater((prev) => ({
         ...prev,
         chart: r,

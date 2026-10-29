@@ -94,6 +94,7 @@ function CashFlowPage() {
   const handleRangeChange = (r: 'ytd' | 'last-12m') => {
     navigate({
       to: '/cash-flow',
+      resetScroll: false,
       search: searchUpdater((prev) => ({
         ...prev,
         chart: r,

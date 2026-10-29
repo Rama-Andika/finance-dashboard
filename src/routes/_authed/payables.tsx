@@ -55,6 +55,7 @@ function PayablesPage() {
   const handleSelectBucket = (bucket: string) => {
     navigate({
       to: '/payables',
+      resetScroll: false,
       search: searchUpdater((prev) => ({
         ...prev,
         drill: {
@@ -68,6 +69,7 @@ function PayablesPage() {
   const handleSelectVendor = (vendor: AgingPartyRow) => {
     navigate({
       to: '/payables',
+      resetScroll: false,
       search: searchUpdater((prev) => ({
         ...prev,
         drill: {
