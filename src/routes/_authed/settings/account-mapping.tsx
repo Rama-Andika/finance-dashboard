@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
-import { createFileRoute, useRouter } from '@tanstack/react-router'
+import { qk } from '~/queries/keys'
+import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Notice } from '~/components/neraca/Notice'
@@ -28,7 +29,6 @@ const BASKET_TABS: Array<{ id: BasketKey; labelKey: string }> = [
 
 function AccountMappingPage() {
   const { t } = useTranslation()
-  const router = useRouter()
   const queryClient = useQueryClient()
   const search = Route.useSearch()
 
@@ -107,9 +107,13 @@ function AccountMappingPage() {
 
       if (res.ok) {
         setSaveSuccess(true)
-        await queryClient.invalidateQueries({ queryKey: ['metric'] })
-        await queryClient.invalidateQueries({ queryKey: ['settings'] })
-        await router.invalidate()
+        // Metrics and data checks depend on the mapping. Mark them stale WITHOUT refetching now:
+        // awaiting a refetch of a slow metric (AP aging takes minutes) kept the button on "Saving..."
+        // long after the mapping was saved. They reload the next time their page is opened.
+        void queryClient.invalidateQueries({ queryKey: ['metric'], refetchType: 'none' })
+        void queryClient.invalidateQueries({ queryKey: ['data-checks'], refetchType: 'none' })
+        // Only the mapping changed (not the chart of accounts); refresh it in the background
+        void queryClient.invalidateQueries({ queryKey: qk.accountMapping() })
       }
     } finally {
       setIsSaving(false)
@@ -213,11 +217,7 @@ function AccountMappingPage() {
         })}
 
         {saveSuccess && (
-          <Notice
-            tone="warning"
-            title={t('settings.saveSuccess')}
-            className="border-primary/50 text-ink"
-          />
+          <Notice tone="success" title={t('settings.saveSuccess')} />
         )}
       </div>
 

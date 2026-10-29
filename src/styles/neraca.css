@@ -297,3 +297,6 @@ body, .nr-card, .nr-topbar, .nr-sidebar, .nr-table-wrap, .nr-select {
 .nr-pager-nav { display: inline-flex; align-items: center; gap: var(--space-2); }
 .nr-pager-nav .nr-btn { height: 32px; padding: 0 var(--space-2); }
 .nr-pager-nav .nr-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.nr-notice-success { background: color-mix(in srgb, var(--positive) 14%, var(--surface)); }
+.nr-notice-success .nr-icon { color: var(--positive); }
