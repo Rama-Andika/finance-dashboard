@@ -1,3 +1,4 @@
+import { limitMonthOptions } from '~/lib/finance/period-options'
 import { useEffect, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Calendar } from 'lucide-react'
@@ -91,6 +92,8 @@ export function PeriodSelect({
     setDraftTo(to ?? months[0]?.month ?? '')
   }, [from, to, months])
   const draftInvalid = !draftFrom || !draftTo || draftFrom > draftTo
+  // Only the newest 12 months are listed; the range that is selected right now always stays listed.
+  const monthOptions = useMemo(() => limitMonthOptions(months, [from, to, draftFrom, draftTo]), [months, from, to, draftFrom, draftTo])
 
   const statusLabel = (status: PeriodMonthOption['status']) =>
     t(`period.picker.${status === 'Open' ? 'open' : status === 'Pre Closed' ? 'preClosed' : 'closed'}`)
@@ -200,7 +203,7 @@ export function PeriodSelect({
                         value={draftFrom}
                         onChange={(e) => setDraftFrom(e.target.value)}
                       >
-                        {months.map((m) => (
+                        {monthOptions.map((m) => (
                           <option key={m.month} value={m.month}>
                             {monthLabel(m.month)} · {statusLabel(m.status)}
                           </option>
@@ -214,7 +217,7 @@ export function PeriodSelect({
                         value={draftTo}
                         onChange={(e) => setDraftTo(e.target.value)}
                       >
-                        {months.map((m) => (
+                        {monthOptions.map((m) => (
                           <option key={m.month} value={m.month}>
                             {monthLabel(m.month)} · {statusLabel(m.status)}
                           </option>
