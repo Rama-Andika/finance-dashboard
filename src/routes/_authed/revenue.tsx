@@ -13,7 +13,7 @@ import {
   CartesianGrid,
   Tooltip as RechartsTooltip,
 } from 'recharts'
-import { chartSearchSchema, drillSearchSchema } from '~/lib/filters/search-schema'
+import { drillSearchSchema } from '~/lib/filters/search-schema'
 import { revenueMetricOptions } from '~/queries/metrics.queries'
 import { MetricSkeleton } from '~/components/neraca/MetricSkeleton'
 import { MetricError } from '~/components/neraca/MetricError'
@@ -30,14 +30,14 @@ import { formatMonth, formatMonthYear, getCompareLabel } from '~/lib/format/date
 import type { Breakdown, Lang } from '~/lib/finance/types'
 
 export const Route = createFileRoute('/_authed/revenue')({
-  validateSearch: chartSearchSchema.extend(drillSearchSchema.shape),
+  validateSearch: drillSearchSchema,
   loaderDeps: ({ search }) => ({
     entity: search.entity,
     preset: search.preset,
     from: search.from,
     to: search.to,
     p13: search.p13,
-    chart: search.chart,
+
   }),
   loader: ({ context, deps }) =>
     context.queryClient.ensureQueryData(revenueMetricOptions(deps)),
@@ -91,7 +91,7 @@ function RevenuePage() {
     rawAmount: m.amount,
   }))
 
-  const columns: ColumnDef<Breakdown, any>[] = [
+  const columns: ColumnDef<Breakdown, unknown>[] = [
     {
       accessorKey: 'label',
       header: t('ui.revenue.categoryFolder'),

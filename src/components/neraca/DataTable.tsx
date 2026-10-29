@@ -26,8 +26,8 @@ export type TableColumnMeta = {
   sortDefault?: SortDir
 }
 
-export interface DataTableProps<T extends Record<string, any>> {
-  columns: ColumnDef<T, any>[]
+export interface DataTableProps<T extends object> {
+  columns: ColumnDef<T, unknown>[]
   data: T[]
   /** Server-side sort: the table only shows the state and reports clicks; it never reorders rows itself. */
   sort?: { by?: string; dir: SortDir }
@@ -49,7 +49,7 @@ export interface DataTableProps<T extends Record<string, any>> {
   defaultExpanded?: boolean
 }
 
-export function DataTable<T extends Record<string, any>>({
+export function DataTable<T extends object>({
   columns,
   data,
   sort,
@@ -135,7 +135,7 @@ export function DataTable<T extends Record<string, any>>({
           cursor: onRowClick ? 'pointer' : 'default',
         }}
       >
-        {row.getVisibleCells().map((cell: LegacyCell<T, any>, cellIdx: number) => {
+        {row.getVisibleCells().map((cell: LegacyCell<T, unknown>, cellIdx: number) => {
           const meta = cell.column.columnDef.meta as { align?: 'left' | 'right' | 'center' } | undefined
           const isRight =
             meta?.align === 'right' ||
@@ -205,7 +205,7 @@ export function DataTable<T extends Record<string, any>>({
           <thead>
             {table.getHeaderGroups().map((headerGroup: LegacyHeaderGroup<T>) => (
               <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header: LegacyHeader<T, any>) => {
+                {headerGroup.headers.map((header: LegacyHeader<T, unknown>) => {
                   const meta = header.column.columnDef.meta as TableColumnMeta | undefined
                   const isRight =
                     meta?.align === 'right' ||

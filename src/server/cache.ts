@@ -6,20 +6,39 @@ type CacheEntry<T> = {
   expiresAt: number
 }
 
-/** Upper bound for memo entries; the oldest entry is evicted first. */
+/** Upper bounds for the memo: entry count, and total "weight" (roughly the number of cached rows). */
 const MEMO_MAX_ENTRIES = 200
+const MEMO_MAX_WEIGHT = 1_500_000
 
-const memoryCache = new Map<string, CacheEntry<unknown>>()
+type MemoEntry = CacheEntry<unknown> & { weight: number }
+
+const memoryCache = new Map<string, MemoEntry>()
 const inflight = new Map<string, Promise<unknown>>()
+let memoWeight = 0
+/** Bumped by `clearCache`, so a load that started before the clear never stores its (stale) result. */
+let generation = 0
 
-function evictMemo(now: number) {
+/** Arrays weigh as many as they have rows; everything else weighs 1. */
+function weightOf(value: unknown): number {
+  return Array.isArray(value) ? value.length + 1 : 1
+}
+
+function dropMemo(key: string) {
+  const entry = memoryCache.get(key)
+  if (!entry) return
+  memoWeight -= entry.weight
+  memoryCache.delete(key)
+}
+
+/** Drops expired entries, then the least recently used ones until a new entry of `incoming` weight fits. */
+function evictMemo(now: number, incoming: number) {
   for (const [k, entry] of memoryCache) {
-    if (entry.expiresAt <= now) memoryCache.delete(k)
+    if (entry.expiresAt <= now) dropMemo(k)
   }
-  while (memoryCache.size >= MEMO_MAX_ENTRIES) {
+  while (memoryCache.size > 0 && (memoryCache.size >= MEMO_MAX_ENTRIES || memoWeight + incoming > MEMO_MAX_WEIGHT)) {
     const oldestKey = memoryCache.keys().next().value
     if (oldestKey === undefined) break
-    memoryCache.delete(oldestKey)
+    dropMemo(oldestKey)
   }
 }
 
@@ -31,6 +50,9 @@ export async function memo<T>(
   const now = Date.now()
   const hit = memoryCache.get(key)
   if (hit && hit.expiresAt > now) {
+    // Re-insert so the map order stays "least recently used first".
+    memoryCache.delete(key)
+    memoryCache.set(key, hit)
     return hit.value as T
   }
 
@@ -38,10 +60,15 @@ export async function memo<T>(
   const pending = inflight.get(key)
   if (pending) return pending as Promise<T>
 
+  const startedAt = generation
   const load = loader()
     .then((val) => {
-      evictMemo(Date.now())
-      memoryCache.set(key, { value: val, expiresAt: Date.now() + ttlMs })
+      if (startedAt !== generation) return val
+      const weight = weightOf(val)
+      dropMemo(key)
+      evictMemo(Date.now(), weight)
+      memoryCache.set(key, { value: val, expiresAt: Date.now() + ttlMs, weight })
+      memoWeight += weight
       return val
     })
     .finally(() => {
@@ -176,15 +203,15 @@ export const glMovementsCache = createLruCache<readonly CachedMovementRow[]>({
 })
 
 export function clearCache(keyPrefix?: string) {
+  generation += 1
   if (!keyPrefix) {
     memoryCache.clear()
+    memoWeight = 0
     glMovementsCache.clear()
     return
   }
-  for (const k of memoryCache.keys()) {
-    if (k.startsWith(keyPrefix)) {
-      memoryCache.delete(k)
-    }
+  for (const k of Array.from(memoryCache.keys())) {
+    if (k.startsWith(keyPrefix)) dropMemo(k)
   }
   if (
     keyPrefix.startsWith('baskets:') ||

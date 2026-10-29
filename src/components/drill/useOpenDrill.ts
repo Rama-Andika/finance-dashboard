@@ -1,3 +1,4 @@
+import { searchUpdater } from '~/lib/filters/search-update'
 import { useNavigate } from '@tanstack/react-router'
 import type { DrillStep } from '~/lib/filters/search-schema'
 
@@ -11,6 +12,6 @@ export function useOpenDrill() {
       ...prev,
       drill: { metric, steps: steps.map((s) => ({ ...s, label: s.label.slice(0, 200) })) },
     })
-    navigate({ to: '.', search: updater as never, resetScroll: false })
+    navigate({ to: '.', search: searchUpdater(updater), resetScroll: false })
   }
 }

@@ -1,6 +1,7 @@
 import '@tanstack/react-start/server-only'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
+import { isSegmentColumn } from '~/server/db/segment-column'
 import type { Entity, Id } from '~/lib/finance/types'
 
 export type EntitySegment = { segmentId: Id; columnName: string }
@@ -15,7 +16,7 @@ export async function getEntitySegment(): Promise<EntitySegment> {
     throw new Error(`Expected exactly 1 entity segment with count=1, got ${result.length}`)
   }
   const seg = result[0]!
-  if (!/^segment([1-9]|1[0-5])_id$/.test(seg.columnName)) {
+  if (!isSegmentColumn(seg.columnName)) {
     throw new Error(`Invalid entity segment column_name: ${seg.columnName}`)
   }
   return seg

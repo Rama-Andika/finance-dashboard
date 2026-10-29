@@ -1,4 +1,5 @@
-import { CF_FALLBACK } from './cashflow-labels'
+import { CF_FALLBACK, UNCLASSIFIED_SUBGROUP } from './cashflow-labels'
+import { FIXED_ASSET_JOURNAL_TYPES, LOAN_JOURNAL_TYPES } from './journal-type'
 import Decimal from 'decimal.js'
 import { D, sum } from './money'
 import type { Id, Money } from './types'
@@ -20,7 +21,26 @@ export type AllocatedCashPortion = {
   journalType: number
   periodId: Id
   counterCoaId: Id
+  /** Segment (entity) detail of the counter line, when the line carries one. */
+  counterSegmentId: Id | null
   portion: Money // + inflow, − outflow
+}
+
+/**
+ * The cash-account test shared by every metric: a line is "ours" when its account is a cash account
+ * and, when entities are filtered, its segment is one of the selected ones.
+ */
+export function makeIsOurCash(
+  cashCoaIds: Iterable<Id>,
+  segIds: Id[] | 'all',
+): (l: { coaId: Id; segmentDetailId: Id | null }) => boolean {
+  const cashSet = new Set(cashCoaIds)
+  const segSet = segIds === 'all' ? null : new Set(segIds)
+  return (l) => {
+    if (!cashSet.has(l.coaId)) return false
+    if (!segSet) return true
+    return l.segmentDetailId !== null && segSet.has(l.segmentDetailId)
+  }
 }
 
 export type CfSetupRow = {
@@ -60,13 +80,13 @@ export function allocateCash(
     const ourCashLines = journalLines.filter(isOurCash)
     if (ourCashLines.length === 0) continue
 
-    // netKas = Σ (debet − credit) of ourCash lines (+ inflow, − outflow)
-    let netKas = D(0)
+    // netCash = Σ (debet − credit) of ourCash lines (+ inflow, − outflow)
+    let netCash = D(0)
     for (const cl of ourCashLines) {
-      netKas = netKas.plus(D(cl.debet).minus(D(cl.credit)))
+      netCash = netCash.plus(D(cl.debet).minus(D(cl.credit)))
     }
 
-    if (netKas.isZero()) continue
+    if (netCash.isZero()) continue
 
     const counterLines = journalLines.filter((l) => !isOurCash(l))
     if (counterLines.length === 0) {
@@ -88,13 +108,14 @@ export function allocateCash(
     const periodId = firstLine.periodId
 
     if (sumW.isZero()) {
-      // Entire netKas goes to first counter line
+      // Entire netCash goes to first counter line
       result.push({
         glId,
         journalType,
         periodId,
         counterCoaId: firstLine.coaId,
-        portion: netKas.toFixed(2),
+        counterSegmentId: firstLine.segmentDetailId,
+        portion: netCash.toFixed(2),
       })
       continue
     }
@@ -111,14 +132,14 @@ export function allocateCash(
         maxWeight = w
         maxWeightIdx = i
       }
-      const rawPortion = netKas.times(w).div(sumW)
+      const rawPortion = netCash.times(w).div(sumW)
       const rounded = new Decimal(rawPortion.toFixed(2, Decimal.ROUND_HALF_UP))
       portions.push(rounded)
       portionsSum = portionsSum.plus(rounded)
     }
 
     // Fix rounding difference on the item with largest weight
-    const diff = netKas.minus(portionsSum)
+    const diff = netCash.minus(portionsSum)
     if (!diff.isZero()) {
       portions[maxWeightIdx] = portions[maxWeightIdx]!.plus(diff)
     }
@@ -129,6 +150,7 @@ export function allocateCash(
         journalType,
         periodId,
         counterCoaId: counterLines[i]!.coaId,
+        counterSegmentId: counterLines[i]!.segmentDetailId,
         portion: portions[i]!.toFixed(2),
       })
     }
@@ -246,13 +268,13 @@ export function classifyByFallback(
   const portionD = D(portion)
 
   // 1. journal_type in {11, 12, 13, 14}
-  if ([11, 12, 13, 14].includes(journalType)) {
+  if (LOAN_JOURNAL_TYPES.has(journalType)) {
     return { drawer: 'FUNDING', subGroup: CF_FALLBACK.bankLoan }
   }
 
   // 2. journal_type in {44, 45, 49, 50, 51} or Fixed/Other Assets
   if (
-    [44, 45, 49, 50, 51].includes(journalType) ||
+    FIXED_ASSET_JOURNAL_TYPES.has(journalType) ||
     ['Fixed Assets', 'Other Assets'].includes(counter.accountGroup)
   ) {
     return {
@@ -320,7 +342,7 @@ export function classifyByFallback(
   // 10. Fallback unclassified
   return {
     drawer: 'OPERATING',
-    subGroup: 'Unclassified',
+    subGroup: UNCLASSIFIED_SUBGROUP,
     unclassified: true,
   }
 }

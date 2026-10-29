@@ -10,6 +10,8 @@ import {
 } from '~/server/repo/gl.repo'
 import { pickOpeningPeriod, combineBalances } from '~/lib/finance/balance'
 import { addDays } from '~/lib/format/date'
+import { hashIds, memo } from '~/server/cache'
+import { tablesBetween } from '~/server/db/gl-tables'
 
 type BalanceInput = {
   asOf: IsoDate
@@ -19,13 +21,6 @@ type BalanceInput = {
 
 type BalanceMethod = 'opening-table' | 'trial-balance'
 
-/** Tables that may hold journals between `from` and `to` (data-model §2.2, periode.table_name). */
-function tablesBetween(periods: Period[], from: IsoDate, to: IsoDate, fallback: string): string[] {
-  const tables = Array.from(
-    new Set(periods.filter((p) => p.endDate >= from && p.startDate <= to).map((p) => p.tableName)),
-  )
-  return tables.length > 0 ? tables : [fallback]
-}
 
 /** Loads openings + movements per data-model §4.5 (opening table, or trial-balance fallback). */
 async function loadBalanceInputs(
@@ -79,26 +74,44 @@ async function accountGroupsOf(coaIds: Id[]): Promise<Map<Id, { accountGroup: Ac
   return accounts
 }
 
-export async function balancesAt(input: BalanceInput): Promise<{
+/** Balances are shared within a minute: Cash Position, Runway, Cash Flow, AP/AR reconciliation and the drill-downs repeat them. */
+const BALANCE_CACHE_MS = 60 * 1000
+
+function balanceKey(kind: string, input: BalanceInput): string {
+  const f = input.filter
+  return [kind, input.asOf, f.entitySegmentColumn, hashIds(f.segmentDetailIds), hashIds(input.coaIds)].join('|')
+}
+
+/** The returned maps are cached and shared: callers must only read them. */
+export function balancesAt(input: BalanceInput): Promise<{
   byCoa: Map<Id, Money>
   method: BalanceMethod
 }> {
-  if (input.coaIds.length === 0) return { byCoa: new Map(), method: 'trial-balance' }
-  const accounts = await accountGroupsOf(input.coaIds)
-  const { openings, movements, method } = await loadBalanceInputs(input, false)
-  return { byCoa: combineBalances(accounts, openings, movements), method }
+  if (input.coaIds.length === 0) return Promise.resolve({ byCoa: new Map(), method: 'trial-balance' })
+  return memo(balanceKey('balances', input), BALANCE_CACHE_MS, async () => {
+    const accounts = await accountGroupsOf(input.coaIds)
+    const { openings, movements, method } = await loadBalanceInputs(input, false)
+    return { byCoa: combineBalances(accounts, openings, movements), method }
+  })
 }
 
 /**
  * Same balances as `balancesAt`, split per segment detail (entity) in ONE pass,
  * instead of running `balancesAt` once per entity.
  */
-export async function balancesBySegmentAt(input: BalanceInput): Promise<{
+export function balancesBySegmentAt(input: BalanceInput): Promise<{
+  bySegment: Map<Id, Map<Id, Money>>
+  method: BalanceMethod
+}> {
+  if (input.coaIds.length === 0) return Promise.resolve({ bySegment: new Map(), method: 'trial-balance' })
+  return memo(balanceKey('balancesBySegment', input), BALANCE_CACHE_MS, () => computeBalancesBySegment(input))
+}
+
+async function computeBalancesBySegment(input: BalanceInput): Promise<{
   bySegment: Map<Id, Map<Id, Money>>
   method: BalanceMethod
 }> {
   const bySegment = new Map<Id, Map<Id, Money>>()
-  if (input.coaIds.length === 0) return { bySegment, method: 'trial-balance' }
 
   const accounts = await accountGroupsOf(input.coaIds)
   const { openings, movements, method } = await loadBalanceInputs(input, true)

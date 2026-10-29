@@ -11,8 +11,8 @@ export function getRouter() {
   const router = createRouter({
     routeTree,
     context: { queryClient },
-    defaultPreload: 'intent',
-    defaultPreloadStaleTime: 0,
+    // Hover/touch must not start a heavy report that nobody opened; pages load when they are visited.
+    defaultPreload: false,
     scrollRestoration: true,
   })
   setupRouterSsrQueryIntegration({ router, queryClient })

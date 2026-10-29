@@ -1,3 +1,4 @@
+import { summarizePlan } from '~/lib/finance/payment-plan'
 import { searchUpdater } from '~/lib/filters/search-update'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -98,18 +99,7 @@ function PaymentPlanPage() {
     })
   }
 
-  // Calculate KPIs
-  const totalOutflow = sum([
-    data.overdue,
-    ...data.days.map((d) => d.outflow),
-  ])
-
-  let minClosing = data.openingBalance
-  for (const d of data.days) {
-    if (D(d.closing).lt(D(minClosing))) {
-      minClosing = d.closing
-    }
-  }
+  const { totalOutflow, minClosing } = summarizePlan(data)
 
   // Projection Line Chart data
   const chartData = data.days.map((d) => ({
@@ -120,7 +110,7 @@ function PaymentPlanPage() {
     isNegative: d.isNegative,
   }))
 
-  const columns: ColumnDef<PaymentPlanDay, any>[] = [
+  const columns: ColumnDef<PaymentPlanDay, unknown>[] = [
     {
       accessorKey: 'date',
       header: t('ui.paymentPlan.date'),
@@ -161,7 +151,7 @@ function PaymentPlanPage() {
         if (row.original.isNegative) {
           return <StatusPill tone="danger">{t('metric.minusBalance')}</StatusPill>
         }
-        return <StatusPill tone="neutral">Aman</StatusPill>
+        return <StatusPill tone="neutral">{t('metric.balanceSafe')}</StatusPill>
       },
     },
   ]

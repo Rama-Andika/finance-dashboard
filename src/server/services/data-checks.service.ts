@@ -25,7 +25,7 @@ export type DataCheckItem = {
 }
 
 /** One failed sub-check must not hide the others, but it must not pass silently either. */
-async function settle<T>(name: string, work: Promise<T>, failures: string[]): Promise<T | null> {
+export async function settle<T>(name: string, work: Promise<T>, failures: string[]): Promise<T | null> {
   try {
     return await work
   } catch (error) {
@@ -57,12 +57,12 @@ async function computeDataChecksUncached(filter: AppContextFilter): Promise<Data
     apResult,
     arResult,
   ] = await Promise.all([
-    checkQ1b(filter.locationIds),
-    checkQ7(filter.locationIds),
-    checkQ8(),
-    checkQ9(filter.entitySegmentColumn, filter.segmentDetailIds, filter.asOf),
-    checkUnpostedJournals(activePeriods),
-    getMappingRow(),
+    settle('Q1b', checkQ1b(filter.locationIds), failures),
+    settle('Q7', checkQ7(filter.locationIds), failures),
+    settle('Q8', checkQ8(), failures),
+    settle('Q9', checkQ9(filter.entitySegmentColumn, filter.segmentDetailIds, filter.asOf), failures),
+    settle('unposted', checkUnpostedJournals(activePeriods), failures),
+    settle('mapping', getMappingRow(), failures),
     settle('cashPosition', computeCashPosition(filter, { includeByEntity: false, includeCompare: false }), failures),
     settle('cashFlow', computeCashFlow(filter), failures),
     settle('apAging', computeApAging(filter), failures),
@@ -83,7 +83,7 @@ async function computeDataChecksUncached(filter: AppContextFilter): Promise<Data
   }
 
   // 2. Q9 (In-transit overdue or future)
-  if (q9.count > 0) {
+  if (q9 && q9.count > 0) {
     checks.push({
       code: 'Q9',
       level: 'warning',
@@ -148,7 +148,7 @@ async function computeDataChecksUncached(filter: AppContextFilter): Promise<Data
   }
 
   // 7. Q1b (Non-trade AP marked paid without details)
-  if (q1b.count > 0) {
+  if (q1b && q1b.count > 0) {
     checks.push({
       code: 'Q1b',
       level: 'warning',
@@ -159,7 +159,7 @@ async function computeDataChecksUncached(filter: AppContextFilter): Promise<Data
   }
 
   // 8. Q7 (Cards missing vendor/customer)
-  if (q7Count > 0) {
+  if (q7Count !== null && q7Count > 0) {
     checks.push({
       code: 'Q7',
       level: 'warning',
@@ -170,7 +170,7 @@ async function computeDataChecksUncached(filter: AppContextFilter): Promise<Data
   }
 
   // 9. Q8 (Cards with invalid location)
-  if (q8Count > 0) {
+  if (q8Count !== null && q8Count > 0) {
     checks.push({
       code: 'Q8',
       level: 'warning',
@@ -181,7 +181,7 @@ async function computeDataChecksUncached(filter: AppContextFilter): Promise<Data
   }
 
   // 10. UNPOSTED (Unposted journals in active periods)
-  if (unposted > 0) {
+  if (unposted !== null && unposted > 0) {
     checks.push({
       code: 'UNPOSTED',
       level: 'warning',
@@ -192,7 +192,8 @@ async function computeDataChecksUncached(filter: AppContextFilter): Promise<Data
   }
 
   // 11. SETTINGS (Default / missing mapping)
-  if (!mappingRow || !mappingRow.valueprop) {
+  // A mapping read that failed is already reported as CHECK_FAILED; only report "missing" when the read worked.
+  if (!failures.includes('mapping') && (!mappingRow || !mappingRow.valueprop)) {
     checks.push({
       code: 'SETTINGS',
       level: 'warning',

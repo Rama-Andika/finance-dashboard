@@ -144,3 +144,42 @@ describe('LRU cache size bound', () => {
     expect(cache.get('c')).toEqual([1, 2, 3])
   })
 })
+
+describe('memo bounds', () => {
+  it('evicts the least recently USED entry, not the oldest inserted one', async () => {
+    clearCache()
+    for (let i = 0; i < 199; i += 1) await memo(`k${i}`, 60_000, async () => i)
+    await memo('hot', 60_000, async () => 'hot') // 200 entries
+    await memo('k0', 60_000, async () => 'never-called') // touch k0: it becomes the most recent
+    await memo('new', 60_000, async () => 'new') // over the limit → evicts k1 (least recently used)
+    const loader = vi.fn(async () => 'reloaded')
+    expect(await memo('k0', 60_000, loader)).toBe(0)
+    expect(loader).not.toHaveBeenCalled()
+    expect(await memo('k1', 60_000, loader)).toBe('reloaded')
+  })
+
+  it('bounds the total number of cached rows, not just the number of entries', async () => {
+    clearCache()
+    const big = (n: number) => Array.from({ length: n }, (_, i) => i)
+    await memo('big1', 60_000, async () => big(900_000))
+    await memo('big2', 60_000, async () => big(900_000)) // together above the row limit
+    const loader = vi.fn(async () => big(1))
+    await memo('big1', 60_000, loader)
+    expect(loader).toHaveBeenCalledTimes(1) // big1 was evicted to make room for big2
+  })
+
+  it('does not store a result that was loaded before clearCache()', async () => {
+    clearCache()
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const slow = memo('stale', 60_000, async () => {
+      await gate
+      return 'old'
+    })
+    clearCache() // e.g. the account mapping was saved while the load was running
+    release()
+    expect(await slow).toBe('old')
+    const fresh = vi.fn(async () => 'new')
+    expect(await memo('stale', 60_000, fresh)).toBe('new')
+  })
+})

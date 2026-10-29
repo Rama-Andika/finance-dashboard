@@ -6,7 +6,10 @@ import { chunk, chunkOrAll } from '~/server/db/chunk'
 import { assertSegmentColumn } from '~/server/db/segment-column'
 import { glTablesOf, groupPeriodsByTable } from '~/server/db/gl-tables'
 import { D } from '~/lib/finance/money'
+import { hashIds, memo } from '~/server/cache'
 import type { Id, Money, Period } from '~/lib/finance/types'
+
+const CASH_LINES_CACHE_MS = 60 * 1000
 
 export type CashJournalLineRow = {
   glId: Id
@@ -27,17 +30,30 @@ export type LinesOfCashJournalsOptions = {
 
 /**
  * linesOfCashJournals(): all lines of posted journals that touch cash & cash equivalents in the selected periods.
+ * Memoized briefly: Cash Flow, Expense Paid and the drill-downs ask for the same lines, so callers
+ * pass the same (widest) cash account list and share one read. The returned array is read-only.
  */
-export async function linesOfCashJournals(
+export function linesOfCashJournals(
   opts: LinesOfCashJournalsOptions,
 ): Promise<CashJournalLineRow[]> {
-  if (opts.periods.length === 0 || opts.cashCoaIds.length === 0) return []
-  if (opts.segIds !== 'all' && opts.segIds.length === 0) return []
+  if (opts.periods.length === 0 || opts.cashCoaIds.length === 0) return Promise.resolve([])
+  if (opts.segIds !== 'all' && opts.segIds.length === 0) return Promise.resolve([])
 
   assertSegmentColumn(opts.segCol)
+  const key = [
+    'cashLines',
+    opts.segCol,
+    hashIds(opts.periods.map((p) => p.periodeId)),
+    hashIds(opts.segIds),
+    hashIds(opts.cashCoaIds),
+  ].join('|')
+  return memo(key, CASH_LINES_CACHE_MS, () => queryCashLines(opts))
+}
 
+async function queryCashLines(opts: LinesOfCashJournalsOptions): Promise<CashJournalLineRow[]> {
   const grouped = groupPeriodsByTable(opts.periods)
-  const allResults: CashJournalLineRow[] = []
+  // A journal that matches in two slices (account or segment lists above 1000 ids) comes back once per slice.
+  const unique = new Map<string, CashJournalLineRow>()
 
   for (const [tableName, tablePeriods] of grouped.entries()) {
     const { gl, glDetail } = glTablesOf(tableName)
@@ -85,7 +101,7 @@ export async function linesOfCashJournals(
           }>(query)
 
           for (const r of res) {
-            allResults.push({
+            const line: CashJournalLineRow = {
               glId: String(r.glId),
               journalType: Number(r.journalType) || 0,
               periodId: String(r.periodId),
@@ -93,14 +109,15 @@ export async function linesOfCashJournals(
               segmentDetailId: r.segmentDetailId ? String(r.segmentDetailId) : null,
               debet: D(r.debet || 0).toFixed(2),
               credit: D(r.credit || 0).toFixed(2),
-            })
+            }
+            unique.set(`${line.glId}|${line.coaId}|${line.segmentDetailId ?? ''}`, line)
           }
         }
       }
     }
   }
 
-  return allResults
+  return Array.from(unique.values())
 }
 
 export type CashFlowSetupRow = {

@@ -9,7 +9,8 @@ import {
 } from '~/server/context'
 import { loadAccountMapping } from '~/server/services/mapping.helper'
 import { resolveBaskets } from '~/lib/finance/basket-resolver'
-import { movementsByPeriods } from '~/server/repo/gl.repo'
+import { memoMetric } from '~/server/cache'
+import { loadPlMovements, onlyAccounts } from '~/server/services/pl-movements'
 import {
   computeFixedCost as calculateFixedCost,
   type MonthCost,
@@ -24,9 +25,11 @@ export type FixedCostResult = {
   basketEmpty: boolean
 }
 
-export async function computeFixedCost(
-  filter: AppContextFilter,
-): Promise<FixedCostResult> {
+export function computeFixedCost(filter: AppContextFilter): Promise<FixedCostResult> {
+  return memoMetric('fixedCost', filter, () => computeFixedCostUncached(filter))
+}
+
+async function computeFixedCostUncached(filter: AppContextFilter): Promise<FixedCostResult> {
   const meta = buildMetricMeta(filter)
   const tree = await getCachedCoaTree()
   const periods = await getCachedPeriods()
@@ -60,13 +63,7 @@ export async function computeFixedCost(
   }
 
   const targetCoaIds = Array.from(new Set([...fixedCoaIds, ...expenseCoaIds]))
-  const rawMovements = await movementsByPeriods({
-    periods: activePeriods,
-    segCol: filter.entitySegmentColumn,
-    segIds: filter.segmentDetailIds,
-    coaIds: targetCoaIds,
-    byPeriod: true,
-  })
+  const rawMovements = onlyAccounts(await loadPlMovements(filter, filter.periodIds), targetCoaIds)
 
   const movements: FixedCostMovement[] = rawMovements.map((m) => ({
     coaId: m.coaId,

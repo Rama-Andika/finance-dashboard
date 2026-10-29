@@ -23,4 +23,14 @@ export const pool =
   })
 globalThis.__nrPool = pool
 
+// Per-connection time limit. MySQL 5.7.8+ calls it max_execution_time (ms, SELECT only);
+// MariaDB (dev) calls it max_statement_time (seconds). Whichever the server does not know is ignored.
+if (env.DB_QUERY_TIMEOUT_MS > 0) {
+  pool.pool.on('connection', (conn) => {
+    conn.query(`SET SESSION max_execution_time = ${env.DB_QUERY_TIMEOUT_MS}`, (err) => {
+      if (err) conn.query(`SET SESSION max_statement_time = ${env.DB_QUERY_TIMEOUT_MS / 1000}`, () => {})
+    })
+  })
+}
+
 export const db = drizzle(pool, { mode: 'default' })

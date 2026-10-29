@@ -72,3 +72,6 @@ export function planStatus(voucherStatuses: string[]): PlanStatus {
 
   return 'notSubmitted'
 }
+
+/** Voucher statuses that make a bill "submitted" or "approved"; any other status means "not submitted". */
+export const ACTIVE_VOUCHER_STATUSES = ['Posted', 'Partialy Paid', 'Not Posted'] as const

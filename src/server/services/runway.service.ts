@@ -1,21 +1,22 @@
-import { postableAccountIds } from '~/lib/finance/coa-tree'
 import '@tanstack/react-start/server-only'
 import Decimal from 'decimal.js'
+import { postableAccountIds } from '~/lib/finance/coa-tree'
 import { D, sum } from '~/lib/finance/money'
-import type { Id, MetricMeta, Money } from '~/lib/finance/types'
+import type { Id, MetricMeta, Money, Period } from '~/lib/finance/types'
 import {
   type AppContextFilter,
   buildMetricMeta,
   getCachedCoaTree,
   getCachedPeriods,
 } from '~/server/context'
+import { memoMetric } from '~/server/cache'
 import { loadAccountMapping } from '~/server/services/mapping.helper'
 import { resolveBaskets } from '~/lib/finance/basket-resolver'
 import { balancesAt } from '~/server/services/balance.service'
 import { computeCashPosition } from '~/server/services/cash-position.service'
 import { computePnl } from '~/server/services/pnl.service'
 import { linesOfCashJournals } from '~/server/repo/cashflow.repo'
-import { allocateCash, type CfLine } from '~/lib/finance/cashflow'
+import { allocateCash, makeIsOurCash } from '~/lib/finance/cashflow'
 import {
   computeAvgBurn,
   computeRunway,
@@ -32,18 +33,13 @@ export type RunwayResult = {
   currentRatio: string | null
 }
 
-export async function computeRunwayMetrics(
-  filter: AppContextFilter,
-): Promise<RunwayResult> {
-  const meta = buildMetricMeta(filter)
-  const tree = await getCachedCoaTree()
-  const periods = await getCachedPeriods()
+/** Memoized: Summary, Cash Position and P&L all show the runway, and each asks for it. */
+export function computeRunwayMetrics(filter: AppContextFilter): Promise<RunwayResult> {
+  return memoMetric('runway', filter, () => computeRunwayMetricsUncached(filter))
+}
 
-  // 1. Cash Position at asOf
-  const cashPos = await computeCashPosition(filter, { includeByEntity: false, includeCompare: false })
-  const cashPosition = cashPos.cashPosition
-
-  // 2. Average Burn over the last 3 full months (months ending before month of asOf)
+/** Average net cash movement of the last 3 full months that end before the month of `asOf`. */
+async function averageBurn(filter: AppContextFilter, periods: Period[], cashEquivIds: Id[]): Promise<Money> {
   const asOfMonth = filter.asOf.slice(0, 7)
   const priorMonths = Array.from(
     new Set(
@@ -53,85 +49,55 @@ export async function computeRunwayMetrics(
     ),
   ).sort().reverse().slice(0, 3)
 
-  let avgBurn = '0.00'
-  if (priorMonths.length > 0) {
-    const mapping = await loadAccountMapping(tree)
-    const resolved = resolveBaskets(mapping, tree)
-    const cashEquivIds = Array.from(
-      new Set([...resolved.cash, ...resolved.bank, ...resolved.deposit]),
-    )
+  const priorPeriods = periods.filter((p) => priorMonths.includes(p.startDate.slice(0, 7)))
+  if (priorMonths.length === 0 || priorPeriods.length === 0 || cashEquivIds.length === 0) return '0.00'
 
-    const priorPeriods = periods.filter((p) =>
-      priorMonths.includes(p.startDate.slice(0, 7)),
-    )
+  const priorLines = await linesOfCashJournals({
+    periods: priorPeriods,
+    segCol: filter.entitySegmentColumn,
+    segIds: filter.segmentDetailIds,
+    cashCoaIds: cashEquivIds,
+  })
+  const portions = allocateCash(priorLines, makeIsOurCash(cashEquivIds, filter.segmentDetailIds))
 
-    if (priorPeriods.length > 0 && cashEquivIds.length > 0) {
-      const priorLines = await linesOfCashJournals({
-        periods: priorPeriods,
-        segCol: filter.entitySegmentColumn,
-        segIds: filter.segmentDetailIds,
-        cashCoaIds: cashEquivIds,
-      })
-
-      const cashSet = new Set(cashEquivIds)
-      const segIdSet = filter.segmentDetailIds === 'all' ? null : new Set(filter.segmentDetailIds)
-      const isOurCash = (l: CfLine) =>
-        cashSet.has(l.coaId) && (!segIdSet || (l.segmentDetailId !== null && segIdSet.has(l.segmentDetailId)))
-      const portions = allocateCash(priorLines, isOurCash)
-
-      const periodMonthMap = new Map(
-        priorPeriods.map((p) => [p.periodeId, p.startDate.slice(0, 7)]),
-      )
-      const monthNetMap = new Map<string, Decimal>()
-      for (const m of priorMonths) {
-        monthNetMap.set(m, D(0))
-      }
-
-      for (const p of portions) {
-        const m = periodMonthMap.get(p.periodId)
-        if (m) {
-          monthNetMap.set(m, (monthNetMap.get(m) ?? D(0)).plus(D(p.portion)))
-        }
-      }
-
-      const monthlyNets = priorMonths.map((m) =>
-        (monthNetMap.get(m) ?? D(0)).toFixed(2),
-      )
-      avgBurn = computeAvgBurn(monthlyNets)
-    }
+  const periodMonthMap = new Map(priorPeriods.map((p) => [p.periodeId, p.startDate.slice(0, 7)]))
+  const monthNetMap = new Map<string, Decimal>(priorMonths.map((m) => [m, D(0)]))
+  for (const p of portions) {
+    const m = periodMonthMap.get(p.periodId)
+    if (m) monthNetMap.set(m, (monthNetMap.get(m) ?? D(0)).plus(D(p.portion)))
   }
 
-  // 3. Runway calculation
-  const runway = computeRunway(cashPosition, avgBurn)
+  return computeAvgBurn(priorMonths.map((m) => (monthNetMap.get(m) ?? D(0)).toFixed(2)))
+}
 
-  // 4. Margins from PnL
-  const pnlRes = await computePnl(filter)
-  const revLine = pnlRes.lines.find((l) => l.key === 'revenue')?.amount ?? '0.00'
-  const gpLine = pnlRes.lines.find((l) => l.key === 'grossProfit')?.amount ?? '0.00'
-  const npLine = pnlRes.lines.find((l) => l.key === 'netProfit')?.amount ?? '0.00'
+async function computeRunwayMetricsUncached(filter: AppContextFilter): Promise<RunwayResult> {
+  const meta = buildMetricMeta(filter)
+  const [tree, periods] = await Promise.all([getCachedCoaTree(), getCachedPeriods()])
 
-  // 5. Current Ratio: Liquid Assets / Current Liabilities at asOf
+  const resolved = resolveBaskets(await loadAccountMapping(tree), tree)
+  const cashEquivIds = Array.from(new Set([...resolved.cash, ...resolved.bank, ...resolved.deposit]))
   const liquidCoaIds: Id[] = postableAccountIds(tree, ['Liquid Assets'])
   const liabCoaIds: Id[] = postableAccountIds(tree, ['Current Liabilities'])
-
-  let liquidTotal = '0.00'
-  let liabTotal = '0.00'
   const allRatioCoa = [...liquidCoaIds, ...liabCoaIds]
 
-  if (allRatioCoa.length > 0) {
-    const balRes = await balancesAt({
-      asOf: filter.asOf,
-      coaIds: allRatioCoa,
-      filter,
-    })
-    liquidTotal = sum(liquidCoaIds.map((id) => balRes.byCoa.get(id) ?? '0.00'))
-    liabTotal = sum(liabCoaIds.map((id) => balRes.byCoa.get(id) ?? '0.00'))
-  }
+  // Independent reads start together: cash position, average burn, P&L margins and current-ratio balances.
+  const [cashPos, avgBurn, pnlRes, balRes] = await Promise.all([
+    computeCashPosition(filter, { includeByEntity: false, includeCompare: false }),
+    averageBurn(filter, periods, cashEquivIds),
+    computePnl(filter),
+    allRatioCoa.length > 0 ? balancesAt({ asOf: filter.asOf, coaIds: allRatioCoa, filter }) : Promise.resolve(null),
+  ])
+
+  const runway = computeRunway(cashPos.cashPosition, avgBurn)
+
+  const amountOf = (key: string): Money => pnlRes.lines.find((l) => l.key === key)?.amount ?? '0.00'
+  const liquidTotal = balRes ? sum(liquidCoaIds.map((id) => balRes.byCoa.get(id) ?? '0.00')) : '0.00'
+  const liabTotal = balRes ? sum(liabCoaIds.map((id) => balRes.byCoa.get(id) ?? '0.00')) : '0.00'
 
   const ratios = computeRatios({
-    revenue: revLine,
-    grossProfit: gpLine,
-    netProfit: npLine,
+    revenue: amountOf('revenue'),
+    grossProfit: amountOf('grossProfit'),
+    netProfit: amountOf('netProfit'),
     liquidAssets: liquidTotal,
     currentLiabilities: liabTotal,
   })

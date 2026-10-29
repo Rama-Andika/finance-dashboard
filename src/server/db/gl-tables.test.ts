@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { glTablesOf, groupPeriodsByTable } from './gl-tables'
+import { glTablesOf, groupPeriodsByTable, tablesBetween } from './gl-tables'
 import type { Period } from '~/lib/finance/types'
 
 describe('glTablesOf', () => {
@@ -73,5 +73,30 @@ describe('groupPeriodsByTable', () => {
       },
     ]
     expect(() => groupPeriodsByTable(badPeriods)).toThrow()
+  })
+})
+
+describe('tablesBetween', () => {
+  const p = (periodeId: string, startDate: string, endDate: string, tableName: string): Period => ({
+    periodeId,
+    name: periodeId,
+    startDate,
+    endDate,
+    status: 'Closed',
+    type: 0,
+    tableName,
+  })
+  const periods = [
+    p('a', '2015-01-01', '2015-12-31', 'gl_2015'),
+    p('b', '2016-01-01', '2016-12-31', 'gl_2016'),
+    p('c', '2026-01-01', '2026-12-31', 'gl'),
+  ]
+
+  it('lists every table whose periods overlap the date range', () => {
+    expect(tablesBetween(periods, '2015-06-01', '2016-02-01', 'gl').sort()).toEqual(['gl_2015', 'gl_2016'])
+  })
+
+  it('falls back to the given table when no period overlaps', () => {
+    expect(tablesBetween(periods, '2030-01-01', '2030-02-01', 'gl')).toEqual(['gl'])
   })
 })

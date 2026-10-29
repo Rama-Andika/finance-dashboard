@@ -1,3 +1,4 @@
+import { searchUpdater } from '~/lib/filters/search-update'
 import { translateCfLabel } from '~/lib/finance/cashflow-labels'
 import React, { useEffect, useRef } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
@@ -8,7 +9,7 @@ import { useDrillData, parseDrill, type DrillSearchParams } from './useDrillData
 import { JournalList, type JournalItem } from './JournalList'
 import { Skeleton } from '~/components/neraca/Skeleton'
 import { MetricError } from '~/components/neraca/MetricError'
-import { StatusPill } from '~/components/neraca/StatusPill'
+import { PlanStatusPill } from '~/components/neraca/PlanStatusPill'
 import { formatMoneyFull } from '~/lib/format/number'
 import { formatDate } from '~/lib/format/date'
 import type { Lang } from '~/lib/finance/types'
@@ -16,11 +17,6 @@ import type { DrillStep, DrillStepKind } from '~/lib/filters/search-schema'
 
 type SearchUpdater = (prev: Record<string, unknown>) => Record<string, unknown>
 
-const STATUS_TONE: Record<string, 'neutral' | 'warning' | 'danger'> = {
-  notSubmitted: 'neutral',
-  submitted: 'warning',
-  approved: 'warning',
-}
 
 export function DrillSheet() {
   const search = useSearch({ strict: false }) as DrillSearchParams
@@ -46,7 +42,7 @@ export function DrillSheet() {
 
   const updateSearch = (updater: SearchUpdater) => {
     // Opening or stepping through a drill must not scroll the page behind the sheet to the top
-    navigate({ to: '.', search: updater as never, resetScroll: false })
+    navigate({ to: '.', search: searchUpdater(updater), resetScroll: false })
   }
 
   const handleClose = () => {
@@ -260,7 +256,7 @@ export function DrillSheet() {
                               return (
                                 <td key={c.id}>
                                   {val ? (
-                                    <StatusPill tone={STATUS_TONE[val] ?? 'neutral'}>{t(`planStatus.${val}`)}</StatusPill>
+                                    <PlanStatusPill status={val} />
                                   ) : (
                                     '—'
                                   )}

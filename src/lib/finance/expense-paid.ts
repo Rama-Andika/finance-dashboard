@@ -3,6 +3,7 @@ import { D, sum } from './money'
 import type { Breakdown, Id, Money } from './types'
 import { type CoaTree, type CoaNode, postableDescendants } from './coa-tree'
 import { groupFolders } from './revenue'
+import { isDirectExpenseGroup } from './account-groups'
 
 export type ExpensePaidAllocatedItem = {
   cardId: Id
@@ -25,7 +26,8 @@ export type DirectExpensePortion = {
   portion: Money // negative for cash out
 }
 
-const AP_BILL_ITEM_TYPES = new Set([0, 1, 2, 4, 5, 6, 12]) // NOT type 3
+/** AP card types that are vendor bills for "expense paid" (data-model §6.5(a)); NOT type 3. */
+export const AP_BILL_ITEM_TYPES: ReadonlySet<number> = new Set([0, 1, 2, 4, 5, 6, 12])
 
 export function computeExpensePaidBreakdown(input: {
   allocated: ExpensePaidAllocatedItem[]
@@ -112,10 +114,7 @@ export function computeExpensePaidBreakdown(input: {
   const directByCoa = new Map<Id, Decimal>()
 
   for (const item of direct) {
-    if (
-      ['Cost Of Sales', 'Expense'].includes(item.accountGroup) &&
-      D(item.portion).lt(0)
-    ) {
+    if (isDirectExpenseGroup(item.accountGroup) && D(item.portion).lt(0)) {
       const amt = D(item.portion).abs()
       directSum = directSum.plus(amt)
 

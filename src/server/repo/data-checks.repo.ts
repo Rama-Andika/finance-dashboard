@@ -2,6 +2,8 @@ import '@tanstack/react-start/server-only'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
+import { chunk } from '~/server/db/chunk'
+import { glTablesOf, groupPeriodsByTable } from '~/server/db/gl-tables'
 import { isSegmentColumn } from '~/server/db/segment-column'
 import {
   AP_BILL_TYPE,
@@ -32,11 +34,10 @@ export async function checkQ1b(locIds: Id[] | 'all'): Promise<QCheckSummary> {
   const query = sql`
     SELECT COUNT(*) AS n, COALESCE(SUM(c.amount), 0) AS amount
     FROM ap_ar_card c
-    LEFT JOIN ap_ar_card_detail d ON d.invoice_id = c.ap_ar_card_id
     WHERE c.module_type = ${MODULE_TYPE.AP}
       AND c.transaction_type = ${AP_BILL_TYPE}
       AND c.payment_status = ${PAYMENT_STATUS_PAID}
-      AND d.ap_ar_card_detail_id IS NULL
+      AND NOT EXISTS (SELECT 1 FROM ap_ar_card_detail d WHERE d.invoice_id = c.ap_ar_card_id)
       ${locClause}
   `
 
@@ -55,20 +56,18 @@ export async function checkQ7(locIds: Id[] | 'all'): Promise<number> {
   const queryVendor = sql`
     SELECT COUNT(*) AS n
     FROM ap_ar_card c
-    LEFT JOIN vendor v ON v.vendor_id = c.owner_id
     WHERE c.module_type = ${MODULE_TYPE.AP}
       AND c.owner_id IS NOT NULL AND c.owner_id != ''
-      AND v.vendor_id IS NULL
+      AND NOT EXISTS (SELECT 1 FROM vendor v WHERE v.vendor_id = c.owner_id)
       ${locClause}
   `
 
   const queryCustomer = sql`
     SELECT COUNT(*) AS n
     FROM ap_ar_card c
-    LEFT JOIN customer cust ON cust.customer_id = c.owner_id
     WHERE c.module_type = ${MODULE_TYPE.AR}
       AND c.owner_id IS NOT NULL AND c.owner_id != ''
-      AND cust.customer_id IS NULL
+      AND NOT EXISTS (SELECT 1 FROM customer cust WHERE cust.customer_id = c.owner_id)
       ${locClause}
   `
 
@@ -84,9 +83,8 @@ export async function checkQ8(): Promise<number> {
   const query = sql`
     SELECT COUNT(*) AS n
     FROM ap_ar_card c
-    LEFT JOIN pos_location l ON l.location_id = c.location_id
     WHERE c.location_id IS NOT NULL AND c.location_id != ''
-      AND l.location_id IS NULL
+      AND NOT EXISTS (SELECT 1 FROM pos_location l WHERE l.location_id = c.location_id)
   `
 
   const res = await rows<{ n: number | string }>(query)
@@ -129,17 +127,22 @@ export async function checkQ9(
   return { count: n, amount }
 }
 
+/** Unposted journals of the given periods, in every GL table those periods live in. */
 export async function checkUnpostedJournals(periods: Period[]): Promise<number> {
   if (periods.length === 0) return 0
 
-  const periodIds = periods.map((p) => p.periodeId)
-  const query = sql`
-    SELECT COUNT(*) AS n
-    FROM gl g
-    WHERE g.posted_status = 0
-      AND g.period_id IN (${inList(periodIds)})
-  `
-
-  const result = await rows<{ n: number | string }>(query)
-  return Number(result[0]?.n || 0)
+  const counts = await Promise.all(
+    Array.from(groupPeriodsByTable(periods).entries()).flatMap(([tableName, tablePeriods]) => {
+      const { gl } = glTablesOf(tableName)
+      return chunk(tablePeriods.map((p) => p.periodeId)).map((slice) =>
+        rows<{ n: number | string }>(sql`
+          SELECT COUNT(*) AS n
+          FROM ${sql.identifier(gl)} g
+          WHERE g.posted_status = 0
+            AND g.period_id IN (${inList(slice)})
+        `),
+      )
+    }),
+  )
+  return counts.reduce((total, result) => total + Number(result[0]?.n || 0), 0)
 }

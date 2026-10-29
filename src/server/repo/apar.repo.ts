@@ -2,7 +2,7 @@ import '@tanstack/react-start/server-only'
 import { sql, type SQL } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
-import { chunkOrAll } from '~/server/db/chunk'
+import { chunk, chunkOrAll } from '~/server/db/chunk'
 import {
   AP_INVOICE_TYPES,
   AP_PAYMENT_TYPES,
@@ -16,6 +16,7 @@ import {
   intList,
 } from '~/server/db/erp-codes'
 import { D } from '~/lib/finance/money'
+import { ACTIVE_VOUCHER_STATUSES } from '~/lib/finance/aging'
 import { memo } from '~/server/cache'
 import type { Id, IsoDate, Money } from '~/lib/finance/types'
 
@@ -213,13 +214,23 @@ function locKeyOf(locIds: Id[] | 'all'): string {
   return locIds === 'all' ? 'all' : [...locIds].sort().join(',')
 }
 
-/** Open invoices with their balance at the end of the day before `asOfPlusOne`. */
-function agingInvoices(side: AgingSide, asOfPlusOne: IsoDate, locIds: Id[] | 'all'): Promise<AgingInvoice[]> {
+/**
+ * Open invoices with their balance at the end of the day before `asOfPlusOne`.
+ * The cached array is shared by every caller: treat it as read-only. The party id is stored under
+ * its final name (`vendorId` / `customerId`) once, so callers never copy the (up to ~160k) rows.
+ */
+function agingInvoices<K extends 'vendorId' | 'customerId'>(
+  side: AgingSide,
+  asOfPlusOne: IsoDate,
+  locIds: Id[] | 'all',
+  partyKey: K,
+): Promise<Array<Omit<AgingInvoice, 'partyId'> & Record<K, Id>>> {
+  type Row = Omit<AgingInvoice, 'partyId'> & Record<K, Id>
   if (locIds !== 'all' && locIds.length === 0) return Promise.resolve([])
   const cfg = AGING_SIDES[side]
 
   return memo(`${side}AgingInvoices:${asOfPlusOne}:${locKeyOf(locIds)}`, AGING_CACHE_MS, async () => {
-    const results: AgingInvoice[] = []
+    const results: Row[] = []
 
     for (const lChunk of chunkOrAll(locIds)) {
       const res = await rows<{
@@ -264,7 +275,7 @@ function agingInvoices(side: AgingSide, asOfPlusOne: IsoDate, locIds: Id[] | 'al
         results.push({
           invoiceId: String(r.invoiceId),
           invoiceNumber: r.invoiceNumber ? String(r.invoiceNumber) : '',
-          partyId: idOrEmpty(r.partyId),
+          [partyKey]: idOrEmpty(r.partyId),
           locationId: idOrEmpty(r.locationId),
           coaId: idOrEmpty(r.coaId),
           txDate: toDay(r.txDate),
@@ -272,7 +283,7 @@ function agingInvoices(side: AgingSide, asOfPlusOne: IsoDate, locIds: Id[] | 'al
           itemType: Number(r.itemType) || 0,
           originalAmount: D(r.originalAmount || 0).toFixed(2),
           balance: D(r.balance || 0).toFixed(2),
-        })
+        } as Row)
       }
     }
 
@@ -280,13 +291,19 @@ function agingInvoices(side: AgingSide, asOfPlusOne: IsoDate, locIds: Id[] | 'al
   })
 }
 
-/** Payments / credit notes with no allocation to any invoice. */
-function agingUnallocated(side: AgingSide, asOfPlusOne: IsoDate, locIds: Id[] | 'all'): Promise<AgingUnallocated[]> {
+/** Payments / credit notes with no allocation to any invoice (shared cached array: read-only). */
+function agingUnallocated<K extends 'vendorId' | 'customerId'>(
+  side: AgingSide,
+  asOfPlusOne: IsoDate,
+  locIds: Id[] | 'all',
+  partyKey: K,
+): Promise<Array<Omit<AgingUnallocated, 'partyId'> & Record<K, Id>>> {
+  type Row = Omit<AgingUnallocated, 'partyId'> & Record<K, Id>
   if (locIds !== 'all' && locIds.length === 0) return Promise.resolve([])
   const cfg = AGING_SIDES[side]
 
   return memo(`${side}AgingUnallocated:${asOfPlusOne}:${locKeyOf(locIds)}`, AGING_CACHE_MS, async () => {
-    const results: AgingUnallocated[] = []
+    const results: Row[] = []
 
     for (const lChunk of chunkOrAll(locIds)) {
       const res = await rows<{
@@ -315,12 +332,12 @@ function agingUnallocated(side: AgingSide, asOfPlusOne: IsoDate, locIds: Id[] | 
       for (const r of res) {
         results.push({
           cardId: String(r.cardId),
-          partyId: idOrEmpty(r.partyId),
+          [partyKey]: idOrEmpty(r.partyId),
           locationId: idOrEmpty(r.locationId),
           coaId: idOrEmpty(r.coaId),
           txDate: toDay(r.txDate),
           balance: D(r.balance || 0).toFixed(2),
-        })
+        } as Row)
       }
     }
 
@@ -373,24 +390,21 @@ export type ArUnallocatedReceiptRow = {
 }
 
 /** Open invoices with a balance ("part A" in data-model §9) and payments not allocated to any invoice ("part B"). */
-export async function apOpenInvoices(asOfPlusOne: IsoDate, locIds: Id[] | 'all'): Promise<ApOpenInvoiceRow[]> {
-  const items = await agingInvoices('ap', asOfPlusOne, locIds)
-  return items.map(({ partyId, ...rest }) => ({ ...rest, vendorId: partyId }))
+/** The returned arrays are cached and shared: callers must not modify them. */
+export function apOpenInvoices(asOfPlusOne: IsoDate, locIds: Id[] | 'all'): Promise<ApOpenInvoiceRow[]> {
+  return agingInvoices('ap', asOfPlusOne, locIds, 'vendorId')
 }
 
-export async function apUnallocatedPayments(asOfPlusOne: IsoDate, locIds: Id[] | 'all'): Promise<ApUnallocatedPaymentRow[]> {
-  const items = await agingUnallocated('ap', asOfPlusOne, locIds)
-  return items.map(({ partyId, ...rest }) => ({ ...rest, vendorId: partyId }))
+export function apUnallocatedPayments(asOfPlusOne: IsoDate, locIds: Id[] | 'all'): Promise<ApUnallocatedPaymentRow[]> {
+  return agingUnallocated('ap', asOfPlusOne, locIds, 'vendorId')
 }
 
-export async function arOpenInvoices(asOfPlusOne: IsoDate, locIds: Id[] | 'all'): Promise<ArOpenInvoiceRow[]> {
-  const items = await agingInvoices('ar', asOfPlusOne, locIds)
-  return items.map(({ partyId, ...rest }) => ({ ...rest, customerId: partyId }))
+export function arOpenInvoices(asOfPlusOne: IsoDate, locIds: Id[] | 'all'): Promise<ArOpenInvoiceRow[]> {
+  return agingInvoices('ar', asOfPlusOne, locIds, 'customerId')
 }
 
-export async function arUnallocatedReceipts(asOfPlusOne: IsoDate, locIds: Id[] | 'all'): Promise<ArUnallocatedReceiptRow[]> {
-  const items = await agingUnallocated('ar', asOfPlusOne, locIds)
-  return items.map(({ partyId, ...rest }) => ({ ...rest, customerId: partyId }))
+export function arUnallocatedReceipts(asOfPlusOne: IsoDate, locIds: Id[] | 'all'): Promise<ArUnallocatedReceiptRow[]> {
+  return agingUnallocated('ar', asOfPlusOne, locIds, 'customerId')
 }
 
 // ==========================================
@@ -415,8 +429,7 @@ async function lookupParties(
   ids: Id[],
 ): Promise<Array<{ id: Id; code: string; name: string }>> {
   const results: Array<{ id: Id; code: string; name: string }> = []
-  for (const slice of chunkOrAll(ids)) {
-    if (!slice) continue
+  for (const slice of chunk(ids)) {
     const res = await rows<{ id: string; code: string | null; name: string | null }>(sql`
       SELECT t.${sql.identifier(idColumn)} AS id, t.code AS code, t.name AS name
       FROM ${sql.identifier(table)} t
@@ -444,25 +457,37 @@ export type PlanStatusRow = {
   status: string
 }
 
+/** Payment vouchers (type 0) of the given invoices; for the one page of bills a drill-down shows. */
 export async function listPlanStatuses(invoiceIds: Id[]): Promise<PlanStatusRow[]> {
-  const results: PlanStatusRow[] = []
+  const parts = await Promise.all(
+    chunk(invoiceIds).map((slice) =>
+      rows<{ invoiceId: string; status: string | null }>(sql`
+        SELECT bd.invoice_id AS invoiceId, b.status AS status
+        FROM bankpo_payment_detail bd
+        JOIN bankpo_payment b ON b.bankpo_payment_id = bd.bankpo_payment_id
+        WHERE b.type = 0
+          AND bd.invoice_id IN (${inList(slice)})
+      `),
+    ),
+  )
+  return parts.flat().map((r) => ({ invoiceId: String(r.invoiceId), status: r.status || '' }))
+}
 
-  for (const slice of chunkOrAll(invoiceIds)) {
-    if (!slice) continue
+/**
+ * Every invoice that has a live payment voucher (Posted / Partialy Paid / Not Posted), in ONE query.
+ * An invoice without a live voucher is "not submitted", so the payment plan never asks per invoice.
+ */
+export function listActivePlanStatuses(): Promise<PlanStatusRow[]> {
+  return memo('activePlanStatuses', AGING_CACHE_MS, async () => {
     const res = await rows<{ invoiceId: string; status: string | null }>(sql`
       SELECT bd.invoice_id AS invoiceId, b.status AS status
       FROM bankpo_payment_detail bd
       JOIN bankpo_payment b ON b.bankpo_payment_id = bd.bankpo_payment_id
       WHERE b.type = 0
-        AND bd.invoice_id IN (${inList(slice)})
+        AND b.status IN (${inList([...ACTIVE_VOUCHER_STATUSES])})
     `)
-
-    for (const r of res) {
-      results.push({ invoiceId: String(r.invoiceId), status: r.status || '' })
-    }
-  }
-
-  return results
+    return res.map((r) => ({ invoiceId: String(r.invoiceId), status: r.status || '' }))
+  })
 }
 
 export async function unallocatedCustomerPayments(

@@ -4,6 +4,7 @@ import { formatPercent } from '~/lib/format/number'
 import type { AccountGroup, Breakdown, Id, Money } from './types'
 import { type CoaTree, type CoaNode, postableDescendants } from './coa-tree'
 import { groupFolders } from './revenue'
+import { accountSide } from './sign'
 
 export type PnlLineKey =
   | 'revenue'
@@ -96,16 +97,17 @@ export function buildPnl(input: {
     entry.byPeriod.set(m.periodId, pEntry)
   }
 
-  // Helper to compute line data for a set of coaIds with sign orientation
+  // Helper to compute line data for a set of coaIds, signed by the account group's natural side (sign.ts)
   function computeLine(
     accountGroup: AccountGroup | 'OCI',
-    sign: 'CREDIT_MINUS_DEBET' | 'DEBET_MINUS_CREDIT',
     filterCoa?: (coaId: Id) => boolean,
   ): {
     total: Decimal
     byPeriod: Record<Id, Money>
     folders: Breakdown[]
   } {
+    const debitSide = accountGroup !== 'OCI' && accountSide(accountGroup) === 'debit'
+    const signed = (debet: Decimal, credit: Decimal): Decimal => (debitSide ? debet.minus(credit) : credit.minus(debet))
     // 1. Determine target accounts
     const targetCoaIds: Id[] = []
     for (const node of tree.byId.values()) {
@@ -133,20 +135,14 @@ export function buildPnl(input: {
       const coaData = byCoa.get(coaId)
       if (!coaData) continue
 
-      const net =
-        sign === 'CREDIT_MINUS_DEBET'
-          ? coaData.totalCredit.minus(coaData.totalDebet)
-          : coaData.totalDebet.minus(coaData.totalCredit)
+      const net = signed(coaData.totalDebet, coaData.totalCredit)
 
       lineTotal = lineTotal.plus(net)
 
       for (const pId of allPeriodIds) {
         const pData = coaData.byPeriod.get(pId)
         if (pData) {
-          const pNet =
-            sign === 'CREDIT_MINUS_DEBET'
-              ? pData.credit.minus(pData.debet)
-              : pData.debet.minus(pData.credit)
+          const pNet = signed(pData.debet, pData.credit)
           lineByPeriod[pId] = lineByPeriod[pId]!.plus(pNet)
         }
       }
@@ -169,11 +165,7 @@ export function buildPnl(input: {
         for (const coaId of validDescs) {
           const node = tree.byId.get(coaId)
           const cData = byCoa.get(coaId)
-          const net = cData
-            ? sign === 'CREDIT_MINUS_DEBET'
-              ? cData.totalCredit.minus(cData.totalDebet)
-              : cData.totalDebet.minus(cData.totalCredit)
-            : D(0)
+          const net = cData ? signed(cData.totalDebet, cData.totalCredit) : D(0)
 
           folderSum = folderSum.plus(net)
           children.push({
@@ -220,8 +212,8 @@ export function buildPnl(input: {
   }
 
   // Compute components
-  const revenueComp = computeLine('Revenue', 'CREDIT_MINUS_DEBET')
-  const cogsComp = computeLine('Cost Of Sales', 'DEBET_MINUS_CREDIT')
+  const revenueComp = computeLine('Revenue')
+  const cogsComp = computeLine('Cost Of Sales')
 
   // Gross profit = Revenue - COGS
   const grossProfitTotal = revenueComp.total.minus(cogsComp.total)
@@ -232,7 +224,7 @@ export function buildPnl(input: {
     grossProfitByPeriod[pId] = revP.minus(cogsP).toFixed(2)
   }
 
-  const opexComp = computeLine('Expense', 'DEBET_MINUS_CREDIT')
+  const opexComp = computeLine('Expense')
 
   // Operating profit = Gross profit - OPEX
   const opProfitTotal = grossProfitTotal.minus(opexComp.total)
@@ -243,8 +235,8 @@ export function buildPnl(input: {
     opProfitByPeriod[pId] = gpP.minus(opexP).toFixed(2)
   }
 
-  const otherRevComp = computeLine('Other Revenue', 'CREDIT_MINUS_DEBET')
-  const otherExpComp = computeLine('Other Expense', 'DEBET_MINUS_CREDIT')
+  const otherRevComp = computeLine('Other Revenue')
+  const otherExpComp = computeLine('Other Expense')
 
   // Net profit = Operating profit + Other revenue - Other expense
   const netProfitTotal = opProfitTotal
@@ -258,7 +250,7 @@ export function buildPnl(input: {
     netProfitByPeriod[pId] = opP.plus(oRevP).minus(oExpP).toFixed(2)
   }
 
-  const ociComp = computeLine('OCI', 'CREDIT_MINUS_DEBET')
+  const ociComp = computeLine('OCI')
 
   // Comprehensive income = Net profit + OCI
   const compIncomeTotal = netProfitTotal.plus(ociComp.total)

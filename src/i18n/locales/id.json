@@ -114,7 +114,8 @@
     "dueToday": "Jatuh tempo hari ini",
     "includeInflows": "Sertakan proyeksi penerimaan",
     "horizonDays": "Hari ke depan",
-    "minusBalance": "Saldo minus"
+    "minusBalance": "Saldo minus",
+    "balanceSafe": "Aman"
   },
   "journalType": {
     "cashIn": "Uang Masuk",
@@ -409,9 +410,6 @@
       "asOf": "per"
     },
     "cashflowChart": {
-      "yearToDate": "Tahun berjalan",
-      "last12Months": "12 bulan terakhir",
-      "cashFlowChartRange": "Rentang grafik arus kas",
       "cashIn": "Kas masuk",
       "cashOut": "Kas keluar",
       "ariaLabel": "Kas masuk dan keluar per bulan, {{range}}. Tertinggi {{peak}}."
@@ -519,5 +517,24 @@
       "interestAndFees": "Pembayaran bunga dan administrasi",
       "otherIncome": "Penerimaan dari jasa giro dan pendapatan lain-lain"
     }
+  },
+  "pnlLine": {
+    "revenue": "Pendapatan",
+    "cogs": "Beban Pokok Penjualan",
+    "grossProfit": "Laba Kotor",
+    "opex": "Beban Operasional",
+    "operatingProfit": "Laba Usaha",
+    "otherRevenue": "Pendapatan Lain",
+    "otherExpense": "Beban Lain",
+    "netProfit": "Laba Bersih",
+    "oci": "Pendapatan Komprehensif Lain (OCI)",
+    "comprehensiveIncome": "Total Laba Komprehensif"
+  },
+  "fixedCostRoot": "Biaya Tetap",
+  "agingBucket": {
+    "d0_30": "0 – 30 hari",
+    "d31_60": "31 – 60 hari",
+    "d61_90": "61 – 90 hari",
+    "d90plus": "> 90 hari"
   }
 }

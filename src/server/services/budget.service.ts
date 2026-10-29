@@ -8,9 +8,10 @@ import {
   type AppContextFilter,
   buildMetricMeta,
   getCachedCoaTree,
-  getCachedPeriods,
 } from '~/server/context'
-import { movementsByPeriods } from '~/server/repo/gl.repo'
+import { memoMetric } from '~/server/cache'
+import { loadPlMovements, onlyAccounts } from '~/server/services/pl-movements'
+import { PNL_ACCOUNT_GROUPS as BUDGET_ACCOUNT_GROUPS, isIncomeGroup } from '~/lib/finance/account-groups'
 import { budgetAmounts } from '~/server/repo/budget.repo'
 import {
   buildBudgetTree,
@@ -30,21 +31,13 @@ export type BudgetResult = {
   }
 }
 
-const BUDGET_ACCOUNT_GROUPS: AccountGroup[] = [
-  'Revenue',
-  'Cost Of Sales',
-  'Expense',
-  'Other Revenue',
-  'Other Expense',
-]
+export function computeBudget(filter: AppContextFilter): Promise<BudgetResult> {
+  return memoMetric('budget', filter, () => computeBudgetUncached(filter))
+}
 
-export async function computeBudget(
-  filter: AppContextFilter,
-): Promise<BudgetResult> {
+async function computeBudgetUncached(filter: AppContextFilter): Promise<BudgetResult> {
   const meta = buildMetricMeta(filter)
   const tree = await getCachedCoaTree()
-  const periods = await getCachedPeriods()
-
   // 1. Identify target CoA IDs
   const targetCoaIds: Id[] = postableAccountIds(tree, BUDGET_ACCOUNT_GROUPS)
   const coaGroupMap = new Map<Id, AccountGroup>(
@@ -65,13 +58,7 @@ export async function computeBudget(
   }
 
   // 2. Fetch Actual movements
-  const activePeriods = periods.filter((p) => filter.periodIds.includes(p.periodeId))
-  const actualMovements = await movementsByPeriods({
-    periods: activePeriods,
-    segCol: filter.entitySegmentColumn,
-    segIds: filter.segmentDetailIds,
-    coaIds: targetCoaIds,
-  })
+  const actualMovements = onlyAccounts(await loadPlMovements(filter, filter.periodIds), targetCoaIds)
 
   const actualByCoa = new Map<Id, Money>()
   for (const m of actualMovements) {
@@ -127,8 +114,7 @@ export async function computeBudget(
   let bgtSummary = D(0)
 
   for (const r of rows) {
-    const isIncome = r.accountGroup === 'Revenue' || r.accountGroup === 'Other Revenue'
-    if (isIncome) {
+    if (isIncomeGroup(r.accountGroup)) {
       actSummary = actSummary.plus(D(r.actual))
       bgtSummary = bgtSummary.plus(D(r.budget))
     } else {

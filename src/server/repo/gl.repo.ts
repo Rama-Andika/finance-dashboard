@@ -346,6 +346,8 @@ export type JournalLinesOptions = {
   segIds?: Id[] | 'all'
   startDate?: IsoDate
   endDate?: IsoDate
+  /** GL tables to read when no periods are given (a plain date range); defaults to the active table `gl`. */
+  tables?: string[]
   limit?: number
   offset?: number
 }
@@ -362,9 +364,12 @@ export async function journalLines(opts: JournalLinesOptions): Promise<JournalLi
   if (opts.segIds && opts.segIds !== 'all' && opts.segIds.length === 0) return []
   if (opts.segCol) assertSegmentColumn(opts.segCol)
 
-  // If periods provided, group by table; otherwise use active table 'gl'
+  // If periods provided, group by table; otherwise read the given tables (default: active table 'gl')
   const periods = opts.periods ?? []
-  const grouped = periods.length > 0 ? groupPeriodsByTable(periods) : new Map([['gl', []]])
+  const grouped: Map<string, Period[]> =
+    periods.length > 0
+      ? groupPeriodsByTable(periods)
+      : new Map((opts.tables && opts.tables.length > 0 ? opts.tables : ['gl']).map((t) => [t, []]))
   const multiTable = grouped.size > 1
   const perTableLimit = multiTable ? offset + limit : limit
   const perTableOffset = multiTable ? 0 : offset
@@ -452,11 +457,10 @@ export type JournalHeaderRow = {
 /** Journal header fields for a page of gl_ids (drill-down leaves built from cash portions). */
 export async function journalHeaders(opts: { tables: string[]; glIds: Id[] }): Promise<JournalHeaderRow[]> {
   if (opts.tables.length === 0 || opts.glIds.length === 0) return []
-  const results: JournalHeaderRow[] = []
-  for (const tableName of opts.tables) {
+  const queries = opts.tables.flatMap((tableName) => {
     const { gl } = glTablesOf(tableName)
-    for (const slice of chunk(opts.glIds)) {
-      const res = await rows<{
+    return chunk(opts.glIds).map((slice) =>
+      rows<{
         glId: string
         journalNumber: string | null
         transDate: string
@@ -467,17 +471,15 @@ export async function journalHeaders(opts: { tables: string[]; glIds: Id[] }): P
                g.journal_type AS journalType, g.memo AS memo
         FROM ${sql.identifier(gl)} g
         WHERE g.gl_id IN (${inList(slice)})
-      `)
-      for (const r of res) {
-        results.push({
-          glId: String(r.glId),
-          journalNumber: r.journalNumber ?? '',
-          transDate: String(r.transDate).slice(0, 10),
-          journalType: Number(r.journalType) || 0,
-          memo: r.memo ?? '',
-        })
-      }
-    }
-  }
-  return results
+      `),
+    )
+  })
+  const parts = await Promise.all(queries)
+  return parts.flat().map((r) => ({
+    glId: String(r.glId),
+    journalNumber: r.journalNumber ?? '',
+    transDate: String(r.transDate).slice(0, 10),
+    journalType: Number(r.journalType) || 0,
+    memo: r.memo ?? '',
+  }))
 }

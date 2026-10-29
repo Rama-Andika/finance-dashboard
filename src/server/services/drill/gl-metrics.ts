@@ -2,6 +2,8 @@ import '@tanstack/react-start/server-only'
 import { type Id } from '~/lib/finance/types'
 import { env } from '~/server/env'
 import { findOciCoaIds } from '~/lib/finance/pnl'
+import { postableAccountIds } from '~/lib/finance/coa-tree'
+import type { AccountGroup } from '~/lib/finance/types'
 import { resolveBaskets } from '~/lib/finance/basket-resolver'
 import { loadAccountMapping } from '~/server/services/mapping.helper'
 import { type DrillState, type DrillStep, type DrillStepKind } from '~/lib/filters/search-schema'
@@ -11,7 +13,7 @@ import { empty, accountIdsOf, segIdsFor, hasSingleEntity, accountRows, entityRow
 // GL-based metrics: revenue, P&L, fixed cost, budget (and generic folders)
 // ---------------------------------------------------------------------------
 
-const PNL_LINE_GROUPS: Record<string, string> = {
+const PNL_LINE_GROUPS: Record<string, AccountGroup> = {
   revenue: 'Revenue',
   cogs: 'Cost Of Sales',
   opex: 'Expense',
@@ -21,20 +23,19 @@ const PNL_LINE_GROUPS: Record<string, string> = {
 
 /** Accounts behind a section of the P&L or Fixed Cost page. */
 async function sectionAccountIds(ctx: DrillContext, metric: string, sectionId: string): Promise<Id[]> {
-  const postable = Array.from(ctx.tree.byId.values()).filter((n) => n.status === 'POSTABLE')
   if (metric === 'pnl') {
     const oci = findOciCoaIds(ctx.tree, env.ociRootCodes)
     if (sectionId === 'oci') return Array.from(oci)
     const group = PNL_LINE_GROUPS[sectionId]
     if (!group) return []
     // OCI accounts are excluded from every other line (K10)
-    return postable.filter((n) => n.accountGroup === group && !oci.has(n.coaId)).map((n) => n.coaId)
+    return postableAccountIds(ctx.tree, [group]).filter((id) => !oci.has(id))
   }
   if (metric === 'fixedCost') {
     const resolved = resolveBaskets(await loadAccountMapping(ctx.tree), ctx.tree)
     const fixed = new Set(resolved.fixedCost)
     if (sectionId === 'fixed') return resolved.fixedCost
-    if (sectionId === 'variable') return postable.filter((n) => n.accountGroup === 'Expense' && !fixed.has(n.coaId)).map((n) => n.coaId)
+    if (sectionId === 'variable') return postableAccountIds(ctx.tree, ['Expense']).filter((id) => !fixed.has(id))
   }
   return accountIdsOf(ctx.tree, sectionId)
 }

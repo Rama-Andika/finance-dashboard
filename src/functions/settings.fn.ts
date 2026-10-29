@@ -19,32 +19,12 @@ export type GetAccountMappingResult = {
 export const getAccountMappingFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .handler(async (): Promise<GetAccountMappingResult> => {
-    const { getMappingRow } = await import('~/server/repo/settings.repo')
-    const { listCoa } = await import('~/server/repo/coa.repo')
-    const { buildCoaTree } = await import('~/lib/finance/coa-tree')
-    const { parseMapping, defaultMapping } = await import('~/lib/settings/mapping-schema')
+    const { getCachedCoaTree } = await import('~/server/context')
+    const { loadMappingState } = await import('~/server/services/mapping.helper')
     const { validateMapping } = await import('~/lib/settings/mapping-validate')
 
-    const coaRows = await listCoa()
-    const tree = buildCoaTree(coaRows)
-    const row = await getMappingRow()
-
-    const nowIso = new Date().toISOString()
-    const isDefault = !row || !row.valueprop
-    let corrupted = false
-    let mapping: AccountMapping
-
-    if (isDefault) {
-      mapping = defaultMapping(tree, nowIso)
-    } else {
-      const parsed = parseMapping(row.valueprop)
-      if (parsed) {
-        mapping = parsed
-      } else {
-        corrupted = true
-        mapping = defaultMapping(tree, nowIso)
-      }
-    }
+    const tree = await getCachedCoaTree()
+    const { mapping, isDefault, corrupted } = await loadMappingState(tree)
 
     const issues = validateMapping(mapping, tree)
 
@@ -112,11 +92,9 @@ export const getCoaTreeFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .validator((d: unknown) => metricInputSchema.parse(d))
   .handler(async ({ data }): Promise<GetCoaTreeResult> => {
-    const { listCoa } = await import('~/server/repo/coa.repo')
-    const { buildCoaTree } = await import('~/lib/finance/coa-tree')
+    const { getCachedCoaTree } = await import('~/server/context')
 
-    const coaRows = await listCoa()
-    const tree = buildCoaTree(coaRows)
+    const tree = await getCachedCoaTree()
 
     const nodes: CoaTreeNodeDto[] = []
     for (const node of tree.byId.values()) {

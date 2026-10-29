@@ -70,7 +70,7 @@ function CashPositionPage() {
   }
 
   // 1. Folders columns
-  const folderColumns: ColumnDef<Breakdown, any>[] = [
+  const folderColumns: ColumnDef<Breakdown, unknown>[] = [
     {
       accessorKey: 'label',
       header: t('ui.cashPosition.cashBankCategory'),
@@ -85,7 +85,7 @@ function CashPositionPage() {
   ]
 
   // 2. In Transit columns
-  const inTransitColumns: ColumnDef<InTransitDetailItem, any>[] = [
+  const inTransitColumns: ColumnDef<InTransitDetailItem, unknown>[] = [
     {
       accessorKey: 'name',
       header: t('ui.col.channel'),
@@ -225,7 +225,7 @@ function CashPositionPage() {
         />
       </div>
 
-      {/* Table 1: Kas / Bank per folder */}
+      {/* Table 1: cash / bank per folder */}
       <DataTable
         title={t('ui.cashPosition.cashBankBreakdown')}
         columns={folderColumns}
@@ -277,7 +277,7 @@ function CashPositionPage() {
         )}
       />
 
-      {/* Table 3: Saldo per Entitas */}
+      {/* Table 3: balance per entity */}
       <DataTable
         title={t('ui.cashPosition.cashBalanceByEntity')}
         columns={entityColumns}

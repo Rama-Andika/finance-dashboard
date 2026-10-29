@@ -4,6 +4,7 @@ import { D } from '~/lib/finance/money'
 import { type Entity, type Id, type IsoDate, type Period } from '~/lib/finance/types'
 import { type AppContextFilter } from '~/server/context'
 import { journalHeaders, journalLines, movementsByPeriods } from '~/server/repo/gl.repo'
+import { tablesBetween } from '~/server/db/gl-tables'
 import { listPlanStatuses } from '~/server/repo/apar.repo'
 import { postableDescendants, type CoaTree } from '~/lib/finance/coa-tree'
 import { signedAmount } from '~/lib/finance/sign'
@@ -32,7 +33,7 @@ export type DrillResult = {
 }
 
 export const PAGE_SIZE = 200
-export const AP_BILL_ITEM_TYPES = new Set([0, 1, 2, 4, 5, 6, 12]) // data-model §6.5(a), not type 3
+export { AP_BILL_ITEM_TYPES } from '~/lib/finance/expense-paid'
 
 export const col = (id: string, kind: DrillColumnKind, labelKey = `drill.col.${id}`): DrillColumn => ({
   id,
@@ -167,6 +168,7 @@ export async function journalRows(
     periods: dateRange ? undefined : ctx.activePeriods,
     startDate: dateRange?.from,
     endDate: dateRange?.to,
+    tables: dateRange ? tablesBetween(ctx.periods, dateRange.from, dateRange.to, 'gl') : undefined,
     coaIds,
     segCol: ctx.filter.entitySegmentColumn,
     segIds,

@@ -1,3 +1,4 @@
+import { isIncomeGroup } from './account-groups'
 import Decimal from 'decimal.js'
 import { D, safeDiv } from './money'
 import { formatPercent } from '~/lib/format/number'
@@ -39,7 +40,7 @@ export function ytdMonths0(month0: number): number[] {
  * Higher is better: true for Revenue & Other Revenue; false for costs/expenses.
  */
 export function isHigherBetter(group: AccountGroup): boolean {
-  return group === 'Revenue' || group === 'Other Revenue'
+  return isIncomeGroup(group)
 }
 
 /**
@@ -74,7 +75,7 @@ export function computeVariance(actual: Money, budget: Money): {
  */
 export function buildBudgetTree(input: {
   tree: CoaTree
-  accountGroups: AccountGroup[]
+  accountGroups: readonly AccountGroup[]
   actualByCoa: Map<Id, Money>
   budgetByCoa: Map<Id, Money>
 }): BudgetRow[] {

@@ -1,9 +1,10 @@
+import { translateLabel } from '~/lib/finance/i18n-label'
 import { searchUpdater } from '~/lib/filters/search-update'
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { chartSearchSchema, drillSearchSchema } from '~/lib/filters/search-schema'
+import { drillSearchSchema } from '~/lib/filters/search-schema'
 import { summaryMetricOptions, paymentBillsOptions, exportPaymentBills } from '~/queries/metrics.queries'
 import { tableSearchSchema } from '~/lib/table/query'
 import { PAYMENT_BILL_SORT_KEYS } from '~/lib/finance/payment-plan-bills'
@@ -16,7 +17,7 @@ import { KpiCard } from '~/components/neraca/KpiCard'
 import { CashflowChart } from '~/components/neraca/CashflowChart'
 import { DonutBreakdown } from '~/components/neraca/DonutBreakdown'
 import { DataTable, type ColumnDef } from '~/components/neraca/DataTable'
-import { StatusPill } from '~/components/neraca/StatusPill'
+import { PlanStatusPill } from '~/components/neraca/PlanStatusPill'
 import { ExportCsvButton, formatExportFilename } from '~/components/export/ExportCsvDialog'
 import { PrintButton } from '~/components/export/PrintButton'
 import { PrintHeader } from '~/components/export/PrintHeader'
@@ -26,14 +27,14 @@ import type { Lang } from '~/lib/finance/types'
 import type { PaymentPlanBill } from '~/lib/finance/payment-plan'
 
 export const Route = createFileRoute('/_authed/summary')({
-  validateSearch: chartSearchSchema.extend(drillSearchSchema.shape).extend(tableSearchSchema(PAYMENT_BILL_SORT_KEYS).shape),
+  validateSearch: drillSearchSchema.extend(tableSearchSchema(PAYMENT_BILL_SORT_KEYS).shape),
   loaderDeps: ({ search }) => ({
     entity: search.entity,
     preset: search.preset,
     from: search.from,
     to: search.to,
     p13: search.p13,
-    chart: search.chart,
+
   }),
   loader: ({ context, deps }) =>
     context.queryClient.ensureQueryData(summaryMetricOptions(deps)),
@@ -57,18 +58,8 @@ function SummaryPage() {
 
   const compareLabel = getCompareLabel(deps.from && deps.to ? 'custom' : deps.preset, lang)
 
-  const handleRangeChange = (r: 'ytd' | 'last-12m') => {
-    navigate({
-      to: '/summary',
-      resetScroll: false,
-      search: searchUpdater((prev) => ({
-        ...prev,
-        chart: r,
-      })),
-    })
-  }
 
-  const columns: ColumnDef<PaymentPlanBill, any>[] = [
+  const columns: ColumnDef<PaymentPlanBill, unknown>[] = [
     {
       accessorKey: 'vendorName',
       meta: { sortKey: 'vendorName' },
@@ -96,16 +87,7 @@ function SummaryPage() {
       accessorKey: 'status',
       meta: { sortKey: 'status' },
       header: t('ui.col.status'),
-      cell: ({ row }) => {
-        const s = row.original.status
-        const tone =
-          s === 'Disetujui' || s === 'Approved'
-            ? 'warning'
-            : s === 'Diajukan' || s === 'Submitted'
-              ? 'warning'
-              : 'neutral'
-        return <StatusPill tone={tone}>{s}</StatusPill>
-      },
+      cell: ({ row }) => <PlanStatusPill status={row.original.status} />,
     },
   ]
 
@@ -118,7 +100,7 @@ function SummaryPage() {
         }))
       : data.expenseFolders.map((f) => ({
           id: f.id,
-          name: f.label,
+          name: translateLabel(t, f.label),
           amount: f.amount,
         }))
 
@@ -195,9 +177,7 @@ function SummaryPage() {
             title={t('nav.cashFlow')}
             data={data.cashFlow.monthly}
             net={data.cashFlow.netCashFlow}
-            rangeLabel={deps.chart === 'last-12m' ? t('period.last12m') : t('period.ytd')}
-            range={deps.chart || 'ytd'}
-            onRangeChange={handleRangeChange}
+
             lang={lang}
             onSelectMonth={() => navigate({ to: '/cash-flow', search: searchUpdater((prev) => prev) })}
           />
@@ -276,9 +256,7 @@ function SummaryPage() {
               </div>
             </div>
             <div className="mt-1">
-              <StatusPill tone={r.status === 'Disetujui' ? 'warning' : 'neutral'}>
-                {r.status}
-              </StatusPill>
+              <PlanStatusPill status={r.status} />
             </div>
           </>
         )}

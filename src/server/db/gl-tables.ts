@@ -26,3 +26,11 @@ export function groupPeriodsByTable(periods: Period[]): Map<string, Period[]> {
   }
   return map
 }
+
+/** Tables that may hold journals between `from` and `to` (data-model §2.2, periode.table_name). */
+export function tablesBetween(periods: Period[], from: string, to: string, fallback: string): string[] {
+  const tables = Array.from(
+    new Set(periods.filter((p) => p.endDate >= from && p.startDate <= to).map((p) => p.tableName)),
+  )
+  return tables.length > 0 ? tables : [fallback]
+}

@@ -4,7 +4,7 @@ import { D } from '~/lib/finance/money'
 import { addDays } from '~/lib/format/date'
 import { type Id, type IsoDate } from '~/lib/finance/types'
 import { expensePaidAllocated, expensePaidUnallocated, listVendors } from '~/server/repo/apar.repo'
-import { signedAmount } from '~/lib/finance/sign'
+import { isDirectExpenseGroup } from '~/lib/finance/account-groups'
 import { resolveBaskets } from '~/lib/finance/basket-resolver'
 import { loadAccountMapping } from '~/server/services/mapping.helper'
 import { loadClassifiedPortions } from '~/server/services/cash-flow.service'
@@ -124,7 +124,7 @@ export async function expensePaidDrill(ctx: DrillContext, steps: Map<DrillStepKi
   const inScope = new Set(accountIdsOf(ctx.tree, scopeStep.id))
   const paid = portions.filter((p) => {
     const group = ctx.tree.byId.get(p.counterCoaId)?.accountGroup
-    return inScope.has(p.counterCoaId) && D(p.portion).lt(0) && (group === 'Cost Of Sales' || group === 'Expense')
+    return inScope.has(p.counterCoaId) && D(p.portion).lt(0) && isDirectExpenseGroup(group ?? '')
   })
 
   if (accountStep) {

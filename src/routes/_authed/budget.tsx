@@ -45,7 +45,7 @@ function BudgetPage() {
 
   if (!data) return null
 
-  const columns: ColumnDef<BudgetRow, any>[] = [
+  const columns: ColumnDef<BudgetRow, unknown>[] = [
     {
       accessorKey: 'name',
       header: t('ui.budget.budgetItem'),

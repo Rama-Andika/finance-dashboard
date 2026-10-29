@@ -12,6 +12,8 @@ if (!process.env.DATABASE_URL) {
 const envSchema = z.object({
   DATABASE_URL: z.string().startsWith('mysql://'),
   DB_POOL_SIZE: z.coerce.number().int().min(1).max(10).default(5),
+  // Upper bound for one SELECT, in milliseconds (0 = no limit). A runaway report must not hold a pooled connection forever.
+  DB_QUERY_TIMEOUT_MS: z.coerce.number().int().min(0).max(3_600_000).default(120_000),
   SESSION_SECRET: z.string().min(32),
   APP_TIMEZONE: z.string().default('Asia/Jakarta'),
   // Optional fixed "today" (YYYY-MM-DD) for tests and ERP reconciliation against historical data.

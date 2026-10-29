@@ -1,7 +1,6 @@
-import { searchUpdater } from '~/lib/filters/search-update'
 import { translateCfLabel } from '~/lib/finance/cashflow-labels'
 import { useState } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useOpenDrill } from '~/components/drill/useOpenDrill'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -16,7 +15,7 @@ import {
   Tooltip as RechartsTooltip,
   Cell,
 } from 'recharts'
-import { chartSearchSchema, drillSearchSchema } from '~/lib/filters/search-schema'
+import { drillSearchSchema } from '~/lib/filters/search-schema'
 import {
   cashFlowMetricOptions,
   expensePaidMetricOptions,
@@ -35,16 +34,17 @@ import { PrintHeader } from '~/components/export/PrintHeader'
 import { formatAxisShort, formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
 import { formatMonthYear } from '~/lib/format/date'
 import type { Breakdown, Lang } from '~/lib/finance/types'
+import { buildActivityRows, buildWaterfall, localizeExpense, type CashFlowActivityRow } from '~/lib/finance/cashflow-view'
 
 export const Route = createFileRoute('/_authed/cash-flow')({
-  validateSearch: chartSearchSchema.extend(drillSearchSchema.shape),
+  validateSearch: drillSearchSchema,
   loaderDeps: ({ search }) => ({
     entity: search.entity,
     preset: search.preset,
     from: search.from,
     to: search.to,
     p13: search.p13,
-    chart: search.chart,
+
   }),
   loader: ({ context, deps }) =>
     Promise.all([
@@ -56,20 +56,8 @@ export const Route = createFileRoute('/_authed/cash-flow')({
   component: CashFlowPage,
 })
 
-type CashFlowActivityRow = {
-  id: string
-  name: string
-  amount: string
-  isUnclassified?: boolean
-  /** Server sub-group value, used as the drill-down id. */
-  subGroupId?: string
-  isDrawerHeader?: boolean
-  drawerKey?: string
-}
-
 function CashFlowPage() {
   const deps = Route.useLoaderDeps()
-  const navigate = useNavigate()
   const { data: cfData } = useQuery(cashFlowMetricOptions(deps))
   const { data: expDataRaw } = useQuery(expensePaidMetricOptions(deps))
   const { t, i18n } = useTranslation()
@@ -80,98 +68,12 @@ function CashFlowPage() {
 
   if (!cfData) return null
 
-  // Server labels are language-neutral; translate the fixed categories and unknown vendors here.
-  const localizeExpense = (b: Breakdown): Breakdown => ({
-    ...b,
-    label:
-      b.id === 'apBills' || b.id === 'unallocated'
-        ? t(`ui.col.${b.id}`)
-        : b.label || t('ui.col.unknownVendor'),
-    children: b.children?.map(localizeExpense),
-  })
-  const expData = expDataRaw ? { ...expDataRaw, byCategory: expDataRaw.byCategory.map(localizeExpense) } : undefined
+  const expData = expDataRaw ? { ...expDataRaw, byCategory: expDataRaw.byCategory.map((b) => localizeExpense(b, t)) } : undefined
 
-  const handleRangeChange = (r: 'ytd' | 'last-12m') => {
-    navigate({
-      to: '/cash-flow',
-      resetScroll: false,
-      search: searchUpdater((prev) => ({
-        ...prev,
-        chart: r,
-      })),
-    })
-  }
+  const waterfallData = buildWaterfall(cfData, t)
+  const activityRows = buildActivityRows(cfData.drawers, t)
 
-  // Waterfall Chart data
-  const drawerMap = new Map(cfData.drawers.map((d) => [d.drawer, d.total]))
-  const opAmount = Number(drawerMap.get('OPERATING') || 0)
-  const invAmount = Number(drawerMap.get('INVESTING') || 0)
-  const finAmount = Number(drawerMap.get('FUNDING') || 0)
-
-  const waterfallData = [
-    {
-      name: t('metric.openingCash'),
-      amountNum: Number(cfData.openingCash) || 0,
-      rawAmount: cfData.openingCash,
-      color: 'var(--chart-5)',
-    },
-    {
-      name: t('metric.operating'),
-      amountNum: opAmount,
-      rawAmount: drawerMap.get('OPERATING') || '0',
-      color: opAmount >= 0 ? 'var(--chart-income)' : 'var(--chart-expense)',
-    },
-    {
-      name: t('metric.investing'),
-      amountNum: invAmount,
-      rawAmount: drawerMap.get('INVESTING') || '0',
-      color: invAmount >= 0 ? 'var(--chart-income)' : 'var(--chart-expense)',
-    },
-    {
-      name: t('metric.financing'),
-      amountNum: finAmount,
-      rawAmount: drawerMap.get('FUNDING') || '0',
-      color: finAmount >= 0 ? 'var(--chart-income)' : 'var(--chart-expense)',
-    },
-    {
-      name: t('metric.closingCash'),
-      amountNum: Number(cfData.closingCash) || 0,
-      rawAmount: cfData.closingCash,
-      color: 'var(--chart-1)',
-    },
-  ]
-
-  // Flatten drawer activities for DataTable
-  const activityRows: CashFlowActivityRow[] = []
-  for (const d of cfData.drawers) {
-    const drawerLabel =
-      d.drawer === 'OPERATING'
-        ? t('metric.operating')
-        : d.drawer === 'INVESTING'
-          ? t('metric.investing')
-          : t('metric.financing')
-
-    activityRows.push({
-      id: `drawer-${d.drawer}`,
-      name: drawerLabel,
-      amount: d.total,
-      isDrawerHeader: true,
-      drawerKey: d.drawer,
-    })
-
-    for (const r of d.rows) {
-      activityRows.push({
-        id: `row-${d.drawer}-${r.subGroup}`,
-        name: r.unclassified ? t('ui.col.unclassified') : translateCfLabel(t, r.subGroup),
-        subGroupId: r.subGroup,
-        amount: r.amount,
-        isUnclassified: r.unclassified,
-        drawerKey: d.drawer,
-      })
-    }
-  }
-
-  const activityColumns: ColumnDef<CashFlowActivityRow, any>[] = [
+  const activityColumns: ColumnDef<CashFlowActivityRow, unknown>[] = [
     {
       accessorKey: 'name',
       header: t('ui.cashFlow.cashFlowActivity'),
@@ -207,7 +109,7 @@ function CashFlowPage() {
   ]
 
   // Expense Paid columns
-  const expenseColumns: ColumnDef<Breakdown, any>[] = [
+  const expenseColumns: ColumnDef<Breakdown, unknown>[] = [
     {
       accessorKey: 'label',
       header: t('ui.cashFlow.expenseCategory'),
@@ -345,9 +247,7 @@ function CashFlowPage() {
           title={t('ui.cashFlow.monthlyCashFlow')}
           data={cfData.monthly}
           net={cfData.netCashFlow}
-          rangeLabel={deps.chart === 'last-12m' ? t('period.last12m') : t('period.ytd')}
-          range={deps.chart || 'ytd'}
-          onRangeChange={handleRangeChange}
+
           lang={lang}
         />
       </div>

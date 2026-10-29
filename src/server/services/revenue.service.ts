@@ -11,6 +11,8 @@ import {
   getCachedPeriods,
 } from '~/server/context'
 import { movementsByPeriods } from '~/server/repo/gl.repo'
+import { memoMetric } from '~/server/cache'
+import { loadPlMovements, onlyAccounts } from '~/server/services/pl-movements'
 import {
   computeNetRevenue,
   groupFolders,
@@ -26,9 +28,11 @@ export type RevenueResult = {
   byEntity: Array<{ code: string; name: string; amount: Money }>
 }
 
-export async function computeRevenue(
-  filter: AppContextFilter,
-): Promise<RevenueResult> {
+export function computeRevenue(filter: AppContextFilter): Promise<RevenueResult> {
+  return memoMetric('revenue', filter, () => computeRevenueUncached(filter))
+}
+
+async function computeRevenueUncached(filter: AppContextFilter): Promise<RevenueResult> {
   const meta = buildMetricMeta(filter)
   const tree = await getCachedCoaTree()
   const periods = await getCachedPeriods()
@@ -49,27 +53,24 @@ export async function computeRevenue(
 
   // 2. Fetch movements for active periods
   const activePeriods = periods.filter((p) => filter.periodIds.includes(p.periodeId))
-  const rows = await movementsByPeriods({
-    periods: activePeriods,
-    segCol: filter.entitySegmentColumn,
-    segIds: filter.segmentDetailIds,
-    coaIds: revenueCoaIds,
-    byPeriod: true,
-    byLocation: true,
-  })
-
-  // 3. Compare total
-  let compareTotal: Money | null = null
-  if (filter.compare && filter.compare.periodIds.length > 0) {
-    const comparePeriods = periods.filter((p) =>
-      filter.compare.periodIds.includes(p.periodeId),
-    )
-    const compareRows = await movementsByPeriods({
-      periods: comparePeriods,
+  // The per-entity split needs its own read; the comparison total reuses the shared P&L movements.
+  const hasCompare = Boolean(filter.compare && filter.compare.periodIds.length > 0)
+  const [rows, allCompareRows] = await Promise.all([
+    movementsByPeriods({
+      periods: activePeriods,
       segCol: filter.entitySegmentColumn,
       segIds: filter.segmentDetailIds,
       coaIds: revenueCoaIds,
-    })
+      byPeriod: true,
+      byLocation: true,
+    }),
+    hasCompare ? loadPlMovements(filter, filter.compare.periodIds) : Promise.resolve([]),
+  ])
+
+  // 3. Compare total
+  let compareTotal: Money | null = null
+  if (hasCompare) {
+    const compareRows = onlyAccounts(allCompareRows, revenueCoaIds)
     let cmpSum = D(0)
     for (const r of compareRows) {
       cmpSum = cmpSum.plus(D(computeNetRevenue(r.debet, r.credit)))

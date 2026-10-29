@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   allocateCash,
+  makeIsOurCash,
   classifyBySetup,
   classifyByFallback,
   isSetupValid,
@@ -105,5 +106,32 @@ describe('cashflow pure logic and allocation', () => {
     // gl_1 (+100) + gl_2 (0) + gl_3 (-100) = net 0
     expect(netCashFlow.toFixed(2)).toBe('0.00')
     expect(expectedClosing).toBe('1000.00')
+  })
+})
+
+describe('makeIsOurCash', () => {
+  it('accepts cash accounts of any entity when no entity filter is set', () => {
+    const isOurCash = makeIsOurCash(['1', '2'], 'all')
+    expect(isOurCash({ coaId: '1', segmentDetailId: null })).toBe(true)
+    expect(isOurCash({ coaId: '3', segmentDetailId: 's1' })).toBe(false)
+  })
+
+  it('with an entity filter, also needs the line to belong to a selected entity', () => {
+    const isOurCash = makeIsOurCash(['1'], ['s1'])
+    expect(isOurCash({ coaId: '1', segmentDetailId: 's1' })).toBe(true)
+    expect(isOurCash({ coaId: '1', segmentDetailId: 's2' })).toBe(false)
+    expect(isOurCash({ coaId: '1', segmentDetailId: null })).toBe(false)
+  })
+
+  it('allocated portions remember the entity of their counter line', () => {
+    const portions = allocateCash(
+      [
+        { glId: 'g', journalType: 1, periodId: 'p', coaId: '1', segmentDetailId: 's1', debet: '0.00', credit: '100.00' },
+        { glId: 'g', journalType: 1, periodId: 'p', coaId: '6100', segmentDetailId: 's2', debet: '100.00', credit: '0.00' },
+      ],
+      makeIsOurCash(['1'], 'all'),
+    )
+    expect(portions).toHaveLength(1)
+    expect(portions[0]).toMatchObject({ counterCoaId: '6100', counterSegmentId: 's2', portion: '-100.00' })
   })
 })

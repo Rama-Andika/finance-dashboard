@@ -1,3 +1,4 @@
+import { translateLabel } from '~/lib/finance/i18n-label'
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -55,18 +56,6 @@ export const Route = createFileRoute('/_authed/profit-loss')({
   component: ProfitLossPage,
 })
 
-const PNL_LINE_LABELS: Record<PnlLineKey, { id: string; en: string }> = {
-  revenue: { id: 'Pendapatan', en: 'Revenue' },
-  cogs: { id: 'Beban Pokok Penjualan', en: 'Cost of Goods Sold' },
-  grossProfit: { id: 'Laba Kotor', en: 'Gross Profit' },
-  opex: { id: 'Beban Operasional', en: 'Operating Expenses' },
-  operatingProfit: { id: 'Laba Usaha', en: 'Operating Profit' },
-  otherRevenue: { id: 'Pendapatan Lain', en: 'Other Income' },
-  otherExpense: { id: 'Beban Lain', en: 'Other Expense' },
-  netProfit: { id: 'Laba Bersih', en: 'Net Profit' },
-  oci: { id: 'Pendapatan Komprehensif Lain (OCI)', en: 'Other Comprehensive Income (OCI)' },
-  comprehensiveIncome: { id: 'Total Laba Komprehensif', en: 'Comprehensive Income' },
-}
 
 const SUBTOTAL_KEYS = new Set<PnlLineKey>([
   'grossProfit',
@@ -109,7 +98,7 @@ function ProfitLossPage() {
   const avgFixedNum = Number(fixedData?.averageFixed || 0)
 
   // PnL Table Columns
-  const pnlColumns: ColumnDef<PnlLine, any>[] = [
+  const pnlColumns: ColumnDef<PnlLine, unknown>[] = [
     {
       accessorKey: 'key',
       header: t('ui.profitLoss.pLLine'),
@@ -117,7 +106,7 @@ function ProfitLossPage() {
         const item = row.original
         const isOperating = item.key === 'operatingProfit'
         const isSubtotal = SUBTOTAL_KEYS.has(item.key)
-        const label = PNL_LINE_LABELS[item.key]?.[lang] || item.key
+        const label = t(`pnlLine.${item.key}`)
         return (
           <div className="flex items-center gap-1.5">
             <span className={isSubtotal ? 'font-bold text-ink' : undefined}>
@@ -168,11 +157,11 @@ function ProfitLossPage() {
   ]
 
   // Fixed Cost Folder Columns
-  const fixedColumns: ColumnDef<Breakdown, any>[] = [
+  const fixedColumns: ColumnDef<Breakdown, unknown>[] = [
     {
       accessorKey: 'label',
       header: t('ui.profitLoss.fixedCostFolder'),
-      cell: ({ row }) => <span className="nr-name">{row.original.label}</span>,
+      cell: ({ row }) => <span className="nr-name">{translateLabel(t, row.original.label)}</span>,
     },
     {
       accessorKey: 'amount',
@@ -254,7 +243,7 @@ function ProfitLossPage() {
           onRowClick={(r) => {
             // Subtotals are computed lines; only account-backed lines open a drill-down.
             if (SUBTOTAL_KEYS.has(r.key)) return
-            openDrill('pnl', [{ kind: 'section', id: r.key, label: PNL_LINE_LABELS[r.key]?.[lang] || r.key }])
+            openDrill('pnl', [{ kind: 'section', id: r.key, label: t(`pnlLine.${r.key}`) }])
           }}
           emptyMessage={t('common.noData')}
           headerActions={
@@ -264,7 +253,7 @@ function ProfitLossPage() {
                 columns={[
                   {
                     header: t('ui.col.pnlLine'),
-                    value: (r) => PNL_LINE_LABELS[r.key]?.[lang] || r.key,
+                    value: (r) => t(`pnlLine.${r.key}`),
                     kind: 'text',
                   },
                   { header: t('ui.col.amount'), value: (r) => r.amount, kind: 'money' },
@@ -277,7 +266,7 @@ function ProfitLossPage() {
           }
           mobileCard={(r) => {
             const isSubtotal = SUBTOTAL_KEYS.has(r.key)
-            const label = PNL_LINE_LABELS[r.key]?.[lang] || r.key
+            const label = t(`pnlLine.${r.key}`)
             return (
               <div className="flex justify-between items-center">
                 <div>
@@ -295,7 +284,7 @@ function ProfitLossPage() {
         />
       )}
 
-      {/* Tab 2: Fixed Cost (Biaya Tetap) */}
+      {/* Tab 2: Fixed Cost */}
       {activeTab === 'fixedCost' && fixedData && (
         <div className="space-y-6">
           {/* Stacked Bar Chart: Fixed vs Variable */}
@@ -392,14 +381,14 @@ function ProfitLossPage() {
             data={fixedData.byFolder}
             getRowId={(r) => r.id}
             getSubRows={(r) => r.children}
-            onRowClick={(r) => openDrill('fixedCost', [{ kind: 'folder', id: r.id, label: r.label }])}
+            onRowClick={(r) => openDrill('fixedCost', [{ kind: 'folder', id: r.id, label: translateLabel(t, r.label) }])}
             emptyMessage={t('common.noData')}
             headerActions={
               <div className="flex items-center gap-2">
                 <ExportCsvButton
                   rows={fixedData.byFolder}
                   columns={[
-                    { header: t('ui.col.fixedCostFolder'), value: (r) => r.label, kind: 'text' },
+                    { header: t('ui.col.fixedCostFolder'), value: (r) => translateLabel(t, r.label), kind: 'text' },
                     { header: t('ui.col.amount'), value: (r) => r.amount, kind: 'money' },
                   ]}
                   filename={formatExportFilename('fixed_cost', deps.entity, deps.from && deps.to ? `${deps.from}_${deps.to}` : deps.preset)}

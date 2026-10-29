@@ -114,7 +114,8 @@
     "dueToday": "Due today",
     "includeInflows": "Include projected inflows",
     "horizonDays": "Days ahead",
-    "minusBalance": "Negative balance"
+    "minusBalance": "Negative balance",
+    "balanceSafe": "Safe"
   },
   "journalType": {
     "cashIn": "Cash In",
@@ -409,9 +410,6 @@
       "asOf": "as of"
     },
     "cashflowChart": {
-      "yearToDate": "Year to date",
-      "last12Months": "Last 12 months",
-      "cashFlowChartRange": "Cash flow chart range",
       "cashIn": "Cash in",
       "cashOut": "Cash out",
       "ariaLabel": "Cash in and out per month, {{range}}. Peak in {{peak}}."
@@ -519,5 +517,24 @@
       "interestAndFees": "Interest and bank charges",
       "otherIncome": "Interest income and other income"
     }
+  },
+  "pnlLine": {
+    "revenue": "Revenue",
+    "cogs": "Cost of Goods Sold",
+    "grossProfit": "Gross Profit",
+    "opex": "Operating Expenses",
+    "operatingProfit": "Operating Profit",
+    "otherRevenue": "Other Income",
+    "otherExpense": "Other Expense",
+    "netProfit": "Net Profit",
+    "oci": "Other Comprehensive Income (OCI)",
+    "comprehensiveIncome": "Comprehensive Income"
+  },
+  "fixedCostRoot": "Fixed Cost",
+  "agingBucket": {
+    "d0_30": "0 – 30 days",
+    "d31_60": "31 – 60 days",
+    "d61_90": "61 – 90 days",
+    "d90plus": "> 90 days"
   }
 }

@@ -15,6 +15,7 @@ const coaRows: CoaRow[] = [
 ]
 const tree = buildCoaTree(coaRows)
 const periods: Period[] = [
+  { periodeId: 'p0', name: 'Sep', startDate: '2026-09-01', endDate: '2026-09-30', status: 'Closed', type: 0, tableName: 'gl' },
   { periodeId: 'p1', name: 'Oct', startDate: '2026-10-01', endDate: '2026-10-31', status: 'Open', type: 0, tableName: 'gl' },
 ]
 
@@ -22,6 +23,7 @@ vi.mock('~/server/env', () => ({ env: { ociRootCodes: [], APP_TODAY: '2026-10-15
 vi.mock('~/server/context', () => ({
   getCachedCoaTree: async () => tree,
   getCachedPeriods: async () => periods,
+  getCachedEntities: async () => ({ segment: { segmentId: 's', columnName: 'segment1_id' }, entities: [] }),
   buildMetricMeta: () => ({
     readAt: 'now', d1: '2026-10-01', asOf: '2026-10-15', today: '2026-10-15', entityCount: 1,
     isAllEntities: true, hasOpenPeriod: true, missingMonths: [],
@@ -32,17 +34,43 @@ const movementsByPeriods = vi.fn()
 const apOpenInvoices = vi.fn()
 const apUnallocatedPayments = vi.fn()
 const listVendors = vi.fn()
+const listActivePlanStatuses = vi.fn()
+const listPlanStatuses = vi.fn()
+const budgetAmounts = vi.fn()
 const balancesAt = vi.fn()
+const computeCashPosition = vi.fn()
 
 vi.mock('~/server/repo/gl.repo', () => ({ movementsByPeriods: (...a: unknown[]) => movementsByPeriods(...a) }))
 vi.mock('~/server/repo/apar.repo', () => ({
   apOpenInvoices: (...a: unknown[]) => apOpenInvoices(...a),
   apUnallocatedPayments: (...a: unknown[]) => apUnallocatedPayments(...a),
   listVendors: (...a: unknown[]) => listVendors(...a),
+  listActivePlanStatuses: (...a: unknown[]) => listActivePlanStatuses(...a),
+  listPlanStatuses: (...a: unknown[]) => listPlanStatuses(...a),
 }))
+vi.mock('~/server/repo/budget.repo', () => ({ budgetAmounts: (...a: unknown[]) => budgetAmounts(...a) }))
+vi.mock('~/server/repo/bank-payment.repo', () => ({ unsettledByChannel: async () => [], settlementLag: async () => [] }))
 vi.mock('~/server/services/balance.service', () => ({ balancesAt: (...a: unknown[]) => balancesAt(...a) }))
+vi.mock('~/server/services/cash-position.service', () => ({ computeCashPosition: (...a: unknown[]) => computeCashPosition(...a) }))
+vi.mock('~/server/services/mapping.helper', () => ({
+  loadAccountMapping: async () => ({
+    version: 1,
+    updatedAt: 'now',
+    baskets: {
+      cash: { include: [] },
+      bank: { include: [] },
+      deposit: { include: [] },
+      inTransit: { include: [] },
+      fixedCost: { include: ['2'] },
+    },
+  }),
+}))
 
 const { computePnl } = await import('./pnl.service')
+const { computeFixedCost } = await import('./fixed-cost.service')
+const { computeBudget } = await import('./budget.service')
+const { computeRevenue } = await import('./revenue.service')
+const { computePaymentPlan } = await import('./payment-plan.service')
 const { computeApAging } = await import('./ap-aging.service')
 const { listAgingParties } = await import('./aging-parties.service')
 const { clearCache } = await import('~/server/cache')
@@ -69,8 +97,11 @@ function filterFor(id: string) {
 describe('metric query budgets', () => {
   beforeEach(() => {
     clearCache()
-    for (const m of [movementsByPeriods, apOpenInvoices, apUnallocatedPayments, listVendors, balancesAt]) m.mockReset()
+    for (const m of [movementsByPeriods, apOpenInvoices, apUnallocatedPayments, listVendors, balancesAt, listActivePlanStatuses, listPlanStatuses, budgetAmounts, computeCashPosition]) m.mockReset()
     movementsByPeriods.mockResolvedValue([])
+    listActivePlanStatuses.mockResolvedValue([])
+    budgetAmounts.mockResolvedValue([])
+    computeCashPosition.mockResolvedValue({ cashPosition: '1000.00' })
     apOpenInvoices.mockResolvedValue([])
     apUnallocatedPayments.mockResolvedValue([])
     listVendors.mockResolvedValue([])
@@ -84,9 +115,59 @@ describe('metric query budgets', () => {
   })
 
   it('P&L with a comparison period needs exactly two GL reads', async () => {
-    const filter = { ...filterFor('pnl-compare'), compare: { d1: '2026-09-01', asOf: '2026-09-30', periodIds: ['p1'] } }
+    const filter = { ...filterFor('pnl-compare'), compare: { d1: '2026-09-01', asOf: '2026-09-30', periodIds: ['p0'] } }
     await computePnl(filter)
     expect(movementsByPeriods).toHaveBeenCalledTimes(2)
+  })
+
+  it('P&L, Fixed Cost and Budget share ONE GL read for the same periods', async () => {
+    const filter = filterFor('pl-shared')
+    await Promise.all([computePnl(filter), computeFixedCost(filter), computeBudget(filter)])
+    expect(movementsByPeriods).toHaveBeenCalledTimes(1)
+    // the shared read covers the P&L accounts and the fixed-cost basket together
+    const asked = movementsByPeriods.mock.calls[0]![0] as { coaIds: string[] }
+    expect(asked.coaIds.sort()).toEqual(['1', '2'])
+  })
+
+  it('Revenue needs one read of its own (per-entity split); its comparison reuses the shared P&L read', async () => {
+    const filter = { ...filterFor('revenue'), compare: { d1: '2026-09-01', asOf: '2026-09-30', periodIds: ['p0'] } }
+    await Promise.all([computeRevenue(filter), computePnl(filter)])
+    // revenue (by location) + P&L current period + comparison (shared by both) = 3, not 4
+    expect(movementsByPeriods).toHaveBeenCalledTimes(3)
+  })
+
+  it('computing the same metric again within the memo window reads nothing', async () => {
+    const filter = filterFor('memo-window')
+    await Promise.all([computeRevenue(filter), computeFixedCost(filter), computeBudget(filter)])
+    const reads = movementsByPeriods.mock.calls.length
+    await Promise.all([computeRevenue(filter), computeFixedCost(filter), computeBudget(filter)])
+    expect(movementsByPeriods).toHaveBeenCalledTimes(reads)
+    expect(budgetAmounts).toHaveBeenCalledTimes(1)
+  })
+
+  it('Payment Plan asks for payment-voucher statuses once, however many invoices are open', async () => {
+    apOpenInvoices.mockResolvedValue(
+      Array.from({ length: 2500 }, (_, n) => ({
+        invoiceId: `i${n}`, vendorId: `v${n % 10}`, locationId: 'l1', coaId: '3', txDate: '2026-09-01',
+        dueDate: '2026-10-15', itemType: 0, originalAmount: '10.00', balance: '10.00',
+      })),
+    )
+    listActivePlanStatuses.mockResolvedValue([{ invoiceId: 'i1', status: 'Posted' }])
+    const plan = await computePaymentPlan(filterFor('plan'), { horizon: '7', inflow: false })
+
+    expect(listActivePlanStatuses).toHaveBeenCalledTimes(1)
+    expect(listPlanStatuses).not.toHaveBeenCalled()
+    expect(plan.bills.find((b) => b.invoiceId === 'i1')!.status).toBe('approved')
+    expect(plan.bills.find((b) => b.invoiceId === 'i2')!.status).toBe('notSubmitted')
+  })
+
+  it('Payment Plan leaves out bills due after the horizon', async () => {
+    apOpenInvoices.mockResolvedValue([
+      { invoiceId: 'soon', vendorId: 'v1', locationId: 'l1', coaId: '3', txDate: '2026-09-01', dueDate: '2026-10-17', itemType: 0, originalAmount: '10.00', balance: '10.00' },
+      { invoiceId: 'late', vendorId: 'v1', locationId: 'l1', coaId: '3', txDate: '2026-09-01', dueDate: '2026-12-31', itemType: 0, originalAmount: '10.00', balance: '10.00' },
+    ])
+    const plan = await computePaymentPlan(filterFor('plan-horizon'), { horizon: '7', inflow: false })
+    expect(plan.bills.map((b) => b.invoiceId)).toEqual(['soon'])
   })
 
   it('AP Aging reads open invoices and unallocated payments once each, and vendor names in one batch', async () => {

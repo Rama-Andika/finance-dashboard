@@ -19,3 +19,6 @@ export const CF_FALLBACK = {
 export function translateCfLabel(t: (key: string) => string, label: string): string {
   return label.startsWith(CF_FALLBACK_PREFIX) ? t(label) : label
 }
+
+/** Sub-row label for portions that no cash_flow_setup row accepts (D27). */
+export const UNCLASSIFIED_SUBGROUP = 'Unclassified'

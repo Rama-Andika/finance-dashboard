@@ -17,7 +17,7 @@ import { computeCashPosition } from '~/server/services/cash-position.service'
 import {
   apOpenInvoices,
   arOpenInvoices,
-  listPlanStatuses,
+  listActivePlanStatuses,
   listVendors,
 } from '~/server/repo/apar.repo'
 import {
@@ -65,15 +65,18 @@ async function computePaymentPlanUncached(
 
   // 1. Opening Cash = Cash Position at today
   // 2. AP items due at today or later, or overdue (independent of the opening cash)
-  const [cashPos, rawAp] = await Promise.all([
+  // 3. Live payment vouchers: ONE query for every invoice (not one query per 1000 open invoices)
+  const [cashPos, rawAp, statusRows] = await Promise.all([
     computeCashPosition({ ...filter, asOf: today }, { includeByEntity: false, includeCompare: false }),
     apOpenInvoices(asOfPlusOne, filter.locationIds),
+    listActivePlanStatuses(),
   ])
   const openingCash = cashPos.cashPosition
-  const apPositive = rawAp.filter((a) => D(a.balance).gt(0))
+  const horizon = Number(opts.horizon) || 7
+  const lastDay = addDays(today, horizon - 1)
+  // Bills due after the horizon change nothing in the plan, so they are left out here.
+  const apPositive = rawAp.filter((a) => D(a.balance).gt(0) && (a.dueDate || a.txDate) <= lastDay)
 
-  const invoiceIds = apPositive.map((a) => a.invoiceId)
-  const statusRows = await listPlanStatuses(invoiceIds)
   const statusMap = new Map<Id, string[]>()
   for (const r of statusRows) {
     const list = statusMap.get(r.invoiceId) ?? []
@@ -88,7 +91,7 @@ async function computePaymentPlanUncached(
     status: planStatus(statusMap.get(a.invoiceId) ?? []),
   }))
 
-  // 3. Inflows (AR + bank payments unsettled)
+  // 4. Inflows (AR + bank payments unsettled)
   let arItems: ArItemForPlan[] = []
   let unsettled: UnsettledBankForPlan[] = []
   const settlementLags = new Map<Id, number>()
@@ -123,8 +126,7 @@ async function computePaymentPlanUncached(
     }
   }
 
-  // 4. Projection
-  const horizon = Number(opts.horizon) || 7
+  // 5. Projection
   const res = buildPaymentPlan({
     today,
     horizon,
@@ -136,12 +138,8 @@ async function computePaymentPlanUncached(
     settlementLags,
   })
 
-  // 5. Bills due in horizon
-  const lastDay = addDays(today, horizon - 1)
-  const horizonBills = apPositive.filter((a) => {
-    const d = a.dueDate || a.txDate
-    return d <= lastDay
-  })
+  // 6. Bills due in horizon (apPositive already holds only those, overdue included)
+  const horizonBills = apPositive
   const vendorIds = Array.from(new Set(horizonBills.map((b) => b.vendorId)))
   const vendorList = await listVendors(vendorIds)
   const vendorMap = new Map(vendorList.map((v) => [v.vendorId, v.name]))

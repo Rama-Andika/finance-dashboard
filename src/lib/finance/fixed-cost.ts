@@ -1,3 +1,4 @@
+import { i18nLabel } from './i18n-label'
 import Decimal from 'decimal.js'
 import { D } from './money'
 import { signedAmount } from './sign'
@@ -119,7 +120,7 @@ export function computeFixedCost(input: {
 
     const parentNode = node?.parentId ? tree.byId.get(node.parentId) : undefined
     const parentKey = parentNode ? parentNode.coaId : '__root__'
-    const parentLabel = parentNode ? parentNode.name : 'Biaya Tetap'
+    const parentLabel = parentNode ? parentNode.name : i18nLabel('fixedCostRoot')
     const parentCode = parentNode?.code
 
     const grp = parentGroups.get(parentKey) ?? {

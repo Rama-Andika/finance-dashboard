@@ -9,7 +9,6 @@ export type DrillSearchParams = {
   from?: string
   to?: string
   p13?: boolean
-  chart?: 'ytd' | 'last-12m'
   drill?: unknown
 }
 
@@ -48,7 +47,6 @@ export function useDrillData(search: DrillSearchParams, drill: DrillState | null
       from: MONTH_KEY_RE.test(search.from ?? '') ? search.from : undefined,
       to: MONTH_KEY_RE.test(search.to ?? '') ? search.to : undefined,
       p13: Boolean(search.p13),
-      chart: search.chart,
       drill: drill ?? { metric: '', steps: [] },
       offset,
     }),

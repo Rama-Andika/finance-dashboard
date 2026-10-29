@@ -16,9 +16,11 @@ export async function apArDrill(ctx: DrillContext, drill: DrillState, steps: Map
   const asOf = ctx.filter.asOf
   const bucketStep = steps.get('bucket')
   const partyStep = steps.get(isAp ? 'vendor' : 'customer')
+  // The cached invoice lists are shared: read them, never copy or modify them.
   const raw = isAp
-    ? (await apOpenInvoices(addDays(asOf, 1), ctx.filter.locationIds)).map((a) => ({ ...a, partyId: a.vendorId }))
-    : (await arOpenInvoices(addDays(asOf, 1), ctx.filter.locationIds)).map((a) => ({ ...a, partyId: a.customerId }))
+    ? await apOpenInvoices(addDays(asOf, 1), ctx.filter.locationIds)
+    : await arOpenInvoices(addDays(asOf, 1), ctx.filter.locationIds)
+  const partyOf = (a: (typeof raw)[number]): Id => ('vendorId' in a ? a.vendorId : a.customerId)
 
   let items = raw.filter((a) => D(a.balance).gt(0))
   if (bucketStep) items = items.filter((a) => matchesBucket(asOf, a.dueDate || a.txDate, bucketStep.id))
@@ -26,7 +28,7 @@ export async function apArDrill(ctx: DrillContext, drill: DrillState, steps: Map
   if (partyStep) {
     // Newest transaction date first; only the shown page needs its plan statuses
     const partyItems = items
-      .filter((a) => a.partyId === partyStep.id)
+      .filter((a) => partyOf(a) === partyStep.id)
       .sort((a, b) => b.txDate.localeCompare(a.txDate) || b.invoiceId.localeCompare(a.invoiceId))
     const { page: shown, hasMore } = pageOf(partyItems, ctx.offset)
     const statuses = isAp ? await statusMapFor(shown.map((a) => a.invoiceId)) : null
@@ -54,7 +56,7 @@ export async function apArDrill(ctx: DrillContext, drill: DrillState, steps: Map
   }
 
   const totals = new Map<Id, Decimal>()
-  for (const a of items) totals.set(a.partyId, (totals.get(a.partyId) ?? D(0)).plus(D(a.balance)))
+  for (const a of items) totals.set(partyOf(a), (totals.get(partyOf(a)) ?? D(0)).plus(D(a.balance)))
   // Largest balance first; names are looked up for the shown page only
   const ranked = Array.from(totals.entries()).sort(([, a], [, b]) => b.cmp(a))
   const { page: shownParties, hasMore: moreParties } = pageOf(ranked, ctx.offset)

@@ -1,15 +1,15 @@
 import '@tanstack/react-start/server-only'
-import type { AccountGroup, Id, MetricMeta, Money } from '~/lib/finance/types'
+import type { Id, MetricMeta, Money } from '~/lib/finance/types'
 import { env } from '~/server/env'
 import { memoMetric } from '~/server/cache'
 import {
   type AppContextFilter,
   buildMetricMeta,
   getCachedCoaTree,
-  getCachedPeriods,
 } from '~/server/context'
-import { movementsByPeriods } from '~/server/repo/gl.repo'
+import { loadPlMovements, onlyAccounts } from '~/server/services/pl-movements'
 import { postableAccountIds } from '~/lib/finance/coa-tree'
+import { PNL_ACCOUNT_GROUPS } from '~/lib/finance/account-groups'
 import {
   buildPnl,
   findOciCoaIds,
@@ -24,13 +24,6 @@ export type PnlResult = {
   compare: Record<PnlLineKey, Money> | null
 }
 
-const PNL_ACCOUNT_GROUPS: AccountGroup[] = [
-  'Revenue',
-  'Cost Of Sales',
-  'Expense',
-  'Other Revenue',
-  'Other Expense',
-]
 
 export function computePnl(filter: AppContextFilter): Promise<PnlResult> {
   return memoMetric('pnl', filter, () => computePnlUncached(filter))
@@ -43,7 +36,6 @@ function toPnlMovements(rows: Array<{ coaId: Id; periodId?: Id; debet: Money; cr
 async function computePnlUncached(filter: AppContextFilter): Promise<PnlResult> {
   const meta = buildMetricMeta(filter)
   const tree = await getCachedCoaTree()
-  const periods = await getCachedPeriods()
 
   const ociCoaIds = findOciCoaIds(tree, env.ociRootCodes)
 
@@ -62,30 +54,20 @@ async function computePnlUncached(filter: AppContextFilter): Promise<PnlResult> 
   }
 
   // 1. Fetch movements for active periods
-  const activePeriods = periods.filter((p) => filter.periodIds.includes(p.periodeId))
-  const rawMovements = await movementsByPeriods({
-    periods: activePeriods,
-    segCol: filter.entitySegmentColumn,
-    segIds: filter.segmentDetailIds,
-    coaIds: pnlCoaIds,
-    byPeriod: true,
-  })
+  const pnlSet = new Set(pnlCoaIds)
+  const hasCompare = Boolean(filter.compare && filter.compare.periodIds.length > 0)
+  const [allMovements, allCompareMovements] = await Promise.all([
+    loadPlMovements(filter, filter.periodIds),
+    hasCompare ? loadPlMovements(filter, filter.compare.periodIds) : Promise.resolve([]),
+  ])
+  const rawMovements = onlyAccounts(allMovements, pnlSet)
 
   const { lines } = buildPnl({ tree, movements: toPnlMovements(rawMovements), ociCoaIds })
 
   // 2. Compare period
   let compare: Record<PnlLineKey, Money> | null = null
-  if (filter.compare && filter.compare.periodIds.length > 0) {
-    const comparePeriods = periods.filter((p) =>
-      filter.compare.periodIds.includes(p.periodeId),
-    )
-    const rawCompareMovements = await movementsByPeriods({
-      periods: comparePeriods,
-      segCol: filter.entitySegmentColumn,
-      segIds: filter.segmentDetailIds,
-      coaIds: pnlCoaIds,
-      byPeriod: true,
-    })
+  if (hasCompare) {
+    const rawCompareMovements = onlyAccounts(allCompareMovements, pnlSet)
 
     const cmpPnl = buildPnl({ tree, movements: toPnlMovements(rawCompareMovements), ociCoaIds })
     const cmpRecord: Partial<Record<PnlLineKey, Money>> = {}

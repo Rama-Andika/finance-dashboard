@@ -99,6 +99,22 @@ ALTER TABLE ap_ar_card
 
 
 -- ---------------------------------------------------------------------
+-- BLOK 4b — USULAN, JANGAN DIJALANKAN SEBELUM DIPERIKSA DBA
+--   Di DB demo ada index `idx_dash_apar_mod_type_date` yang dipakai query aging/Expense Paid
+--   (filter module_type + transaction_type IN (...) + transaction_date), tetapi definisinya tidak
+--   tercatat di skrip ini. Kolom di bawah adalah perkiraan dari bentuk query; cocokkan dengan
+--   SHOW CREATE TABLE ap_ar_card di DB demo, lalu uji dengan EXPLAIN sebelum dipasang di produksi.
+-- ---------------------------------------------------------------------
+-- ALTER TABLE ap_ar_card
+--   ADD INDEX idx_dash_apar_mod_type_date (module_type, transaction_type, transaction_date),
+--   ALGORITHM=INPLACE, LOCK=NONE;
+--
+-- Pemeriksaan lain yang perlu dilihat lewat EXPLAIN (mungkin sudah ada di ERP):
+--   bankpo_payment_detail(invoice_id)  → daftar status voucher Payment Plan
+--   bank_payment(type, status, coa_id, transaction_date) → In Transit / Data Check Q9
+
+
+-- ---------------------------------------------------------------------
 -- BLOK 5 — coa_budget (±465 ribu baris · tambahan ±20 MB)
 --   Saat ini tabel ini TIDAK punya index selain primary key.
 --   Budget vs Actual → WHERE bgt_year = ? AND bgt_month IN (...) AND coa_id IN (...) AND segment1_id IN (...)

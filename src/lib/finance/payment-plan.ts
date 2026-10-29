@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js'
-import { D } from './money'
+import { D, sum } from './money'
 import { addDays } from '~/lib/format/date'
 import type { Id, IsoDate, Money } from './types'
 import type { PlanStatus } from './aging'
@@ -191,4 +191,17 @@ export type PaymentPlanBill = {
   dueDate: string
   balance: Money
   status: string
+}
+
+/** Headline numbers of a plan: everything going out (overdue + all days) and the lowest closing balance. */
+export function summarizePlan(plan: { openingBalance: Money; overdue: Money; days: PaymentPlanDay[] }): {
+  totalOutflow: Money
+  minClosing: Money
+} {
+  const totalOutflow = sum([plan.overdue, ...plan.days.map((d) => d.outflow)])
+  let minClosing = plan.openingBalance
+  for (const d of plan.days) {
+    if (D(d.closing).lt(D(minClosing))) minClosing = d.closing
+  }
+  return { totalOutflow, minClosing }
 }

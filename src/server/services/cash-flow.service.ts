@@ -19,8 +19,10 @@ import {
   getCashFlowSetup,
   type CashJournalLineRow,
 } from '~/server/repo/cashflow.repo'
+import { UNCLASSIFIED_SUBGROUP } from '~/lib/finance/cashflow-labels'
 import {
   allocateCash,
+  makeIsOurCash,
   classifyBySetup,
   classifyByFallback,
   isSetupValid,
@@ -63,8 +65,7 @@ export type ClassifiedCashPortion = {
   unclassified?: boolean
 }
 
-/** Sub-row label for portions that no cash_flow_setup row accepts (D27). */
-export const UNCLASSIFIED_SUBGROUP = 'Unclassified'
+export { UNCLASSIFIED_SUBGROUP }
 
 /**
  * Loads the cash journals of the selected periods, allocates cash proportionally to the
@@ -83,32 +84,37 @@ export type ClassifiedPortions = {
 /** Memoized: the drill-down asks for the same portions on every click and every page. */
 export function loadClassifiedPortions(
   filter: AppContextFilter,
-  ctx?: { tree?: CoaTree; periods?: Period[]; cashEquivIds?: Id[] },
+  ctx?: LoadPortionsContext,
 ): Promise<ClassifiedPortions> {
-  return memoMetric('cashPortions', { filter, cashEquivIds: ctx?.cashEquivIds ?? null }, () =>
+  return memoMetric('cashPortions', { filter, cashEquivIds: ctx?.cashEquivIds ? [...ctx.cashEquivIds].sort() : null }, () =>
     loadClassifiedPortionsUncached(filter, ctx),
   )
 }
 
+type LoadPortionsContext = {
+  tree?: CoaTree
+  periods?: Period[]
+  /** Accounts that count as "our cash" (default: cash ∪ bank ∪ deposit). */
+  cashEquivIds?: Id[]
+}
+
+/** Cash ∪ bank ∪ deposit: the widest cash list. Every metric reads journal lines for THIS list so the read is shared. */
+export function allCashAccountIds(resolved: ReturnType<typeof resolveBaskets>): Id[] {
+  return Array.from(new Set([...resolved.cash, ...resolved.bank, ...resolved.deposit]))
+}
+
 async function loadClassifiedPortionsUncached(
   filter: AppContextFilter,
-  ctx?: { tree?: CoaTree; periods?: Period[]; cashEquivIds?: Id[] },
+  ctx?: LoadPortionsContext,
 ): Promise<ClassifiedPortions> {
   const tree = ctx?.tree ?? (await getCachedCoaTree())
   const periods = ctx?.periods ?? (await getCachedPeriods())
-  let cashEquivIds = ctx?.cashEquivIds
-  if (!cashEquivIds) {
-    const resolved = resolveBaskets(await loadAccountMapping(tree), tree)
-    cashEquivIds = Array.from(new Set([...resolved.cash, ...resolved.bank, ...resolved.deposit]))
-  }
-
-  const cashSet = new Set(cashEquivIds)
-  const segIdSet = filter.segmentDetailIds === 'all' ? null : new Set(filter.segmentDetailIds)
-  const isOurCash = (l: CfLine) => {
-    if (!cashSet.has(l.coaId)) return false
-    if (!segIdSet) return true
-    return l.segmentDetailId ? segIdSet.has(l.segmentDetailId) : false
-  }
+  // Lines are always read for the widest cash list (shared with Cash Flow, Expense Paid, Runway);
+  // `cashEquivIds` only decides which of those lines count as our cash.
+  const resolved = resolveBaskets(await loadAccountMapping(tree), tree)
+  const fetchIds = allCashAccountIds(resolved)
+  const cashEquivIds = ctx?.cashEquivIds ?? fetchIds
+  const isOurCash = makeIsOurCash(cashEquivIds, filter.segmentDetailIds)
 
   const setup = await getCashFlowSetup()
   const setupValid = isSetupValid(setup)
@@ -122,7 +128,7 @@ async function loadClassifiedPortionsUncached(
     periods: activePeriods,
     segCol: filter.entitySegmentColumn,
     segIds: filter.segmentDetailIds,
-    cashCoaIds: cashEquivIds,
+    cashCoaIds: fetchIds,
   })
 
   const portions: ClassifiedCashPortion[] = allocateCash(lines, isOurCash).map((p) => {
@@ -170,7 +176,7 @@ type SettledJournal = {
   /** Every other line (the counter side) */
   counterLines: CfLine[]
   /** Net movement on our cash accounts: debet − credit */
-  netKas: Decimal
+  netCash: Decimal
 }
 
 /**
@@ -190,13 +196,13 @@ function settledJournals(lines: CfLine[], isOurCash: (l: CfLine) => boolean): Se
     const ourCash = jLines.filter(isOurCash)
     if (ourCash.length === 0) continue
 
-    const netKas = ourCash.reduce((acc, c) => acc.plus(D(c.debet).minus(D(c.credit))), D(0))
-    if (netKas.isZero()) continue
+    const netCash = ourCash.reduce((acc, c) => acc.plus(D(c.debet).minus(D(c.credit))), D(0))
+    if (netCash.isZero()) continue
 
     const counterLines = jLines.filter((l) => !isOurCash(l))
     if (counterLines.length === 0) continue
 
-    result.push({ ourCash, counterLines, netKas })
+    result.push({ ourCash, counterLines, netCash })
   }
   return result
 }
@@ -254,8 +260,8 @@ function monthlyTrend(
     const period = periodById.get(j.ourCash[0]!.periodId)
     const total = totals.get(period ? period.startDate.slice(0, 7) : '')
     if (!total) continue
-    if (j.netKas.gt(0)) total.cashIn = total.cashIn.plus(j.netKas)
-    else total.cashOut = total.cashOut.plus(j.netKas.abs())
+    if (j.netCash.gt(0)) total.cashIn = total.cashIn.plus(j.netCash)
+    else total.cashOut = total.cashOut.plus(j.netCash.abs())
   }
 
   return months.map((month) => {
@@ -313,8 +319,8 @@ async function computeCashFlowUncached(filter: AppContextFilter): Promise<CashFl
   const periods = await getCachedPeriods()
   const resolved = resolveBaskets(await loadAccountMapping(tree), tree)
 
-  // Kas & setara kas = cash ∪ bank ∪ deposit (D27)
-  const cashEquivIds = Array.from(new Set([...resolved.cash, ...resolved.bank, ...resolved.deposit]))
+  // Cash and cash equivalents = cash ∪ bank ∪ deposit (D27)
+  const cashEquivIds = allCashAccountIds(resolved)
 
   if (cashEquivIds.length === 0 || filter.periodIds.length === 0) {
     return emptyCashFlow(meta, filter.months)
@@ -324,7 +330,7 @@ async function computeCashFlowUncached(filter: AppContextFilter): Promise<CashFl
   const [opRes, clRes, classified] = await Promise.all([
     balancesAt({ asOf: addDays(filter.d1, -1), coaIds: cashEquivIds, filter }),
     balancesAt({ asOf: filter.asOf, coaIds: cashEquivIds, filter }),
-    loadClassifiedPortions(filter, { tree, periods, cashEquivIds }),
+    loadClassifiedPortions(filter, { tree, periods }),
   ])
   const { lines, portions, setupValid, setup, isOurCash } = classified
 

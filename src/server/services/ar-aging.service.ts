@@ -19,6 +19,7 @@ import {
   type CustomerAgingSummary,
 } from '~/lib/finance/apar'
 import type { AgingBucket } from '~/lib/finance/aging'
+import type { CoaTree } from '~/lib/finance/coa-tree'
 
 export type ArAgingResult = {
   meta: MetricMeta
@@ -37,6 +38,26 @@ export type ArAgingResult = {
 
 export function computeArAging(filter: AppContextFilter): Promise<ArAgingResult> {
   return memoMetric('arAging', filter, () => computeArAgingUncached(filter))
+}
+
+async function compareAgingTotal(
+  filter: AppContextFilter,
+  customerMap: Map<Id, { code: string; name: string }>,
+  tree: CoaTree,
+): Promise<Money | null> {
+  if (!filter.compare || !filter.compare.asOf) return null
+  const cmpAsOfPlusOne = addDays(filter.compare.asOf, 1)
+  const [cmpA, cmpB] = await Promise.all([
+    arOpenInvoices(cmpAsOfPlusOne, filter.locationIds),
+    arUnallocatedReceipts(cmpAsOfPlusOne, filter.locationIds),
+  ])
+  return calculateArAging({
+    partA: cmpA,
+    partB: cmpB,
+    asOf: filter.compare.asOf,
+    customers: customerMap,
+    tree,
+  }).total
 }
 
 async function computeArAgingUncached(filter: AppContextFilter): Promise<ArAgingResult> {
@@ -69,35 +90,16 @@ async function computeArAgingUncached(filter: AppContextFilter): Promise<ArAging
     tree,
   })
 
-  // 4. Compare total
-  let compareTotal: Money | null = null
-  if (filter.compare && filter.compare.asOf) {
-    const cmpAsOfPlusOne = addDays(filter.compare.asOf, 1)
-    const [cmpA, cmpB] = await Promise.all([
-      arOpenInvoices(cmpAsOfPlusOne, filter.locationIds),
-      arUnallocatedReceipts(cmpAsOfPlusOne, filter.locationIds),
-    ])
-    const cmpComputed = calculateArAging({
-      partA: cmpA,
-      partB: cmpB,
-      asOf: filter.compare.asOf,
-      customers: customerMap,
-      tree,
-    })
-    compareTotal = cmpComputed.total
-  }
-
-  // 5. GL reconciliation
+  // 4. Compare total and 5. GL reconciliation do not depend on each other
   const controlCoaIds = computed.controlAccounts.map((a) => a.coaId)
-  let glTotal = '0.00'
-  if (controlCoaIds.length > 0) {
-    const glRes = await balancesAt({
-      asOf: filter.asOf,
-      coaIds: controlCoaIds,
-      filter,
-    })
-    glTotal = sum(controlCoaIds.map((id) => glRes.byCoa.get(id) ?? '0.00'))
-  }
+  const [compareTotal, glTotal] = await Promise.all([
+    compareAgingTotal(filter, customerMap, tree),
+    controlCoaIds.length > 0
+      ? balancesAt({ asOf: filter.asOf, coaIds: controlCoaIds, filter }).then((r) =>
+          sum(controlCoaIds.map((id) => r.byCoa.get(id) ?? '0.00')),
+        )
+      : Promise.resolve('0.00'),
+  ])
 
   const diff = D(glTotal).minus(D(computed.total)).toFixed(2)
   const inSync = D(diff).abs().lt(1)

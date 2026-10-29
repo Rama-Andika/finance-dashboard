@@ -1,3 +1,4 @@
+import { searchUpdater } from '~/lib/filters/search-update'
 import React from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -33,7 +34,7 @@ export function DataChecksPanel({ open, onOpenChange }: DataChecksPanelProps) {
     onOpenChange(false)
     // Keep the global filters (entity, period) when jumping to the related page.
     const keep = (prev: Record<string, unknown>) => prev
-    navigate({ to: link, search: keep as never })
+    navigate({ to: link, search: searchUpdater(keep) })
   }
 
   return (

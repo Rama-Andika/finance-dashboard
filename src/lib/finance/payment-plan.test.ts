@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildPaymentPlan } from './payment-plan'
+import { buildPaymentPlan, summarizePlan } from './payment-plan'
 import { addDays } from '~/lib/format/date'
 
 describe('payment plan projection engine', () => {
@@ -137,5 +137,31 @@ describe('payment plan projection engine', () => {
 
     expect(resWithoutInflow.days[1]!.inflow).toBe('0.00')
     expect(resWithoutInflow.days[1]!.closing).toBe('1000.00')
+  })
+})
+
+describe('summarizePlan', () => {
+  const day = (date: string, outflow: string, closing: string) => ({
+    date,
+    opening: '0.00',
+    inflow: '0.00',
+    outflow,
+    closing,
+    isNegative: closing.startsWith('-'),
+    status: { approved: '0.00', submitted: '0.00', notSubmitted: '0.00' },
+  })
+
+  it('adds the overdue amount to every day outflow and finds the lowest closing balance', () => {
+    const r = summarizePlan({
+      openingBalance: '100.00',
+      overdue: '40.00',
+      days: [day('d1', '30.00', '70.00'), day('d2', '90.00', '-20.00'), day('d3', '10.00', '-30.00')],
+    })
+    expect(r.totalOutflow).toBe('170.00')
+    expect(r.minClosing).toBe('-30.00')
+  })
+
+  it('keeps the opening balance as the minimum when the cash never goes below it', () => {
+    expect(summarizePlan({ openingBalance: '5.00', overdue: '0.00', days: [day('d1', '0.00', '9.00')] }).minClosing).toBe('5.00')
   })
 })

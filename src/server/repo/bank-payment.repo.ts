@@ -7,7 +7,10 @@ import { assertSegmentColumn } from '~/server/db/segment-column'
 import { BANK_PAYMENT_CHANNEL_TYPES, BANK_PAYMENT_STATUS, intList } from '~/server/db/erp-codes'
 import { addDays } from '~/lib/format/date'
 import { D } from '~/lib/finance/money'
+import { hashIds, memo } from '~/server/cache'
 import type { Id, IsoDate, Money } from '~/lib/finance/types'
+
+const UNSETTLED_CACHE_MS = 60 * 1000
 
 export type UnsettledChannelRow = {
   coaId: Id
@@ -27,17 +30,27 @@ export type SettlementLagRow = {
  * unsettledByChannel(asOf, coaIds, segIds, segCol)
  * Funds not yet settled in bank_payment (data-model §6.2, D30)
  */
-export async function unsettledByChannel(
+export function unsettledByChannel(
   asOf: IsoDate,
   coaIds: Id[],
   segIds: Id[] | 'all',
   segCol: string = 'segment1_id',
 ): Promise<UnsettledChannelRow[]> {
-  if (coaIds.length === 0) return []
-  if (segIds !== 'all' && segIds.length === 0) return []
+  if (coaIds.length === 0) return Promise.resolve([])
+  if (segIds !== 'all' && segIds.length === 0) return Promise.resolve([])
 
   assertSegmentColumn(segCol)
+  // Cash Position, Payment Plan and Data Checks ask for the same register within one minute.
+  const key = `unsettled|${asOf}|${segCol}|${hashIds(segIds)}|${hashIds(coaIds)}`
+  return memo(key, UNSETTLED_CACHE_MS, () => queryUnsettledByChannel(asOf, coaIds, segIds, segCol))
+}
 
+async function queryUnsettledByChannel(
+  asOf: IsoDate,
+  coaIds: Id[],
+  segIds: Id[] | 'all',
+  segCol: string,
+): Promise<UnsettledChannelRow[]> {
   const asOfPlusOne = addDays(asOf, 1)
   const segIdent = sql.identifier(segCol)
 

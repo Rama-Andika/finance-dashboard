@@ -17,9 +17,7 @@ export const globalSearchSchema = z.object({
 })
 export type GlobalSearch = z.infer<typeof globalSearchSchema>
 
-export const metricInputSchema = globalSearchSchema.extend({
-  chart: z.enum(['ytd', 'last-12m']).optional(),
-})
+export const metricInputSchema = globalSearchSchema
 export type MetricInput = z.infer<typeof metricInputSchema>
 
 export const paymentPlanSearchSchema = z.object({
@@ -72,7 +70,4 @@ export const drillSearchSchema = z.object({
 })
 export type DrillSearch = z.infer<typeof drillSearchSchema>
 
-export const chartSearchSchema = z.object({
-  chart: z.enum(['ytd', 'last-12m']).catch('ytd'),
-})
-export type ChartSearch = z.infer<typeof chartSearchSchema>
+

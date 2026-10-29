@@ -26,9 +26,6 @@ export type CashflowChartProps = {
   title: string
   data: CashflowMonthData[]
   net: Money
-  rangeLabel: string
-  range: 'ytd' | 'last-12m'
-  onRangeChange: (range: 'ytd' | 'last-12m') => void
   lang: Lang
   selectedMonth?: string
   onSelectMonth?: (month: string) => void
@@ -38,9 +35,6 @@ export function CashflowChart({
   title,
   data,
   net,
-  rangeLabel,
-  range,
-  onRangeChange,
   lang,
   selectedMonth,
   onSelectMonth,
@@ -71,32 +65,19 @@ export function CashflowChart({
     }
   }
 
+  // The period shown is the one picked in the top bar; the chart just labels it.
+  const first = data[0]?.month
+  const last = data[data.length - 1]?.month
+  const rangeLabel =
+    !first || !last ? '' : first === last ? formatMonth(first, lang) : `${formatMonth(first, lang)} – ${formatMonth(last, lang)}`
+
   const ariaLabel =
     t('ui.cashflowChart.ariaLabel', { range: rangeLabel, peak: maxMonth ? formatMonth(maxMonth, lang) : '-' })
-
-  const rangeOptions = [
-    { id: 'ytd', label: t('ui.cashflowChart.yearToDate') },
-    { id: 'last-12m', label: t('ui.cashflowChart.last12Months') },
-  ] as const
 
   return (
     <section className="nr-card" style={{ width: '100%' }}>
       <div className="nr-card-head">
         <h3 className="nr-card-title">{title}</h3>
-        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <select
-            className="nr-select"
-            value={range}
-            onChange={(e) => onRangeChange(e.target.value as 'ytd' | 'last-12m')}
-            aria-label={t('ui.cashflowChart.cashFlowChartRange')}
-          >
-            {rangeOptions.map((opt) => (
-              <option key={opt.id} value={opt.id}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
 
       <div
