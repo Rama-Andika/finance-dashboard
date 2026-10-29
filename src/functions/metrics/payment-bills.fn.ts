@@ -3,10 +3,11 @@ import type { z } from 'zod'
 import { authMiddleware } from '~/functions/middleware'
 import { metricInputSchema } from '~/lib/filters/search-schema'
 import { tableQuerySchema, type Page } from '~/lib/table/query'
+import { EXPORT_CHUNK_SIZE } from '~/lib/table/export-chunks'
 import { PAYMENT_BILL_SORT_KEYS } from '~/lib/finance/payment-plan-bills'
 import type { PaymentPlanBill } from '~/lib/finance/payment-plan'
 import { resolveFilter } from '~/server/context'
-import { exportPaymentPlanBills, listPaymentPlanBills } from '~/server/services/payment-plan.service'
+import { listPaymentPlanBills } from '~/server/services/payment-plan.service'
 
 const input = metricInputSchema.extend(tableQuerySchema(PAYMENT_BILL_SORT_KEYS).shape)
 export type PaymentBillsInput = z.infer<typeof input>
@@ -25,17 +26,27 @@ export const getPaymentBillsFn = createServerFn({ method: 'GET' })
     })
   })
 
-const exportInput = metricInputSchema.extend({
-  sortBy: tableQuerySchema(PAYMENT_BILL_SORT_KEYS).shape.sortBy,
-  sortDir: tableQuerySchema(PAYMENT_BILL_SORT_KEYS).shape.sortDir,
+const exportTableShape = tableQuerySchema(PAYMENT_BILL_SORT_KEYS).shape
+const exportChunkInput = metricInputSchema.extend({
+  page: exportTableShape.page,
+  sortBy: exportTableShape.sortBy,
+  sortDir: exportTableShape.sortDir,
 })
-export type PaymentBillsExportInput = z.infer<typeof exportInput>
+export type PaymentBillsExportChunkInput = z.infer<typeof exportChunkInput>
 
-/** Every bill of the 7-day plan (CSV export), in the order currently shown. */
-export const exportPaymentBillsFn = createServerFn({ method: 'GET' })
+/**
+ * One chunk (`EXPORT_CHUNK_SIZE` rows) of the 7-day plan, in the order currently shown, for the CSV export.
+ * The client asks for chunk 1, 2, 3, ... so no single response can exceed the server function size limit.
+ */
+export const getPaymentBillsExportChunkFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
-  .validator((d: unknown) => exportInput.parse(d))
-  .handler(async ({ data }): Promise<PaymentPlanBill[]> => {
+  .validator((d: unknown) => exportChunkInput.parse(d))
+  .handler(async ({ data }): Promise<Page<PaymentPlanBill>> => {
     const filter = await resolveFilter(data)
-    return exportPaymentPlanBills(filter, { horizon: '7', inflow: false }, { sortBy: data.sortBy, sortDir: data.sortDir })
+    return listPaymentPlanBills(filter, { horizon: '7', inflow: false }, {
+      page: data.page,
+      pageSize: EXPORT_CHUNK_SIZE,
+      sortBy: data.sortBy,
+      sortDir: data.sortDir,
+    })
   })

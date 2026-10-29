@@ -71,7 +71,12 @@ export function arAgingMetricOptions(input: MetricInput) {
   })
 }
 
-import { getAgingPartiesFn, exportAgingPartiesFn, type AgingPartiesInput } from '~/functions/metrics/aging-parties.fn'
+import {
+  getAgingPartiesFn,
+  getAgingPartiesExportChunkFn,
+  type AgingPartiesInput,
+  type AgingPartiesExportChunkInput,
+} from '~/functions/metrics/aging-parties.fn'
 
 /** One page of the vendor / customer aging table; the previous page stays visible while the next one loads. */
 export function agingPartiesOptions(input: AgingPartiesInput) {
@@ -92,16 +97,21 @@ export function paymentBillsOptions(input: PaymentBillsInput) {
   })
 }
 
-import { exportPaymentBillsFn, type PaymentBillsExportInput } from '~/functions/metrics/payment-bills.fn'
+import { fetchAllChunks } from '~/lib/table/export-chunks'
+import { getPaymentBillsExportChunkFn, type PaymentBillsExportChunkInput } from '~/functions/metrics/payment-bills.fn'
 
+export type PaymentBillsExportInput = Omit<PaymentBillsExportChunkInput, 'page'>
+
+/** Every bill of the 7-day plan, loaded chunk by chunk so no single response hits the server function size limit. */
 export function exportPaymentBills(input: PaymentBillsExportInput) {
-  return exportPaymentBillsFn({ data: input })
+  return fetchAllChunks((page) => getPaymentBillsExportChunkFn({ data: { ...input, page } }))
 }
 
-export type AgingPartiesExportInput = Omit<AgingPartiesInput, 'page' | 'pageSize'>
+export type AgingPartiesExportInput = Omit<AgingPartiesExportChunkInput, 'page'>
 
+/** Every vendor / customer row, loaded chunk by chunk so no single response hits the server function size limit. */
 export function exportAgingParties(input: AgingPartiesExportInput) {
-  return exportAgingPartiesFn({ data: input })
+  return fetchAllChunks((page) => getAgingPartiesExportChunkFn({ data: { ...input, page } }))
 }
 
 export function fixedCostMetricOptions(input: MetricInput) {

@@ -172,13 +172,3 @@ export async function listPaymentPlanBills(
   const plan = await computePaymentPlan(filter, opts)
   return paginate(plan.bills, query, paymentBillComparators)
 }
-
-/** All bills of the horizon in the requested order, for the CSV export. */
-export async function exportPaymentPlanBills(
-  filter: AppContextFilter,
-  opts: PaymentPlanOptions,
-  query: Pick<TableQuery, 'sortBy' | 'sortDir'>,
-): Promise<PaymentPlanBill[]> {
-  const plan = await computePaymentPlan(filter, opts)
-  return paginate(plan.bills, { ...query, page: 1, pageSize: Math.max(plan.bills.length, 1) }, paymentBillComparators).rows
-}

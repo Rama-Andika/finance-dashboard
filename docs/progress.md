@@ -81,6 +81,7 @@
 | 2026-10-29 | 16.3 | Audit keamanan | Zero leakage (password/rekening/npwp), authMiddleware lengkap, zero console.log di functions/server, strictly read-only DB kecuali system_main (Lulus) |
 | 2026-10-29 | 16.4 | Aksesibilitas & tema | Keyboard navigation (Tab/Esc/Enter), light/dark high contrast focus ring, token warna baku Neraca UI, status text+color (Lulus) |
 | 2026-10-29 | 16.5 | Bersih-bersih & finalisasi | dev-ui.tsx dibersihkan, routeTree.gen.ts disinkronkan, aplikasi 100% siap produksi (Lulus) |
+| 2026-10-29 | 17 | Export CSV bills (Summary) dan aging (Payables/Receivables) diambil per potongan 5.000 baris lewat getPaymentBillsExportChunkFn dan getAgingPartiesExportChunkFn; helper fetchAllChunks + 5 unit test | typecheck lulus, 254 unit test lulus (Lulus) |
 
 ## Ringkasan Proyek
 

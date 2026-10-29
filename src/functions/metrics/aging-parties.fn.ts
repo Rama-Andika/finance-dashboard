@@ -3,10 +3,11 @@ import { z } from 'zod'
 import { authMiddleware } from '~/functions/middleware'
 import { metricInputSchema } from '~/lib/filters/search-schema'
 import { tableQuerySchema } from '~/lib/table/query'
+import { EXPORT_CHUNK_SIZE } from '~/lib/table/export-chunks'
 import { AGING_PARTY_SORT_KEYS, type AgingPartyRow } from '~/lib/finance/aging-parties'
 import type { Page } from '~/lib/table/query'
 import { resolveFilter } from '~/server/context'
-import { exportAgingParties, listAgingParties } from '~/server/services/aging-parties.service'
+import { listAgingParties } from '~/server/services/aging-parties.service'
 
 const pagedInput = metricInputSchema
   .extend({ side: z.enum(['ap', 'ar']) })
@@ -28,18 +29,28 @@ export const getAgingPartiesFn = createServerFn({ method: 'GET' })
     })
   })
 
-const exportInput = metricInputSchema
-  .extend({ side: z.enum(['ap', 'ar']) })
-  .extend({
-    sortBy: tableQuerySchema(AGING_PARTY_SORT_KEYS).shape.sortBy,
-    sortDir: tableQuerySchema(AGING_PARTY_SORT_KEYS).shape.sortDir,
-  })
+const exportTableShape = tableQuerySchema(AGING_PARTY_SORT_KEYS).shape
+const exportChunkInput = metricInputSchema.extend({
+  side: z.enum(['ap', 'ar']),
+  page: exportTableShape.page,
+  sortBy: exportTableShape.sortBy,
+  sortDir: exportTableShape.sortDir,
+})
+export type AgingPartiesExportChunkInput = z.infer<typeof exportChunkInput>
 
-/** Every row of the table (CSV export), in the order currently shown. */
-export const exportAgingPartiesFn = createServerFn({ method: 'GET' })
+/**
+ * One chunk (`EXPORT_CHUNK_SIZE` rows) of the aging table, in the order currently shown, for the CSV export.
+ * The client asks for chunk 1, 2, 3, ... so no single response can exceed the server function size limit.
+ */
+export const getAgingPartiesExportChunkFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
-  .validator((d: unknown) => exportInput.parse(d))
-  .handler(async ({ data }): Promise<AgingPartyRow[]> => {
+  .validator((d: unknown) => exportChunkInput.parse(d))
+  .handler(async ({ data }): Promise<Page<AgingPartyRow>> => {
     const filter = await resolveFilter(data)
-    return exportAgingParties(data.side, filter, { sortBy: data.sortBy, sortDir: data.sortDir })
+    return listAgingParties(data.side, filter, {
+      page: data.page,
+      pageSize: EXPORT_CHUNK_SIZE,
+      sortBy: data.sortBy,
+      sortDir: data.sortDir,
+    })
   })
