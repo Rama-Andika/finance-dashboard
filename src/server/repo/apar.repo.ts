@@ -16,6 +16,7 @@ import { ACTIVE_VOUCHER_STATUSES } from '~/lib/finance/aging'
 import { memo } from '~/server/cache'
 import { addDays } from '~/lib/format/date'
 import { apArSnapshotCovers, snapshotOpenInvoices, snapshotUnallocated } from '~/server/dash/snapshot'
+import { apArHistCovers, histOpenInvoices, histUnallocated } from '~/server/dash/snapshot-hist'
 import type { Id, IsoDate, Money } from '~/lib/finance/types'
 
 const AGING_CACHE_MS = 5 * 60 * 1000
@@ -201,6 +202,8 @@ async function agingInvoices<K extends 'vendorId' | 'customerId'>(
   if (locIds !== 'all' && locIds.length === 0) return []
   // The current state is read from the snapshot table (small, indexed); only other dates hit the ERP tables.
   if (await apArSnapshotCovers(addDays(asOfPlusOne, -1))) return snapshotOpenInvoices(side, locIds, partyKey)
+  // A past month-end that the background job has already built
+  if (await apArHistCovers(addDays(asOfPlusOne, -1))) return histOpenInvoices(side, addDays(asOfPlusOne, -1), locIds, partyKey)
   return liveAgingInvoices(side, asOfPlusOne, locIds, partyKey)
 }
 
@@ -286,6 +289,7 @@ async function agingUnallocated<K extends 'vendorId' | 'customerId'>(
 ): Promise<Array<Omit<AgingUnallocated, 'partyId'> & Record<K, Id>>> {
   if (locIds !== 'all' && locIds.length === 0) return []
   if (await apArSnapshotCovers(addDays(asOfPlusOne, -1))) return snapshotUnallocated(side, locIds, partyKey)
+  if (await apArHistCovers(addDays(asOfPlusOne, -1))) return histUnallocated(side, addDays(asOfPlusOne, -1), locIds, partyKey)
   return liveAgingUnallocated(side, asOfPlusOne, locIds, partyKey)
 }
 

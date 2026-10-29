@@ -27,6 +27,8 @@ const envSchema = z.object({
   // Snapshot tables (dash_*): a background job copies the heavy AP/AR numbers into small tables.
   DASH_REFRESH_ENABLED: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['0', '1']).default('1')),
   DASH_REFRESH_MINUTES: z.coerce.number().int().min(1).max(1440).default(10),
+  // How many completed month-ends of AP/AR history to keep (0 = none; the history tables are emptied).
+  DASH_AP_AR_HIST_MONTHS: z.preprocess((v) => (v === '' ? undefined : v), z.coerce.number().int().min(0).max(36).default(13)),
   // 1 = apply pending dash_* migrations when the server starts (off by default in production)
   AUTO_MIGRATE: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['0', '1']).default('0')),
   PNL_OCI_ROOT_CODES: z.string().default('9'),

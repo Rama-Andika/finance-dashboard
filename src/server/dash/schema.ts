@@ -47,6 +47,61 @@ export const dashSnapApArOpen = mysqlTable(
   ],
 )
 
+/**
+ * Open AP (module 0) and AR (module 1) invoices at the END OF A PAST MONTH. Same columns as `dash_snap_ap_ar_open`,
+ * plus the day the rows describe. Built by the background job (hist-ap-ar.ts), one month at a time.
+ */
+export const dashSnapApArHistOpen = mysqlTable(
+  'dash_snap_ap_ar_hist_open',
+  {
+    asOfDate: date('as_of_date', { mode: 'string' }).notNull(),
+    cardId: bigint('card_id', { mode: 'string' }).notNull(),
+    moduleType: tinyint('module_type').notNull(),
+    partyId: bigint('party_id', { mode: 'string' }),
+    locationId: bigint('location_id', { mode: 'string' }),
+    coaId: bigint('coa_id', { mode: 'string' }),
+    txDate: date('tx_date', { mode: 'string' }).notNull(),
+    dueDate: date('due_date', { mode: 'string' }),
+    itemType: int('item_type').notNull().default(0),
+    invoiceNumber: varchar('invoice_number', { length: 120 }).notNull().default(''),
+    originalAmount: decimal('original_amount', { precision: 22, scale: 2 }).notNull().default('0.00'),
+    balance: decimal('balance', { precision: 22, scale: 2 }).notNull().default('0.00'),
+  },
+  (t) => [
+    primaryKey({ columns: [t.asOfDate, t.cardId] }),
+    index('idx_dash_hist_open_date_mod').on(t.asOfDate, t.moduleType),
+  ],
+)
+
+/** Payments / credit notes without any allocation at the end of a past month (same columns as the live table + `as_of_date`). */
+export const dashSnapApArHistUnallocated = mysqlTable(
+  'dash_snap_ap_ar_hist_unallocated',
+  {
+    asOfDate: date('as_of_date', { mode: 'string' }).notNull(),
+    cardId: bigint('card_id', { mode: 'string' }).notNull(),
+    moduleType: tinyint('module_type').notNull(),
+    partyId: bigint('party_id', { mode: 'string' }),
+    locationId: bigint('location_id', { mode: 'string' }),
+    coaId: bigint('coa_id', { mode: 'string' }),
+    txDate: date('tx_date', { mode: 'string' }).notNull(),
+    balance: decimal('balance', { precision: 22, scale: 2 }).notNull().default('0.00'),
+  },
+  (t) => [
+    primaryKey({ columns: [t.asOfDate, t.cardId] }),
+    index('idx_dash_hist_unalloc_date_mod').on(t.asOfDate, t.moduleType),
+  ],
+)
+
+/** Which month-ends are fully present in the two history tables (a month is added in one transaction with its rows). */
+export const dashSnapApArHistDates = mysqlTable('dash_snap_ap_ar_hist_dates', {
+  asOfDate: date('as_of_date', { mode: 'string' }).notNull().primaryKey(),
+  builtAt: datetime('built_at', { mode: 'string' }),
+  rowCount: int('row_count').default(0),
+  durationMs: int('duration_ms').default(0),
+  /** 1 = built when the month could no longer change; 0 = provisional, rebuilt later (see ap-ar-hist-plan.ts) */
+  isFinal: tinyint('is_final').notNull().default(0),
+})
+
 /** Payments / credit notes that are not allocated to any invoice. */
 export const dashSnapApArUnallocated = mysqlTable(
   'dash_snap_ap_ar_unallocated',

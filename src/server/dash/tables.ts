@@ -7,6 +7,9 @@ export const DASH_TABLES = {
   apArUnallocated: 'dash_snap_ap_ar_unallocated',
   glMonthly: 'dash_snap_gl_monthly',
   glPeriods: 'dash_snap_gl_periods',
+  apArHistOpen: 'dash_snap_ap_ar_hist_open',
+  apArHistUnallocated: 'dash_snap_ap_ar_hist_unallocated',
+  apArHistDates: 'dash_snap_ap_ar_hist_dates',
 } as const
 
 export const SNAPSHOT_AP_AR = 'ap_ar'

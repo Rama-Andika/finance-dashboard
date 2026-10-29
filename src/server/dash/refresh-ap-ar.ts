@@ -7,13 +7,13 @@ import { chunk } from '~/server/db/chunk'
 import { addDays } from '~/lib/format/date'
 import { DASH_TABLES, SNAPSHOT_AP_AR, dashTable, ints } from './tables'
 
-type Row = unknown[]
+export type Row = unknown[]
 
-const OPEN_COLUMNS = [
+export const OPEN_COLUMNS = [
   'card_id', 'module_type', 'party_id', 'location_id', 'coa_id',
   'tx_date', 'due_date', 'item_type', 'invoice_number', 'original_amount', 'balance',
 ]
-const UNALLOC_COLUMNS = ['card_id', 'module_type', 'party_id', 'location_id', 'coa_id', 'tx_date', 'balance']
+export const UNALLOC_COLUMNS = ['card_id', 'module_type', 'party_id', 'location_id', 'coa_id', 'tx_date', 'balance']
 
 /** Even when the ERP tables look unchanged, rebuild at least this often (edits do not change the fingerprint). */
 const FORCE_REBUILD_MS = 60 * 60_000
@@ -42,7 +42,7 @@ function streamRows(conn: PoolConnection, sql: string, params: unknown[]): Async
  * 3. the descriptive columns of the open ones by primary key.
  * (One join with GROUP BY over 12 columns took ~10 minutes on the demo DB.)
  */
-async function loadOpenInvoices(conn: PoolConnection, side: AgingSide, asOfPlusOne: string): Promise<Row[]> {
+export async function loadOpenInvoices(conn: PoolConnection, side: AgingSide, asOfPlusOne: string): Promise<Row[]> {
   const cfg = AGING_SIDES[side]
   const inOut = ints(IN_OUT_VALUES)
 
@@ -95,7 +95,7 @@ async function loadOpenInvoices(conn: PoolConnection, side: AgingSide, asOfPlusO
 }
 
 /** Payments / credit notes with no allocation to any invoice. */
-async function loadUnallocated(conn: PoolConnection, side: AgingSide, asOfPlusOne: string): Promise<Row[]> {
+export async function loadUnallocated(conn: PoolConnection, side: AgingSide, asOfPlusOne: string): Promise<Row[]> {
   const cfg = AGING_SIDES[side]
   const rows = await query(
     conn,

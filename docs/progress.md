@@ -82,6 +82,7 @@
 | 2026-10-29 | 16.4 | Aksesibilitas & tema | Keyboard navigation (Tab/Esc/Enter), light/dark high contrast focus ring, token warna baku Neraca UI, status text+color (Lulus) |
 | 2026-10-29 | 16.5 | Bersih-bersih & finalisasi | dev-ui.tsx dibersihkan, routeTree.gen.ts disinkronkan, aplikasi 100% siap produksi (Lulus) |
 | 2026-10-29 | 17 | Export CSV bills (Summary) dan aging (Payables/Receivables) diambil per potongan 5.000 baris lewat getPaymentBillsExportChunkFn dan getAgingPartiesExportChunkFn; helper fetchAllChunks + 5 unit test | typecheck lulus, 254 unit test lulus (Lulus) |
+| 2026-10-29 | 18 | Snapshot AP/AR akhir bulan: tabel dash_snap_ap_ar_hist_open/unallocated/dates, pembangun hist-ap-ar.ts (13 bulan, satu bulan per putaran scheduler, dua bulan terbaru sementara), pembaca snapshot-hist.ts, angka pembanding AP/AR kembali tampil, skrip dash:refresh-hist; 14 unit test untuk perencana | Typecheck lulus, 268 unit test lulus; migrasi, pembangunan snapshot, dan test integrasi belum dijalankan (butuh DB, dikerjakan user) |
 
 ## Ringkasan Proyek
 

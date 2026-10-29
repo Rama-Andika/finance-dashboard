@@ -4,6 +4,8 @@ import { todayIn } from '~/lib/format/date'
 import { dashMigrationStatus, runDashMigrations } from './migrate'
 import { refreshApArSnapshot } from './refresh-ap-ar'
 import { refreshGlMonthlySnapshot } from './gl-snapshot'
+import { refreshApArHistSnapshots } from './hist-ap-ar'
+import { clearCache } from '~/server/cache'
 import { apArSnapshotInfo, warmApArSnapshot } from './snapshot'
 
 declare global {
@@ -12,6 +14,9 @@ declare global {
   // eslint-disable-next-line no-var
   var __dashSchedulerRetryAt: number | undefined
 }
+
+/** Month-end AP/AR history: months built per run, so the regular refresh is never held up for long. */
+const HIST_MAX_BUILDS_PER_TICK = 1
 
 function today(): string {
   return env.APP_TODAY ?? todayIn(env.APP_TIMEZONE)
@@ -31,6 +36,12 @@ async function tick(state: { running: boolean }): Promise<void> {
     // Closed GL periods: cheap when nothing is new, a few seconds to minutes per new period otherwise
     const gl = await refreshGlMonthlySnapshot()
     if (gl.ran) console.log(`dash: GL snapshot built ${gl.built} period(s), removed ${gl.removed} in ${Math.round(gl.durationMs / 1000)}s`)
+    // Month-end AP/AR history: one month per run (the first fill takes a few runs; `npm run dash:refresh-hist` does it at once)
+    const hist = await refreshApArHistSnapshots(today(), { maxBuilds: HIST_MAX_BUILDS_PER_TICK })
+    if (hist.ran) {
+      clearCache('dash:ap-ar:hist')
+      console.log(`dash: AP/AR history built ${hist.built.length} month(s), removed ${hist.pruned} in ${Math.round(hist.durationMs / 1000)}s`)
+    }
     if (result.ran) {
       console.log(`dash: AP/AR snapshot refreshed in ${Math.round(result.durationMs / 1000)}s (${result.openRows} open invoices, ${result.unallocatedRows} unallocated)`)
     }

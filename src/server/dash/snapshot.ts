@@ -159,7 +159,7 @@ async function readUnallocated<K extends 'vendorId' | 'customerId'>(side: Side, 
 }
 
 /** Keep the rows of the selected locations. The whole side is read once per snapshot, so a different entity filter costs no query. */
-function byLocation<T extends { locationId: Id }>(all: readonly T[], locIds: Id[] | 'all'): T[] {
+export function byLocation<T extends { locationId: Id }>(all: readonly T[], locIds: Id[] | 'all'): T[] {
   if (locIds === 'all') return all as T[]
   const wanted = new Set(locIds)
   return all.filter((r) => wanted.has(r.locationId))

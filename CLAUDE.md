@@ -43,6 +43,7 @@ npm run db:dash:status     # pending dash_* migrations
 npm run db:dash:migrate    # apply them (or AUTO_MIGRATE=1 at server start)
 npm run dash:refresh       # rebuild the AP/AR snapshot now
 npm run dash:refresh-gl    # build the monthly GL snapshot for Closed periods
+npm run dash:refresh-hist  # build the month-end AP/AR history (past asOf dates; --max N limits the months)
 ```
 
 `npm run seed` points at `scripts/seed/index.ts`, which does not exist yet (only the host guard in `scripts/seed/guard.ts` is implemented).
@@ -82,7 +83,7 @@ src/routes/**            file-based routes; loader → queryClient.ensureQueryDa
 The ERP tables are read-only. Heavy numbers are precomputed into the dashboard's own `dash_*` tables in the same database (`src/server/dash/`, migrations in `drizzle-dash/`, config `drizzle.dash.config.ts`, migration table `dash_migrations`):
 - AP/AR open-invoice + unallocated-payment snapshot, rebuilt every `DASH_REFRESH_MINUTES` by `scheduler.ts` inside the server process (skipped when the ERP fingerprint is unchanged; atomic shadow-table swap; `dash_snap_meta` holds status shown as "Data as of …" in the sidebar).
 - `dash_snap_gl_monthly` — monthly GL movements for Closed periods; `gl.repo.ts` reads it for periods it contains and falls back to the live ERP query otherwise.
-- AP/AR requests for a past `asOf` still use the slow live ERP query.
+- `dash_snap_ap_ar_hist_*` hold the AP/AR state at the end of each of the last `DASH_AP_AR_HIST_MONTHS` (default 13) completed months, built by `hist-ap-ar.ts` (one month per scheduler run; the two newest months are rebuilt daily until final). `apar.repo.ts` reads today's snapshot first, then the month-end history when `asOf` is exactly a built month-end, then the slow live ERP query. Any other past `asOf` still uses the live query.
 - `src/server/dash/guard.test.ts` fails if any migration or dash code writes to a non-`dash_` table. The only other allowed write is INSERT/UPDATE of the `DASHBOARD_ACCOUNT_MAPPING` row in `system_main` (Settings › Account mapping). Never run `drizzle-kit push`, and never generate/migrate against ERP tables (`drizzle.config.ts` is only for `pull` from a local DB).
 
 ## Non-negotiable rules (summary of plans/README.md §2)

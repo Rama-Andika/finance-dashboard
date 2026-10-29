@@ -29,6 +29,13 @@
       "when": 1793275921474,
       "tag": "0003_create_gl_monthly",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1793285536236,
+      "tag": "0004_create_ap_ar_hist",
+      "breakpoints": true
     }
   ]
 }
