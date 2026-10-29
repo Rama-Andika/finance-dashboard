@@ -10,11 +10,8 @@ import {
   buildMetricMeta,
   getCachedCoaTree,
 } from '~/server/context'
-import {
-  apOpenInvoices,
-  apUnallocatedPayments,
-  listVendors,
-} from '~/server/repo/apar.repo'
+import { apOpenInvoices, apUnallocatedPayments } from '~/server/repo/aging.repo'
+import { listVendors } from '~/server/repo/party.repo'
 import { balancesAt } from '~/server/services/balance.service'
 import {
   computeApAging as calculateApAging,

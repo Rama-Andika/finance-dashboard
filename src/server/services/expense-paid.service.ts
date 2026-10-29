@@ -11,13 +11,10 @@ import {
   getCachedPeriods,
 } from '~/server/context'
 import { memoMetric } from '~/server/cache'
-import { loadAccountMapping } from '~/server/services/mapping.helper'
+import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
 import { resolveBaskets } from '~/lib/finance/basket-resolver'
-import {
-  expensePaidAllocated,
-  expensePaidUnallocated,
-  listVendors,
-} from '~/server/repo/apar.repo'
+import { expensePaidAllocated, expensePaidUnallocated } from '~/server/repo/expense-paid.repo'
+import { listVendors } from '~/server/repo/party.repo'
 import { linesOfCashJournals } from '~/server/repo/cashflow.repo'
 import { allocateCash, makeIsOurCash } from '~/lib/finance/cashflow'
 import { isDirectExpenseGroup } from '~/lib/finance/account-groups'

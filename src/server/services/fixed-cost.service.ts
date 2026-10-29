@@ -7,10 +7,10 @@ import {
   getCachedCoaTree,
   getCachedPeriods,
 } from '~/server/context'
-import { loadAccountMapping } from '~/server/services/mapping.helper'
+import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
 import { resolveBaskets } from '~/lib/finance/basket-resolver'
 import { memoMetric } from '~/server/cache'
-import { loadPlMovements, onlyAccounts } from '~/server/services/pl-movements'
+import { loadPlMovements, onlyAccounts } from '~/server/services/shared/pl-movements'
 import {
   computeFixedCost as calculateFixedCost,
   type MonthCost,

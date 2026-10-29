@@ -20,7 +20,7 @@ export const getAccountMappingFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .handler(async (): Promise<GetAccountMappingResult> => {
     const { getCachedCoaTree } = await import('~/server/context')
-    const { loadMappingState } = await import('~/server/services/mapping.helper')
+    const { loadMappingState } = await import('~/server/services/shared/mapping.helper')
     const { validateMapping } = await import('~/lib/settings/mapping-validate')
 
     const tree = await getCachedCoaTree()

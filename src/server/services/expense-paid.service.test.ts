@@ -20,7 +20,7 @@ vi.mock('~/server/context', () => ({
   getCachedEntities: async () => ({ segment: { segmentId: 's', columnName: 'segment1_id' }, entities }),
   buildMetricMeta: () => ({}),
 }))
-vi.mock('~/server/services/mapping.helper', () => ({
+vi.mock('~/server/services/shared/mapping.helper', () => ({
   loadAccountMapping: async () => ({
     version: 1,
     updatedAt: 'now',
@@ -37,11 +37,11 @@ vi.mock('~/server/services/mapping.helper', () => ({
 const expensePaidAllocated = vi.fn()
 const expensePaidUnallocated = vi.fn()
 const linesOfCashJournals = vi.fn()
-vi.mock('~/server/repo/apar.repo', () => ({
+vi.mock('~/server/repo/expense-paid.repo', () => ({
   expensePaidAllocated: (...a: unknown[]) => expensePaidAllocated(...a),
   expensePaidUnallocated: (...a: unknown[]) => expensePaidUnallocated(...a),
-  listVendors: async () => [],
 }))
+vi.mock('~/server/repo/party.repo', () => ({ listVendors: async () => [] }))
 vi.mock('~/server/repo/cashflow.repo', () => ({ linesOfCashJournals: (...a: unknown[]) => linesOfCashJournals(...a) }))
 
 const { computeExpensePaid } = await import('./expense-paid.service')

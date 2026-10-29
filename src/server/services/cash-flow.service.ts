@@ -11,7 +11,7 @@ import {
   getCachedPeriods,
 } from '~/server/context'
 import { memoMetric } from '~/server/cache'
-import { loadAccountMapping } from '~/server/services/mapping.helper'
+import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
 import { resolveBaskets } from '~/lib/finance/basket-resolver'
 import { balancesAt } from '~/server/services/balance.service'
 import {

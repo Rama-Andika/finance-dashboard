@@ -1,188 +1,26 @@
 import '@tanstack/react-start/server-only'
-import { sql, type SQL } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
-import { inList } from '~/server/db/in-list'
-import { chunk, chunkOrAll } from '~/server/db/chunk'
+import { chunkOrAll } from '~/server/db/chunk'
 import {
   AGING_SIDES,
   AR_UNALLOCATED_RECEIPT_TYPE,
-  EXPENSE_PAID_TYPES,
   IN_OUT_VALUES,
   MODULE_TYPE,
   intList,
 } from '~/server/db/erp-codes'
 import { D } from '~/lib/finance/money'
-import { ACTIVE_VOUCHER_STATUSES } from '~/lib/finance/aging'
 import { memo } from '~/server/cache'
 import { addDays } from '~/lib/format/date'
 import { apArSnapshotCovers, snapshotOpenInvoices, snapshotUnallocated } from '~/server/dash/snapshot'
 import { apArHistCovers, histOpenInvoices, histUnallocated } from '~/server/dash/snapshot-hist'
+import { idOrEmpty, locationFilter, toDay } from '~/server/repo/apar.shared'
+import type { AgingInvoice, AgingSide, AgingUnallocated } from '~/server/repo/apar.types'
 import type { Id, IsoDate, Money } from '~/lib/finance/types'
 
 const AGING_CACHE_MS = 5 * 60 * 1000
 
-const toDay = (v: unknown): IsoDate => String(v).slice(0, 10)
-const idOrEmpty = (v: unknown): Id => (v ? String(v) : '')
-
-/** `AND <alias>.location_id IN (...)` for one location slice, or nothing when the slice is "all". */
-function locationFilter(alias: 'i' | 'p', slice: string[] | undefined): SQL {
-  return slice ? sql`AND ${sql.identifier(alias)}.location_id IN (${inList(slice)})` : sql``
-}
-
-// ==========================================
-// 1. Expense Paid Queries (Step 9.7)
-// ==========================================
-
-export type ExpensePaidAllocatedRow = {
-  cardId: Id
-  cardNumber: string
-  txDate: IsoDate
-  locationId: Id
-  vendorId: Id
-  itemType: number
-  detailSum: Money
-}
-
-export type ExpensePaidUnallocatedRow = {
-  cardId: Id
-  cardNumber: string
-  txDate: IsoDate
-  locationId: Id
-  vendorId: Id
-  signedAmount: Money
-}
-
-export async function expensePaidAllocated(
-  d1: IsoDate,
-  d2PlusOne: IsoDate,
-  locIds: Id[] | 'all',
-): Promise<ExpensePaidAllocatedRow[]> {
-  if (locIds !== 'all' && locIds.length === 0) return []
-
-  const results: ExpensePaidAllocatedRow[] = []
-
-  for (const lChunk of chunkOrAll(locIds)) {
-    const res = await rows<{
-      cardId: string
-      cardNumber: string
-      txDate: string
-      locationId: string | null
-      vendorId: string | null
-      itemType: number | string
-      detailSum: number | string
-    }>(sql`
-      SELECT p.ap_ar_card_id AS cardId,
-             COALESCE(p.transaction_number, '') AS cardNumber,
-             DATE(p.transaction_date) AS txDate,
-             p.location_id AS locationId,
-             i.owner_id AS vendorId,
-             i.transaction_type AS itemType,
-             SUM(d.amount) AS detailSum
-      FROM ap_ar_card p
-      JOIN ap_ar_card_detail d ON d.ap_ar_card_id = p.ap_ar_card_id
-      JOIN ap_ar_card i        ON i.ap_ar_card_id = d.invoice_id
-      WHERE p.module_type = ${MODULE_TYPE.AP}
-        AND p.transaction_type IN (${intList(EXPENSE_PAID_TYPES)})
-        AND p.in_out IN (${intList(IN_OUT_VALUES)})
-        AND p.transaction_date >= ${d1}
-        AND p.transaction_date < ${d2PlusOne}
-        ${locationFilter('p', lChunk)}
-      GROUP BY p.ap_ar_card_id, p.transaction_number, DATE(p.transaction_date), p.location_id, i.owner_id, i.transaction_type
-    `)
-
-    for (const r of res) {
-      results.push({
-        cardId: String(r.cardId),
-        cardNumber: r.cardNumber ?? '',
-        txDate: toDay(r.txDate),
-        locationId: idOrEmpty(r.locationId),
-        vendorId: idOrEmpty(r.vendorId),
-        itemType: Number(r.itemType) || 0,
-        detailSum: D(r.detailSum || 0).toFixed(2),
-      })
-    }
-  }
-
-  return results
-}
-
-export async function expensePaidUnallocated(
-  d1: IsoDate,
-  d2PlusOne: IsoDate,
-  locIds: Id[] | 'all',
-): Promise<ExpensePaidUnallocatedRow[]> {
-  if (locIds !== 'all' && locIds.length === 0) return []
-
-  const results: ExpensePaidUnallocatedRow[] = []
-
-  for (const lChunk of chunkOrAll(locIds)) {
-    const res = await rows<{
-      cardId: string
-      cardNumber: string
-      txDate: string
-      locationId: string | null
-      vendorId: string | null
-      signedAmount: number | string
-    }>(sql`
-      SELECT p.ap_ar_card_id AS cardId,
-             COALESCE(p.transaction_number, '') AS cardNumber,
-             DATE(p.transaction_date) AS txDate,
-             p.location_id AS locationId,
-             p.owner_id AS vendorId,
-             p.amount * p.in_out AS signedAmount
-      FROM ap_ar_card p
-      WHERE p.module_type = ${MODULE_TYPE.AP}
-        AND p.transaction_type IN (${intList(EXPENSE_PAID_TYPES)})
-        AND p.in_out IN (${intList(IN_OUT_VALUES)})
-        AND p.transaction_date >= ${d1}
-        AND p.transaction_date < ${d2PlusOne}
-        ${locationFilter('p', lChunk)}
-        AND NOT EXISTS (SELECT 1 FROM ap_ar_card_detail d WHERE d.ap_ar_card_id = p.ap_ar_card_id)
-    `)
-
-    for (const r of res) {
-      results.push({
-        cardId: String(r.cardId),
-        cardNumber: r.cardNumber ?? '',
-        txDate: toDay(r.txDate),
-        locationId: idOrEmpty(r.locationId),
-        vendorId: idOrEmpty(r.vendorId),
-        signedAmount: D(r.signedAmount || 0).toFixed(2),
-      })
-    }
-  }
-
-  return results
-}
-
-// ==========================================
-// 2. AP / AR Aging Queries (Step 9.8 / 9.9)
-//    One implementation for both sides; they differ only in module and transaction types.
-// ==========================================
-
-type AgingSide = 'ap' | 'ar'
-
-export type AgingInvoice = {
-  invoiceId: Id
-  invoiceNumber: string
-  partyId: Id
-  locationId: Id
-  coaId: Id
-  txDate: IsoDate
-  dueDate: IsoDate | null
-  itemType: number
-  originalAmount: Money
-  balance: Money
-}
-
-export type AgingUnallocated = {
-  cardId: Id
-  partyId: Id
-  locationId: Id
-  coaId: Id
-  txDate: IsoDate
-  balance: Money
-}
+// One implementation for both sides; they differ only in module and transaction types.
 
 function locKeyOf(locIds: Id[] | 'all'): string {
   return locIds === 'all' ? 'all' : [...locIds].sort().join(',')
@@ -407,89 +245,6 @@ export function arOpenInvoices(asOfPlusOne: IsoDate, locIds: Id[] | 'all'): Prom
 
 export function arUnallocatedReceipts(asOfPlusOne: IsoDate, locIds: Id[] | 'all'): Promise<ArUnallocatedReceiptRow[]> {
   return agingUnallocated('ar', asOfPlusOne, locIds, 'customerId')
-}
-
-// ==========================================
-// 3. Party lookups
-// ==========================================
-
-export type VendorLookupRow = {
-  vendorId: Id
-  code: string
-  name: string
-}
-
-export type CustomerLookupRow = {
-  customerId: Id
-  code: string
-  name: string
-}
-
-async function lookupParties(
-  table: 'vendor' | 'customer',
-  idColumn: 'vendor_id' | 'customer_id',
-  ids: Id[],
-): Promise<Array<{ id: Id; code: string; name: string }>> {
-  const results: Array<{ id: Id; code: string; name: string }> = []
-  for (const slice of chunk(ids)) {
-    const res = await rows<{ id: string; code: string | null; name: string | null }>(sql`
-      SELECT t.${sql.identifier(idColumn)} AS id, t.code AS code, t.name AS name
-      FROM ${sql.identifier(table)} t
-      WHERE t.${sql.identifier(idColumn)} IN (${inList(slice)})
-    `)
-    for (const r of res) {
-      results.push({ id: String(r.id), code: r.code || '', name: r.name || '' })
-    }
-  }
-  return results
-}
-
-export async function listVendors(vendorIds: Id[]): Promise<VendorLookupRow[]> {
-  const found = await lookupParties('vendor', 'vendor_id', vendorIds)
-  return found.map((r) => ({ vendorId: r.id, code: r.code, name: r.name }))
-}
-
-export async function listCustomers(customerIds: Id[]): Promise<CustomerLookupRow[]> {
-  const found = await lookupParties('customer', 'customer_id', customerIds)
-  return found.map((r) => ({ customerId: r.id, code: r.code, name: r.name }))
-}
-
-export type PlanStatusRow = {
-  invoiceId: Id
-  status: string
-}
-
-/** Payment vouchers (type 0) of the given invoices; for the one page of bills a drill-down shows. */
-export async function listPlanStatuses(invoiceIds: Id[]): Promise<PlanStatusRow[]> {
-  const parts = await Promise.all(
-    chunk(invoiceIds).map((slice) =>
-      rows<{ invoiceId: string; status: string | null }>(sql`
-        SELECT bd.invoice_id AS invoiceId, b.status AS status
-        FROM bankpo_payment_detail bd
-        JOIN bankpo_payment b ON b.bankpo_payment_id = bd.bankpo_payment_id
-        WHERE b.type = 0
-          AND bd.invoice_id IN (${inList(slice)})
-      `),
-    ),
-  )
-  return parts.flat().map((r) => ({ invoiceId: String(r.invoiceId), status: r.status || '' }))
-}
-
-/**
- * Every invoice that has a live payment voucher (Posted / Partialy Paid / Not Posted), in ONE query.
- * An invoice without a live voucher is "not submitted", so the payment plan never asks per invoice.
- */
-export function listActivePlanStatuses(): Promise<PlanStatusRow[]> {
-  return memo('activePlanStatuses', AGING_CACHE_MS, async () => {
-    const res = await rows<{ invoiceId: string; status: string | null }>(sql`
-      SELECT bd.invoice_id AS invoiceId, b.status AS status
-      FROM bankpo_payment_detail bd
-      JOIN bankpo_payment b ON b.bankpo_payment_id = bd.bankpo_payment_id
-      WHERE b.type = 0
-        AND b.status IN (${inList([...ACTIVE_VOUCHER_STATUSES])})
-    `)
-    return res.map((r) => ({ invoiceId: String(r.invoiceId), status: r.status || '' }))
-  })
 }
 
 export async function unallocatedCustomerPayments(

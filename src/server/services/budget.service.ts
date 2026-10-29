@@ -10,7 +10,7 @@ import {
   getCachedCoaTree,
 } from '~/server/context'
 import { memoMetric } from '~/server/cache'
-import { loadPlMovements, onlyAccounts } from '~/server/services/pl-movements'
+import { loadPlMovements, onlyAccounts } from '~/server/services/shared/pl-movements'
 import { PNL_ACCOUNT_GROUPS as BUDGET_ACCOUNT_GROUPS, isIncomeGroup } from '~/lib/finance/account-groups'
 import { budgetAmounts } from '~/server/repo/budget.repo'
 import {

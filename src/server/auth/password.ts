@@ -1,3 +1,4 @@
+import '@tanstack/react-start/server-only'
 import { createHash, timingSafeEqual } from 'node:crypto'
 
 /** Compare two strings in constant time (G26). Different lengths are safe because the hashes are compared. */

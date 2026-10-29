@@ -12,7 +12,7 @@ import {
 } from '~/server/context'
 import { movementsByPeriods } from '~/server/repo/gl.repo'
 import { memoMetric } from '~/server/cache'
-import { loadPlMovements, onlyAccounts } from '~/server/services/pl-movements'
+import { loadPlMovements, onlyAccounts } from '~/server/services/shared/pl-movements'
 import {
   computeNetRevenue,
   groupFolders,

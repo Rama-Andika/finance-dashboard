@@ -14,8 +14,7 @@ import {
   intList,
 } from '~/server/db/erp-codes'
 import { D } from '~/lib/finance/money'
-import { addDays, todayIn } from '~/lib/format/date'
-import { env } from '~/server/env'
+import { addDays } from '~/lib/format/date'
 import type { Id, IsoDate, Money, Period } from '~/lib/finance/types'
 
 export type QCheckSummary = {
@@ -106,15 +105,14 @@ export async function checkQ8(): Promise<number> {
 export async function checkQ9(
   segCol: string,
   segIds: Id[] | 'all',
-  asOfDate?: IsoDate,
+  asOfDate: IsoDate,
 ): Promise<QCheckSummary> {
   if (segIds !== 'all' && segIds.length === 0) {
     return { count: 0, amount: '0.00' }
   }
 
-  const baseDate = asOfDate || env.APP_TODAY || todayIn(env.APP_TIMEZONE)
-  const cutoffPast = addDays(baseDate, -7)
-  const cutoffFuture = addDays(baseDate, 1)
+  const cutoffPast = addDays(asOfDate, -7)
+  const cutoffFuture = addDays(asOfDate, 1)
 
   if (!isSegmentColumn(segCol)) throw new Error(`Invalid segment column: ${segCol}`)
   const segIdent = sql.identifier(segCol)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { findLoginCandidate, LOGIN_ALLOWED_STATUSES } from '~/server/repo/auth.repo'
-import { safeEqual } from '~/server/password'
+import { safeEqual } from '~/server/auth/password'
 
 describe('Auth repository & login logic integration', () => {
   it('rejects nonexistent user login candidate', async () => {

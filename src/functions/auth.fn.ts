@@ -12,9 +12,9 @@ export const loginFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     // dynamic imports keep server modules out of the browser bundle
     const { findLoginCandidate, LOGIN_ALLOWED_STATUSES } = await import('~/server/repo/auth.repo')
-    const { safeEqual } = await import('~/server/password')
-    const { loginLimiter } = await import('~/server/login-limiter')
-    const { getAppSession } = await import('~/server/session')
+    const { safeEqual } = await import('~/server/auth/password')
+    const { loginLimiter } = await import('~/server/auth/login-limiter')
+    const { getAppSession } = await import('~/server/auth/session')
 
     const ip = getRequestIP({ xForwardedFor: true }) ?? 'unknown'
     if (!loginLimiter.hit(`${ip}|${data.loginId.toLowerCase()}`)) {
@@ -35,14 +35,14 @@ export const loginFn = createServerFn({ method: 'POST' })
   })
 
 export const logoutFn = createServerFn({ method: 'POST' }).handler(async () => {
-  const { getAppSession } = await import('~/server/session')
+  const { getAppSession } = await import('~/server/auth/session')
   const session = await getAppSession()
   session.destroy()
   return { ok: true as const }
 })
 
 export const getCurrentUserFn = createServerFn({ method: 'GET' }).handler(async () => {
-  const { getAppSession } = await import('~/server/session')
+  const { getAppSession } = await import('~/server/auth/session')
   const session = await getAppSession()
   if (!session.userId) return null
   return { userId: session.userId, name: session.name ?? '' }

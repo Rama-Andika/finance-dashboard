@@ -41,10 +41,12 @@ const balancesAt = vi.fn()
 const computeCashPosition = vi.fn()
 
 vi.mock('~/server/repo/gl.repo', () => ({ movementsByPeriods: (...a: unknown[]) => movementsByPeriods(...a) }))
-vi.mock('~/server/repo/apar.repo', () => ({
+vi.mock('~/server/repo/aging.repo', () => ({
   apOpenInvoices: (...a: unknown[]) => apOpenInvoices(...a),
   apUnallocatedPayments: (...a: unknown[]) => apUnallocatedPayments(...a),
-  listVendors: (...a: unknown[]) => listVendors(...a),
+}))
+vi.mock('~/server/repo/party.repo', () => ({ listVendors: (...a: unknown[]) => listVendors(...a) }))
+vi.mock('~/server/repo/payment-plan.repo', () => ({
   listActivePlanStatuses: (...a: unknown[]) => listActivePlanStatuses(...a),
   listPlanStatuses: (...a: unknown[]) => listPlanStatuses(...a),
 }))
@@ -52,7 +54,7 @@ vi.mock('~/server/repo/budget.repo', () => ({ budgetAmounts: (...a: unknown[]) =
 vi.mock('~/server/repo/bank-payment.repo', () => ({ unsettledByChannel: async () => [], settlementLag: async () => [] }))
 vi.mock('~/server/services/balance.service', () => ({ balancesAt: (...a: unknown[]) => balancesAt(...a) }))
 vi.mock('~/server/services/cash-position.service', () => ({ computeCashPosition: (...a: unknown[]) => computeCashPosition(...a) }))
-vi.mock('~/server/services/mapping.helper', () => ({
+vi.mock('~/server/services/shared/mapping.helper', () => ({
   loadAccountMapping: async () => ({
     version: 1,
     updatedAt: 'now',

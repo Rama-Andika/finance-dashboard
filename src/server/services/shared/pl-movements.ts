@@ -8,7 +8,7 @@ import { env } from '~/server/env'
 import { memoMetric } from '~/server/cache'
 import { type AppContextFilter, getCachedCoaTree, getCachedPeriods } from '~/server/context'
 import { movementsByPeriods, type MovementRow } from '~/server/repo/gl.repo'
-import { loadAccountMapping } from '~/server/services/mapping.helper'
+import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
 
 /**
  * Movements of every account the P&L-family pages need (P&L, OCI, Fixed Cost, Budget actuals,

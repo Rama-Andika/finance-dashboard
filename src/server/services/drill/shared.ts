@@ -5,7 +5,7 @@ import { type Entity, type Id, type IsoDate, type Period } from '~/lib/finance/t
 import { type AppContextFilter } from '~/server/context'
 import { journalHeaders, journalLines, movementsByPeriods } from '~/server/repo/gl.repo'
 import { tablesBetween } from '~/server/db/gl-tables'
-import { listPlanStatuses } from '~/server/repo/apar.repo'
+import { listPlanStatuses } from '~/server/repo/payment-plan.repo'
 import { postableDescendants, type CoaTree } from '~/lib/finance/coa-tree'
 import { signedAmount } from '~/lib/finance/sign'
 import { getJournalGroupKey } from '~/lib/finance/journal-type'

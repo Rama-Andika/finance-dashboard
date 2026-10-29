@@ -5,7 +5,7 @@ import { pool } from '~/server/db/client'
 import { addDays } from '~/lib/format/date'
 import { apArSnapshotInfo, snapshotOpenInvoices, snapshotUnallocated } from '~/server/dash/snapshot'
 import { erpFingerprint } from '~/server/dash/refresh-ap-ar'
-import { liveAgingInvoices, liveAgingUnallocated } from '~/server/repo/apar.repo'
+import { liveAgingInvoices, liveAgingUnallocated } from '~/server/repo/aging.repo'
 
 /**
  * The snapshot must hold exactly what the live ERP query returns for the same day. This is the safety net for the

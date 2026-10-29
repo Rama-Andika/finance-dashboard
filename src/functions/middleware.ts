@@ -5,7 +5,7 @@ const USER_RECHECK_MS = 60_000
 
 /** Required on ALL server functions except login/logout/getCurrentUser/prefs (G31). */
 export const authMiddleware = createMiddleware({ type: 'function' }).server(async ({ next }) => {
-  const { getAppSession } = await import('~/server/session')
+  const { getAppSession } = await import('~/server/auth/session')
   const { memo } = await import('~/server/cache')
   const { findUserById, LOGIN_ALLOWED_STATUSES } = await import('~/server/repo/auth.repo')
 

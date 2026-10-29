@@ -7,7 +7,7 @@ import {
   buildMetricMeta,
   getCachedCoaTree,
 } from '~/server/context'
-import { loadPlMovements, onlyAccounts } from '~/server/services/pl-movements'
+import { loadPlMovements, onlyAccounts } from '~/server/services/shared/pl-movements'
 import { postableAccountIds } from '~/lib/finance/coa-tree'
 import { PNL_ACCOUNT_GROUPS } from '~/lib/finance/account-groups'
 import {

@@ -5,7 +5,7 @@ import { findOciCoaIds } from '~/lib/finance/pnl'
 import { postableAccountIds } from '~/lib/finance/coa-tree'
 import type { AccountGroup } from '~/lib/finance/types'
 import { resolveBaskets } from '~/lib/finance/basket-resolver'
-import { loadAccountMapping } from '~/server/services/mapping.helper'
+import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
 import { type DrillState, type DrillStep, type DrillStepKind } from '~/lib/filters/search-schema'
 import { empty, accountIdsOf, segIdsFor, hasSingleEntity, accountRows, entityRows, journalRows, type DrillContext, type DrillResult } from '~/server/services/drill/shared'
 

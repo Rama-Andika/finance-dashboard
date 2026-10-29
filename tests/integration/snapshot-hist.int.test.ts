@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { addDays } from '~/lib/format/date'
 import { histOpenInvoices, histUnallocated } from '~/server/dash/snapshot-hist'
-import { liveAgingInvoices, liveAgingUnallocated } from '~/server/repo/apar.repo'
+import { liveAgingInvoices, liveAgingUnallocated } from '~/server/repo/aging.repo'
 
 /**
  * The month-end history must hold exactly what the live ERP query returns for the same day.

@@ -8,7 +8,7 @@ import {
   getCachedEntities,
 } from '~/server/context'
 import { memoMetric } from '~/server/cache'
-import { loadAccountMapping } from '~/server/services/mapping.helper'
+import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
 import { resolveBaskets } from '~/lib/finance/basket-resolver'
 import { balancesAt, balancesBySegmentAt } from '~/server/services/balance.service'
 import { unsettledByChannel } from '~/server/repo/bank-payment.repo'

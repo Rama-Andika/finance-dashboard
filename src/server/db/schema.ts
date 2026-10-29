@@ -1,4 +1,6 @@
 import '@tanstack/react-start/server-only'
+// Reference mirror of the ERP tables (from `drizzle-kit pull` on a LOCAL database). No runtime code imports it:
+// queries are written with `sql` in src/server/repo/**. Only docs and column lookups refer to it.
 import { tinyint, mysqlTable, mysqlSchema, AnyMySqlColumn, index, int, datetime, date, varchar, decimal, text, unique, char, timestamp, double } from "drizzle-orm/mysql-core"
 import { sql } from "drizzle-orm"
 import { bigint } from "./bigint-string"

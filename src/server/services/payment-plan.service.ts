@@ -11,15 +11,12 @@ import {
   buildMetricMeta,
   getCachedCoaTree,
 } from '~/server/context'
-import { loadAccountMapping } from '~/server/services/mapping.helper'
+import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
 import { resolveBaskets } from '~/lib/finance/basket-resolver'
 import { computeCashPosition } from '~/server/services/cash-position.service'
-import {
-  apOpenInvoices,
-  arOpenInvoices,
-  listActivePlanStatuses,
-  listVendors,
-} from '~/server/repo/apar.repo'
+import { apOpenInvoices, arOpenInvoices } from '~/server/repo/aging.repo'
+import { listActivePlanStatuses } from '~/server/repo/payment-plan.repo'
+import { listVendors } from '~/server/repo/party.repo'
 import {
   unsettledByChannel,
   settlementLag,
