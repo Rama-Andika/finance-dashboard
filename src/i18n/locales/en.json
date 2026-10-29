@@ -33,7 +33,7 @@
     "backToDashboard": "Back to dashboard"
   },
   "auth": {
-    "title": "Sign in to Oxy Finance Dashboard",
+    "title": "Sign in",
     "loginId": "Username / Login ID",
     "password": "Password",
     "submit": "Sign In",

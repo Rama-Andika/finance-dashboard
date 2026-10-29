@@ -5,6 +5,7 @@ node_modules/
 .tanstack/
 dist/
 coverage/
+plans/
 
 # secrets
 .env

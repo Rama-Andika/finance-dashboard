@@ -33,7 +33,7 @@
     "backToDashboard": "Kembali ke dasbor"
   },
   "auth": {
-    "title": "Masuk ke Oxy Finance Dashboard",
+    "title": "Sign In",
     "loginId": "Nama pengguna / Login ID",
     "password": "Kata sandi",
     "submit": "Masuk",
