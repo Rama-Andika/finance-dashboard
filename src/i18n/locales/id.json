@@ -1,0 +1,190 @@
+{
+  "nav": {
+    "summary": "Ringkasan",
+    "revenue": "Pendapatan",
+    "cashPosition": "Posisi Kas",
+    "cashFlow": "Arus Kas",
+    "pnl": "Laba Rugi",
+    "payables": "Utang Usaha",
+    "receivables": "Piutang",
+    "paymentPlan": "Rencana Bayar",
+    "budget": "Anggaran",
+    "settingsGroup": "Pengaturan",
+    "accountMapping": "Pemetaan Akun"
+  },
+  "common": {
+    "entity": "Entitas",
+    "period": "Periode",
+    "allEntities": "Semua Entitas",
+    "apply": "Terapkan",
+    "cancel": "Batal",
+    "selectAll": "Pilih Semua",
+    "clear": "Bersihkan",
+    "signOut": "Keluar",
+    "theme": "Tema",
+    "language": "Bahasa",
+    "loading": "Memuat...",
+    "noData": "Belum ada data",
+    "dash": "—"
+  },
+  "auth": {
+    "title": "Masuk ke Neraca",
+    "loginId": "Nama pengguna / Login ID",
+    "password": "Kata sandi",
+    "submit": "Masuk",
+    "invalid": "Nama pengguna atau kata sandi salah",
+    "tooMany": "Terlalu banyak percobaan gagal. Silakan coba lagi nanti.",
+    "logout": "Keluar"
+  },
+  "period": {
+    "thisMonth": "Bulan Ini",
+    "lastMonth": "Bulan Lalu",
+    "thisQuarter": "Kuartal Ini",
+    "ytd": "Tahun Berjalan",
+    "last12m": "12 Bulan Terakhir",
+    "includeP13": "Termasuk Periode 13",
+    "next7": "7 Hari Ke Depan",
+    "next14": "14 Hari Ke Depan",
+    "next30": "30 Hari Ke Depan"
+  },
+  "settings": {
+    "title": "Pemetaan Akun",
+    "description": "Konfigurasi akun untuk perhitungan likuiditas dan biaya tetap.",
+    "isDefaultNotice": "Selesaikan pengaturan akun untuk memastikan metrik dashboard akurat.",
+    "corruptedNotice": "Pengaturan tersimpan rusak; sementara memakai pengaturan bawaan.",
+    "save": "Simpan Pemetaan",
+    "saving": "Menyimpan...",
+    "saveSuccess": "Pemetaan akun berhasil disimpan.",
+    "conflictError": "Akun berikut terdaftar di lebih dari satu keranjang likuiditas (Kas, Bank, Deposito, Dana dalam pencairan):",
+    "cashBankEmptyWarning": "Keranjang Kas dan Bank saat ini kosong. Posisi Kas akan bernilai 0.",
+    "missingAccountsWarning": "Beberapa akun yang dipetakan sudah tidak ada di CoA dan diabaikan.",
+    "baskets": {
+      "cash": "Kas",
+      "bank": "Bank",
+      "deposit": "Deposito",
+      "inTransit": "Dana dalam pencairan",
+      "fixedCost": "Biaya Tetap"
+    },
+    "previewTitle": "Akun Terpilih",
+    "noAccounts": "Belum ada akun di keranjang ini.",
+    "balanceAsOfToday": "Saldo per hari ini",
+    "notAutoIncluded": "Akun baru di folder ini tidak ikut otomatis"
+  },
+  "metric": {
+    "openPeriodWarning": "Periode {{month}} belum ditutup. Angka masih bisa berubah.",
+    "missingMonthsWarning": "Beberapa bulan belum memiliki data transaksi.",
+    "errorTitle": "Terjadi kesalahan saat memuat data.",
+    "errorBody": "Gagal memuat data metrik dari server.",
+    "tryAgain": "Coba lagi",
+    "exportCsv": "Ekspor CSV",
+    "print": "Cetak",
+    "grossMargin": "Gross Margin",
+    "operatingMargin": "Operating Margin",
+    "netMargin": "Net Margin",
+    "currentRatio": "Current Ratio",
+    "runway": "Runway",
+    "runwayPositive": "Arus kas positif",
+    "months": "bulan",
+    "avgBurn": "Rata-rata pengeluaran kas",
+    "tabs": {
+      "revenue": "Pendapatan",
+      "expense": "Beban",
+      "fixedCost": "Biaya Tetap",
+      "expensePaid": "Biaya Dibayar"
+    },
+    "billsDue7Days": "Tagihan Jatuh Tempo 7 Hari Ke Depan",
+    "unallocated": "Belum terklasifikasi",
+    "operating": "Operasi",
+    "investing": "Investasi",
+    "financing": "Pendanaan",
+    "openingCash": "Kas Awal",
+    "netCashFlow": "Arus Kas Bersih",
+    "closingCash": "Kas Akhir",
+    "dueToday": "Jatuh tempo hari ini",
+    "includeInflows": "Sertakan proyeksi penerimaan",
+    "horizonDays": "Hari ke depan",
+    "minusBalance": "Saldo minus"
+  },
+  "journalType": {
+    "cashIn": "Uang Masuk",
+    "cashOut": "Uang Keluar",
+    "sales": "Penjualan & Piutang",
+    "purchase": "Pembelian & Utang",
+    "loan": "Pinjaman",
+    "fixedAsset": "Aset Tetap",
+    "adjustment": "Penyesuaian Non-Kas",
+    "wasteBank": "Bank Sampah"
+  },
+  "drill": {
+    "sheetTitle": "Rincian Transaksi",
+    "loadMore": "Muat lebih banyak",
+    "back": "Kembali",
+    "close": "Tutup",
+    "journalNumber": "Nomor Jurnal",
+    "date": "Tanggal",
+    "memo": "Keterangan",
+    "account": "Akun",
+    "debit": "Debet",
+    "credit": "Kredit",
+    "amount": "Jumlah",
+    "cardHistory": "Riwayat Pelunasan",
+    "empty": "Tidak ada transaksi untuk kriteria ini"
+  },
+  "export": {
+    "title": "Ekspor ke CSV",
+    "description": "Pilih format pemisah yang sesuai dengan perangkat lunak spreadsheet Anda.",
+    "commaDot": "Koma (,) + titik desimal (Standar Internasional)",
+    "semicolonComma": "Titik koma (;) + koma desimal (Excel Indonesia / Eropa)",
+    "download": "Unduh CSV",
+    "cancel": "Batal"
+  },
+  "dataChecks": {
+    "title": "Data Perlu Dicek",
+    "empty": "Semua data konsisten dan tidak ada temuan pemeriksaan.",
+    "viewDetail": "Lihat rincian",
+    "Q1b": {
+      "title": "Tagihan AP non-dagang lunas tanpa rincian transaksi",
+      "body": "{{count}} tagihan (Rp {{amount}}) berstatus lunas namun tidak memiliki riwayat kartu pelunasan."
+    },
+    "Q7": {
+      "title": "Vendor atau pelanggan di kartu tidak ditemukan di master",
+      "body": "{{count}} kartu transaksi mengacu pada kontak yang tidak terdaftar di data master."
+    },
+    "Q8": {
+      "title": "Lokasi kartu transaksi tidak valid",
+      "body": "{{count}} kartu transaksi memiliki kode lokasi yang tidak ditemukan di master lokasi."
+    },
+    "Q9": {
+      "title": "Dana belum cair tertahan > 7 hari atau di masa depan",
+      "body": "{{count}} transaksi (Rp {{amount}}) berstatus belum cair dengan umur lebih dari 7 hari atau tanggal di masa depan."
+    },
+    "AR_UNALLOC": {
+      "title": "Pembayaran pelanggan tanpa alokasi",
+      "body": "Penerimaan kas sebesar Rp {{amount}} belum dialokasikan ke faktur pelanggan tertentu."
+    },
+    "CF_UNCLASSIFIED": {
+      "title": "Mutasi kas belum terklasifikasi",
+      "body": "Sebesar Rp {{amount}} mutasi kas belum dipetakan ke aktivitas operasi, investasi, atau pendanaan."
+    },
+    "CF_IDENTITY": {
+      "title": "Selisih identitas arus kas terdeteksi",
+      "body": "Kas awal ditambah arus kas bersih tidak sama dengan saldo kas akhir pada periode ini."
+    },
+    "REC_TRANSIT": {
+      "title": "Selisih rekonsiliasi dana dalam pencairan",
+      "body": "Saldo akun Buku Besar berbeda sebesar Rp {{amount}} dengan register pencairan bank."
+    },
+    "REC_AP": {
+      "title": "Selisih rekonsiliasi utang usaha (AP)",
+      "body": "Saldo buku pembantu utang berbeda sebesar Rp {{amount}} dengan akun kontrol Buku Besar."
+    },
+    "UNPOSTED": {
+      "title": "Jurnal belum di-posting terdeteksi",
+      "body": "Terdapat {{count}} baris jurnal dengan status unposted; angka laporan keuangan belum final."
+    },
+    "SETTINGS": {
+      "title": "Pemetaan akun belum lengkap",
+      "body": "Pengaturan pemetaan akun masih menggunakan aturan default atau belum disimpan."
+    }
+  }
+}

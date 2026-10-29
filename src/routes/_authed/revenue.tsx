@@ -1,0 +1,238 @@
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import { Download } from 'lucide-react'
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+} from 'recharts'
+import { chartSearchSchema, drillSearchSchema } from '~/lib/filters/search-schema'
+import { revenueMetricOptions } from '~/queries/metrics.queries'
+import { MetricSkeleton } from '~/components/neraca/MetricSkeleton'
+import { MetricError } from '~/components/neraca/MetricError'
+import { Notice } from '~/components/neraca/Notice'
+import { KpiCard } from '~/components/neraca/KpiCard'
+import { DonutBreakdown } from '~/components/neraca/DonutBreakdown'
+import { DataTable, type ColumnDef } from '~/components/neraca/DataTable'
+import { Button } from '~/components/neraca/Button'
+import { ExportCsvButton, formatExportFilename } from '~/components/export/ExportCsvDialog'
+import { PrintButton } from '~/components/export/PrintButton'
+import { PrintHeader } from '~/components/export/PrintHeader'
+import { formatAxisShort, formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
+import { formatMonth, formatMonthYear, getCompareLabel } from '~/lib/format/date'
+import type { Breakdown, Lang } from '~/lib/finance/types'
+
+export const Route = createFileRoute('/_authed/revenue')({
+  validateSearch: chartSearchSchema.extend(drillSearchSchema.shape),
+  loaderDeps: ({ search }) => ({
+    entity: search.entity,
+    preset: search.preset,
+    p13: search.p13,
+    chart: search.chart,
+  }),
+  loader: ({ context, deps }) =>
+    context.queryClient.ensureQueryData(revenueMetricOptions(deps)),
+  pendingComponent: MetricSkeleton,
+  errorComponent: MetricError,
+  component: RevenuePage,
+})
+
+function RevenuePage() {
+  const deps = Route.useLoaderDeps()
+  const navigate = useNavigate()
+  const { data } = useQuery(revenueMetricOptions(deps))
+  const { t, i18n } = useTranslation()
+  const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
+
+  if (!data) return null
+
+  const compareLabel = getCompareLabel(deps.preset, lang)
+
+  const handleSelectFolder = (folderId: string, folderLabel?: string) => {
+    const folder = data.byFolder.find((f) => f.id === folderId)
+    navigate({
+      to: '/revenue',
+      search: (prev: any) => ({
+        ...prev,
+        drill: {
+          metric: 'revenue',
+          steps: [{ kind: 'folder', id: folderId, label: folder?.label || folderLabel || folderId }],
+        },
+      }),
+    })
+  }
+
+  // Chart data
+  const chartData = data.trend.map((m) => ({
+    month: m.month,
+    displayMonth: formatMonth(m.month, lang),
+    amountNum: Math.max(0, Number(m.amount) || 0),
+    rawAmount: m.amount,
+  }))
+
+  const columns: ColumnDef<Breakdown, any>[] = [
+    {
+      accessorKey: 'label',
+      header: lang === 'id' ? 'Kategori / Folder' : 'Category / Folder',
+      cell: ({ row }) => <span className="nr-name">{row.original.label}</span>,
+    },
+    {
+      accessorKey: 'amount',
+      header: lang === 'id' ? 'Total (Rp)' : 'Total (IDR)',
+      meta: { align: 'right' },
+      cell: ({ getValue }) => formatMoneyFull(getValue() as string, lang),
+    },
+  ]
+
+  return (
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      <PrintHeader
+        title={t('nav.revenue')}
+        entity={deps.entity}
+        preset={deps.preset}
+        asOf={data.meta.asOf}
+      />
+      {data.meta.hasOpenPeriod && (
+        <Notice
+          tone="warning"
+          title={t('metric.openPeriodWarning', {
+            month: formatMonthYear(data.meta.asOf, lang),
+          })}
+        />
+      )}
+      {data.meta.missingMonths.length > 0 && (
+        <Notice
+          tone="warning"
+          title={t('metric.missingMonthsWarning')}
+          body={data.meta.missingMonths.join(', ')}
+        />
+      )}
+
+      {/* KPI Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard
+          label={t('nav.revenue')}
+          value={data.total}
+          compareValue={data.compareTotal}
+          compareLabel={compareLabel}
+          higherIsBetter={true}
+        />
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Monthly Trend Bar Chart */}
+        <div className="nr-card lg:col-span-2 space-y-4">
+          <div className="nr-card-head" style={{ margin: 0 }}>
+            <h3 className="nr-card-title">
+              {lang === 'id' ? 'Tren Pendapatan Bulanan' : 'Monthly Revenue Trend'}
+            </h3>
+            <span className="nr-muted nr-num" style={{ fontSize: 13 }}>
+              {formatMoneyShort(data.total, lang)}
+            </span>
+          </div>
+
+          <div style={{ height: 260 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={chartData}
+                margin={{ top: 10, right: 10, left: 10, bottom: 20 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="var(--chart-grid)"
+                />
+                <XAxis
+                  dataKey="displayMonth"
+                  axisLine={{ stroke: 'var(--chart-axis)' }}
+                  tickLine={false}
+                  tick={{ fill: 'var(--ink-muted)', fontSize: 12 }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: 'var(--ink-muted)', fontSize: 11 }}
+                  tickFormatter={(val) => formatAxisShort(val, lang)}
+                />
+                <RechartsTooltip
+                  cursor={{ fill: 'var(--surface-hover)' }}
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length > 0) {
+                      const item = payload[0]?.payload
+                      return (
+                        <div className="nr-tooltip">
+                          <div className="font-semibold">{formatMonthYear(item.month, lang)}</div>
+                          <div className="tabular-nums font-semibold mt-1">
+                            {formatMoneyFull(item.rawAmount, lang)}
+                          </div>
+                        </div>
+                      )
+                    }
+                    return null
+                  }}
+                />
+                <Bar
+                  dataKey="amountNum"
+                  fill="var(--chart-income)"
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={48}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Donut Composition */}
+        <div className="lg:col-span-1">
+          <DonutBreakdown
+            title={lang === 'id' ? 'Komposisi Pendapatan' : 'Revenue Composition'}
+            items={data.byFolder.map((f) => ({
+              id: f.id,
+              name: f.label,
+              amount: f.amount,
+            }))}
+            totalLabel={lang === 'id' ? 'Total pendapatan' : 'Total revenue'}
+            lang={lang}
+            periodLabel={formatMonthYear(data.meta.asOf, lang)}
+            onSelect={handleSelectFolder}
+          />
+        </div>
+      </div>
+
+      {/* Folder breakdown table */}
+      <DataTable
+        title={lang === 'id' ? 'Rincian Folder Pendapatan' : 'Revenue by Folder'}
+        columns={columns}
+        data={data.byFolder}
+        getRowId={(r) => r.id}
+        onRowClick={(r) => handleSelectFolder(r.id, r.label)}
+        emptyMessage={t('common.noData')}
+        headerActions={
+          <div className="flex items-center gap-2">
+            <ExportCsvButton
+              rows={data.byFolder}
+              columns={[
+                { header: 'Kategori / Folder', value: (r) => r.label, kind: 'text' },
+                { header: 'Total (Rp)', value: (r) => r.amount, kind: 'money' },
+              ]}
+              filename={formatExportFilename('revenue', deps.entity, deps.preset)}
+            />
+            <PrintButton />
+          </div>
+        }
+        mobileCard={(r) => (
+          <div className="flex justify-between items-center">
+            <span className="font-semibold">{r.label}</span>
+            <span className="font-semibold tabular-nums">{formatMoneyFull(r.amount, lang)}</span>
+          </div>
+        )}
+      />
+    </div>
+  )
+}

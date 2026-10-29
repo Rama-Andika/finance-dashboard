@@ -1,0 +1,55 @@
+/* Print & PDF styling (Phase 12 / U4) */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #111111 !important;
+  }
+
+  /* Hide navigation, buttons, sheets, and interactive elements */
+  .no-print,
+  .nr-sidebar,
+  aside,
+  header button,
+  .nr-topbar button,
+  [data-drill-sheet],
+  [data-slot="sheet-overlay"],
+  [data-slot="sheet-content"] {
+    display: none !important;
+  }
+
+  /* Show header specifically prepared for paper */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Cards avoid awkward page breaks across borders */
+  .nr-card {
+    break-inside: avoid;
+    border-color: #cfd8d2 !important;
+    box-shadow: none !important;
+  }
+
+  /* Force full tabular view even when printed from mobile viewport */
+  .nr-table-wrap {
+    display: block !important;
+  }
+
+  .mobile-cards {
+    display: none !important;
+  }
+
+  /* Suppress browser print url annotations */
+  a[href]::after {
+    content: none !important;
+  }
+}
+
+.print-only {
+  display: none;
+}

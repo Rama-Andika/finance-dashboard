@@ -1,0 +1,190 @@
+{
+  "nav": {
+    "summary": "Summary",
+    "revenue": "Revenue",
+    "cashPosition": "Cash Position",
+    "cashFlow": "Cash Flow",
+    "pnl": "Profit & Loss",
+    "payables": "Payables",
+    "receivables": "Receivables",
+    "paymentPlan": "Payment Plan",
+    "budget": "Budget vs Actual",
+    "settingsGroup": "Settings",
+    "accountMapping": "Account Mapping"
+  },
+  "common": {
+    "entity": "Entity",
+    "period": "Period",
+    "allEntities": "All Entities",
+    "apply": "Apply",
+    "cancel": "Cancel",
+    "selectAll": "Select All",
+    "clear": "Clear",
+    "signOut": "Sign Out",
+    "theme": "Theme",
+    "language": "Language",
+    "loading": "Loading...",
+    "noData": "No data available",
+    "dash": "—"
+  },
+  "auth": {
+    "title": "Sign in to Neraca",
+    "loginId": "Username / Login ID",
+    "password": "Password",
+    "submit": "Sign In",
+    "invalid": "Invalid username or password",
+    "tooMany": "Too many failed attempts. Please try again later.",
+    "logout": "Sign Out"
+  },
+  "period": {
+    "thisMonth": "This Month",
+    "lastMonth": "Last Month",
+    "thisQuarter": "This Quarter",
+    "ytd": "Year to Date",
+    "last12m": "Last 12 Months",
+    "includeP13": "Include Period 13",
+    "next7": "Next 7 Days",
+    "next14": "Next 14 Days",
+    "next30": "Next 30 Days"
+  },
+  "settings": {
+    "title": "Account Mapping",
+    "description": "Configure accounts for liquidity calculation and fixed costs.",
+    "isDefaultNotice": "Please complete account mapping to ensure dashboard metrics are accurate.",
+    "corruptedNotice": "Saved configuration was corrupted; using defaults temporarily.",
+    "save": "Save Mapping",
+    "saving": "Saving...",
+    "saveSuccess": "Account mapping saved successfully.",
+    "conflictError": "The following accounts are assigned to multiple liquid baskets (Cash, Bank, Deposit, In Transit):",
+    "cashBankEmptyWarning": "Cash and Bank baskets are currently empty. Cash Position will report 0.",
+    "missingAccountsWarning": "Some mapped accounts no longer exist in the CoA and are ignored.",
+    "baskets": {
+      "cash": "Cash",
+      "bank": "Bank",
+      "deposit": "Deposit",
+      "inTransit": "In Transit",
+      "fixedCost": "Fixed Cost"
+    },
+    "previewTitle": "Resolved Accounts",
+    "noAccounts": "No accounts selected in this basket.",
+    "balanceAsOfToday": "Balance (as of today)",
+    "notAutoIncluded": "New accounts in this folder are not included automatically"
+  },
+  "metric": {
+    "openPeriodWarning": "Period {{month}} is still open. Figures may change.",
+    "missingMonthsWarning": "Some months do not have transaction data.",
+    "errorTitle": "An error occurred while loading data.",
+    "errorBody": "Failed to load metric data from the server.",
+    "tryAgain": "Try again",
+    "exportCsv": "Export CSV",
+    "print": "Print",
+    "grossMargin": "Gross Margin",
+    "operatingMargin": "Operating Margin",
+    "netMargin": "Net Margin",
+    "currentRatio": "Current Ratio",
+    "runway": "Runway",
+    "runwayPositive": "Cash flow positive",
+    "months": "months",
+    "avgBurn": "Average monthly cash burn",
+    "tabs": {
+      "revenue": "Revenue",
+      "expense": "Expense",
+      "fixedCost": "Fixed Cost",
+      "expensePaid": "Expense Paid"
+    },
+    "billsDue7Days": "Bills Due in Next 7 Days",
+    "unallocated": "Unclassified",
+    "operating": "Operating",
+    "investing": "Investing",
+    "financing": "Financing",
+    "openingCash": "Opening Cash",
+    "netCashFlow": "Net Cash Flow",
+    "closingCash": "Closing Cash",
+    "dueToday": "Due today",
+    "includeInflows": "Include projected inflows",
+    "horizonDays": "Days ahead",
+    "minusBalance": "Negative balance"
+  },
+  "journalType": {
+    "cashIn": "Cash In",
+    "cashOut": "Cash Out",
+    "sales": "Sales & Receivables",
+    "purchase": "Purchases & Payables",
+    "loan": "Loans",
+    "fixedAsset": "Fixed Assets",
+    "adjustment": "Non-Cash Adjustments",
+    "wasteBank": "Waste Bank"
+  },
+  "drill": {
+    "sheetTitle": "Transaction Details",
+    "loadMore": "Load more",
+    "back": "Back",
+    "close": "Close",
+    "journalNumber": "Journal Number",
+    "date": "Date",
+    "memo": "Memo",
+    "account": "Account",
+    "debit": "Debit",
+    "credit": "Credit",
+    "amount": "Amount",
+    "cardHistory": "Settlement History",
+    "empty": "No transactions found for this filter"
+  },
+  "export": {
+    "title": "Export to CSV",
+    "description": "Choose the delimiter format that matches your spreadsheet software.",
+    "commaDot": "Comma (,) + decimal dot (International Standard)",
+    "semicolonComma": "Semicolon (;) + decimal comma (Excel Indonesia / European)",
+    "download": "Download CSV",
+    "cancel": "Cancel"
+  },
+  "dataChecks": {
+    "title": "Data Verification Required",
+    "empty": "All data is consistent and no check findings were detected.",
+    "viewDetail": "View details",
+    "Q1b": {
+      "title": "Non-trade AP marked paid without payment records",
+      "body": "{{count}} bills (IDR {{amount}}) marked as paid without any settlement card history."
+    },
+    "Q7": {
+      "title": "Vendor or customer on card not found in master list",
+      "body": "{{count}} card records reference contacts missing from master records."
+    },
+    "Q8": {
+      "title": "Invalid location on card records",
+      "body": "{{count}} card records have location codes that do not exist in location master."
+    },
+    "Q9": {
+      "title": "In-transit funds delayed > 7 days or dated in future",
+      "body": "{{count}} records (IDR {{amount}}) unreleased over 7 days or dated in the future."
+    },
+    "AR_UNALLOC": {
+      "title": "Unallocated customer receipts",
+      "body": "Customer receipts totaling IDR {{amount}} have not been allocated to specific invoices."
+    },
+    "CF_UNCLASSIFIED": {
+      "title": "Unclassified cash transactions",
+      "body": "IDR {{amount}} in cash movements has not been mapped to operating, investing, or financing."
+    },
+    "CF_IDENTITY": {
+      "title": "Cash flow identity discrepancy detected",
+      "body": "Opening cash plus net cash flow does not equal closing cash for this period."
+    },
+    "REC_TRANSIT": {
+      "title": "In-transit cash reconciliation variance",
+      "body": "GL in-transit account balance differs by IDR {{amount}} from bank register."
+    },
+    "REC_AP": {
+      "title": "Accounts payable reconciliation variance",
+      "body": "Subledger payable balance differs by IDR {{amount}} from GL control account."
+    },
+    "UNPOSTED": {
+      "title": "Unposted journals detected",
+      "body": "{{count}} journal lines remain unposted; financial statements are not yet final."
+    },
+    "SETTINGS": {
+      "title": "Account mapping incomplete",
+      "body": "Account mapping configuration is using defaults or has not been customized."
+    }
+  }
+}

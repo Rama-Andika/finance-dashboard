@@ -1,0 +1,184 @@
+import '@tanstack/react-start/server-only'
+import { sql } from 'drizzle-orm'
+import { rows } from '~/server/db/query'
+import { inList } from '~/server/db/in-list'
+import { glTablesOf, groupPeriodsByTable } from '~/server/db/gl-tables'
+import { D } from '~/lib/finance/money'
+import type { Id, Money, Period } from '~/lib/finance/types'
+
+export type CashJournalLineRow = {
+  glId: Id
+  journalType: number
+  periodId: Id
+  coaId: Id
+  segmentDetailId: Id | null
+  debet: Money
+  credit: Money
+}
+
+export type LinesOfCashJournalsOptions = {
+  periods: Period[]
+  segCol: string
+  segIds: Id[] | 'all'
+  cashCoaIds: Id[]
+}
+
+/**
+ * linesOfCashJournals(): all lines of posted journals that touch cash & cash equivalents in the selected periods.
+ */
+export async function linesOfCashJournals(
+  opts: LinesOfCashJournalsOptions,
+): Promise<CashJournalLineRow[]> {
+  if (opts.periods.length === 0 || opts.cashCoaIds.length === 0) return []
+  if (opts.segIds !== 'all' && opts.segIds.length === 0) return []
+
+  if (!/^segment([1-9]|1[0-5])_id$/.test(opts.segCol)) {
+    throw new Error(`Invalid segment column: ${opts.segCol}`)
+  }
+
+  const grouped = groupPeriodsByTable(opts.periods)
+  const allResults: CashJournalLineRow[] = []
+
+  for (const [tableName, tablePeriods] of grouped.entries()) {
+    const { gl, glDetail } = glTablesOf(tableName)
+    const glIdent = sql.identifier(gl)
+    const glDetailIdent = sql.identifier(glDetail)
+    const segIdent = sql.identifier(opts.segCol)
+
+    const periodIdList = tablePeriods.map((p) => p.periodeId)
+    const periodChunks: string[][] = []
+    for (let i = 0; i < periodIdList.length; i += 1000) {
+      periodChunks.push(periodIdList.slice(i, i + 1000))
+    }
+
+    const cashChunks: string[][] = []
+    for (let i = 0; i < opts.cashCoaIds.length; i += 1000) {
+      cashChunks.push(opts.cashCoaIds.slice(i, i + 1000))
+    }
+
+    const segChunks: (string[] | undefined)[] = []
+    if (opts.segIds !== 'all') {
+      for (let i = 0; i < opts.segIds.length; i += 1000) {
+        segChunks.push(opts.segIds.slice(i, i + 1000))
+      }
+    } else {
+      segChunks.push(undefined)
+    }
+
+    for (const pChunk of periodChunks) {
+      for (const cChunk of cashChunks) {
+        for (const sChunk of segChunks) {
+          const query = sql`
+            SELECT d.gl_id AS glId,
+                   g.journal_type AS journalType,
+                   g.period_id AS periodId,
+                   d.coa_id AS coaId,
+                   d.${segIdent} AS segmentDetailId,
+                   SUM(d.debet) AS debet,
+                   SUM(d.credit) AS credit
+            FROM ${glIdent} g
+            JOIN ${glDetailIdent} d ON d.gl_id = g.gl_id
+            JOIN (
+              SELECT DISTINCT d2.gl_id
+              FROM ${glIdent} g2
+              JOIN ${glDetailIdent} d2 ON d2.gl_id = g2.gl_id
+              WHERE g2.posted_status = 1
+                AND g2.canceled_date IS NULL
+                AND g2.period_id IN (${inList(pChunk)})
+                AND d2.coa_id IN (${inList(cChunk)})
+                ${sChunk ? sql`AND d2.${segIdent} IN (${inList(sChunk)})` : sql``}
+            ) k ON k.gl_id = g.gl_id
+            WHERE g.posted_status = 1
+              AND g.canceled_date IS NULL
+            GROUP BY d.gl_id, g.journal_type, g.period_id, d.coa_id, d.${segIdent}
+          `
+
+          const res = await rows<{
+            glId: string
+            journalType: number | string
+            periodId: string
+            coaId: string
+            segmentDetailId: string | null
+            debet: number | string
+            credit: number | string
+          }>(query)
+
+          for (const r of res) {
+            allResults.push({
+              glId: String(r.glId),
+              journalType: Number(r.journalType) || 0,
+              periodId: String(r.periodId),
+              coaId: String(r.coaId),
+              segmentDetailId: r.segmentDetailId ? String(r.segmentDetailId) : null,
+              debet: D(r.debet || 0).toFixed(2),
+              credit: D(r.credit || 0).toFixed(2),
+            })
+          }
+        }
+      }
+    }
+  }
+
+  return allResults
+}
+
+export type CashFlowSetupRow = {
+  setupId: Id
+  groupId: Id
+  groupName: string
+  groupSequence: number
+  subGroup: string
+  subSequence: number
+  coaId: Id | null
+  valueDisplayed: 0 | 1
+  accountGroup: string | null
+  subAccountGroup: string | null
+}
+
+/**
+ * cashFlowSetup()
+ */
+export async function getCashFlowSetup(): Promise<CashFlowSetupRow[]> {
+  const query = sql`
+    SELECT s.cash_flow_setup_id AS setupId,
+           s.cash_flow_group_id AS groupId,
+           grp.NAME AS groupName,
+           grp.sequence AS groupSequence,
+           s.sub_group AS subGroup,
+           s.sequence_sub_group AS subSequence,
+           s.coa_id AS coaId,
+           s.value_displayed AS valueDisplayed,
+           c.account_group AS accountGroup,
+           c.sub_account_group AS subAccountGroup
+    FROM cash_flow_setup s
+    JOIN cash_flow_group grp ON grp.cash_flow_group_id = s.cash_flow_group_id
+    LEFT JOIN coa c ON c.coa_id = s.coa_id
+    ORDER BY grp.sequence, s.sequence_sub_group
+  `
+
+  const res = await rows<{
+    setupId: string
+    groupId: string
+    groupName: string
+    groupSequence: number | string
+    subGroup: string
+    subSequence: number | string
+    coaId: string | null
+    valueDisplayed: number | string
+    accountGroup: string | null
+    subAccountGroup: string | null
+  }>(query)
+
+  return res.map((r) => ({
+    setupId: String(r.setupId),
+    groupId: String(r.groupId),
+    groupName: r.groupName || '',
+    groupSequence: Number(r.groupSequence) || 0,
+    subGroup: r.subGroup || '',
+    subSequence: Number(r.subSequence) || 0,
+    coaId: r.coaId ? String(r.coaId) : null,
+    valueDisplayed: Number(r.valueDisplayed) === 1 ? 1 : 0,
+    accountGroup: r.accountGroup,
+    subAccountGroup: r.subAccountGroup,
+  }))
+}
