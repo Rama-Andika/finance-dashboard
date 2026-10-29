@@ -181,3 +181,14 @@ export function buildPaymentPlan(input: {
     days,
   }
 }
+
+/** A vendor bill due inside the payment-plan horizon. */
+export type PaymentPlanBill = {
+  invoiceId: Id
+  vendorId: Id
+  vendorName: string
+  invoiceNumber: string
+  dueDate: string
+  balance: Money
+  status: string
+}

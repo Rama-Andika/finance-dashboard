@@ -1,11 +1,11 @@
 import type {
-  ApAgingPartARow,
-  ApAgingPartBRow,
-  ArAgingPartARow,
-  ArAgingPartBRow,
+  ApOpenInvoiceRow,
+  ApUnallocatedPaymentRow,
+  ArOpenInvoiceRow,
+  ArUnallocatedReceiptRow,
 } from '~/server/repo/apar.repo'
 
-export const mockApPartA: ApAgingPartARow[] = [
+export const mockApPartA: ApOpenInvoiceRow[] = [
   // Invoice 1: 1000.00, due in past (overdue0_30), balance 800.00
   {
     invoiceId: 'inv_1',
@@ -44,7 +44,7 @@ export const mockApPartA: ApAgingPartARow[] = [
   },
 ]
 
-export const mockApPartB: ApAgingPartBRow[] = [
+export const mockApPartB: ApUnallocatedPaymentRow[] = [
   // Unallocated payment card to v1: -200.00
   {
     cardId: 'pay_unalloc_1',
@@ -56,7 +56,7 @@ export const mockApPartB: ApAgingPartBRow[] = [
   },
 ]
 
-export const mockArPartA: ArAgingPartARow[] = [
+export const mockArPartA: ArOpenInvoiceRow[] = [
   // Customer invoice: 1500.00, due in past
   {
     invoiceId: 'ar_inv_1',
@@ -83,7 +83,7 @@ export const mockArPartA: ArAgingPartARow[] = [
   },
 ]
 
-export const mockArPartB: ArAgingPartBRow[] = [
+export const mockArPartB: ArUnallocatedReceiptRow[] = [
   // Unallocated customer return: -100.00
   {
     cardId: 'ar_ret_unalloc',

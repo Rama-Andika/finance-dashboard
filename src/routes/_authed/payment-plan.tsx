@@ -1,3 +1,4 @@
+import { searchUpdater } from '~/lib/filters/search-update'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -62,33 +63,33 @@ function PaymentPlanPage() {
   const handleHorizonChange = (h: Horizon) => {
     navigate({
       to: '/payment-plan',
-      search: (prev: any) => ({
+      search: searchUpdater((prev) => ({
         ...prev,
         horizon: h,
-      }),
+      })),
     })
   }
 
   const handleToggleInflow = () => {
     navigate({
       to: '/payment-plan',
-      search: (prev: any) => ({
+      search: searchUpdater((prev) => ({
         ...prev,
         inflow: !deps.inflow,
-      }),
+      })),
     })
   }
 
   const handleSelectDay = (date: string) => {
     navigate({
       to: '/payment-plan',
-      search: (prev: any) => ({
+      search: searchUpdater((prev) => ({
         ...prev,
         drill: {
           metric: 'paymentPlan',
           steps: [{ kind: 'day', id: date, label: date }],
         },
-      }),
+      })),
     })
   }
 
@@ -161,7 +162,7 @@ function PaymentPlanPage() {
   ]
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6">
       <PrintHeader
         title={t('nav.paymentPlan')}
         entity={deps.entity}

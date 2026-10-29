@@ -170,3 +170,22 @@ export function ancestorsOf(tree: CoaTree, coaId: Id): Id[] {
 
   return ancestors
 }
+
+const postableByGroupCache = new WeakMap<CoaTree, Map<AccountGroup, Id[]>>()
+
+/** Ids of the POSTABLE accounts of the given groups (the orphan folder excluded); indexed once per tree. */
+export function postableAccountIds(tree: CoaTree, groups: readonly AccountGroup[]): Id[] {
+  let index = postableByGroupCache.get(tree)
+  if (!index) {
+    index = new Map()
+    for (const node of tree.byId.values()) {
+      if (node.status !== 'POSTABLE' || node.coaId === tree.orphanFolderId) continue
+      const list = index.get(node.accountGroup) ?? []
+      list.push(node.coaId)
+      index.set(node.accountGroup, list)
+    }
+    postableByGroupCache.set(tree, index)
+  }
+  const cached = index
+  return groups.flatMap((g) => cached.get(g) ?? [])
+}

@@ -16,6 +16,7 @@
     "entity": "Entity",
     "period": "Period",
     "allEntities": "All Entities",
+    "search": "Search name or code...",
     "apply": "Apply",
     "cancel": "Cancel",
     "selectAll": "Select All",
@@ -236,6 +237,10 @@
     "SETTINGS": {
       "title": "Account mapping incomplete",
       "body": "Account mapping configuration is using defaults or has not been customized."
+    },
+    "CHECK_FAILED": {
+      "title": "This check could not be run",
+      "body": "{{count}} — The data behind this check failed to load. See the server log."
     }
   },
   "planStatus": {
@@ -362,7 +367,9 @@
       "monthlyRevenueTrend": "Monthly Revenue Trend",
       "revenueComposition": "Revenue Composition",
       "totalRevenue": "Total revenue",
-      "revenueByFolder": "Revenue by Folder"
+      "revenueByFolder": "Revenue by Folder",
+      "topCategory": "Top Category",
+      "topEntity": "Top Location"
     },
     "summary": {
       "overdue": "Overdue",
@@ -449,6 +456,47 @@
       "unallocated": "Unallocated payments",
       "unknownVendor": "(Unknown vendor)",
       "unknownCustomer": "(Unknown customer)"
+    },
+    "nav": {},
+    "shell": {
+      "mainMenu": "Main menu",
+      "openMenu": "Open menu",
+      "switchToDark": "Switch to dark theme",
+      "switchToLight": "Switch to light theme",
+      "switchLanguage": "Switch language",
+      "dataChecksNeeded": "Data needs review",
+      "userMenu": "User menu",
+      "tableEmpty": "No data",
+      "coaTree": "Chart of accounts tree",
+      "coaSearch": "Search account name or code...",
+      "dataChecksEmptyBody": "GL transactions, the cash register, AP/AR cards and the account mapping rules are all consistent.",
+      "dataChecksEmptyTitle": "All data is consistent and there are no findings.",
+      "findingsCount": "{{count}} findings",
+      "checking": "Checking data consistency...",
+      "close": "Close",
+      "loadFailed": "Could not load the data checks",
+      "systemError": "A system error occurred",
+      "filterEntity": "Entity filter",
+      "filterPeriod": "Period filter",
+      "periodChoices": "Period options",
+      "closeFolder": "Collapse folder",
+      "openFolder": "Expand folder",
+      "allEntitiesPrint": "All entities"
+    }
+  },
+  "cf": {
+    "fallback": {
+      "bankLoan": "Bank / cooperative loans",
+      "assetPurchase": "Asset purchases",
+      "assetSale": "Asset sales",
+      "capitalContribution": "Capital contributions",
+      "ownerDrawings": "Owner drawings / dividends",
+      "longTermLoan": "Long-term loans",
+      "customerReceipts": "Receipts from customers",
+      "supplierPayments": "Payments to suppliers",
+      "operatingExpenses": "Operating and payroll expenses",
+      "interestAndFees": "Interest and bank charges",
+      "otherIncome": "Interest income and other income"
     }
   }
 }

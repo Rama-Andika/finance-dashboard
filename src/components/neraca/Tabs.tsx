@@ -1,18 +1,18 @@
 import { cn } from '~/lib/cn'
 
-export interface TabItem {
-  id: string
+export interface TabItem<Id extends string = string> {
+  id: Id
   label: string
 }
 
-export interface TabsProps {
-  tabs: TabItem[]
-  value: string
-  onChange: (id: string) => void
+export interface TabsProps<Id extends string = string> {
+  tabs: TabItem<Id>[]
+  value: Id
+  onChange: (id: Id) => void
   className?: string
 }
 
-export function Tabs({ tabs, value, onChange, className }: TabsProps) {
+export function Tabs<Id extends string = string>({ tabs, value, onChange, className }: TabsProps<Id>) {
   return (
     <div className={cn('nr-tabs', className)} role="tablist">
       {tabs.map((tab) => {

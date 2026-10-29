@@ -6,10 +6,10 @@ import { CheckCircle2, ArrowRight, X, AlertTriangle } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle } from '~/components/ui/sheet'
 import { Notice } from '~/components/neraca/Notice'
 import { Skeleton } from '~/components/neraca/Skeleton'
+import { useGlobalMetricInput } from '~/components/layout/useGlobalMetricInput'
 import { dataChecksOptions } from '~/queries/data-checks.queries'
 import { formatMoneyFull } from '~/lib/format/number'
 import type { Lang } from '~/lib/finance/types'
-import { PRESETS, type Preset } from '~/lib/filters/search-schema'
 
 export interface DataChecksPanelProps {
   open: boolean
@@ -22,11 +22,7 @@ export function DataChecksPanel({ open, onOpenChange }: DataChecksPanelProps) {
   const { t, i18n } = useTranslation()
   const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
 
-  const queryInput = {
-    entity: search.entity ?? 'all',
-    preset: ((PRESETS as readonly string[]).includes(search.preset ?? '') ? search.preset : 'this-month') as Preset,
-    p13: Boolean(search.p13),
-  }
+  const queryInput = useGlobalMetricInput()
 
   const { data: checks, isLoading, error } = useQuery({
     ...dataChecksOptions(queryInput),
@@ -48,7 +44,7 @@ export function DataChecksPanel({ open, onOpenChange }: DataChecksPanelProps) {
         showCloseButton={false}
       >
         <SheetTitle className="sr-only">
-          {t('dataChecks.title', 'Data Perlu Dicek')}
+          {t('dataChecks.title')}
         </SheetTitle>
 
         {/* Header */}
@@ -59,10 +55,10 @@ export function DataChecksPanel({ open, onOpenChange }: DataChecksPanelProps) {
             </div>
             <div>
               <h2 className="text-base font-semibold text-ink m-0">
-                {t('dataChecks.title', 'Data Perlu Dicek')}
+                {t('dataChecks.title')}
               </h2>
               <span className="text-xs text-ink-muted">
-                {checks ? `${checks.length} temuan pemeriksaan` : 'Memeriksa konsistensi data...'}
+                {checks ? t('ui.shell.findingsCount', { count: checks.length }) : t('ui.shell.checking')}
               </span>
             </div>
           </div>
@@ -70,7 +66,7 @@ export function DataChecksPanel({ open, onOpenChange }: DataChecksPanelProps) {
             type="button"
             onClick={() => onOpenChange(false)}
             className="p-1.5 rounded text-ink-muted hover:text-ink hover:bg-canvas transition"
-            aria-label="Tutup"
+            aria-label={t('ui.shell.close')}
           >
             <X className="w-5 h-5" />
           </button>
@@ -87,8 +83,8 @@ export function DataChecksPanel({ open, onOpenChange }: DataChecksPanelProps) {
           ) : error ? (
             <Notice
               tone="danger"
-              title="Gagal memuat pemeriksaan data"
-              body={error instanceof Error ? error.message : 'Terjadi kesalahan sistem'}
+              title={t('ui.shell.loadFailed')}
+              body={error instanceof Error ? error.message : t('ui.shell.systemError')}
             />
           ) : !checks || checks.length === 0 ? (
             <div className="py-12 text-center space-y-3">
@@ -96,10 +92,10 @@ export function DataChecksPanel({ open, onOpenChange }: DataChecksPanelProps) {
                 <CheckCircle2 className="w-6 h-6" />
               </div>
               <h3 className="text-base font-medium text-ink">
-                {t('dataChecks.empty', 'Semua data konsisten dan tidak ada temuan pemeriksaan.')}
+                {t('ui.shell.dataChecksEmptyTitle')}
               </h3>
               <p className="text-xs text-ink-muted max-w-sm mx-auto">
-                Transaksi GL, register kas, kartu utang-piutang, dan aturan pemetaan akun berada dalam kondisi seimbang.
+                {t('ui.shell.dataChecksEmptyBody')}
               </p>
             </div>
           ) : (
@@ -124,7 +120,7 @@ export function DataChecksPanel({ open, onOpenChange }: DataChecksPanelProps) {
                       onClick={() => handleNavigateTo(item.link)}
                       className="text-xs font-semibold text-forest hover:text-forest-strong inline-flex items-center gap-1 transition underline-offset-2 hover:underline"
                     >
-                      {t('dataChecks.viewDetail', 'Lihat rincian')}
+                      {t('dataChecks.viewDetail')}
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>

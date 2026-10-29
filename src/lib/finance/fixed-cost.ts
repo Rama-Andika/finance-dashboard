@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js'
 import { D } from './money'
+import { signedAmount } from './sign'
 import type { Breakdown, Id, Money } from './types'
 import { type CoaTree, type CoaNode, postableDescendants } from './coa-tree'
 
@@ -51,7 +52,7 @@ export function computeFixedCost(input: {
   const totalByCoa = new Map<Id, Decimal>()
 
   for (const m of movements) {
-    const net = D(m.debet).minus(D(m.credit))
+    const net = D(signedAmount('Expense', m.debet, m.credit))
     const key = `${m.periodId}::${m.coaId}`
     byPeriodCoa.set(key, (byPeriodCoa.get(key) ?? D(0)).plus(net))
 

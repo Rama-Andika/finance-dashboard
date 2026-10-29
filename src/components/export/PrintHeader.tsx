@@ -27,7 +27,7 @@ export function PrintHeader({ title, entity, preset, asOf }: PrintHeaderProps) {
           </h1>
           <p className="text-xs text-neutral-600 mt-1 mb-0">
             {t('ui.printHeader.entity')}:{' '}
-            <span className="font-semibold">{entity || 'Semua Entitas (All)'}</span>
+            <span className="font-semibold">{entity || t('ui.shell.allEntitiesPrint')}</span>
             {' · '}
             {t('ui.printHeader.period')}:{' '}
             <span className="font-semibold">{preset || 'this-month'}</span>

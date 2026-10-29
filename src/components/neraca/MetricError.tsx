@@ -11,11 +11,11 @@ export function MetricError({ error, reset }: ErrorComponentProps) {
     error instanceof Error ? error.message : typeof error === 'string' ? error : undefined
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="space-y-4">
       <Notice
         tone="danger"
-        title={t('metric.errorTitle', 'Terjadi kesalahan saat memuat data.')}
-        body={errorMessage || t('metric.errorBody', 'Gagal memuat data metrik dari server.')}
+        title={t('metric.errorTitle')}
+        body={errorMessage || t('metric.errorBody')}
       />
       <div>
         <Button
@@ -28,7 +28,7 @@ export function MetricError({ error, reset }: ErrorComponentProps) {
             }
           }}
         >
-          {t('metric.tryAgain', 'Coba lagi')}
+          {t('metric.tryAgain')}
         </Button>
       </div>
     </div>

@@ -7,6 +7,7 @@ import {
   getCachedCoaTree,
   getCachedEntities,
 } from '~/server/context'
+import { memoMetric } from '~/server/cache'
 import { loadAccountMapping } from '~/server/services/mapping.helper'
 import { resolveBaskets } from '~/lib/finance/basket-resolver'
 import { balancesAt, balancesBySegmentAt } from '~/server/services/balance.service'
@@ -41,9 +42,16 @@ export type CashPositionOptions = {
   includeCompare?: boolean
 }
 
-export async function computeCashPosition(
+export function computeCashPosition(
   filter: AppContextFilter,
   opts: CashPositionOptions = {},
+): Promise<CashPositionResult> {
+  return memoMetric('cashPosition', { filter, opts }, () => computeCashPositionUncached(filter, opts))
+}
+
+async function computeCashPositionUncached(
+  filter: AppContextFilter,
+  opts: CashPositionOptions,
 ): Promise<CashPositionResult> {
   const includeByEntity = opts.includeByEntity ?? true
   const includeCompare = opts.includeCompare ?? true
@@ -83,26 +91,43 @@ export async function computeCashPosition(
     new Set([...cashIds, ...bankIds, ...depositIds, ...inTransitIds]),
   )
 
-  // 1. Balances at asOf
-  const asOfBalances = await balancesAt({
-    asOf: filter.asOf,
-    coaIds: allCoaIds,
-    filter,
-  })
+  // Independent reads start together: balances, compare balances, unsettled register, per-entity balances.
+  const cashAndBankIds = Array.from(new Set([...cashIds, ...bankIds]))
+  const asOfPromise = balancesAt({ asOf: filter.asOf, coaIds: allCoaIds, filter })
+  const comparePromise =
+    includeCompare && filter.compare && filter.compare.asOf
+      ? balancesAt({
+          asOf: filter.compare.asOf,
+          coaIds: cashAndBankIds,
+          filter: {
+            ...filter,
+            d1: filter.compare.d1,
+            asOf: filter.compare.asOf,
+            periodIds: filter.compare.periodIds,
+          },
+        })
+      : null
+  const unsettledPromise = unsettledByChannel(
+    filter.asOf,
+    inTransitIds,
+    filter.segmentDetailIds,
+    filter.entitySegmentColumn,
+  )
+  const byEntityPromise = includeByEntity
+    ? balancesBySegmentAt({ asOf: filter.asOf, coaIds: cashAndBankIds, filter })
+    : null
+
+  // Awaited together so a failure in one read never leaves another rejection unhandled.
+  const [asOfBalances, compareRes, unsettled, byEntityBalances] = await Promise.all([
+    asOfPromise,
+    comparePromise,
+    unsettledPromise,
+    byEntityPromise,
+  ])
 
   // 2. Compare cash position at compare.asOf
   let compareCashPosition: Money | null = null
-  if (includeCompare && filter.compare && filter.compare.asOf) {
-    const compareRes = await balancesAt({
-      asOf: filter.compare.asOf,
-      coaIds: Array.from(new Set([...cashIds, ...bankIds])),
-      filter: {
-        ...filter,
-        d1: filter.compare.d1,
-        asOf: filter.compare.asOf,
-        periodIds: filter.compare.periodIds,
-      },
-    })
+  if (compareRes) {
     const cmpCashSum = sum(cashIds.map((id) => compareRes.byCoa.get(id) ?? '0.00'))
     const cmpBankSum = sum(bankIds.map((id) => compareRes.byCoa.get(id) ?? '0.00'))
     compareCashPosition = D(cmpCashSum).plus(D(cmpBankSum)).toFixed(2)
@@ -130,12 +155,6 @@ export async function computeCashPosition(
   )
 
   // 5. In transit details and reconciliation
-  const unsettled = await unsettledByChannel(
-    filter.asOf,
-    inTransitIds,
-    filter.segmentDetailIds,
-    filter.entitySegmentColumn,
-  )
 
   const inTransitDetail = computeInTransitDetail({
     inTransitCoaIds: inTransitIds,
@@ -149,19 +168,14 @@ export async function computeCashPosition(
 
   // 6. By Entity — one grouped query for all entities (not one balance run per entity)
   let byEntityList: CashPositionResult['byEntity'] = []
-  if (includeByEntity) {
+  if (byEntityBalances) {
     const { entities } = await getCachedEntities()
     const targetEntities =
       filter.locationIds === 'all'
         ? entities
         : entities.filter((e) => filter.locationIds.includes(e.locationId))
 
-    const cashAndBankIds = Array.from(new Set([...cashIds, ...bankIds]))
-    const { bySegment } = await balancesBySegmentAt({
-      asOf: filter.asOf,
-      coaIds: cashAndBankIds,
-      filter,
-    })
+    const { bySegment } = byEntityBalances
 
     byEntityList = targetEntities.map((e) => {
       const amounts: Money[] = []

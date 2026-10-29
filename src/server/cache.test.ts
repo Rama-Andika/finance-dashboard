@@ -125,3 +125,22 @@ describe('memo', () => {
     expect(memoSize()).toBeLessThanOrEqual(200)
   })
 })
+
+describe('LRU cache size bound', () => {
+  it('evicts the oldest entries when the total weight exceeds maxWeight', () => {
+    const cache = createLruCache<number[]>({
+      maxEntries: 10,
+      ttlMs: 10_000,
+      weigh: (v) => v.length,
+      maxWeight: 5,
+    })
+    cache.set('a', [1, 2, 3])
+    cache.set('b', [1, 2])
+    expect(cache.size()).toBe(2)
+    cache.set('c', [1, 2, 3])
+    // 'a' (oldest) goes first; 'b' + 'c' fit exactly in maxWeight
+    expect(cache.get('a')).toBeUndefined()
+    expect(cache.get('b')).toEqual([1, 2])
+    expect(cache.get('c')).toEqual([1, 2, 3])
+  })
+})

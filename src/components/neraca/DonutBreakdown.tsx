@@ -169,6 +169,14 @@ export function DonutBreakdown({
         aria-label={ariaLabel}
       >
         <g transform="rotate(-90 80 80)">
+          <circle
+            cx="80"
+            cy="80"
+            r={RADIUS}
+            fill="none"
+            stroke="var(--surface-sunken)"
+            strokeWidth="18"
+          />
           {segmentsData.map((seg, idx) => {
             const classNum = (idx % 5) + 1
             return (

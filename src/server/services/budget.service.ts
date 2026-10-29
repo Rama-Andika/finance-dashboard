@@ -1,6 +1,8 @@
+import { postableAccountIds } from '~/lib/finance/coa-tree'
 import '@tanstack/react-start/server-only'
 import Decimal from 'decimal.js'
 import { D, sum } from '~/lib/finance/money'
+import { signedAmount } from '~/lib/finance/sign'
 import type { AccountGroup, Id, MetricMeta, Money } from '~/lib/finance/types'
 import {
   type AppContextFilter,
@@ -44,19 +46,10 @@ export async function computeBudget(
   const periods = await getCachedPeriods()
 
   // 1. Identify target CoA IDs
-  const targetCoaIds: Id[] = []
-  const coaGroupMap = new Map<Id, AccountGroup>()
-
-  for (const node of tree.byId.values()) {
-    if (
-      node.status === 'POSTABLE' &&
-      BUDGET_ACCOUNT_GROUPS.includes(node.accountGroup) &&
-      node.coaId !== '__orphans__'
-    ) {
-      targetCoaIds.push(node.coaId)
-      coaGroupMap.set(node.coaId, node.accountGroup)
-    }
-  }
+  const targetCoaIds: Id[] = postableAccountIds(tree, BUDGET_ACCOUNT_GROUPS)
+  const coaGroupMap = new Map<Id, AccountGroup>(
+    targetCoaIds.map((id) => [id, tree.byId.get(id)!.accountGroup]),
+  )
 
   if (targetCoaIds.length === 0 || filter.periodIds.length === 0) {
     return {
@@ -82,11 +75,8 @@ export async function computeBudget(
 
   const actualByCoa = new Map<Id, Money>()
   for (const m of actualMovements) {
-    const group = coaGroupMap.get(m.coaId)
-    const net =
-      group === 'Revenue' || group === 'Other Revenue'
-        ? D(m.credit).minus(D(m.debet))
-        : D(m.debet).minus(D(m.credit))
+    const group = coaGroupMap.get(m.coaId) ?? 'Expense'
+    const net = signedAmount(group, m.debet, m.credit)
 
     const curr = actualByCoa.get(m.coaId) ?? '0.00'
     actualByCoa.set(m.coaId, D(curr).plus(net).toFixed(2))

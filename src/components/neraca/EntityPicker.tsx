@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, Building2, ChevronDown, Check } from 'lucide-react'
+import { Search, Building2, ChevronDown } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/popover'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '~/components/ui/sheet'
-import { ScrollArea } from '~/components/ui/scroll-area'
+
 import { cn } from '~/lib/cn'
 
 export type EntityItem = {
@@ -116,15 +116,15 @@ export function EntityPicker({
   }, [selectedToken, initialSelected, entities, t])
 
   const pickerContent = (
-    <div className="nr-menu nr-picker flex flex-col max-h-[480px] w-full md:w-[360px] p-0 overflow-hidden border-0 bg-surface shadow-none md:shadow-lg">
+    <div className="nr-menu nr-picker flex flex-col max-h-120 w-[340px] max-w-[calc(100vw-2rem)] p-0 overflow-hidden border-0 bg-surface shadow-none">
       {/* Search & Actions Header */}
-      <div className="nr-picker-head p-3 border-b border-border space-y-2">
-        <label className="nr-search w-full flex items-center gap-2 px-2.5 py-1.5 rounded bg-canvas border border-border">
-          <Search className="nr-icon nr-icon-sm text-ink-muted" size={16} />
+      <div className="nr-picker-head p-3 border-b border-line space-y-2">
+        <label className="nr-search w-full! flex items-center gap-2">
+          <Search className="nr-icon nr-icon-sm text-ink-muted shrink-0" size={16} />
           <input
             id="entity-search"
             type="search"
-            placeholder={t('common.search') || 'Cari nama atau kode'}
+            placeholder={t('common.search')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-transparent border-0 p-0 text-sm focus:outline-none text-ink placeholder:text-ink-muted"
@@ -153,57 +153,51 @@ export function EntityPicker({
       </div>
 
       {/* Flat List of Entities */}
-      <ScrollArea className="flex-1 max-h-[300px] overflow-y-auto p-1">
-        <div role="listbox" aria-multiselectable="true" className="space-y-0.5">
-          {filteredEntities.map((entity) => {
-            const isChecked = tempSelected.has(entity.code)
-            return (
-              <div
-                key={entity.code}
-                role="option"
-                aria-selected={isChecked}
-                onClick={() => handleToggle(entity.code)}
-                className={cn(
-                  'nr-check flex items-center gap-2.5 px-3 py-2 rounded cursor-pointer transition-colors text-sm',
-                  isChecked ? 'bg-primary-subtle text-ink font-medium' : 'hover:bg-canvas text-ink',
+      <div
+        role="listbox"
+        aria-multiselectable="true"
+        className="flex-1 max-h-75 overflow-y-auto p-1.5 space-y-0.5"
+      >
+        {filteredEntities.map((entity) => {
+          const isChecked = tempSelected.has(entity.code)
+          return (
+            <div
+              key={entity.code}
+              role="option"
+              aria-checked={isChecked}
+              aria-selected={isChecked}
+              onClick={() => handleToggle(entity.code)}
+              className="nr-check group"
+            >
+              <span className="nr-box shrink-0">
+                {isChecked && (
+                  <svg viewBox="0 0 24 24">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
                 )}
-              >
-                <span
-                  className={cn(
-                    'nr-box w-4 h-4 rounded border flex items-center justify-center transition-colors',
-                    isChecked
-                      ? 'bg-primary border-primary text-on-primary'
-                      : 'border-border bg-surface',
+              </span>
+              <div className="nr-check-text flex-1 min-w-0 text-left">
+                <b className="truncate text-ink font-semibold text-[13px] leading-4.5 block">
+                  {entity.name}
+                  {!entity.isActive && (
+                    <span className="ml-1.5 text-[11px] text-ink-muted font-normal font-sans">
+                      (nonaktif)
+                    </span>
                   )}
-                >
-                  {isChecked && <Check size={12} strokeWidth={3} />}
-                </span>
-                <span className="nr-check-text flex-1 min-w-0 flex items-center justify-between gap-2">
-                  <span className="truncate">
-                    <b>{entity.name}</b>
-                    {!entity.isActive && (
-                      <span className="ml-1.5 text-[11px] text-ink-muted font-normal">
-                        (nonaktif)
-                      </span>
-                    )}
-                  </span>
-                  <span className="text-xs text-ink-muted font-mono shrink-0">
-                    {entity.code}
-                  </span>
-                </span>
+                </b>
               </div>
-            )
-          })}
-          {filteredEntities.length === 0 && (
-            <div className="py-6 text-center text-xs text-ink-muted">
-              {t('common.noData')}
             </div>
-          )}
-        </div>
-      </ScrollArea>
+          )
+        })}
+        {filteredEntities.length === 0 && (
+          <div className="py-6 text-center text-xs text-ink-muted">
+            {t('common.noData')}
+          </div>
+        )}
+      </div>
 
       {/* Footer Buttons */}
-      <div className="nr-picker-foot p-3 border-t border-border flex items-center justify-end gap-2 bg-canvas">
+      <div className="nr-picker-foot p-3 border-t border-line flex items-center justify-end gap-2 bg-canvas">
         <button
           className="nr-btn nr-btn-ghost text-xs px-3 py-1.5"
           type="button"
@@ -225,16 +219,16 @@ export function EntityPicker({
 
   const triggerButton = (
     <button
-      className="nr-select flex-1 md:flex-none justify-between items-center"
+      className="nr-select w-full sm:w-auto flex-1 sm:flex-none justify-between items-center min-w-0"
       type="button"
       aria-haspopup="listbox"
-      aria-label="Filter Entitas"
+      aria-label={t('ui.shell.filterEntity')}
       disabled={disabled}
     >
-      <span className="flex items-center gap-2">
-        <Building2 className="nr-icon nr-icon-sm" size={16} strokeWidth={1.75} />
-        <span className="nr-select-label">{t('common.entity')}</span>
-        <span className="truncate max-w-[140px] md:max-w-[180px]">{triggerLabel}</span>
+      <span className="flex items-center gap-2 min-w-0">
+        <Building2 className="nr-icon nr-icon-sm shrink-0" size={16} strokeWidth={1.75} />
+        <span className="nr-select-label shrink-0">{t('common.entity')}</span>
+        <span className="truncate">{triggerLabel}</span>
       </span>
       <ChevronDown className="nr-icon nr-icon-sm ml-1 shrink-0" size={16} strokeWidth={1.75} />
     </button>
@@ -244,7 +238,10 @@ export function EntityPicker({
     return (
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>{triggerButton}</PopoverTrigger>
-        <PopoverContent align="start" className="p-0 border border-border shadow-pop rounded-md overflow-hidden">
+        <PopoverContent
+          align="start"
+          className="w-auto p-0 border border-line shadow-pop rounded-md overflow-hidden"
+        >
           {pickerContent}
         </PopoverContent>
       </Popover>
@@ -255,7 +252,7 @@ export function EntityPicker({
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>{triggerButton}</SheetTrigger>
       <SheetContent side="bottom" className="p-0 rounded-t-xl max-h-[90vh] flex flex-col">
-        <SheetHeader className="p-3 border-b border-border">
+        <SheetHeader className="p-3 border-b border-line">
           <SheetTitle className="text-base font-semibold">{t('common.entity')}</SheetTitle>
         </SheetHeader>
         {pickerContent}

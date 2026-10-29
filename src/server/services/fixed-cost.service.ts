@@ -1,3 +1,4 @@
+import { postableAccountIds } from '~/lib/finance/coa-tree'
 import '@tanstack/react-start/server-only'
 import type { Breakdown, Id, MetricMeta, Money } from '~/lib/finance/types'
 import {
@@ -34,16 +35,7 @@ export async function computeFixedCost(
   const resolved = resolveBaskets(mapping, tree)
 
   const fixedCoaIds = new Set(resolved.fixedCost)
-  const expenseCoaIds = new Set<Id>()
-  for (const node of tree.byId.values()) {
-    if (
-      node.status === 'POSTABLE' &&
-      node.accountGroup === 'Expense' &&
-      node.coaId !== '__orphans__'
-    ) {
-      expenseCoaIds.add(node.coaId)
-    }
-  }
+  const expenseCoaIds = new Set<Id>(postableAccountIds(tree, ['Expense']))
 
   const activePeriods = periods.filter((p) => filter.periodIds.includes(p.periodeId))
   const monthsData = filter.months.map((m) => ({

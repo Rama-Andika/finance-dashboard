@@ -1,6 +1,7 @@
 import '@tanstack/react-start/server-only'
 import { D, sum } from '~/lib/finance/money'
 import { addDays } from '~/lib/format/date'
+import { memoMetric } from '~/server/cache'
 import type { Id, MetricMeta, Money } from '~/lib/finance/types'
 import {
   type AppContextFilter,
@@ -8,8 +9,8 @@ import {
   getCachedCoaTree,
 } from '~/server/context'
 import {
-  arAgingPartA,
-  arAgingPartB,
+  arOpenInvoices,
+  arUnallocatedReceipts,
   listCustomers,
 } from '~/server/repo/apar.repo'
 import { balancesAt } from '~/server/services/balance.service'
@@ -34,17 +35,21 @@ export type ArAgingResult = {
   reconciliation: { gl: Money; subledger: Money; diff: Money; inSync: boolean }
 }
 
-export async function computeArAging(
-  filter: AppContextFilter,
-): Promise<ArAgingResult> {
+export function computeArAging(filter: AppContextFilter): Promise<ArAgingResult> {
+  return memoMetric('arAging', filter, () => computeArAgingUncached(filter))
+}
+
+async function computeArAgingUncached(filter: AppContextFilter): Promise<ArAgingResult> {
   const meta = buildMetricMeta(filter)
   const tree = await getCachedCoaTree()
 
   const asOfPlusOne = addDays(filter.asOf, 1)
 
   // 1. Fetch Part A and Part B items
-  const partA = await arAgingPartA(asOfPlusOne, filter.locationIds)
-  const partB = await arAgingPartB(asOfPlusOne, filter.locationIds)
+  const [partA, partB] = await Promise.all([
+    arOpenInvoices(asOfPlusOne, filter.locationIds),
+    arUnallocatedReceipts(asOfPlusOne, filter.locationIds),
+  ])
 
   // 2. Fetch customer info
   const customerIds = Array.from(
@@ -68,8 +73,10 @@ export async function computeArAging(
   let compareTotal: Money | null = null
   if (filter.compare && filter.compare.asOf) {
     const cmpAsOfPlusOne = addDays(filter.compare.asOf, 1)
-    const cmpA = await arAgingPartA(cmpAsOfPlusOne, filter.locationIds)
-    const cmpB = await arAgingPartB(cmpAsOfPlusOne, filter.locationIds)
+    const [cmpA, cmpB] = await Promise.all([
+      arOpenInvoices(cmpAsOfPlusOne, filter.locationIds),
+      arUnallocatedReceipts(cmpAsOfPlusOne, filter.locationIds),
+    ])
     const cmpComputed = calculateArAging({
       partA: cmpA,
       partB: cmpB,

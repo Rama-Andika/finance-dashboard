@@ -1,3 +1,4 @@
+import { searchUpdater } from '~/lib/filters/search-update'
 import { useRouter, useRouterState } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -32,17 +33,17 @@ export interface TopBarProps {
   className?: string
 }
 
-const PAGE_TITLES: Record<string, { id: string; en: string }> = {
-  '/summary': { id: 'Ringkasan', en: 'Summary' },
-  '/revenue': { id: 'Pendapatan', en: 'Revenue' },
-  '/cash-position': { id: 'Posisi Kas', en: 'Cash Position' },
-  '/cash-flow': { id: 'Arus Kas', en: 'Cash Flow' },
-  '/profit-loss': { id: 'Laba Rugi', en: 'Profit & Loss' },
-  '/payables': { id: 'Utang', en: 'Payables' },
-  '/receivables': { id: 'Piutang', en: 'Receivables' },
-  '/payment-plan': { id: 'Rencana Bayar', en: 'Payment Plan' },
-  '/budget': { id: 'Anggaran', en: 'Budget vs Actual' },
-  '/settings/account-mapping': { id: 'Pemetaan Akun', en: 'Account Mapping' },
+const PAGE_TITLE_KEYS: Record<string, string> = {
+  '/summary': 'nav.summary',
+  '/revenue': 'nav.revenue',
+  '/cash-position': 'nav.cashPosition',
+  '/cash-flow': 'nav.cashFlow',
+  '/profit-loss': 'nav.pnl',
+  '/payables': 'nav.payables',
+  '/receivables': 'nav.receivables',
+  '/payment-plan': 'nav.paymentPlan',
+  '/budget': 'nav.budget',
+  '/settings/account-mapping': 'nav.accountMapping',
 }
 
 export function TopBar({
@@ -72,8 +73,8 @@ export function TopBar({
   }
 
   const currentPath = routerState.location.pathname
-  const titleInfo = PAGE_TITLES[currentPath] || { id: 'Dashboard', en: 'Dashboard' }
-  const pageTitle = prefs.lang === 'id' ? titleInfo.id : titleInfo.en
+  const titleKey = PAGE_TITLE_KEYS[currentPath]
+  const pageTitle = titleKey ? t(titleKey) : 'Dashboard'
 
   const search = useRouterState({
     select: (s) => (s.location.search as Partial<GlobalSearch & PaymentPlanSearch>) || {},
@@ -87,40 +88,24 @@ export function TopBar({
   const currentP13 = Boolean(search.p13)
   const currentHorizon = (search.horizon as Horizon) || '7'
 
+  const mergeSearch = (patch: Record<string, unknown>) => {
+    router.navigate({ search: searchUpdater((prev) => ({ ...prev, ...patch })) })
+  }
+
   const handleEntityApply = (newEntity: string) => {
-    ;(router.navigate as any)({
-      search: (prev: any) => ({
-        ...prev,
-        entity: newEntity,
-      }),
-    })
+    mergeSearch({ entity: newEntity })
   }
 
   const handlePresetChange = (newPreset: Preset) => {
-    ;(router.navigate as any)({
-      search: (prev: any) => ({
-        ...prev,
-        preset: newPreset,
-      }),
-    })
+    mergeSearch({ preset: newPreset })
   }
 
   const handleP13Change = (newP13: boolean) => {
-    ;(router.navigate as any)({
-      search: (prev: any) => ({
-        ...prev,
-        p13: newP13,
-      }),
-    })
+    mergeSearch({ p13: newP13 })
   }
 
   const handleHorizonChange = (newHorizon: Horizon) => {
-    ;(router.navigate as any)({
-      search: (prev: any) => ({
-        ...prev,
-        horizon: newHorizon,
-      }),
-    })
+    mergeSearch({ horizon: newHorizon })
   }
 
   const toggleTheme = async () => {
@@ -136,29 +121,31 @@ export function TopBar({
   }
 
   return (
-    <header className={cn('nr-topbar flex-col md:flex-row gap-3 py-3 md:py-0', className)}>
-      <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
-        <div className="flex items-center gap-2">
+    <header className={cn('nr-topbar flex-col md:flex-row gap-3', className)}>
+      <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto justify-between md:justify-start min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
           {onOpenMobileMenu && (
-            <button
-              type="button"
-              onClick={onOpenMobileMenu}
-              aria-label="Buka menu"
-              className="nr-btn nr-btn-icon md:hidden"
-            >
-              <Menu className="nr-icon" size={18} strokeWidth={1.75} />
-            </button>
+            <div className="md:hidden shrink-0 flex items-center">
+              <button
+                type="button"
+                onClick={onOpenMobileMenu}
+                aria-label={t('ui.shell.openMenu')}
+                className="nr-btn nr-btn-icon"
+              >
+                <Menu className="nr-icon" size={18} strokeWidth={1.75} />
+              </button>
+            </div>
           )}
-          <h1 className="nr-topbar-title">{pageTitle}</h1>
+          <h1 className="nr-topbar-title truncate text-lg sm:text-2xl">{pageTitle}</h1>
         </div>
 
         {/* Action icons on mobile top row */}
-        <div className="flex items-center gap-2 md:hidden">
+        <div className="flex items-center gap-1.5 md:hidden shrink-0">
           <button
             type="button"
             onClick={toggleTheme}
             className="nr-btn nr-btn-icon"
-            aria-label={prefs.theme === 'light' ? 'Ganti ke tema gelap' : 'Ganti ke tema terang'}
+            aria-label={prefs.theme === 'light' ? t('ui.shell.switchToDark') : t('ui.shell.switchToLight')}
           >
             {prefs.theme === 'light' ? (
               <Moon className="nr-icon" size={18} strokeWidth={1.75} />
@@ -170,15 +157,50 @@ export function TopBar({
             type="button"
             onClick={toggleLang}
             className="nr-btn h-9 px-2 text-xs font-semibold"
-            aria-label="Ganti bahasa"
+            aria-label={t('ui.shell.switchLanguage')}
           >
             {prefs.lang.toUpperCase()}
           </button>
+          {onOpenDataChecks && (
+            <button
+              type="button"
+              onClick={onOpenDataChecks}
+              className="nr-btn nr-btn-icon relative"
+              aria-label={t('ui.shell.dataChecksNeeded')}
+            >
+              <Bell className="nr-icon" size={18} strokeWidth={1.75} />
+              {dataChecksCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-danger text-on-danger text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  {dataChecksCount}
+                </span>
+              )}
+            </button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="cursor-pointer border-0 bg-transparent p-0 focus:outline-none ml-1"
+                aria-label={t('ui.shell.userMenu')}
+              >
+                <span className="nr-avatar w-8 h-8 text-xs">{initials}</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="border-line shadow-pop">
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="cursor-pointer text-danger focus:text-danger focus:bg-danger-soft hover:bg-danger-soft"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>{t('auth.logout')}</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
       {/* Global filters: Entitas + Periode */}
-      <div className="flex items-center gap-2 w-full md:w-auto md:ml-auto">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto md:ml-auto">
         <EntityPicker
           entities={filterOptions?.entities || []}
           selectedToken={currentEntity}
@@ -203,7 +225,7 @@ export function TopBar({
           type="button"
           onClick={toggleTheme}
           className="nr-btn nr-btn-icon"
-          aria-label={prefs.theme === 'light' ? 'Ganti ke tema gelap' : 'Ganti ke tema terang'}
+          aria-label={prefs.theme === 'light' ? t('ui.shell.switchToDark') : t('ui.shell.switchToLight')}
         >
           {prefs.theme === 'light' ? (
             <Moon className="nr-icon" size={18} strokeWidth={1.75} />
@@ -216,7 +238,7 @@ export function TopBar({
           type="button"
           onClick={toggleLang}
           className="nr-btn h-9 px-2.5 text-xs font-semibold"
-          aria-label="Ganti bahasa"
+          aria-label={t('ui.shell.switchLanguage')}
         >
           {prefs.lang.toUpperCase()}
         </button>
@@ -225,7 +247,7 @@ export function TopBar({
           type="button"
           onClick={onOpenDataChecks}
           className="nr-btn nr-btn-icon relative"
-          aria-label="Data perlu dicek"
+          aria-label={t('ui.shell.dataChecksNeeded')}
         >
           <Bell className="nr-icon" size={18} strokeWidth={1.75} />
           {dataChecksCount > 0 && (
@@ -240,17 +262,17 @@ export function TopBar({
             <button
               type="button"
               className="nr-user ml-2 cursor-pointer border-0 bg-transparent text-left focus:outline-none"
-              aria-label="Menu Pengguna"
+              aria-label={t('ui.shell.userMenu')}
             >
               <span className="nr-avatar">{initials}</span>
               <span className="hidden xl:inline">{userName}</span>
               <ChevronDown className="nr-icon nr-icon-sm ml-1 hidden xl:inline" size={14} />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="border-line shadow-pop">
             <DropdownMenuItem
               onClick={handleLogout}
-              className="cursor-pointer text-danger focus:text-danger focus:bg-danger-subtle"
+              className="cursor-pointer text-danger focus:text-danger focus:bg-danger-soft hover:bg-danger-soft"
             >
               <LogOut className="mr-2 h-4 w-4" />
               <span>{t('auth.logout')}</span>

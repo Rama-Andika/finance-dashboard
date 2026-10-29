@@ -2,6 +2,9 @@ import '@tanstack/react-start/server-only'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
+import { chunk, chunkOrAll } from '~/server/db/chunk'
+import { assertSegmentColumn } from '~/server/db/segment-column'
+import { BANK_PAYMENT_CHANNEL_TYPES, BANK_PAYMENT_STATUS, intList } from '~/server/db/erp-codes'
 import { addDays } from '~/lib/format/date'
 import { D } from '~/lib/finance/money'
 import type { Id, IsoDate, Money } from '~/lib/finance/types'
@@ -33,31 +36,15 @@ export async function unsettledByChannel(
   if (coaIds.length === 0) return []
   if (segIds !== 'all' && segIds.length === 0) return []
 
-  if (!/^segment([1-9]|1[0-5])_id$/.test(segCol)) {
-    throw new Error(`Invalid segment column: ${segCol}`)
-  }
+  assertSegmentColumn(segCol)
 
   const asOfPlusOne = addDays(asOf, 1)
   const segIdent = sql.identifier(segCol)
 
-  const coaChunks: string[][] = []
-  for (let i = 0; i < coaIds.length; i += 1000) {
-    coaChunks.push(coaIds.slice(i, i + 1000))
-  }
-
-  const segChunks: (string[] | undefined)[] = []
-  if (segIds !== 'all') {
-    for (let i = 0; i < segIds.length; i += 1000) {
-      segChunks.push(segIds.slice(i, i + 1000))
-    }
-  } else {
-    segChunks.push(undefined)
-  }
-
   const result: UnsettledChannelRow[] = []
 
-  for (const cChunk of coaChunks) {
-    for (const sChunk of segChunks) {
+  for (const cChunk of chunk(coaIds)) {
+    for (const sChunk of chunkOrAll(segIds)) {
       const query = sql`
         SELECT bp.coa_id AS coaId,
                bp.${segIdent} AS segmentDetailId,
@@ -65,8 +52,8 @@ export async function unsettledByChannel(
                COUNT(*) AS n,
                COALESCE(SUM(bp.amount), 0) AS amount
         FROM bank_payment bp
-        WHERE bp.type IN (1, 2)
-          AND bp.status = 0
+        WHERE bp.type IN (${intList(BANK_PAYMENT_CHANNEL_TYPES)})
+          AND bp.status = ${BANK_PAYMENT_STATUS.UNSETTLED}
           AND bp.coa_id IN (${inList(cChunk)})
           AND bp.transaction_date < ${asOfPlusOne}
           ${sChunk ? sql`AND bp.${segIdent} IN (${inList(sChunk)})` : sql``}
@@ -109,21 +96,16 @@ export async function settlementLag(
   const todayMinus90 = addDays(today, -90)
   const todayPlusOne = addDays(today, 1)
 
-  const coaChunks: string[][] = []
-  for (let i = 0; i < coaIds.length; i += 1000) {
-    coaChunks.push(coaIds.slice(i, i + 1000))
-  }
-
   const result: SettlementLagRow[] = []
 
-  for (const cChunk of coaChunks) {
+  for (const cChunk of chunk(coaIds)) {
     const query = sql`
       SELECT bp.coa_id AS coaId,
              AVG(DATEDIFF(bp.payment_date, DATE(bp.transaction_date))) AS avgLag,
              COUNT(*) AS n
       FROM bank_payment bp
-      WHERE bp.type IN (1, 2)
-        AND bp.status = 1
+      WHERE bp.type IN (${intList(BANK_PAYMENT_CHANNEL_TYPES)})
+        AND bp.status = ${BANK_PAYMENT_STATUS.SETTLED}
         AND bp.payment_date IS NOT NULL
         AND bp.transaction_date >= ${todayMinus90}
         AND bp.transaction_date < ${todayPlusOne}
@@ -167,12 +149,10 @@ export async function unsettledTransactions(opts: {
   offset: number
 }): Promise<UnsettledTransactionRow[]> {
   if (opts.segIds !== 'all' && opts.segIds.length === 0) return []
-  if (!/^segment([1-9]|1[0-5])_id$/.test(opts.segCol)) {
-    throw new Error(`Invalid segment column: ${opts.segCol}`)
-  }
+  assertSegmentColumn(opts.segCol)
   const segIdent = sql.identifier(opts.segCol)
   const asOfPlusOne = addDays(opts.asOf, 1)
-  const segIds = opts.segIds === 'all' ? null : opts.segIds.slice(0, 1000)
+  const segIds = opts.segIds === 'all' ? null : opts.segIds
 
   const res = await rows<{ id: string; number: string | null; txDate: string; amount: string | number }>(sql`
     SELECT bp.bank_payment_id AS id,
@@ -180,8 +160,8 @@ export async function unsettledTransactions(opts: {
            DATE(bp.transaction_date) AS txDate,
            bp.amount AS amount
     FROM bank_payment bp
-    WHERE bp.type IN (1, 2)
-      AND bp.status = 0
+    WHERE bp.type IN (${intList(BANK_PAYMENT_CHANNEL_TYPES)})
+      AND bp.status = ${BANK_PAYMENT_STATUS.UNSETTLED}
       AND bp.coa_id = ${opts.coaId}
       AND bp.transaction_date < ${asOfPlusOne}
       ${opts.txDate ? sql`AND bp.transaction_date >= ${opts.txDate} AND bp.transaction_date < ${addDays(opts.txDate, 1)}` : sql``}

@@ -137,6 +137,19 @@ function expandAncestorExcludingTarget(
   return result
 }
 
+function getAllDescendantIds(tree: CoaTree, coaId: Id): Set<Id> {
+  const node = tree.byId.get(coaId)
+  if (!node) return new Set()
+  const result = new Set<Id>()
+  const queue = [...node.children]
+  while (queue.length > 0) {
+    const c = queue.shift()!
+    result.add(c.coaId)
+    queue.push(...c.children)
+  }
+  return result
+}
+
 /** Checkbox click. Returns the new, normalized include list. */
 export function toggleNode(include: Id[], tree: CoaTree, coaId: Id): Id[] {
   const currentState = checkState(include, tree, coaId)
@@ -144,6 +157,7 @@ export function toggleNode(include: Id[], tree: CoaTree, coaId: Id): Id[] {
   if (!node) return include
 
   let nextInclude = [...include]
+  const descendants = getAllDescendantIds(tree, coaId)
 
   if (currentState !== 'checked') {
     // Want to CHECK it:
@@ -151,41 +165,29 @@ export function toggleNode(include: Id[], tree: CoaTree, coaId: Id): Id[] {
     nextInclude.push(coaId)
 
     // 2. Remove all its descendants from include (since coaId now covers them)
-    const descendants = new Set(postableDescendants(tree, coaId))
-    const allDescendantNodes: Id[] = []
-    const queue = [...node.children]
-    while (queue.length > 0) {
-      const c = queue.shift()!
-      allDescendantNodes.push(c.coaId)
-      queue.push(...c.children)
-    }
-    const allDescendantsSet = new Set([...descendants, ...allDescendantNodes])
-
-    nextInclude = nextInclude.filter((id) => !allDescendantsSet.has(id))
+    nextInclude = nextInclude.filter((id) => !descendants.has(id))
   } else {
     // Want to UNCHECK it:
-    if (nextInclude.includes(coaId)) {
-      // Case A: Directly in include
-      nextInclude = nextInclude.filter((id) => id !== coaId)
-    } else {
-      // Case B: Covered because an ancestor is in include
-      const ancestors = ancestorsOf(tree, coaId)
-      const targetAncestors = new Set(ancestors)
-      // Find lowest ancestor in nextInclude
-      const lowestAncestorId = ancestors.find((aId) => nextInclude.includes(aId))
+    // 1. Check if covered because an ancestor is in include
+    const ancestors = ancestorsOf(tree, coaId)
+    const targetAncestors = new Set(ancestors)
+    const lowestAncestorId = ancestors.find((aId) => nextInclude.includes(aId))
 
-      if (lowestAncestorId) {
-        nextInclude = nextInclude.filter((id) => id !== lowestAncestorId)
-        const ancestorNode = tree.byId.get(lowestAncestorId)!
-        const replacementIds = expandAncestorExcludingTarget(
-          ancestorNode,
-          coaId,
-          tree,
-          targetAncestors,
-        )
-        nextInclude.push(...replacementIds)
-      }
+    if (lowestAncestorId) {
+      nextInclude = nextInclude.filter((id) => id !== lowestAncestorId)
+      const ancestorNode = tree.byId.get(lowestAncestorId)!
+      const replacementIds = expandAncestorExcludingTarget(
+        ancestorNode,
+        coaId,
+        tree,
+        targetAncestors,
+      )
+      nextInclude.push(...replacementIds)
     }
+
+    // 2. Remove coaId itself and all its descendants from nextInclude
+    const toRemove = new Set([coaId, ...descendants])
+    nextInclude = nextInclude.filter((id) => !toRemove.has(id))
   }
 
   // Deduplicate and sort

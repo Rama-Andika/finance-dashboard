@@ -181,7 +181,7 @@ function ProfitLossPage() {
   ]
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6">
       <PrintHeader
         title={t('nav.profitLoss')}
         entity={deps.entity}
@@ -238,7 +238,7 @@ function ProfitLossPage() {
             { id: 'fixedCost', label: t('metric.tabs.fixedCost') },
           ]}
           value={activeTab}
-          onChange={(tab) => setActiveTab(tab as any)}
+          onChange={setActiveTab}
         />
       </div>
 

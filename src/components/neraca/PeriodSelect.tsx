@@ -86,17 +86,17 @@ export function PeriodSelect({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
-          className="nr-select flex-1 md:flex-none justify-between items-center"
+          className="nr-select w-full sm:w-auto flex-1 sm:flex-none justify-between items-center min-w-0"
           type="button"
           aria-haspopup="listbox"
           aria-expanded={open}
-          aria-label="Filter Periode"
+          aria-label={t('ui.shell.filterPeriod')}
           disabled={disabled}
         >
-          <span className="flex items-center gap-2">
-            <Calendar className="nr-icon nr-icon-sm" size={16} strokeWidth={1.75} />
-            <span className="nr-select-label">{t('common.period')}</span>
-            <span className="truncate max-w-[150px] md:max-w-[200px]">{currentLabel}</span>
+          <span className="flex items-center gap-2 min-w-0">
+            <Calendar className="nr-icon nr-icon-sm shrink-0" size={16} strokeWidth={1.75} />
+            <span className="nr-select-label shrink-0">{t('common.period')}</span>
+            <span className="truncate">{currentLabel}</span>
           </span>
           <ChevronDown className="nr-icon nr-icon-sm ml-1 shrink-0" size={16} strokeWidth={1.75} />
         </button>
@@ -104,9 +104,9 @@ export function PeriodSelect({
 
       <PopoverContent
         align="start"
-        className="nr-menu p-1 w-[260px] border border-border shadow-pop bg-surface rounded-md"
+        className="nr-menu p-1 w-65 max-w-[calc(100vw-2rem)] border border-line shadow-pop bg-surface rounded-md"
       >
-        <div role="listbox" aria-label="Pilihan Periode" className="space-y-0.5">
+        <div role="listbox" aria-label={t('ui.shell.periodChoices')} className="space-y-0.5">
           {isForwardMode ? (
             forwardPresets.map((item) => {
               const isSelected = item.id === horizon
@@ -157,7 +157,7 @@ export function PeriodSelect({
                 )
               })}
 
-              <div className="nr-menu-sep h-px bg-border my-1" role="separator" />
+              <div className="nr-menu-sep h-px bg-line my-1" role="separator" />
 
               {/* Period 13 Switch */}
               <div

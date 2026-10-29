@@ -14,7 +14,8 @@ export function getAppSession() {
       return val !== undefined ? { name, value: val } : undefined
     },
     set(name: string, value: string, cookieOptions) {
-      setCookie(name, value, cookieOptions as any)
+      // iron-session's cookie options are a superset of h3's; the shared fields are what setCookie reads
+      setCookie(name, value, cookieOptions as Parameters<typeof setCookie>[2])
     },
   }
 

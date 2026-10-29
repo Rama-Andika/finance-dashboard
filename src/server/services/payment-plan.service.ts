@@ -1,3 +1,4 @@
+import type { PaymentPlanBill } from '~/lib/finance/payment-plan'
 import '@tanstack/react-start/server-only'
 import { D } from '~/lib/finance/money'
 import { addDays } from '~/lib/format/date'
@@ -11,8 +12,8 @@ import { loadAccountMapping } from '~/server/services/mapping.helper'
 import { resolveBaskets } from '~/lib/finance/basket-resolver'
 import { computeCashPosition } from '~/server/services/cash-position.service'
 import {
-  apAgingPartA,
-  arAgingPartA,
+  apOpenInvoices,
+  arOpenInvoices,
   listPlanStatuses,
   listVendors,
 } from '~/server/repo/apar.repo'
@@ -29,15 +30,7 @@ import {
   type UnsettledBankForPlan,
 } from '~/lib/finance/payment-plan'
 
-export type PaymentPlanBill = {
-  invoiceId: Id
-  vendorId: Id
-  vendorName: string
-  invoiceNumber: string
-  dueDate: string
-  balance: Money
-  status: string
-}
+export type { PaymentPlanBill }
 
 export type PaymentPlanResult = {
   meta: MetricMeta
@@ -61,14 +54,12 @@ export async function computePaymentPlan(
   const asOfPlusOne = addDays(today, 1)
 
   // 1. Opening Cash = Cash Position at today
-  const cashPos = await computeCashPosition(
-    { ...filter, asOf: today },
-    { includeByEntity: false, includeCompare: false },
-  )
+  // 2. AP items due at today or later, or overdue (independent of the opening cash)
+  const [cashPos, rawAp] = await Promise.all([
+    computeCashPosition({ ...filter, asOf: today }, { includeByEntity: false, includeCompare: false }),
+    apOpenInvoices(asOfPlusOne, filter.locationIds),
+  ])
   const openingCash = cashPos.cashPosition
-
-  // 2. AP items due at today or later, or overdue
-  const rawAp = await apAgingPartA(asOfPlusOne, filter.locationIds)
   const apPositive = rawAp.filter((a) => D(a.balance).gt(0))
 
   const invoiceIds = apPositive.map((a) => a.invoiceId)
@@ -93,7 +84,18 @@ export async function computePaymentPlan(
   const settlementLags = new Map<Id, number>()
 
   if (opts.inflow) {
-    const rawAr = await arAgingPartA(asOfPlusOne, filter.locationIds)
+    const tree = await getCachedCoaTree()
+    const resolved = resolveBaskets(await loadAccountMapping(tree), tree)
+    const inTransitIds = resolved.inTransit
+
+    const [rawAr, unsettledRows, lagRows] = await Promise.all([
+      arOpenInvoices(asOfPlusOne, filter.locationIds),
+      inTransitIds.length > 0
+        ? unsettledByChannel(today, inTransitIds, filter.segmentDetailIds, filter.entitySegmentColumn)
+        : Promise.resolve([]),
+      inTransitIds.length > 0 ? settlementLag(today, inTransitIds) : Promise.resolve([]),
+    ])
+
     arItems = rawAr
       .filter((a) => D(a.balance).gt(0))
       .map((a) => ({
@@ -101,28 +103,13 @@ export async function computePaymentPlan(
         balance: a.balance,
       }))
 
-    const tree = await getCachedCoaTree()
-    const mapping = await loadAccountMapping(tree)
-    const resolved = resolveBaskets(mapping, tree)
-    const inTransitIds = resolved.inTransit
-
-    if (inTransitIds.length > 0) {
-      const unsettledRows = await unsettledByChannel(
-        today,
-        inTransitIds,
-        filter.segmentDetailIds,
-        filter.entitySegmentColumn,
-      )
-      unsettled = unsettledRows.map((u) => ({
-        coaId: u.coaId,
-        txDate: u.txDate,
-        amount: u.amount,
-      }))
-
-      const lagRows = await settlementLag(today, inTransitIds)
-      for (const l of lagRows) {
-        settlementLags.set(l.coaId, l.avgLag)
-      }
+    unsettled = unsettledRows.map((u) => ({
+      coaId: u.coaId,
+      txDate: u.txDate,
+      amount: u.amount,
+    }))
+    for (const l of lagRows) {
+      settlementLags.set(l.coaId, l.avgLag)
     }
   }
 

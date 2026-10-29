@@ -1,3 +1,4 @@
+import { postableAccountIds } from '~/lib/finance/coa-tree'
 import '@tanstack/react-start/server-only'
 import Decimal from 'decimal.js'
 import { D, sum } from '~/lib/finance/money'
@@ -110,14 +111,8 @@ export async function computeRunwayMetrics(
   const npLine = pnlRes.lines.find((l) => l.key === 'netProfit')?.amount ?? '0.00'
 
   // 5. Current Ratio: Liquid Assets / Current Liabilities at asOf
-  const liquidCoaIds: Id[] = []
-  const liabCoaIds: Id[] = []
-  for (const node of tree.byId.values()) {
-    if (node.status === 'POSTABLE' && node.coaId !== '__orphans__') {
-      if (node.accountGroup === 'Liquid Assets') liquidCoaIds.push(node.coaId)
-      if (node.accountGroup === 'Current Liabilities') liabCoaIds.push(node.coaId)
-    }
-  }
+  const liquidCoaIds: Id[] = postableAccountIds(tree, ['Liquid Assets'])
+  const liabCoaIds: Id[] = postableAccountIds(tree, ['Current Liabilities'])
 
   let liquidTotal = '0.00'
   let liabTotal = '0.00'

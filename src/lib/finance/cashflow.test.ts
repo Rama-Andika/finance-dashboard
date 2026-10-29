@@ -85,14 +85,14 @@ describe('cashflow pure logic and allocation', () => {
   it('applies fallback rules when setup is invalid', () => {
     expect(isSetupValid([])).toBe(false)
 
-    // journalType 14 -> FUNDING: Pinjaman bank/koperasi
+    // journalType 14 -> FUNDING: bank loan
     const fallbackLoan = classifyByFallback(
       '1000.00',
       { accountGroup: 'Current Liabilities', subAccountGroup: '' },
       14,
     )
     expect(fallbackLoan.drawer).toBe('FUNDING')
-    expect(fallbackLoan.subGroup).toBe('Pinjaman bank/koperasi')
+    expect(fallbackLoan.subGroup).toBe('cf.fallback.bankLoan')
   })
 
   it('ensures Cash Opening + Net Cash Flow = Cash Closing identity holds', () => {

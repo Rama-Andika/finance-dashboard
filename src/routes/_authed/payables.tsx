@@ -1,3 +1,4 @@
+import { searchUpdater } from '~/lib/filters/search-update'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -46,26 +47,26 @@ function PayablesPage() {
   const handleSelectBucket = (bucket: string) => {
     navigate({
       to: '/payables',
-      search: (prev: any) => ({
+      search: searchUpdater((prev) => ({
         ...prev,
         drill: {
           metric: 'apAging',
           steps: [{ kind: 'bucket', id: bucket, label: bucket }],
         },
-      }),
+      })),
     })
   }
 
   const handleSelectVendor = (vendor: VendorAgingSummary) => {
     navigate({
       to: '/payables',
-      search: (prev: any) => ({
+      search: searchUpdater((prev) => ({
         ...prev,
         drill: {
           metric: 'apAging',
           steps: [{ kind: 'vendor', id: vendor.vendorId, label: vendor.name }],
         },
-      }),
+      })),
     })
   }
 
@@ -145,7 +146,7 @@ function PayablesPage() {
   ]
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6">
       <PrintHeader
         title={t('nav.payables')}
         entity={deps.entity}

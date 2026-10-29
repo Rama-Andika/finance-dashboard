@@ -84,7 +84,7 @@ function LoginPage() {
           type="button"
           onClick={toggleTheme}
           className="nr-btn nr-btn-icon"
-          aria-label={prefs.theme === 'light' ? 'Ganti ke tema gelap' : 'Ganti ke tema terang'}
+          aria-label={prefs.theme === 'light' ? t('ui.shell.switchToDark') : t('ui.shell.switchToLight')}
         >
           {prefs.theme === 'light' ? (
             <Moon className="nr-icon" size={18} strokeWidth={1.75} />
@@ -97,7 +97,7 @@ function LoginPage() {
           type="button"
           onClick={toggleLang}
           className="nr-btn h-9 px-2.5 text-xs font-semibold"
-          aria-label="Ganti bahasa"
+          aria-label={t('ui.shell.switchLanguage')}
         >
           {prefs.lang.toUpperCase()}
         </button>

@@ -151,7 +151,7 @@ function CashPositionPage() {
   ]
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6">
       <PrintHeader
         title={t('nav.cashPosition')}
         entity={deps.entity}
@@ -188,7 +188,7 @@ function CashPositionPage() {
       )}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <CashBalanceCard
           asOf={data.meta.asOf}
           entityCount={data.byEntity.length}

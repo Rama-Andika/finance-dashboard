@@ -119,7 +119,6 @@ function AccountMappingPage() {
   if (mappingQuery.isLoading || coaQuery.isLoading || !currentMapping || !tree) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold tracking-tight text-ink">{t('settings.title')}</h1>
         <div className="py-12 text-center text-sm text-ink-muted">{t('common.loading')}</div>
       </div>
     )
@@ -135,11 +134,8 @@ function AccountMappingPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Title & Description */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-ink">{t('settings.title')}</h1>
-        <p className="text-sm text-ink-muted mt-1">{t('settings.description')}</p>
-      </div>
+      {/* Page Description */}
+      <p className="text-sm text-ink-muted">{t('settings.description')}</p>
 
       {/* Default or Corrupted Notices */}
       {mappingQuery.data?.isDefault && (

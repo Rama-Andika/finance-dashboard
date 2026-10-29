@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react'
+import { translateCfLabel } from '~/lib/finance/cashflow-labels'
+import React, { useEffect, useRef } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, X, ChevronRight, Loader2 } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle } from '~/components/ui/sheet'
-import { drillOptions } from '~/queries/drill.queries'
+import { useDrillData, parseDrill, type DrillSearchParams } from './useDrillData'
 import { JournalList, type JournalItem } from './JournalList'
 import { Skeleton } from '~/components/neraca/Skeleton'
 import { MetricError } from '~/components/neraca/MetricError'
@@ -12,22 +12,7 @@ import { StatusPill } from '~/components/neraca/StatusPill'
 import { formatMoneyFull } from '~/lib/format/number'
 import { formatDate } from '~/lib/format/date'
 import type { Lang } from '~/lib/finance/types'
-import {
-  drillSchema,
-  PRESETS,
-  type DrillState,
-  type DrillStep,
-  type DrillStepKind,
-  type Preset,
-} from '~/lib/filters/search-schema'
-
-type DrillSearchParams = {
-  entity?: string
-  preset?: string
-  p13?: boolean
-  chart?: 'ytd' | 'last-12m'
-  drill?: unknown
-}
+import type { DrillStep, DrillStepKind } from '~/lib/filters/search-schema'
 
 type SearchUpdater = (prev: Record<string, unknown>) => Record<string, unknown>
 
@@ -35,17 +20,6 @@ const STATUS_TONE: Record<string, 'neutral' | 'warning' | 'danger'> = {
   notSubmitted: 'neutral',
   submitted: 'warning',
   approved: 'warning',
-}
-
-function parseDrill(raw: unknown): DrillState | null {
-  if (!raw) return null
-  try {
-    const value = typeof raw === 'string' ? JSON.parse(raw) : raw
-    const parsed = drillSchema.safeParse(value)
-    return parsed.success ? parsed.data : null
-  } catch {
-    return null
-  }
 }
 
 export function DrillSheet() {
@@ -68,43 +42,7 @@ export function DrillSheet() {
     }
   }, [isOpen])
 
-  // Pagination offset & accumulated rows
-  const [offset, setOffset] = useState(0)
-  const [allRows, setAllRows] = useState<Array<Record<string, string | null>>>([])
-  const drillKey = drill ? `${drill.metric}:${drill.steps.map((s) => `${s.kind}-${s.id}`).join('/')}` : ''
-
-  useEffect(() => {
-    setOffset(0)
-    setAllRows([])
-  }, [drillKey])
-
-  const preset: Preset = (PRESETS as readonly string[]).includes(search.preset ?? '')
-    ? (search.preset as Preset)
-    : 'this-month'
-
-  const { data, isLoading, isFetching, error, refetch } = useQuery({
-    ...drillOptions({
-      entity: search.entity ?? 'all',
-      preset,
-      p13: Boolean(search.p13),
-      chart: search.chart,
-      drill: drill ?? { metric: '', steps: [] },
-      offset,
-    }),
-    enabled: isOpen,
-  })
-
-  useEffect(() => {
-    if (!data?.rows) return
-    if (offset === 0) {
-      setAllRows(data.rows)
-    } else {
-      setAllRows((prev) => {
-        const seen = new Set(prev.map((r) => r.id))
-        return [...prev, ...data.rows.filter((r) => !seen.has(r.id))]
-      })
-    }
-  }, [data?.rows, offset])
+  const { offset, setOffset, allRows, data, isLoading, isFetching, error, refetch } = useDrillData(search, drill, isOpen)
 
   const updateSearch = (updater: SearchUpdater) => {
     navigate({ to: '.', search: updater as never })
@@ -145,7 +83,7 @@ export function DrillSheet() {
   if (!isOpen || !drill) return null
 
   const metricRootTitle = t(`drill.metric.${drill.metric}`, { defaultValue: drill.metric })
-  const title = data ? t(data.titleKey, { label: data.titleLabel }) : metricRootTitle
+  const title = data ? t(data.titleKey, { label: translateCfLabel(t, data.titleLabel) }) : metricRootTitle
   const isJournalLeaf = Boolean(data?.columns.some((c) => c.id === 'journalNumber'))
   const journalItems: JournalItem[] = isJournalLeaf
     ? allRows.map((r) => ({
@@ -222,17 +160,17 @@ export function DrillSheet() {
                 <React.Fragment key={`${step.kind}-${step.id}-${idx}`}>
                   <ChevronRight className="w-3.5 h-3.5 text-muted shrink-0" />
                   {isLast ? (
-                    <span className="active truncate max-w-[200px]" title={step.label}>
-                      {step.label}
+                    <span className="active truncate max-w-[200px]" title={translateCfLabel(t, step.label)}>
+                      {translateCfLabel(t, step.label)}
                     </span>
                   ) : (
                     <button
                       type="button"
                       onClick={() => goToSteps(drill.steps.slice(0, idx + 1))}
                       className="hover:text-ink transition truncate max-w-[160px] underline-offset-2 hover:underline"
-                      title={step.label}
+                      title={translateCfLabel(t, step.label)}
                     >
-                      {step.label}
+                      {translateCfLabel(t, step.label)}
                     </button>
                   )}
                 </React.Fragment>
@@ -330,7 +268,7 @@ export function DrillSheet() {
                             }
                             return (
                               <td key={c.id} className="text-sm">
-                                {val || '—'}
+                                {val ? translateCfLabel(t, val) : '—'}
                               </td>
                             )
                           })}

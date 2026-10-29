@@ -1,3 +1,4 @@
+import { searchUpdater } from '~/lib/filters/search-update'
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -21,7 +22,7 @@ import { PrintHeader } from '~/components/export/PrintHeader'
 import { formatMoneyFull } from '~/lib/format/number'
 import { formatDate, formatMonthYear, getCompareLabel } from '~/lib/format/date'
 import type { Lang } from '~/lib/finance/types'
-import type { PaymentPlanBill } from '~/server/services/payment-plan.service'
+import type { PaymentPlanBill } from '~/lib/finance/payment-plan'
 
 export const Route = createFileRoute('/_authed/summary')({
   validateSearch: chartSearchSchema.extend(drillSearchSchema.shape),
@@ -54,10 +55,10 @@ function SummaryPage() {
   const handleRangeChange = (r: 'ytd' | 'last-12m') => {
     navigate({
       to: '/summary',
-      search: (prev: any) => ({
+      search: searchUpdater((prev) => ({
         ...prev,
         chart: r,
-      }),
+      })),
     })
   }
 
@@ -113,7 +114,7 @@ function SummaryPage() {
         }))
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6">
       <PrintHeader
         title={t('nav.summary')}
         entity={deps.entity}
@@ -146,7 +147,7 @@ function SummaryPage() {
           bank={data.cashPosition.bank}
           deposit={data.cashPosition.deposit}
           inTransit={data.cashPosition.inTransit}
-          onOpen={() => navigate({ to: '/cash-position', search: (prev: any) => prev })}
+          onOpen={() => navigate({ to: '/cash-position', search: searchUpdater((prev) => prev) })}
         />
 
         <KpiCard
@@ -155,7 +156,7 @@ function SummaryPage() {
           compareValue={data.revenue.compare}
           compareLabel={compareLabel}
           higherIsBetter={true}
-          onOpen={() => navigate({ to: '/revenue', search: (prev: any) => prev })}
+          onOpen={() => navigate({ to: '/revenue', search: searchUpdater((prev) => prev) })}
         />
 
         <KpiCard
@@ -165,7 +166,7 @@ function SummaryPage() {
             data.pnl.netMargin ? `Net margin: ${(Number(data.pnl.netMargin) * 100).toFixed(1)}%` : undefined
           }
           higherIsBetter={true}
-          onOpen={() => navigate({ to: '/profit-loss', search: (prev: any) => prev })}
+          onOpen={() => navigate({ to: '/profit-loss', search: searchUpdater((prev) => prev) })}
         />
 
         <KpiCard
@@ -174,7 +175,7 @@ function SummaryPage() {
           compareValue={data.apAging.overdueSubtotal}
           compareLabel={t('ui.summary.overdue')}
           higherIsBetter={false}
-          onOpen={() => navigate({ to: '/payables', search: (prev: any) => prev })}
+          onOpen={() => navigate({ to: '/payables', search: searchUpdater((prev) => prev) })}
         />
       </div>
 
@@ -185,11 +186,11 @@ function SummaryPage() {
             title={t('nav.cashFlow')}
             data={data.cashFlow.monthly}
             net={data.cashFlow.netCashFlow}
-            rangeLabel={(deps as any).chart === 'last-12m' ? t('period.last12m') : t('period.ytd')}
-            range={(deps as any).chart || 'ytd'}
+            rangeLabel={deps.chart === 'last-12m' ? t('period.last12m') : t('period.ytd')}
+            range={deps.chart || 'ytd'}
             onRangeChange={handleRangeChange}
             lang={lang}
-            onSelectMonth={() => navigate({ to: '/cash-flow', search: (prev: any) => prev })}
+            onSelectMonth={() => navigate({ to: '/cash-flow', search: searchUpdater((prev) => prev) })}
           />
         </div>
 
@@ -212,7 +213,7 @@ function SummaryPage() {
             onSelect={() =>
               navigate({
                 to: donutTab === 'revenue' ? '/revenue' : '/profit-loss',
-                search: (prev: any) => prev,
+                search: searchUpdater((prev) => prev),
               })
             }
           />
@@ -225,7 +226,7 @@ function SummaryPage() {
         columns={columns}
         data={data.paymentPlan7Days.bills || []}
         getRowId={(r) => r.invoiceId}
-        onRowClick={() => navigate({ to: '/payment-plan', search: (prev: any) => prev })}
+        onRowClick={() => navigate({ to: '/payment-plan', search: searchUpdater((prev) => prev) })}
         headerActions={
           <div className="flex items-center gap-2">
             <ExportCsvButton

@@ -110,7 +110,7 @@ function BudgetPage() {
   ]
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6">
       <PrintHeader
         title={t('nav.budget')}
         entity={deps.entity}

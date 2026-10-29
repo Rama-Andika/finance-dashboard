@@ -1,3 +1,4 @@
+import { CF_FALLBACK } from './cashflow-labels'
 import Decimal from 'decimal.js'
 import { D, sum } from './money'
 import type { Id, Money } from './types'
@@ -246,7 +247,7 @@ export function classifyByFallback(
 
   // 1. journal_type in {11, 12, 13, 14}
   if ([11, 12, 13, 14].includes(journalType)) {
-    return { drawer: 'FUNDING', subGroup: 'Pinjaman bank/koperasi' }
+    return { drawer: 'FUNDING', subGroup: CF_FALLBACK.bankLoan }
   }
 
   // 2. journal_type in {44, 45, 49, 50, 51} or Fixed/Other Assets
@@ -256,7 +257,7 @@ export function classifyByFallback(
   ) {
     return {
       drawer: 'INVESTING',
-      subGroup: portionD.lt(0) ? 'Pembelian asset' : 'Penjualan asset',
+      subGroup: portionD.lt(0) ? CF_FALLBACK.assetPurchase : CF_FALLBACK.assetSale,
     }
   }
 
@@ -266,14 +267,14 @@ export function classifyByFallback(
       drawer: 'FUNDING',
       subGroup:
         portionD.gt(0)
-          ? 'Setoran modal'
-          : 'Pengambilan prive / Pembagian dividen',
+          ? CF_FALLBACK.capitalContribution
+          : CF_FALLBACK.ownerDrawings,
     }
   }
 
   // 4. Long Term Liabilities
   if (counter.accountGroup === 'Long Term Liabilities') {
-    return { drawer: 'FUNDING', subGroup: 'Pinjaman jangka panjang' }
+    return { drawer: 'FUNDING', subGroup: CF_FALLBACK.longTermLoan }
   }
 
   // 5. Revenue or Account Receivable
@@ -281,7 +282,7 @@ export function classifyByFallback(
     counter.accountGroup === 'Revenue' ||
     counter.subAccountGroup === 'Account Receivable'
   ) {
-    return { drawer: 'OPERATING', subGroup: 'Penerimaan dari pelanggan' }
+    return { drawer: 'OPERATING', subGroup: CF_FALLBACK.customerReceipts }
   }
 
   // 6. Account Payable, Current Liabilities, Inventory
@@ -289,7 +290,7 @@ export function classifyByFallback(
     counter.subAccountGroup === 'Account Payable' ||
     counter.subAccountGroup === 'Inventory'
   ) {
-    return { drawer: 'OPERATING', subGroup: 'Pembayaran ke supplier' }
+    return { drawer: 'OPERATING', subGroup: CF_FALLBACK.supplierPayments }
   }
 
   // 7. Expense, Cost Of Sales, Account Receivable Other
@@ -299,20 +300,20 @@ export function classifyByFallback(
   ) {
     return {
       drawer: 'OPERATING',
-      subGroup: 'Pembayaran biaya operasional dan karyawan',
+      subGroup: CF_FALLBACK.operatingExpenses,
     }
   }
 
   // 8. Other Expense
   if (counter.accountGroup === 'Other Expense') {
-    return { drawer: 'OPERATING', subGroup: 'Pembayaran bunga dan administrasi' }
+    return { drawer: 'OPERATING', subGroup: CF_FALLBACK.interestAndFees }
   }
 
   // 9. Other Revenue
   if (counter.accountGroup === 'Other Revenue') {
     return {
       drawer: 'OPERATING',
-      subGroup: 'Penerimaan dari jasa giro dan pendapatan lain-lain',
+      subGroup: CF_FALLBACK.otherIncome,
     }
   }
 

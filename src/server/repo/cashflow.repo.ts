@@ -2,6 +2,8 @@ import '@tanstack/react-start/server-only'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
+import { chunk, chunkOrAll } from '~/server/db/chunk'
+import { assertSegmentColumn } from '~/server/db/segment-column'
 import { glTablesOf, groupPeriodsByTable } from '~/server/db/gl-tables'
 import { D } from '~/lib/finance/money'
 import type { Id, Money, Period } from '~/lib/finance/types'
@@ -32,9 +34,7 @@ export async function linesOfCashJournals(
   if (opts.periods.length === 0 || opts.cashCoaIds.length === 0) return []
   if (opts.segIds !== 'all' && opts.segIds.length === 0) return []
 
-  if (!/^segment([1-9]|1[0-5])_id$/.test(opts.segCol)) {
-    throw new Error(`Invalid segment column: ${opts.segCol}`)
-  }
+  assertSegmentColumn(opts.segCol)
 
   const grouped = groupPeriodsByTable(opts.periods)
   const allResults: CashJournalLineRow[] = []
@@ -45,29 +45,9 @@ export async function linesOfCashJournals(
     const glDetailIdent = sql.identifier(glDetail)
     const segIdent = sql.identifier(opts.segCol)
 
-    const periodIdList = tablePeriods.map((p) => p.periodeId)
-    const periodChunks: string[][] = []
-    for (let i = 0; i < periodIdList.length; i += 1000) {
-      periodChunks.push(periodIdList.slice(i, i + 1000))
-    }
-
-    const cashChunks: string[][] = []
-    for (let i = 0; i < opts.cashCoaIds.length; i += 1000) {
-      cashChunks.push(opts.cashCoaIds.slice(i, i + 1000))
-    }
-
-    const segChunks: (string[] | undefined)[] = []
-    if (opts.segIds !== 'all') {
-      for (let i = 0; i < opts.segIds.length; i += 1000) {
-        segChunks.push(opts.segIds.slice(i, i + 1000))
-      }
-    } else {
-      segChunks.push(undefined)
-    }
-
-    for (const pChunk of periodChunks) {
-      for (const cChunk of cashChunks) {
-        for (const sChunk of segChunks) {
+    for (const pChunk of chunk(tablePeriods.map((p) => p.periodeId))) {
+      for (const cChunk of chunk(opts.cashCoaIds)) {
+        for (const sChunk of chunkOrAll(opts.segIds)) {
           const query = sql`
             SELECT d.gl_id AS glId,
                    g.journal_type AS journalType,

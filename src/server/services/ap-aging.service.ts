@@ -1,6 +1,7 @@
 import '@tanstack/react-start/server-only'
 import { D, sum } from '~/lib/finance/money'
 import { addDays } from '~/lib/format/date'
+import { memoMetric } from '~/server/cache'
 import type { Id, MetricMeta, Money } from '~/lib/finance/types'
 import {
   type AppContextFilter,
@@ -8,8 +9,8 @@ import {
   getCachedCoaTree,
 } from '~/server/context'
 import {
-  apAgingPartA,
-  apAgingPartB,
+  apOpenInvoices,
+  apUnallocatedPayments,
   listVendors,
 } from '~/server/repo/apar.repo'
 import { balancesAt } from '~/server/services/balance.service'
@@ -33,17 +34,21 @@ export type ApAgingResult = {
   reconciliation: { gl: Money; subledger: Money; diff: Money; inSync: boolean }
 }
 
-export async function computeApAging(
-  filter: AppContextFilter,
-): Promise<ApAgingResult> {
+export function computeApAging(filter: AppContextFilter): Promise<ApAgingResult> {
+  return memoMetric('apAging', filter, () => computeApAgingUncached(filter))
+}
+
+async function computeApAgingUncached(filter: AppContextFilter): Promise<ApAgingResult> {
   const meta = buildMetricMeta(filter)
   const tree = await getCachedCoaTree()
 
   const asOfPlusOne = addDays(filter.asOf, 1)
 
   // 1. Fetch Part A and Part B items
-  const partA = await apAgingPartA(asOfPlusOne, filter.locationIds)
-  const partB = await apAgingPartB(asOfPlusOne, filter.locationIds)
+  const [partA, partB] = await Promise.all([
+    apOpenInvoices(asOfPlusOne, filter.locationIds),
+    apUnallocatedPayments(asOfPlusOne, filter.locationIds),
+  ])
 
   // 2. Fetch vendor info
   const vendorIds = Array.from(
@@ -67,8 +72,10 @@ export async function computeApAging(
   let compareTotal: Money | null = null
   if (filter.compare && filter.compare.asOf) {
     const cmpAsOfPlusOne = addDays(filter.compare.asOf, 1)
-    const cmpA = await apAgingPartA(cmpAsOfPlusOne, filter.locationIds)
-    const cmpB = await apAgingPartB(cmpAsOfPlusOne, filter.locationIds)
+    const [cmpA, cmpB] = await Promise.all([
+      apOpenInvoices(cmpAsOfPlusOne, filter.locationIds),
+      apUnallocatedPayments(cmpAsOfPlusOne, filter.locationIds),
+    ])
     const cmpComputed = calculateApAging({
       partA: cmpA,
       partB: cmpB,

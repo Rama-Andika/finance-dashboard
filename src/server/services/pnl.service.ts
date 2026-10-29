@@ -1,6 +1,7 @@
 import '@tanstack/react-start/server-only'
 import type { AccountGroup, Id, MetricMeta, Money } from '~/lib/finance/types'
 import { env } from '~/server/env'
+import { memoMetric } from '~/server/cache'
 import {
   type AppContextFilter,
   buildMetricMeta,
@@ -8,6 +9,7 @@ import {
   getCachedPeriods,
 } from '~/server/context'
 import { movementsByPeriods } from '~/server/repo/gl.repo'
+import { postableAccountIds } from '~/lib/finance/coa-tree'
 import {
   buildPnl,
   findOciCoaIds,
@@ -30,7 +32,15 @@ const PNL_ACCOUNT_GROUPS: AccountGroup[] = [
   'Other Expense',
 ]
 
-export async function computePnl(filter: AppContextFilter): Promise<PnlResult> {
+export function computePnl(filter: AppContextFilter): Promise<PnlResult> {
+  return memoMetric('pnl', filter, () => computePnlUncached(filter))
+}
+
+function toPnlMovements(rows: Array<{ coaId: Id; periodId?: Id; debet: Money; credit: Money }>): PnlMovement[] {
+  return rows.map((m) => ({ coaId: m.coaId, periodId: m.periodId ?? '', debet: m.debet, credit: m.credit }))
+}
+
+async function computePnlUncached(filter: AppContextFilter): Promise<PnlResult> {
   const meta = buildMetricMeta(filter)
   const tree = await getCachedCoaTree()
   const periods = await getCachedPeriods()
@@ -38,14 +48,9 @@ export async function computePnl(filter: AppContextFilter): Promise<PnlResult> {
   const ociCoaIds = findOciCoaIds(tree, env.ociRootCodes)
 
   // Collect all relevant postable CoA IDs
-  const pnlCoaIds: Id[] = []
-  for (const node of tree.byId.values()) {
-    if (node.status === 'POSTABLE' && node.coaId !== '__orphans__') {
-      if (PNL_ACCOUNT_GROUPS.includes(node.accountGroup) || ociCoaIds.has(node.coaId)) {
-        pnlCoaIds.push(node.coaId)
-      }
-    }
-  }
+  const pnlCoaIds: Id[] = Array.from(
+    new Set([...postableAccountIds(tree, PNL_ACCOUNT_GROUPS), ...ociCoaIds].filter((id) => tree.byId.get(id)?.status === 'POSTABLE')),
+  )
 
   if (pnlCoaIds.length === 0 || filter.periodIds.length === 0) {
     const empty = buildPnl({ tree, movements: [], ociCoaIds })
@@ -66,14 +71,7 @@ export async function computePnl(filter: AppContextFilter): Promise<PnlResult> {
     byPeriod: true,
   })
 
-  const movements: PnlMovement[] = rawMovements.map((m) => ({
-    coaId: m.coaId,
-    periodId: m.periodId ?? '',
-    debet: m.debet,
-    credit: m.credit,
-  }))
-
-  const { lines } = buildPnl({ tree, movements, ociCoaIds })
+  const { lines } = buildPnl({ tree, movements: toPnlMovements(rawMovements), ociCoaIds })
 
   // 2. Compare period
   let compare: Record<PnlLineKey, Money> | null = null
@@ -89,14 +87,7 @@ export async function computePnl(filter: AppContextFilter): Promise<PnlResult> {
       byPeriod: true,
     })
 
-    const cmpMovements: PnlMovement[] = rawCompareMovements.map((m) => ({
-      coaId: m.coaId,
-      periodId: m.periodId ?? '',
-      debet: m.debet,
-      credit: m.credit,
-    }))
-
-    const cmpPnl = buildPnl({ tree, movements: cmpMovements, ociCoaIds })
+    const cmpPnl = buildPnl({ tree, movements: toPnlMovements(rawCompareMovements), ociCoaIds })
     const cmpRecord: Partial<Record<PnlLineKey, Money>> = {}
     for (const l of cmpPnl.lines) {
       cmpRecord[l.key] = l.amount

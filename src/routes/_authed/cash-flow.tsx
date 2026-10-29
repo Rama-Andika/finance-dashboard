@@ -1,3 +1,5 @@
+import { searchUpdater } from '~/lib/filters/search-update'
+import { translateCfLabel } from '~/lib/finance/cashflow-labels'
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useOpenDrill } from '~/components/drill/useOpenDrill'
@@ -90,10 +92,10 @@ function CashFlowPage() {
   const handleRangeChange = (r: 'ytd' | 'last-12m') => {
     navigate({
       to: '/cash-flow',
-      search: (prev: any) => ({
+      search: searchUpdater((prev) => ({
         ...prev,
         chart: r,
-      }),
+      })),
     })
   }
 
@@ -157,7 +159,7 @@ function CashFlowPage() {
     for (const r of d.rows) {
       activityRows.push({
         id: `row-${d.drawer}-${r.subGroup}`,
-        name: r.unclassified ? t('ui.col.unclassified') : r.subGroup,
+        name: r.unclassified ? t('ui.col.unclassified') : translateCfLabel(t, r.subGroup),
         subGroupId: r.subGroup,
         amount: r.amount,
         isUnclassified: r.unclassified,
@@ -217,7 +219,7 @@ function CashFlowPage() {
   ]
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6">
       <PrintHeader
         title={t('nav.cashFlow')}
         entity={deps.entity}
@@ -355,7 +357,7 @@ function CashFlowPage() {
             { id: 'expensePaid', label: t('metric.tabs.expensePaid') },
           ]}
           value={activeTab}
-          onChange={(tab) => setActiveTab(tab as any)}
+          onChange={setActiveTab}
         />
       </div>
 

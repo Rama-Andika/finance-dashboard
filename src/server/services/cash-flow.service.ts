@@ -10,6 +10,7 @@ import {
   getCachedCoaTree,
   getCachedPeriods,
 } from '~/server/context'
+import { memoMetric } from '~/server/cache'
 import { loadAccountMapping } from '~/server/services/mapping.helper'
 import { resolveBaskets } from '~/lib/finance/basket-resolver'
 import { balancesAt } from '~/server/services/balance.service'
@@ -70,17 +71,29 @@ export const UNCLASSIFIED_SUBGROUP = 'Unclassified'
  * counter lines and classifies every portion (data-model §6.3). Shared by the Cash Flow
  * metric and its drill-down so both always show the same numbers.
  */
-export async function loadClassifiedPortions(
-  filter: AppContextFilter,
-  ctx?: { tree?: CoaTree; periods?: Period[]; cashEquivIds?: Id[] },
-): Promise<{
+export type ClassifiedPortions = {
   lines: CfLine[]
   portions: ClassifiedCashPortion[]
   setupValid: boolean
   setup: CfSetupRow[]
   cashEquivIds: Id[]
   isOurCash: (l: CfLine) => boolean
-}> {
+}
+
+/** Memoized: the drill-down asks for the same portions on every click and every page. */
+export function loadClassifiedPortions(
+  filter: AppContextFilter,
+  ctx?: { tree?: CoaTree; periods?: Period[]; cashEquivIds?: Id[] },
+): Promise<ClassifiedPortions> {
+  return memoMetric('cashPortions', { filter, cashEquivIds: ctx?.cashEquivIds ?? null }, () =>
+    loadClassifiedPortionsUncached(filter, ctx),
+  )
+}
+
+async function loadClassifiedPortionsUncached(
+  filter: AppContextFilter,
+  ctx?: { tree?: CoaTree; periods?: Period[]; cashEquivIds?: Id[] },
+): Promise<ClassifiedPortions> {
   const tree = ctx?.tree ?? (await getCachedCoaTree())
   const periods = ctx?.periods ?? (await getCachedPeriods())
   let cashEquivIds = ctx?.cashEquivIds
@@ -134,89 +147,77 @@ export async function loadClassifiedPortions(
   return { lines, portions, setupValid, setup, cashEquivIds, isOurCash }
 }
 
-export async function computeCashFlow(
-  filter: AppContextFilter,
-): Promise<CashFlowResult> {
-  const meta = buildMetricMeta(filter)
-  const tree = await getCachedCoaTree()
-  const periods = await getCachedPeriods()
-  const mapping = await loadAccountMapping(tree)
-  const resolved = resolveBaskets(mapping, tree)
+const DRAWERS = ['OPERATING', 'INVESTING', 'FUNDING'] as const
 
-  // Kas & setara kas = cash ∪ bank ∪ deposit (D27)
-  const cashEquivIds = Array.from(
-    new Set([...resolved.cash, ...resolved.bank, ...resolved.deposit]),
-  )
+function emptyCashFlow(meta: MetricMeta, months: string[]): CashFlowResult {
+  return {
+    meta,
+    source: 'fallback',
+    openingCash: '0.00',
+    drawers: DRAWERS.map((drawer) => ({ drawer, total: '0.00', rows: [] })),
+    netCashFlow: '0.00',
+    closingCash: '0.00',
+    closingCashByBalance: '0.00',
+    identityOk: true,
+    monthly: months.map((month) => ({ month, cashIn: '0.00', cashOut: '0.00', net: '0.00' })),
+    erpComparison: DRAWERS.map((drawer) => ({ drawer, dashboard: '0.00', erpMethod: '0.00', diff: '0.00' })),
+  }
+}
 
-  if (cashEquivIds.length === 0 || filter.periodIds.length === 0) {
-    return {
-      meta,
-      source: 'fallback',
-      openingCash: '0.00',
-      drawers: [
-        { drawer: 'OPERATING', total: '0.00', rows: [] },
-        { drawer: 'INVESTING', total: '0.00', rows: [] },
-        { drawer: 'FUNDING', total: '0.00', rows: [] },
-      ],
-      netCashFlow: '0.00',
-      closingCash: '0.00',
-      closingCashByBalance: '0.00',
-      identityOk: true,
-      monthly: filter.months.map((m) => ({
-        month: m,
-        cashIn: '0.00',
-        cashOut: '0.00',
-        net: '0.00',
-      })),
-      erpComparison: [
-        { drawer: 'OPERATING', dashboard: '0.00', erpMethod: '0.00', diff: '0.00' },
-        { drawer: 'INVESTING', dashboard: '0.00', erpMethod: '0.00', diff: '0.00' },
-        { drawer: 'FUNDING', dashboard: '0.00', erpMethod: '0.00', diff: '0.00' },
-      ],
-    }
+type SettledJournal = {
+  /** Journal lines on our cash accounts */
+  ourCash: CfLine[]
+  /** Every other line (the counter side) */
+  counterLines: CfLine[]
+  /** Net movement on our cash accounts: debet − credit */
+  netKas: Decimal
+}
+
+/**
+ * Journals that really move our cash: they touch our cash, the net is not zero, and they have a
+ * counter side (a journal with only our own cash lines is an internal transfer).
+ */
+function settledJournals(lines: CfLine[], isOurCash: (l: CfLine) => boolean): SettledJournal[] {
+  const byJournal = new Map<string, CfLine[]>()
+  for (const l of lines) {
+    const list = byJournal.get(l.glId) ?? []
+    list.push(l)
+    byJournal.set(l.glId, list)
   }
 
-  // 1. Opening Cash = Balance on the day before d1
-  const dayBeforeD1 = addDays(filter.d1, -1)
-  const opRes = await balancesAt({
-    asOf: dayBeforeD1,
-    coaIds: cashEquivIds,
-    filter,
-  })
-  const openingCash = sum(cashEquivIds.map((id) => opRes.byCoa.get(id) ?? '0.00'))
+  const result: SettledJournal[] = []
+  for (const jLines of byJournal.values()) {
+    const ourCash = jLines.filter(isOurCash)
+    if (ourCash.length === 0) continue
 
-  // 2. Closing Cash by Balance Engine = Balance at asOf
-  const clRes = await balancesAt({
-    asOf: filter.asOf,
-    coaIds: cashEquivIds,
-    filter,
-  })
-  const closingCashByBalance = sum(
-    cashEquivIds.map((id) => clRes.byCoa.get(id) ?? '0.00'),
-  )
+    const netKas = ourCash.reduce((acc, c) => acc.plus(D(c.debet).minus(D(c.credit))), D(0))
+    if (netKas.isZero()) continue
 
-  // 3–5. Cash journal lines, proportional allocation and classification
-  const { lines, portions, setupValid, setup, isOurCash } = await loadClassifiedPortions(filter, {
-    tree,
-    periods,
-    cashEquivIds,
-  })
-  const source: 'setup' | 'fallback' = setupValid ? 'setup' : 'fallback'
+    const counterLines = jLines.filter((l) => !isOurCash(l))
+    if (counterLines.length === 0) continue
 
+    result.push({ ourCash, counterLines, netKas })
+  }
+  return result
+}
+
+function summarizeDrawers(portions: ClassifiedCashPortion[]): {
+  drawers: CashFlowResult['drawers']
+  netCashFlow: Decimal
+} {
   type RowItem = { subGroup: string; amount: Decimal; unclassified?: boolean }
-  const drawerRowsMap: Record<DrawerKey, Map<string, RowItem>> = {
+  const rowsByDrawer: Record<DrawerKey, Map<string, RowItem>> = {
     OPERATING: new Map(),
     INVESTING: new Map(),
     FUNDING: new Map(),
   }
 
-  let netCashFlowDec = D(0)
-
+  let netCashFlow = D(0)
   for (const p of portions) {
     const pDec = D(p.portion)
-    netCashFlowDec = netCashFlowDec.plus(pDec)
+    netCashFlow = netCashFlow.plus(pDec)
 
-    const drawerMap = drawerRowsMap[p.drawer]
+    const drawerMap = rowsByDrawer[p.drawer]
     const existing = drawerMap.get(p.subGroup) ?? {
       subGroup: p.subGroup,
       amount: D(0),
@@ -226,76 +227,39 @@ export async function computeCashFlow(
     drawerMap.set(p.subGroup, existing)
   }
 
-  const netCashFlow = netCashFlowDec.toFixed(2)
-  const closingCash = D(openingCash).plus(netCashFlowDec).toFixed(2)
-  const identityOk = closingCash === closingCashByBalance
-
-  const drawers: Array<{
-    drawer: DrawerKey
-    total: Money
-    rows: Array<{ subGroup: string; amount: Money; unclassified?: boolean }>
-  }> = (['OPERATING', 'INVESTING', 'FUNDING'] as const).map((drawerKey) => {
-    const dMap = drawerRowsMap[drawerKey]
-    let dTotal = D(0)
-    const rows = Array.from(dMap.values()).map((r) => {
-      dTotal = dTotal.plus(r.amount)
-      return {
-        subGroup: r.subGroup,
-        amount: r.amount.toFixed(2),
-        unclassified: r.unclassified,
-      }
+  const drawers = DRAWERS.map((drawer) => {
+    let total = D(0)
+    const rows = Array.from(rowsByDrawer[drawer].values()).map((r) => {
+      total = total.plus(r.amount)
+      return { subGroup: r.subGroup, amount: r.amount.toFixed(2), unclassified: r.unclassified }
     })
-    return {
-      drawer: drawerKey,
-      total: dTotal.toFixed(2),
-      rows,
-    }
+    return { drawer, total: total.toFixed(2), rows }
   })
 
-  // 6. Monthly trend (cashIn, cashOut, net)
-  // Group journals by period to compute netKas per journal
+  return { drawers, netCashFlow }
+}
+
+/** Cash in / out per month, one entry per journal that moves our cash. */
+function monthlyTrend(
+  journals: SettledJournal[],
+  periods: Period[],
+  months: string[],
+): CashFlowResult['monthly'] {
   const periodById = new Map(periods.map((p) => [p.periodeId, p]))
-  const journalGroups = new Map<string, CfLine[]>()
-  for (const l of lines) {
-    const list = journalGroups.get(l.glId) ?? []
-    list.push(l)
-    journalGroups.set(l.glId, list)
+  const totals = new Map<string, { cashIn: Decimal; cashOut: Decimal }>(
+    months.map((m) => [m, { cashIn: D(0), cashOut: D(0) }]),
+  )
+
+  for (const j of journals) {
+    const period = periodById.get(j.ourCash[0]!.periodId)
+    const total = totals.get(period ? period.startDate.slice(0, 7) : '')
+    if (!total) continue
+    if (j.netKas.gt(0)) total.cashIn = total.cashIn.plus(j.netKas)
+    else total.cashOut = total.cashOut.plus(j.netKas.abs())
   }
 
-  const monthlyTotals = new Map<string, { cashIn: Decimal; cashOut: Decimal }>()
-  for (const m of filter.months) {
-    monthlyTotals.set(m, { cashIn: D(0), cashOut: D(0) })
-  }
-
-  for (const jLines of journalGroups.values()) {
-    const ourCash = jLines.filter(isOurCash)
-    if (ourCash.length === 0) continue
-
-    let netKas = D(0)
-    for (const c of ourCash) {
-      netKas = netKas.plus(D(c.debet).minus(D(c.credit)))
-    }
-
-    if (netKas.isZero()) continue
-    const counterLines = jLines.filter((l) => !isOurCash(l))
-    if (counterLines.length === 0) continue // internal transfer
-
-    const pId = ourCash[0]!.periodId
-    const period = periodById.get(pId)
-    const month = period ? period.startDate.slice(0, 7) : ''
-
-    const mTotal = monthlyTotals.get(month)
-    if (mTotal) {
-      if (netKas.gt(0)) {
-        mTotal.cashIn = mTotal.cashIn.plus(netKas)
-      } else {
-        mTotal.cashOut = mTotal.cashOut.plus(netKas.abs())
-      }
-    }
-  }
-
-  const monthly = filter.months.map((month) => {
-    const m = monthlyTotals.get(month) ?? { cashIn: D(0), cashOut: D(0) }
+  return months.map((month) => {
+    const m = totals.get(month) ?? { cashIn: D(0), cashOut: D(0) }
     return {
       month,
       cashIn: m.cashIn.toFixed(2),
@@ -303,29 +267,19 @@ export async function computeCashFlow(
       net: m.cashIn.minus(m.cashOut).toFixed(2),
     }
   })
+}
 
-  // 7. ERP comparison
-  // ERP sums full counter lines without proportions for mapped items
-  const erpTotals: Record<DrawerKey, Decimal> = {
-    OPERATING: D(0),
-    INVESTING: D(0),
-    FUNDING: D(0),
-  }
+/** ERP method: sums the full counter lines without proportional allocation. */
+function erpMethodTotals(
+  journals: SettledJournal[],
+  tree: CoaTree,
+  setupValid: boolean,
+  setup: CfSetupRow[],
+): Record<DrawerKey, Decimal> {
+  const totals: Record<DrawerKey, Decimal> = { OPERATING: D(0), INVESTING: D(0), FUNDING: D(0) }
 
-  for (const jLines of journalGroups.values()) {
-    const ourCash = jLines.filter(isOurCash)
-    if (ourCash.length === 0) continue
-
-    let netKas = D(0)
-    for (const c of ourCash) {
-      netKas = netKas.plus(D(c.debet).minus(D(c.credit)))
-    }
-    if (netKas.isZero()) continue
-
-    const counterLines = jLines.filter((l) => !isOurCash(l))
-    if (counterLines.length === 0) continue
-
-    for (const cl of counterLines) {
+  for (const j of journals) {
+    for (const cl of j.counterLines) {
       const counterNode = tree.byId.get(cl.coaId)
       const counter = {
         accountGroup: counterNode?.accountGroup ?? '',
@@ -343,36 +297,62 @@ export async function computeCashFlow(
         if (!res.unclassified) drawer = res.drawer
       }
 
-      if (drawer) {
-        erpTotals[drawer] = erpTotals[drawer].plus(clNet)
-      }
+      if (drawer) totals[drawer] = totals[drawer].plus(clNet)
     }
   }
+  return totals
+}
 
-  const erpComparison = (['OPERATING', 'INVESTING', 'FUNDING'] as const).map(
-    (drawerKey) => {
-      const dashTotal = drawers.find((d) => d.drawer === drawerKey)?.total ?? '0.00'
-      const erpAmt = erpTotals[drawerKey].toFixed(2)
-      const diff = D(dashTotal).minus(D(erpAmt)).toFixed(2)
-      return {
-        drawer: drawerKey,
-        dashboard: dashTotal,
-        erpMethod: erpAmt,
-        diff,
-      }
-    },
-  )
+export function computeCashFlow(filter: AppContextFilter): Promise<CashFlowResult> {
+  return memoMetric('cashFlow', filter, () => computeCashFlowUncached(filter))
+}
+
+async function computeCashFlowUncached(filter: AppContextFilter): Promise<CashFlowResult> {
+  const meta = buildMetricMeta(filter)
+  const tree = await getCachedCoaTree()
+  const periods = await getCachedPeriods()
+  const resolved = resolveBaskets(await loadAccountMapping(tree), tree)
+
+  // Kas & setara kas = cash ∪ bank ∪ deposit (D27)
+  const cashEquivIds = Array.from(new Set([...resolved.cash, ...resolved.bank, ...resolved.deposit]))
+
+  if (cashEquivIds.length === 0 || filter.periodIds.length === 0) {
+    return emptyCashFlow(meta, filter.months)
+  }
+
+  // Opening cash = balance the day before d1; closing = balance at asOf; plus the cash journal lines.
+  const [opRes, clRes, classified] = await Promise.all([
+    balancesAt({ asOf: addDays(filter.d1, -1), coaIds: cashEquivIds, filter }),
+    balancesAt({ asOf: filter.asOf, coaIds: cashEquivIds, filter }),
+    loadClassifiedPortions(filter, { tree, periods, cashEquivIds }),
+  ])
+  const { lines, portions, setupValid, setup, isOurCash } = classified
+
+  const openingCash = sum(cashEquivIds.map((id) => opRes.byCoa.get(id) ?? '0.00'))
+  const closingCashByBalance = sum(cashEquivIds.map((id) => clRes.byCoa.get(id) ?? '0.00'))
+
+  const { drawers, netCashFlow: netCashFlowDec } = summarizeDrawers(portions)
+  const closingCash = D(openingCash).plus(netCashFlowDec).toFixed(2)
+
+  const journals = settledJournals(lines, isOurCash)
+  const erpTotals = erpMethodTotals(journals, tree, setupValid, setup)
+
+  const erpComparison = DRAWERS.map((drawer) => {
+    const dashboard = drawers.find((d) => d.drawer === drawer)?.total ?? '0.00'
+    const erpMethod = erpTotals[drawer].toFixed(2)
+    return { drawer, dashboard, erpMethod, diff: D(dashboard).minus(D(erpMethod)).toFixed(2) }
+  })
 
   return {
     meta,
-    source,
+    source: setupValid ? 'setup' : 'fallback',
     openingCash,
     drawers,
-    netCashFlow,
+    netCashFlow: netCashFlowDec.toFixed(2),
     closingCash,
     closingCashByBalance,
-    identityOk,
-    monthly,
+    identityOk: closingCash === closingCashByBalance,
+    monthly: monthlyTrend(journals, periods, filter.months),
     erpComparison,
   }
 }

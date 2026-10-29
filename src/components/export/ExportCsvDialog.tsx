@@ -21,7 +21,7 @@ export function getSavedCsvFormat(): CsvFormat {
       return saved
     }
   } catch {
-    // ignore
+    // localStorage can be unavailable (private mode); the format preference is optional
   }
   return 'semicolon-comma' // Default for Indonesian Excel
 }
@@ -30,7 +30,7 @@ export function saveCsvFormat(format: CsvFormat) {
   try {
     localStorage.setItem(STORAGE_KEY, format)
   } catch {
-    // ignore
+    // localStorage can be unavailable (private mode); the format preference is optional
   }
 }
 
@@ -79,13 +79,10 @@ export function ExportCsvDialog<T>({
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold flex items-center gap-2">
             <Download className="w-5 h-5 text-forest" />
-            {t('export.title', 'Ekspor ke CSV')}
+            {t('export.title')}
           </DialogTitle>
           <DialogDescription className="text-sm text-ink-muted">
-            {t(
-              'export.description',
-              'Pilih format pemisah yang sesuai dengan perangkat lunak spreadsheet Anda.',
-            )}
+            {t('export.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -107,7 +104,7 @@ export function ExportCsvDialog<T>({
             />
             <div className="space-y-0.5">
               <span className="text-sm font-medium block">
-                {t('export.semicolonComma', 'Titik koma (;) + koma desimal')}
+                {t('export.semicolonComma')}
               </span>
               <span className="text-xs text-ink-muted block">
                 Standar Excel Microsoft di Indonesia & Eropa (1.250,50)
@@ -132,7 +129,7 @@ export function ExportCsvDialog<T>({
             />
             <div className="space-y-0.5">
               <span className="text-sm font-medium block">
-                {t('export.commaDot', 'Koma (,) + titik desimal')}
+                {t('export.commaDot')}
               </span>
               <span className="text-xs text-ink-muted block">
                 Standar Internasional & Google Sheets (1,250.50)
@@ -143,10 +140,10 @@ export function ExportCsvDialog<T>({
 
         <DialogFooter className="flex sm:justify-end gap-2">
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
-            {t('export.cancel', 'Batal')}
+            {t('export.cancel')}
           </Button>
           <Button variant="primary" icon={Download} onClick={handleDownload}>
-            {t('export.download', 'Unduh CSV')}
+            {t('export.download')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -178,7 +175,7 @@ export function ExportCsvButton<T>({
         className={className}
         onClick={() => setOpen(true)}
       >
-        {t('metric.exportCsv', 'Ekspor CSV')}
+        {t('metric.exportCsv')}
       </Button>
 
       <ExportCsvDialog

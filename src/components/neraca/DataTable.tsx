@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import React from 'react'
 import {
   useLegacyTable,
@@ -9,7 +10,7 @@ import {
   type LegacyHeader,
   type LegacyCell,
 } from '@tanstack/react-table/legacy'
-import { flexRender } from '@tanstack/react-table'
+import { flexRender, type ExpandedState } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { cn } from '~/lib/cn'
 import { ChevronRight } from 'lucide-react'
@@ -37,13 +38,15 @@ export function DataTable<T extends Record<string, any>>({
   getSubRows,
   onRowClick,
   mobileCard,
-  emptyMessage = 'Tidak ada data',
+  emptyMessage,
   title,
   headerActions,
   className,
   defaultExpanded = false,
 }: DataTableProps<T>) {
-  const [expanded, setExpanded] = React.useState<Record<string, boolean> | true>(
+  const { t } = useTranslation()
+  const emptyText = emptyMessage ?? t('ui.shell.tableEmpty')
+  const [expanded, setExpanded] = React.useState<ExpandedState>(
     defaultExpanded ? true : {},
   )
 
@@ -53,7 +56,7 @@ export function DataTable<T extends Record<string, any>>({
     state: {
       expanded,
     },
-    onExpandedChange: setExpanded as any,
+    onExpandedChange: setExpanded,
     getSubRows,
     getRowId,
     getCoreRowModel: getCoreRowModel(),
@@ -192,7 +195,7 @@ export function DataTable<T extends Record<string, any>>({
                     color: 'var(--ink-muted)',
                   }}
                 >
-                  {emptyMessage}
+                  {emptyText}
                 </td>
               </tr>
             ) : isVirtual && virtualItems ? (
@@ -224,7 +227,7 @@ export function DataTable<T extends Record<string, any>>({
         <div className="mobile-cards">
           {rows.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px 16px', color: 'var(--ink-muted)' }}>
-              {emptyMessage}
+              {emptyText}
             </div>
           ) : (
             rows.map((row: LegacyRow<T>) => (

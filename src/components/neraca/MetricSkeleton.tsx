@@ -2,7 +2,7 @@ import { Skeleton } from '~/components/neraca/Skeleton'
 
 export function MetricSkeleton() {
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* KPI Cards row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Skeleton className="h-32 rounded-lg" />

@@ -147,13 +147,10 @@ export function CashflowChart({
             data={chartData}
             stackOffset="sign"
             margin={{ top: 10, right: 10, left: 10, bottom: 20 }}
-            onClick={(state: any) => {
-              if (state && state.activePayload && state.activePayload.length > 0) {
-                const month = state.activePayload[0]?.payload?.monthKey
-                if (month && onSelectMonth) {
-                  onSelectMonth(month)
-                }
-              }
+            onClick={(state) => {
+              const index = Number(state.activeTooltipIndex)
+              const month = Number.isInteger(index) ? chartData[index]?.monthKey : undefined
+              if (month && onSelectMonth) onSelectMonth(month)
             }}
             role="img"
             aria-label={ariaLabel}

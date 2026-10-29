@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Link, useRouterState } from '@tanstack/react-router'
 import {
   Asterisk,
@@ -15,25 +16,25 @@ import {
 import { cn } from '~/lib/cn'
 
 export interface NavItemDef {
-  label: string
+  labelKey: string
   to: string
   icon: React.ComponentType<{ className?: string; size?: number; strokeWidth?: number }>
 }
 
 export const MAIN_NAV_ITEMS: NavItemDef[] = [
-  { label: 'Ringkasan', to: '/summary', icon: LayoutDashboard },
-  { label: 'Pendapatan', to: '/revenue', icon: TrendingUp },
-  { label: 'Posisi Kas', to: '/cash-position', icon: Wallet },
-  { label: 'Arus Kas', to: '/cash-flow', icon: ArrowLeftRight },
-  { label: 'Laba Rugi', to: '/profit-loss', icon: ChartColumn },
-  { label: 'Utang', to: '/payables', icon: Receipt },
-  { label: 'Piutang', to: '/receivables', icon: HandCoins },
-  { label: 'Rencana Bayar', to: '/payment-plan', icon: CalendarDays },
-  { label: 'Anggaran', to: '/budget', icon: Target },
+  { labelKey: 'nav.summary', to: '/summary', icon: LayoutDashboard },
+  { labelKey: 'nav.revenue', to: '/revenue', icon: TrendingUp },
+  { labelKey: 'nav.cashPosition', to: '/cash-position', icon: Wallet },
+  { labelKey: 'nav.cashFlow', to: '/cash-flow', icon: ArrowLeftRight },
+  { labelKey: 'nav.pnl', to: '/profit-loss', icon: ChartColumn },
+  { labelKey: 'nav.payables', to: '/payables', icon: Receipt },
+  { labelKey: 'nav.receivables', to: '/receivables', icon: HandCoins },
+  { labelKey: 'nav.paymentPlan', to: '/payment-plan', icon: CalendarDays },
+  { labelKey: 'nav.budget', to: '/budget', icon: Target },
 ]
 
 export const SETTINGS_NAV_ITEMS: NavItemDef[] = [
-  { label: 'Pemetaan Akun', to: '/settings/account-mapping', icon: ListTree },
+  { labelKey: 'nav.accountMapping', to: '/settings/account-mapping', icon: ListTree },
 ]
 
 export interface SidebarNavProps {
@@ -46,18 +47,19 @@ export interface SidebarNavProps {
 
 export function SidebarNav({
   onNavigate,
-  freshnessDate = 'Data per 28 Okt 2026, 08.00',
-  freshnessStatus = 'Periode Okt 2026 masih terbuka. Angka bisa berubah.',
+  freshnessDate,
+  freshnessStatus,
   className,
   isTabletCollapsed = false,
 }: SidebarNavProps) {
+  const { t } = useTranslation()
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
 
   return (
     <nav
-      className={cn('nr-sidebar min-h-full', className)}
-      aria-label="Menu utama"
+      className={cn('nr-sidebar min-h-full', isTabletCollapsed && 'md:w-16 lg:w-[var(--sidebar-width)]', className)}
+      aria-label={t('ui.shell.mainMenu')}
     >
       <div className="nr-brand">
         <Asterisk className="nr-icon" size={18} strokeWidth={1.75} aria-hidden="true" />
@@ -74,7 +76,7 @@ export function SidebarNav({
               to={item.to}
               onClick={onNavigate}
               aria-current={isActive ? 'page' : undefined}
-              aria-label={item.label}
+              aria-label={t(item.labelKey)}
               className={cn(
                 'nr-nav-item',
                 isTabletCollapsed && 'md:justify-center md:px-0 lg:justify-start lg:px-3',
@@ -82,14 +84,14 @@ export function SidebarNav({
             >
               <Icon className="nr-icon" size={18} strokeWidth={1.75} aria-hidden="true" />
               <span className={cn(isTabletCollapsed && 'md:hidden lg:inline')}>
-                {item.label}
+                {t(item.labelKey)}
               </span>
             </Link>
           )
         })}
 
         <div className={cn('nr-nav-group', isTabletCollapsed && 'md:hidden lg:block')}>
-          Pengaturan
+          {t('nav.settingsGroup')}
         </div>
 
         {SETTINGS_NAV_ITEMS.map((item) => {
@@ -101,7 +103,7 @@ export function SidebarNav({
               to={item.to}
               onClick={onNavigate}
               aria-current={isActive ? 'page' : undefined}
-              aria-label={item.label}
+              aria-label={t(item.labelKey)}
               className={cn(
                 'nr-nav-item',
                 isTabletCollapsed && 'md:justify-center md:px-0 lg:justify-start lg:px-3',
@@ -109,17 +111,19 @@ export function SidebarNav({
             >
               <Icon className="nr-icon" size={18} strokeWidth={1.75} aria-hidden="true" />
               <span className={cn(isTabletCollapsed && 'md:hidden lg:inline')}>
-                {item.label}
+                {t(item.labelKey)}
               </span>
             </Link>
           )
         })}
       </div>
 
-      <div className={cn('nr-freshness', isTabletCollapsed && 'md:hidden lg:flex')}>
-        <strong>{freshnessDate}</strong>
-        <span>{freshnessStatus}</span>
-      </div>
+      {freshnessDate && (
+        <div className={cn('nr-freshness', isTabletCollapsed && 'md:hidden lg:flex')}>
+          <strong>{freshnessDate}</strong>
+          {freshnessStatus && <span>{freshnessStatus}</span>}
+        </div>
+      )}
     </nav>
   )
 }

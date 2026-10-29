@@ -1,5 +1,6 @@
 import '@tanstack/react-start/server-only'
 import { D } from '~/lib/finance/money'
+import { memoMetric } from '~/server/cache'
 import type { Money } from '~/lib/finance/types'
 import { type AppContextFilter, getCachedPeriods } from '~/server/context'
 import {
@@ -23,9 +24,23 @@ export type DataCheckItem = {
   link: string
 }
 
-export async function computeDataChecks(
-  filter: AppContextFilter,
-): Promise<DataCheckItem[]> {
+/** One failed sub-check must not hide the others, but it must not pass silently either. */
+async function settle<T>(name: string, work: Promise<T>, failures: string[]): Promise<T | null> {
+  try {
+    return await work
+  } catch (error) {
+    console.error(`Data check "${name}" failed:`, error instanceof Error ? error.message : error)
+    failures.push(name)
+    return null
+  }
+}
+
+export function computeDataChecks(filter: AppContextFilter): Promise<DataCheckItem[]> {
+  return memoMetric('dataChecks', filter, () => computeDataChecksUncached(filter), 5 * 60 * 1000)
+}
+
+async function computeDataChecksUncached(filter: AppContextFilter): Promise<DataCheckItem[]> {
+  const failures: string[] = []
   const periods = await getCachedPeriods()
   const activePeriods = periods.filter((p) => filter.periodIds.includes(p.periodeId))
 
@@ -48,10 +63,10 @@ export async function computeDataChecks(
     checkQ9(filter.entitySegmentColumn, filter.segmentDetailIds, filter.asOf),
     checkUnpostedJournals(activePeriods),
     getMappingRow(),
-    computeCashPosition(filter, { includeByEntity: false, includeCompare: false }).catch(() => null),
-    computeCashFlow(filter).catch(() => null),
-    computeApAging(filter).catch(() => null),
-    computeArAging(filter).catch(() => null),
+    settle('cashPosition', computeCashPosition(filter, { includeByEntity: false, includeCompare: false }), failures),
+    settle('cashFlow', computeCashFlow(filter), failures),
+    settle('apAging', computeApAging(filter), failures),
+    settle('arAging', computeArAging(filter), failures),
   ])
 
   const checks: DataCheckItem[] = []
@@ -184,6 +199,16 @@ export async function computeDataChecks(
       count: 1,
       amount: null,
       link: '/settings/account-mapping',
+    })
+  }
+
+  if (failures.length > 0) {
+    checks.push({
+      code: 'CHECK_FAILED',
+      level: 'warning',
+      count: failures.length,
+      amount: null,
+      link: '/summary',
     })
   }
 

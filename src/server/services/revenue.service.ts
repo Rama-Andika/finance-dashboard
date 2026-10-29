@@ -1,3 +1,4 @@
+import { postableAccountIds } from '~/lib/finance/coa-tree'
 import '@tanstack/react-start/server-only'
 import Decimal from 'decimal.js'
 import { D, sum } from '~/lib/finance/money'
@@ -33,16 +34,7 @@ export async function computeRevenue(
   const periods = await getCachedPeriods()
 
   // 1. Collect POSTABLE Revenue accounts
-  const revenueCoaIds: Id[] = []
-  for (const node of tree.byId.values()) {
-    if (
-      node.status === 'POSTABLE' &&
-      node.accountGroup === 'Revenue' &&
-      node.coaId !== '__orphans__'
-    ) {
-      revenueCoaIds.push(node.coaId)
-    }
-  }
+  const revenueCoaIds: Id[] = postableAccountIds(tree, ['Revenue'])
 
   if (revenueCoaIds.length === 0 || filter.periodIds.length === 0) {
     return {
@@ -80,7 +72,7 @@ export async function computeRevenue(
     })
     let cmpSum = D(0)
     for (const r of compareRows) {
-      cmpSum = cmpSum.plus(D(r.credit).minus(D(r.debet)))
+      cmpSum = cmpSum.plus(D(computeNetRevenue(r.debet, r.credit)))
     }
     compareTotal = cmpSum.toFixed(2)
   }
@@ -92,7 +84,7 @@ export async function computeRevenue(
   const byLocationMap = new Map<Id, Decimal>()
 
   for (const r of rows) {
-    const net = D(r.credit).minus(D(r.debet))
+    const net = D(computeNetRevenue(r.debet, r.credit))
     totalSum = totalSum.plus(net)
 
     // By coa

@@ -2,6 +2,8 @@ import '@tanstack/react-start/server-only'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
+import { chunkOrAll } from '~/server/db/chunk'
+import { assertSegmentColumn } from '~/server/db/segment-column'
 import { D } from '~/lib/finance/money'
 import type { Id, Money } from '~/lib/finance/types'
 
@@ -29,20 +31,8 @@ export async function budgetAmounts(
   if (params.yearMonths.length === 0) return []
   if (params.segIds !== 'all' && params.segIds.length === 0) return []
 
-  const segCol = params.segCol || 'segment1_id'
-  if (!/^segment([1-9]|1[0-5])_id$/.test(segCol)) {
-    throw new Error(`Invalid segment column: ${segCol}`)
-  }
+  const segCol = assertSegmentColumn(params.segCol || 'segment1_id')
   const segIdent = sql.identifier(segCol)
-
-  const segChunks: (string[] | undefined)[] = []
-  if (params.segIds !== 'all') {
-    for (let i = 0; i < params.segIds.length; i += 1000) {
-      segChunks.push(params.segIds.slice(i, i + 1000))
-    }
-  } else {
-    segChunks.push(undefined)
-  }
 
   // Construct OR clauses for year-months
   const ymClauses = params.yearMonths.map((ym) => {
@@ -57,7 +47,7 @@ export async function budgetAmounts(
 
   const results: BudgetAmountRow[] = []
 
-  for (const sChunk of segChunks) {
+  for (const sChunk of chunkOrAll(params.segIds)) {
     const query = sql`
       SELECT b.coa_id AS coaId,
              b.bgt_year AS bgtYear,

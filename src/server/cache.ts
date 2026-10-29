@@ -51,6 +51,23 @@ export async function memo<T>(
   return load
 }
 
+const METRIC_TTL_MS = 60 * 1000
+
+/**
+ * Short-lived memo for computed metrics. Several metrics (and the drill-down) need the same
+ * sub-result in one request, e.g. Summary + Runway + Payment Plan all need the cash position.
+ * Cleared together with every other memo entry when the account mapping changes.
+ */
+export function memoMetric<T>(
+  name: string,
+  params: unknown,
+  loader: () => Promise<T>,
+  ttlMs: number = METRIC_TTL_MS,
+): Promise<T> {
+  const digest = createHash('sha1').update(JSON.stringify(params)).digest('hex')
+  return memo(`metric:${name}:${digest}`, ttlMs, loader)
+}
+
 /** Number of memo entries (for tests). */
 export function memoSize(): number {
   return memoryCache.size
@@ -63,8 +80,26 @@ export type LruCache<V> = {
   size(): number
 }
 
-export function createLruCache<V>(opts: { maxEntries: number; ttlMs: number }): LruCache<V> {
-  const map = new Map<string, { value: V; expiresAt: number }>()
+/**
+ * LRU cache with a TTL. `maxEntries` bounds the entry count; the optional `weigh` +
+ * `maxWeight` pair bounds the total size (e.g. number of cached rows).
+ */
+export function createLruCache<V>(opts: {
+  maxEntries: number
+  ttlMs: number
+  weigh?: (value: V) => number
+  maxWeight?: number
+}): LruCache<V> {
+  const map = new Map<string, { value: V; expiresAt: number; weight: number }>()
+  let totalWeight = 0
+  const weighOf = (value: V) => (opts.weigh ? opts.weigh(value) : 0)
+
+  const drop = (key: string) => {
+    const entry = map.get(key)
+    if (!entry) return
+    totalWeight -= entry.weight
+    map.delete(key)
+  }
 
   return {
     get(key: string, nowMs?: number): V | undefined {
@@ -73,7 +108,7 @@ export function createLruCache<V>(opts: { maxEntries: number; ttlMs: number }): 
       if (!entry) return undefined
 
       if (entry.expiresAt <= now) {
-        map.delete(key)
+        drop(key)
         return undefined
       }
 
@@ -85,21 +120,29 @@ export function createLruCache<V>(opts: { maxEntries: number; ttlMs: number }): 
 
     set(key: string, value: V, nowMs?: number): void {
       const now = nowMs ?? Date.now()
-      if (map.has(key)) {
-        map.delete(key)
-      } else if (map.size >= opts.maxEntries) {
-        // Evict oldest item (first key)
+      drop(key)
+      while (map.size >= opts.maxEntries) {
         const oldestKey = map.keys().next().value
-        if (oldestKey !== undefined) {
-          map.delete(oldestKey)
+        if (oldestKey === undefined) break
+        drop(oldestKey)
+      }
+
+      const weight = weighOf(value)
+      if (opts.maxWeight !== undefined) {
+        while (map.size > 0 && totalWeight + weight > opts.maxWeight) {
+          const oldestKey = map.keys().next().value
+          if (oldestKey === undefined) break
+          drop(oldestKey)
         }
       }
 
-      map.set(key, { value, expiresAt: now + opts.ttlMs })
+      map.set(key, { value, expiresAt: now + opts.ttlMs, weight })
+      totalWeight += weight
     },
 
     clear(): void {
       map.clear()
+      totalWeight = 0
     },
 
     size(): number {
@@ -115,10 +158,21 @@ export function hashIds(ids: readonly string[] | 'all' | undefined): string {
   return createHash('sha1').update(sorted.join(',')).digest('hex').slice(0, 16)
 }
 
-// Global LRU cache for closed-period GL movements (max 500 entries, 6 hours TTL)
-export const glMovementsCache = createLruCache<any[]>({
+/** One aggregated GL movement row, as cached per closed period. */
+export type CachedMovementRow = {
+  coaId: string
+  periodId?: string
+  locationId?: string
+  debet: string
+  credit: string
+}
+
+// Closed-period GL movements: at most 500 entries and ~400k rows in total, 6 hours TTL.
+export const glMovementsCache = createLruCache<readonly CachedMovementRow[]>({
   maxEntries: 500,
   ttlMs: 6 * 60 * 60 * 1000,
+  weigh: (rows) => rows.length + 1,
+  maxWeight: 400_000,
 })
 
 export function clearCache(keyPrefix?: string) {

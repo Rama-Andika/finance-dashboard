@@ -16,6 +16,7 @@
     "entity": "Entitas",
     "period": "Periode",
     "allEntities": "Semua Entitas",
+    "search": "Cari nama atau kode...",
     "apply": "Terapkan",
     "cancel": "Batal",
     "selectAll": "Pilih Semua",
@@ -236,6 +237,10 @@
     "SETTINGS": {
       "title": "Pemetaan akun belum lengkap",
       "body": "Pengaturan pemetaan akun masih menggunakan aturan default atau belum disimpan."
+    },
+    "CHECK_FAILED": {
+      "title": "Pemeriksaan ini gagal dijalankan",
+      "body": "{{count}} — Data untuk pemeriksaan ini gagal dimuat. Lihat log server."
     }
   },
   "planStatus": {
@@ -362,7 +367,9 @@
       "monthlyRevenueTrend": "Tren Pendapatan Bulanan",
       "revenueComposition": "Komposisi Pendapatan",
       "totalRevenue": "Total pendapatan",
-      "revenueByFolder": "Rincian Folder Pendapatan"
+      "revenueByFolder": "Rincian Folder Pendapatan",
+      "topCategory": "Kategori Terbesar",
+      "topEntity": "Entitas Terbesar"
     },
     "summary": {
       "overdue": "Overdue",
@@ -449,6 +456,47 @@
       "unallocated": "Pembayaran belum dialokasikan",
       "unknownVendor": "(Vendor tidak dikenal)",
       "unknownCustomer": "(Pelanggan tidak dikenal)"
+    },
+    "nav": {},
+    "shell": {
+      "mainMenu": "Menu utama",
+      "openMenu": "Buka menu",
+      "switchToDark": "Ganti ke tema gelap",
+      "switchToLight": "Ganti ke tema terang",
+      "switchLanguage": "Ganti bahasa",
+      "dataChecksNeeded": "Data perlu dicek",
+      "userMenu": "Menu Pengguna",
+      "tableEmpty": "Tidak ada data",
+      "coaTree": "Pohon Akun CoA",
+      "coaSearch": "Cari nama atau kode akun...",
+      "dataChecksEmptyBody": "Transaksi GL, register kas, kartu utang-piutang, dan aturan pemetaan akun berada dalam kondisi seimbang.",
+      "dataChecksEmptyTitle": "Semua data konsisten dan tidak ada temuan pemeriksaan.",
+      "findingsCount": "{{count}} temuan pemeriksaan",
+      "checking": "Memeriksa konsistensi data...",
+      "close": "Tutup",
+      "loadFailed": "Gagal memuat pemeriksaan data",
+      "systemError": "Terjadi kesalahan sistem",
+      "filterEntity": "Filter Entitas",
+      "filterPeriod": "Filter Periode",
+      "periodChoices": "Pilihan Periode",
+      "closeFolder": "Tutup folder",
+      "openFolder": "Buka folder",
+      "allEntitiesPrint": "Semua Entitas"
+    }
+  },
+  "cf": {
+    "fallback": {
+      "bankLoan": "Pinjaman bank/koperasi",
+      "assetPurchase": "Pembelian asset",
+      "assetSale": "Penjualan asset",
+      "capitalContribution": "Setoran modal",
+      "ownerDrawings": "Pengambilan prive / Pembagian dividen",
+      "longTermLoan": "Pinjaman jangka panjang",
+      "customerReceipts": "Penerimaan dari pelanggan",
+      "supplierPayments": "Pembayaran ke supplier",
+      "operatingExpenses": "Pembayaran biaya operasional dan karyawan",
+      "interestAndFees": "Pembayaran bunga dan administrasi",
+      "otherIncome": "Penerimaan dari jasa giro dan pendapatan lain-lain"
     }
   }
 }

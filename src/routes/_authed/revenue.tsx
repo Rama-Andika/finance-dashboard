@@ -1,6 +1,8 @@
+import { searchUpdater } from '~/lib/filters/search-update'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { useMemo } from 'react'
 import { Download } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -49,6 +51,16 @@ function RevenuePage() {
   const { t, i18n } = useTranslation()
   const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
 
+  const topCategory = useMemo(() => {
+    if (!data?.byFolder || data.byFolder.length === 0) return null
+    return [...data.byFolder].sort((a, b) => Number(b.amount) - Number(a.amount))[0]
+  }, [data?.byFolder])
+
+  const topEntity = useMemo(() => {
+    if (!data?.byEntity || data.byEntity.length === 0) return null
+    return [...data.byEntity].sort((a, b) => Number(b.amount) - Number(a.amount))[0]
+  }, [data?.byEntity])
+
   if (!data) return null
 
   const compareLabel = getCompareLabel(deps.preset, lang)
@@ -57,13 +69,13 @@ function RevenuePage() {
     const folder = data.byFolder.find((f) => f.id === folderId)
     navigate({
       to: '/revenue',
-      search: (prev: any) => ({
+      search: searchUpdater((prev) => ({
         ...prev,
         drill: {
           metric: 'revenue',
           steps: [{ kind: 'folder', id: folderId, label: folder?.label || folderLabel || folderId }],
         },
-      }),
+      })),
     })
   }
 
@@ -71,6 +83,7 @@ function RevenuePage() {
   const chartData = data.trend.map((m) => ({
     month: m.month,
     displayMonth: formatMonth(m.month, lang),
+    // Display only: recharts needs a JS number for bar height; the exact amount stays in `rawAmount`.
     amountNum: Math.max(0, Number(m.amount) || 0),
     rawAmount: m.amount,
   }))
@@ -90,7 +103,7 @@ function RevenuePage() {
   ]
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6">
       <PrintHeader
         title={t('nav.revenue')}
         entity={deps.entity}
@@ -114,12 +127,25 @@ function RevenuePage() {
       )}
 
       {/* KPI Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiCard
           label={t('nav.revenue')}
           value={data.total}
           compareValue={data.compareTotal}
           compareLabel={compareLabel}
+          higherIsBetter={true}
+        />
+        <KpiCard
+          label={t('ui.revenue.topCategory')}
+          value={topCategory?.amount ?? '0'}
+          compareLabel={topCategory?.label || '—'}
+          higherIsBetter={true}
+          onOpen={topCategory ? () => handleSelectFolder(topCategory.id, topCategory.label) : undefined}
+        />
+        <KpiCard
+          label={t('ui.revenue.topEntity')}
+          value={topEntity?.amount ?? '0'}
+          compareLabel={topEntity?.name || '—'}
           higherIsBetter={true}
         />
       </div>
@@ -159,6 +185,7 @@ function RevenuePage() {
                   tickLine={false}
                   tick={{ fill: 'var(--ink-muted)', fontSize: 11 }}
                   tickFormatter={(val) => formatAxisShort(val, lang)}
+                  domain={[0, (dataMax: number) => (dataMax > 0 ? dataMax * 1.15 : 1000000)]}
                 />
                 <RechartsTooltip
                   cursor={{ fill: 'var(--surface-hover)' }}

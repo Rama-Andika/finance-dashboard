@@ -97,4 +97,12 @@ describe('checkState & toggleNode', () => {
     expect(checkState(next, tree, kasOperasional)).toBe('unchecked')
     expect(checkState(next, tree, bankMandiri)).toBe('checked')
   })
+
+  it('unchecking a HEADER when all its children are individually in include removes all children', () => {
+    const initial = [kasOperasional, bankMandiri]
+    expect(checkState(initial, tree, headerKasBank)).toBe('checked')
+    const next = toggleNode(initial, tree, headerKasBank)
+    expect(next).toEqual([])
+    expect(checkState(next, tree, headerKasBank)).toBe('unchecked')
+  })
 })

@@ -29,7 +29,7 @@ export function PrintButton({
       onClick={handlePrint}
       className={`no-print ${className}`}
     >
-      {children || t('metric.print', 'Cetak')}
+      {children || t('metric.print')}
     </Button>
   )
 }

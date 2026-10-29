@@ -1,4 +1,5 @@
 import { D, sum } from './money'
+import { signedAmount } from './sign'
 import type { AccountGroup, Breakdown, Id, Money } from './types'
 import { type CoaTree, type CoaNode, postableDescendants } from './coa-tree'
 
@@ -74,7 +75,7 @@ export function groupFolders(tree: CoaTree, group: AccountGroup): CoaNode[] {
  * Calculate net revenue: Σ (credit − debet)
  */
 export function computeNetRevenue(debet: Money, credit: Money): Money {
-  return D(credit).minus(D(debet)).toFixed(2)
+  return signedAmount('Revenue', debet, credit)
 }
 
 /**

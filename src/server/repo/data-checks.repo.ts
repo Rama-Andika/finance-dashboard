@@ -2,6 +2,15 @@ import '@tanstack/react-start/server-only'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
+import { isSegmentColumn } from '~/server/db/segment-column'
+import {
+  AP_BILL_TYPE,
+  BANK_PAYMENT_CHANNEL_TYPES,
+  BANK_PAYMENT_STATUS,
+  MODULE_TYPE,
+  PAYMENT_STATUS_PAID,
+  intList,
+} from '~/server/db/erp-codes'
 import { D } from '~/lib/finance/money'
 import { addDays, todayIn } from '~/lib/format/date'
 import { env } from '~/server/env'
@@ -18,15 +27,15 @@ export async function checkQ1b(locIds: Id[] | 'all'): Promise<QCheckSummary> {
   }
 
   const locClause =
-    locIds !== 'all' ? sql`AND c.location_id IN (${inList(locIds.slice(0, 1000))})` : sql``
+    locIds !== 'all' ? sql`AND c.location_id IN (${inList(locIds)})` : sql``
 
   const query = sql`
     SELECT COUNT(*) AS n, COALESCE(SUM(c.amount), 0) AS amount
     FROM ap_ar_card c
     LEFT JOIN ap_ar_card_detail d ON d.invoice_id = c.ap_ar_card_id
-    WHERE c.module_type = 0
-      AND c.transaction_type = 1
-      AND c.payment_status = 2
+    WHERE c.module_type = ${MODULE_TYPE.AP}
+      AND c.transaction_type = ${AP_BILL_TYPE}
+      AND c.payment_status = ${PAYMENT_STATUS_PAID}
       AND d.ap_ar_card_detail_id IS NULL
       ${locClause}
   `
@@ -41,13 +50,13 @@ export async function checkQ7(locIds: Id[] | 'all'): Promise<number> {
   if (locIds !== 'all' && locIds.length === 0) return 0
 
   const locClause =
-    locIds !== 'all' ? sql`AND c.location_id IN (${inList(locIds.slice(0, 1000))})` : sql``
+    locIds !== 'all' ? sql`AND c.location_id IN (${inList(locIds)})` : sql``
 
   const queryVendor = sql`
     SELECT COUNT(*) AS n
     FROM ap_ar_card c
     LEFT JOIN vendor v ON v.vendor_id = c.owner_id
-    WHERE c.module_type = 0
+    WHERE c.module_type = ${MODULE_TYPE.AP}
       AND c.owner_id IS NOT NULL AND c.owner_id != ''
       AND v.vendor_id IS NULL
       ${locClause}
@@ -57,7 +66,7 @@ export async function checkQ7(locIds: Id[] | 'all'): Promise<number> {
     SELECT COUNT(*) AS n
     FROM ap_ar_card c
     LEFT JOIN customer cust ON cust.customer_id = c.owner_id
-    WHERE c.module_type = 1
+    WHERE c.module_type = ${MODULE_TYPE.AR}
       AND c.owner_id IS NOT NULL AND c.owner_id != ''
       AND cust.customer_id IS NULL
       ${locClause}
@@ -97,19 +106,19 @@ export async function checkQ9(
   const cutoffPast = addDays(baseDate, -7)
   const cutoffFuture = addDays(baseDate, 1)
 
-  const validSegCol = /^segment([1-9]|1[0-5])_id$/.test(segCol) ? segCol : 'segment1_id'
-  const segIdent = sql.identifier(validSegCol)
+  if (!isSegmentColumn(segCol)) throw new Error(`Invalid segment column: ${segCol}`)
+  const segIdent = sql.identifier(segCol)
 
   const segClause =
     segIds !== 'all'
-      ? sql`AND bp.${segIdent} IN (${inList(segIds.slice(0, 1000))})`
+      ? sql`AND bp.${segIdent} IN (${inList(segIds)})`
       : sql``
 
   const query = sql`
     SELECT COUNT(*) AS n, COALESCE(SUM(bp.amount), 0) AS amount
     FROM bank_payment bp
-    WHERE bp.type IN (1, 2)
-      AND bp.status = 0
+    WHERE bp.type IN (${intList(BANK_PAYMENT_CHANNEL_TYPES)})
+      AND bp.status = ${BANK_PAYMENT_STATUS.UNSETTLED}
       AND (bp.transaction_date < ${cutoffPast} OR bp.transaction_date >= ${cutoffFuture})
       ${segClause}
   `
@@ -128,7 +137,7 @@ export async function checkUnpostedJournals(periods: Period[]): Promise<number> 
     SELECT COUNT(*) AS n
     FROM gl g
     WHERE g.posted_status = 0
-      AND g.period_id IN (${inList(periodIds.slice(0, 1000))})
+      AND g.period_id IN (${inList(periodIds)})
   `
 
   const result = await rows<{ n: number | string }>(query)

@@ -81,7 +81,7 @@ export function KpiCard({
       </div>
 
       <FigureTooltip full={fullValue}>
-        <p className="nr-kpi-value">
+        <p className={cn('nr-kpi-value', !valueIsMoney && 'text-2xl lg:text-3xl whitespace-normal leading-tight')}>
           {valueIsMoney && <span className="nr-cur">{currencyLabel}</span>}
           {shortValue}
         </p>

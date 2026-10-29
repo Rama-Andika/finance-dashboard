@@ -14,6 +14,7 @@ export function DeltaPill({ change, higherIsBetter, lang, className }: DeltaPill
   }
 
   const raw = change.replace('%', '').trim()
+  // Display only: `change` is an already formatted percentage string, never a money amount.
   const val = Number.parseFloat(raw)
 
   if (Number.isNaN(val) || val === 0) {

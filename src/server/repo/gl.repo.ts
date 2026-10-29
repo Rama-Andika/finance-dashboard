@@ -2,19 +2,16 @@ import '@tanstack/react-start/server-only'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
+import { chunk, chunkOrAll } from '~/server/db/chunk'
+import { assertSegmentColumn } from '~/server/db/segment-column'
 import { glTablesOf, groupPeriodsByTable } from '~/server/db/gl-tables'
 import { D } from '~/lib/finance/money'
 import { diffDays } from '~/lib/format/date'
-import { glMovementsCache, hashIds } from '~/server/cache'
+import { mergeJournalPages } from '~/lib/finance/journal-page'
+import { glMovementsCache, hashIds, type CachedMovementRow } from '~/server/cache'
 import type { AccountGroup, Id, IsoDate, Money, Period } from '~/lib/finance/types'
 
-export type MovementRow = {
-  coaId: Id
-  periodId?: Id
-  locationId?: Id
-  debet: Money
-  credit: Money
-}
+export type MovementRow = CachedMovementRow
 
 export type MovementsByPeriodsOptions = {
   periods: Period[]
@@ -26,6 +23,11 @@ export type MovementsByPeriodsOptions = {
   byLocation?: boolean
 }
 
+/**
+ * Closed periods never change, so their movements are cached per (table, period, filters).
+ * Cached rows always carry `periodId`; `byPeriod` only decides whether callers see it, so
+ * P&L, trend and drill-down calls share the same cache entries.
+ */
 function closedPeriodCacheKey(
   tableName: string,
   periodeId: string,
@@ -33,8 +35,8 @@ function closedPeriodCacheKey(
 ): string {
   const segHash = hashIds(opts.segIds)
   const coaHash = hashIds(opts.coaIds)
-  const grp = `p:${Boolean(opts.byPeriod)}|loc:${Boolean(opts.byLocation)}|g:${(opts.accountGroups || []).slice().sort().join(',')}`
-  return `mv|${tableName}|${periodeId}|Closed|${segHash}|${coaHash}|${grp}`
+  const groups = (opts.accountGroups || []).slice().sort().join(',')
+  return `mv|${tableName}|${periodeId}|Closed|${opts.segCol}|${segHash}|${coaHash}|loc:${Boolean(opts.byLocation)}|g:${groups}`
 }
 
 async function queryMovementsFromDb(
@@ -43,42 +45,19 @@ async function queryMovementsFromDb(
   opts: MovementsByPeriodsOptions,
 ): Promise<MovementRow[]> {
   if (tablePeriods.length === 0) return []
+  if (opts.segIds !== 'all' && opts.segIds.length === 0) return []
 
   const { gl, glDetail } = glTablesOf(tableName)
   const glIdent = sql.identifier(gl)
   const glDetailIdent = sql.identifier(glDetail)
   const segIdent = sql.identifier(opts.segCol)
 
-  const periodIdList = tablePeriods.map((p) => p.periodeId)
-  const periodChunks: string[][] = []
-  for (let i = 0; i < periodIdList.length; i += 1000) {
-    periodChunks.push(periodIdList.slice(i, i + 1000))
-  }
-
-  const coaChunks: (string[] | undefined)[] = []
-  if (opts.coaIds && opts.coaIds.length > 0) {
-    for (let i = 0; i < opts.coaIds.length; i += 1000) {
-      coaChunks.push(opts.coaIds.slice(i, i + 1000))
-    }
-  } else {
-    coaChunks.push(undefined)
-  }
-
-  const segChunks: (string[] | undefined)[] = []
-  if (opts.segIds !== 'all') {
-    if (opts.segIds.length === 0) return []
-    for (let i = 0; i < opts.segIds.length; i += 1000) {
-      segChunks.push(opts.segIds.slice(i, i + 1000))
-    }
-  } else {
-    segChunks.push(undefined)
-  }
-
+  const periodChunks = chunk(tablePeriods.map((p) => p.periodeId))
   const resultRows: MovementRow[] = []
 
   for (const pChunk of periodChunks) {
-    for (const cChunk of coaChunks) {
-      for (const sChunk of segChunks) {
+    for (const cChunk of chunkOrAll(opts.coaIds)) {
+      for (const sChunk of chunkOrAll(opts.segIds)) {
         // STRAIGHT_JOIN: drive from gl (period index) → gl_detail (gl_id) → coa. Without it the optimizer
         // starts from coa and scans the whole gl_detail history of those accounts (minutes on 13M rows).
         const query = sql`
@@ -136,53 +115,56 @@ export async function movementsByPeriods(opts: MovementsByPeriodsOptions): Promi
   if (opts.periods.length === 0) return []
   if (opts.coaIds && opts.coaIds.length === 0) return []
 
-  // Ensure segment column is valid
-  if (!/^segment([1-9]|1[0-5])_id$/.test(opts.segCol)) {
-    throw new Error(`Invalid segment column: ${opts.segCol}`)
-  }
+  assertSegmentColumn(opts.segCol)
 
   const grouped = groupPeriodsByTable(opts.periods)
   const resultMap = new Map<string, MovementRow>()
 
-  const mergeRows = (rowsToMerge: MovementRow[]) => {
+  const mergeRows = (rowsToMerge: readonly MovementRow[]) => {
     for (const r of rowsToMerge) {
-      const key = `${r.coaId}|${r.periodId ?? ''}|${r.locationId ?? ''}`
+      const periodId = opts.byPeriod ? r.periodId : undefined
+      const key = `${r.coaId}|${periodId ?? ''}|${r.locationId ?? ''}`
       const existing = resultMap.get(key)
       if (existing) {
         existing.debet = D(existing.debet).plus(D(r.debet)).toFixed(2)
         existing.credit = D(existing.credit).plus(D(r.credit)).toFixed(2)
       } else {
-        resultMap.set(key, { ...r })
+        resultMap.set(key, { ...r, periodId })
       }
     }
   }
 
-  for (const [tableName, tablePeriods] of grouped.entries()) {
-    const openPeriods: Period[] = []
+  // One query per GL table for all periods that are not cached yet, all tables in parallel.
+  await Promise.all(
+    Array.from(grouped.entries()).map(async ([tableName, tablePeriods]) => {
+      const uncachedClosed: Period[] = []
+      // Open or Pre Closed periods are NEVER cached (D20)
+      const toQuery: Period[] = []
 
-    for (const p of tablePeriods) {
-      if (p.status === 'Closed') {
-        const cacheKey = closedPeriodCacheKey(tableName, p.periodeId, opts)
-        const hit = glMovementsCache.get(cacheKey)
-        if (hit) {
-          mergeRows(hit)
-        } else {
-          // Query single closed period, cache, and merge
-          const pRows = await queryMovementsFromDb(tableName, [p], opts)
-          glMovementsCache.set(cacheKey, pRows)
-          mergeRows(pRows)
+      for (const p of tablePeriods) {
+        if (p.status !== 'Closed') {
+          toQuery.push(p)
+          continue
         }
-      } else {
-        // Open or Pre Closed periods are NEVER cached (D20)
-        openPeriods.push(p)
+        const hit = glMovementsCache.get(closedPeriodCacheKey(tableName, p.periodeId, opts))
+        if (hit) mergeRows(hit)
+        else uncachedClosed.push(p)
       }
-    }
 
-    if (openPeriods.length > 0) {
-      const openRows = await queryMovementsFromDb(tableName, openPeriods, opts)
+      const [closedRows, openRows] = await Promise.all([
+        queryMovementsFromDb(tableName, uncachedClosed, { ...opts, byPeriod: true }),
+        queryMovementsFromDb(tableName, toQuery, opts),
+      ])
+
+      const byPeriod = new Map<string, MovementRow[]>(uncachedClosed.map((p) => [p.periodeId, []]))
+      for (const r of closedRows) byPeriod.get(r.periodId ?? '')?.push(r)
+      for (const [periodeId, periodRows] of byPeriod) {
+        glMovementsCache.set(closedPeriodCacheKey(tableName, periodeId, opts), periodRows)
+        mergeRows(periodRows)
+      }
       mergeRows(openRows)
-    }
-  }
+    }),
+  )
 
   return Array.from(resultMap.values())
 }
@@ -210,10 +192,14 @@ export type DateMovementRow = {
 export async function movementsByDate(opts: MovementsByDateOptions): Promise<DateMovementRow[]> {
   if (opts.tables.length === 0) return []
   if (opts.coaIds && opts.coaIds.length === 0) return []
+  if (opts.segIds !== 'all' && opts.segIds.length === 0) return []
 
-  if (!/^segment([1-9]|1[0-5])_id$/.test(opts.segCol)) {
-    throw new Error(`Invalid segment column: ${opts.segCol}`)
-  }
+  assertSegmentColumn(opts.segCol)
+  const segIdent = sql.identifier(opts.segCol)
+
+  // Short ranges: drive from gl's trans_date index (see movementsByPeriods). Long ranges (trial-balance
+  // fallback over the whole history) are better served by the coa_id index, so the optimizer decides.
+  const driveFromGl = diffDays(opts.to, opts.from) <= 400
 
   const resultMap = new Map<string, DateMovementRow>()
 
@@ -221,33 +207,9 @@ export async function movementsByDate(opts: MovementsByDateOptions): Promise<Dat
     const { gl, glDetail } = glTablesOf(tableName)
     const glIdent = sql.identifier(gl)
     const glDetailIdent = sql.identifier(glDetail)
-    const segIdent = sql.identifier(opts.segCol)
 
-    const coaChunks: (string[] | undefined)[] = []
-    if (opts.coaIds && opts.coaIds.length > 0) {
-      for (let i = 0; i < opts.coaIds.length; i += 1000) {
-        coaChunks.push(opts.coaIds.slice(i, i + 1000))
-      }
-    } else {
-      coaChunks.push(undefined)
-    }
-
-    const segChunks: (string[] | undefined)[] = []
-    if (opts.segIds !== 'all') {
-      if (opts.segIds.length === 0) return []
-      for (let i = 0; i < opts.segIds.length; i += 1000) {
-        segChunks.push(opts.segIds.slice(i, i + 1000))
-      }
-    } else {
-      segChunks.push(undefined)
-    }
-
-    // Short ranges: drive from gl's trans_date index (see movementsByPeriods). Long ranges (trial-balance
-    // fallback over the whole history) are better served by the coa_id index, so the optimizer decides.
-    const driveFromGl = diffDays(opts.to, opts.from) <= 400
-
-    for (const cChunk of coaChunks) {
-      for (const sChunk of segChunks) {
+    for (const cChunk of chunkOrAll(opts.coaIds)) {
+      for (const sChunk of chunkOrAll(opts.segIds)) {
         const query = sql`
           SELECT ${driveFromGl ? sql`STRAIGHT_JOIN ` : sql``}d.coa_id AS coaId
                  ${opts.byDate ? sql`, DATE(g.trans_date) AS transDate` : sql``}
@@ -316,31 +278,17 @@ export async function openingBalances(opts: {
   bySegment?: boolean
 }): Promise<OpeningBalanceRow[]> {
   if (opts.coaIds.length === 0) return []
+  if (opts.segIds !== 'all' && opts.segIds.length === 0) return []
 
   // Ensure entity segment is segment1_id (Step 9.1 rule)
   if (opts.segCol !== 'segment1_id') {
     throw new Error('Entity segment is not segment1_id — user decision required')
   }
 
-  const coaChunks: string[][] = []
-  for (let i = 0; i < opts.coaIds.length; i += 1000) {
-    coaChunks.push(opts.coaIds.slice(i, i + 1000))
-  }
-
-  const segChunks: (string[] | undefined)[] = []
-  if (opts.segIds !== 'all') {
-    if (opts.segIds.length === 0) return []
-    for (let i = 0; i < opts.segIds.length; i += 1000) {
-      segChunks.push(opts.segIds.slice(i, i + 1000))
-    }
-  } else {
-    segChunks.push(undefined)
-  }
-
   const resultMap = new Map<string, OpeningBalanceRow>()
 
-  for (const cChunk of coaChunks) {
-    for (const sChunk of segChunks) {
+  for (const cChunk of chunk(opts.coaIds)) {
+    for (const sChunk of chunkOrAll(opts.segIds)) {
       const query = sql`
         SELECT o.coa_id AS coaId
                ${opts.bySegment ? sql`, o.segment1_id AS segmentDetailId` : sql``}
@@ -380,78 +328,6 @@ export async function countOpeningRows(periodeId: Id): Promise<number> {
   return Number(result[0]?.n ?? 0)
 }
 
-export async function journalLinesByGlIds(opts: {
-  tables: string[]
-  glIds: Id[]
-}): Promise<
-  Array<{
-    glId: Id
-    journalNumber: string
-    transDate: string
-    coaId: Id
-    memo: string
-    debet: Money
-    credit: Money
-  }>
-> {
-  if (opts.tables.length === 0 || opts.glIds.length === 0) return []
-
-  const glChunks: string[][] = []
-  for (let i = 0; i < opts.glIds.length; i += 1000) {
-    glChunks.push(opts.glIds.slice(i, i + 1000))
-  }
-
-  const results: Array<{
-    glId: Id
-    journalNumber: string
-    transDate: string
-    coaId: Id
-    memo: string
-    debet: Money
-    credit: Money
-  }> = []
-
-  for (const tableName of opts.tables) {
-    const { gl, glDetail } = glTablesOf(tableName)
-    const glIdent = sql.identifier(gl)
-    const glDetailIdent = sql.identifier(glDetail)
-
-    for (const chunk of glChunks) {
-      const query = sql`
-        SELECT g.gl_id AS glId, g.journal_number AS journalNumber, DATE(g.trans_date) AS transDate,
-               d.coa_id AS coaId, d.memo AS memo, d.debet AS debet, d.credit AS credit
-        FROM ${glIdent} g
-        JOIN ${glDetailIdent} d ON d.gl_id = g.gl_id
-        WHERE g.gl_id IN (${inList(chunk)})
-        ORDER BY g.trans_date, g.gl_id, d.gl_detail_id
-      `
-      const queryRows = await rows<{
-        glId: string
-        journalNumber: string
-        transDate: string
-        coaId: string
-        memo: string
-        debet: string | number
-        credit: string | number
-      }>(query)
-
-      for (const r of queryRows) {
-        results.push({
-          glId: String(r.glId),
-          journalNumber: r.journalNumber || '',
-          transDate: String(r.transDate).slice(0, 10),
-          coaId: String(r.coaId),
-          memo: r.memo || '',
-          debet: D(r.debet || 0).toFixed(2),
-          credit: D(r.credit || 0).toFixed(2),
-        })
-      }
-    }
-  }
-
-  return results
-}
-
 export type JournalLineRow = {
   glId: Id
   journalNumber: string
@@ -474,15 +350,26 @@ export type JournalLinesOptions = {
   offset?: number
 }
 
+/**
+ * One page of journal lines, newest first. When the periods span several GL tables, each table
+ * returns its first `offset + limit` lines and the pages are merged into one global order.
+ */
 export async function journalLines(opts: JournalLinesOptions): Promise<JournalLineRow[]> {
   const limit = opts.limit ?? 200
   const offset = opts.offset ?? 0
 
+  if (opts.coaIds && opts.coaIds.length === 0) return []
+  if (opts.segIds && opts.segIds !== 'all' && opts.segIds.length === 0) return []
+  if (opts.segCol) assertSegmentColumn(opts.segCol)
+
   // If periods provided, group by table; otherwise use active table 'gl'
   const periods = opts.periods ?? []
   const grouped = periods.length > 0 ? groupPeriodsByTable(periods) : new Map([['gl', []]])
+  const multiTable = grouped.size > 1
+  const perTableLimit = multiTable ? offset + limit : limit
+  const perTableOffset = multiTable ? 0 : offset
 
-  const results: JournalLineRow[] = []
+  const pages: JournalLineRow[][] = []
 
   for (const [tableName, tablePeriods] of grouped.entries()) {
     const { gl, glDetail } = glTablesOf(tableName)
@@ -492,19 +379,17 @@ export async function journalLines(opts: JournalLinesOptions): Promise<JournalLi
     const periodIdList = tablePeriods.map((p) => p.periodeId)
     const periodClause =
       periodIdList.length > 0
-        ? sql`AND g.period_id IN (${inList(periodIdList.slice(0, 1000))})`
+        ? sql`AND g.period_id IN (${inList(periodIdList)})`
         : opts.startDate && opts.endDate
           ? sql`AND g.trans_date >= ${opts.startDate} AND g.trans_date <= ${opts.endDate}`
           : sql``
 
     const coaClause =
-      opts.coaIds && opts.coaIds.length > 0
-        ? sql`AND d.coa_id IN (${inList(opts.coaIds.slice(0, 1000))})`
-        : sql``
+      opts.coaIds && opts.coaIds.length > 0 ? sql`AND d.coa_id IN (${inList(opts.coaIds)})` : sql``
 
     const segClause =
-      opts.segCol && opts.segIds && opts.segIds !== 'all' && opts.segIds.length > 0
-        ? sql`AND d.${sql.identifier(opts.segCol)} IN (${inList(opts.segIds.slice(0, 1000))})`
+      opts.segCol && opts.segIds && opts.segIds !== 'all'
+        ? sql`AND d.${sql.identifier(opts.segCol)} IN (${inList(opts.segIds)})`
         : sql``
 
     const query = sql`
@@ -524,8 +409,8 @@ export async function journalLines(opts: JournalLinesOptions): Promise<JournalLi
         ${coaClause}
         ${segClause}
       GROUP BY g.gl_id, g.journal_number, DATE(g.trans_date), g.journal_type, g.memo, d.coa_id
-      ORDER BY g.trans_date DESC, g.gl_id DESC
-      LIMIT ${limit} OFFSET ${offset}
+      ORDER BY g.trans_date DESC, g.gl_id DESC, d.coa_id
+      LIMIT ${perTableLimit} OFFSET ${perTableOffset}
     `
 
     const queryRows = await rows<{
@@ -539,8 +424,8 @@ export async function journalLines(opts: JournalLinesOptions): Promise<JournalLi
       credit: string | number
     }>(query)
 
-    for (const r of queryRows) {
-      results.push({
+    pages.push(
+      queryRows.map((r) => ({
         glId: String(r.glId),
         journalNumber: r.journalNumber || '',
         transDate: String(r.transDate).slice(0, 10),
@@ -549,11 +434,11 @@ export async function journalLines(opts: JournalLinesOptions): Promise<JournalLi
         coaId: String(r.coaId),
         debet: D(r.debet || 0).toFixed(2),
         credit: D(r.credit || 0).toFixed(2),
-      })
-    }
+      })),
+    )
   }
 
-  return results
+  return multiTable ? mergeJournalPages(pages, offset, limit) : (pages[0] ?? [])
 }
 
 export type JournalHeaderRow = {
@@ -570,8 +455,7 @@ export async function journalHeaders(opts: { tables: string[]; glIds: Id[] }): P
   const results: JournalHeaderRow[] = []
   for (const tableName of opts.tables) {
     const { gl } = glTablesOf(tableName)
-    for (let i = 0; i < opts.glIds.length; i += 1000) {
-      const chunk = opts.glIds.slice(i, i + 1000)
+    for (const slice of chunk(opts.glIds)) {
       const res = await rows<{
         glId: string
         journalNumber: string | null
@@ -582,7 +466,7 @@ export async function journalHeaders(opts: { tables: string[]; glIds: Id[] }): P
         SELECT g.gl_id AS glId, g.journal_number AS journalNumber, DATE(g.trans_date) AS transDate,
                g.journal_type AS journalType, g.memo AS memo
         FROM ${sql.identifier(gl)} g
-        WHERE g.gl_id IN (${inList(chunk)})
+        WHERE g.gl_id IN (${inList(slice)})
       `)
       for (const r of res) {
         results.push({
