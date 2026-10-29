@@ -1,4 +1,4 @@
-import type { Period } from '~/lib/finance/types'
+import type { Period } from '~/lib/core/types'
 
 export const mockPeriods: Period[] = []
 

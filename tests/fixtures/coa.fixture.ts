@@ -1,4 +1,4 @@
-import type { CoaRow } from '~/lib/finance/coa-tree'
+import type { CoaRow } from '~/lib/finance/coa/coa-tree'
 
 export const mockCoaRows: CoaRow[] = [
   // 1 Harta (Root HEADER)

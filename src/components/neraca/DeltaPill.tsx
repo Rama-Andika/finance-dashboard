@@ -1,4 +1,4 @@
-import type { Lang } from '~/lib/finance/types'
+import type { Lang } from '~/lib/core/types'
 import { cn } from '~/lib/cn'
 
 export interface DeltaPillProps {

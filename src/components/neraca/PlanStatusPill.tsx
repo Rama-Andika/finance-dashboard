@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { StatusPill, type StatusTone } from '~/components/neraca/StatusPill'
-import type { PlanStatus } from '~/lib/finance/aging'
+import type { PlanStatus } from '~/lib/finance/ap-ar/aging'
 
 const STATUS_TONE: Record<PlanStatus, StatusTone> = {
   notSubmitted: 'neutral',

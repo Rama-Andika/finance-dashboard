@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildCoaTree } from '~/lib/finance/coa-tree'
+import { buildCoaTree } from '~/lib/finance/coa/coa-tree'
 
 const tree = buildCoaTree([
   { coaId: '1', parentId: '0', code: '1-1000', name: 'Cash', status: 'POSTABLE', level: 1, accountGroup: 'Liquid Assets', subAccountGroup: 'Cash', saldoNormal: 'DEBET' },

@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { authMiddleware } from '~/functions/middleware'
 import type { SnapshotInfo } from '~/server/dash/snapshot'
-import type { SnapshotProblem } from '~/lib/finance/snapshot-state'
+import type { SnapshotProblem } from '~/lib/finance/ap-ar/snapshot-state'
 
 export type { SnapshotInfo, SnapshotProblem }
 
@@ -18,7 +18,7 @@ export const getSnapshotInfoFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .handler(async (): Promise<SnapshotState> => {
     const { apArSnapshotInfo, apArSnapshotProblem } = await import('~/server/dash/snapshot')
-    const { isSnapshotStale } = await import('~/lib/finance/snapshot-state')
+    const { isSnapshotStale } = await import('~/lib/finance/ap-ar/snapshot-state')
     const { env } = await import('~/server/env')
     const { todayIn } = await import('~/lib/format/date')
     const info = await apArSnapshotInfo()

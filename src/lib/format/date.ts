@@ -1,4 +1,4 @@
-import type { IsoDate, Lang } from '~/lib/finance/types'
+import type { IsoDate, Lang } from '~/lib/core/types'
 
 const MONTHS = {
   id: ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'],

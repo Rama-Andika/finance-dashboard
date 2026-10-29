@@ -1,5 +1,5 @@
 import { searchUpdater } from '~/lib/filters/search-update'
-import { translateCfLabel } from '~/lib/finance/cashflow-labels'
+import { translateCfLabel } from '~/lib/finance/cash/cashflow-labels'
 import React, { useEffect, useRef } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
@@ -12,7 +12,7 @@ import { MetricError } from '~/components/neraca/MetricError'
 import { PlanStatusPill } from '~/components/neraca/PlanStatusPill'
 import { formatMoneyFull } from '~/lib/format/number'
 import { formatDate } from '~/lib/format/date'
-import type { Lang } from '~/lib/finance/types'
+import type { Lang } from '~/lib/core/types'
 import type { DrillStep, DrillStepKind } from '~/lib/filters/search-schema'
 
 type SearchUpdater = (prev: Record<string, unknown>) => Record<string, unknown>

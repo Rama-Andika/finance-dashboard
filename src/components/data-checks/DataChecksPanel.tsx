@@ -11,7 +11,7 @@ import { useGlobalMetricInput } from '~/components/layout/useGlobalMetricInput'
 import { dataChecksOptions } from '~/queries/data-checks.queries'
 import { formatMoneyFull } from '~/lib/format/number'
 import { errorMessageKey } from '~/lib/error-message'
-import type { Lang } from '~/lib/finance/types'
+import type { Lang } from '~/lib/core/types'
 
 export interface DataChecksPanelProps {
   open: boolean

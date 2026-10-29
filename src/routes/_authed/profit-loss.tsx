@@ -1,4 +1,4 @@
-import { translateLabel } from '~/lib/finance/i18n-label'
+import { translateLabel } from '~/lib/core/i18n-label'
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -33,8 +33,8 @@ import { PrintHeader } from '~/components/export/PrintHeader'
 import { useOpenDrill } from '~/components/drill/useOpenDrill'
 import { formatAxisShort, formatMoneyFull, formatMoneyShort, formatPercent } from '~/lib/format/number'
 import { formatMonth, formatMonthYear, getCompareLabel } from '~/lib/format/date'
-import type { Breakdown, Lang } from '~/lib/finance/types'
-import type { PnlLine, PnlLineKey } from '~/lib/finance/pnl'
+import type { Breakdown, Lang } from '~/lib/core/types'
+import type { PnlLine, PnlLineKey } from '~/lib/finance/pnl/pnl'
 
 export const Route = createFileRoute('/_authed/profit-loss')({
   validateSearch: drillSearchSchema,

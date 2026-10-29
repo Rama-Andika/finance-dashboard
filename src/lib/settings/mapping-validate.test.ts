@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { validateMapping } from './mapping-validate'
-import { buildCoaTree } from '~/lib/finance/coa-tree'
+import { buildCoaTree } from '~/lib/finance/coa/coa-tree'
 import { mockCoaRows } from 'tests/fixtures/coa.fixture'
-import type { AccountMapping } from '~/lib/finance/basket-resolver'
+import type { AccountMapping } from '~/lib/finance/coa/basket-resolver'
 
 describe('validateMapping', () => {
   const tree = buildCoaTree(mockCoaRows)

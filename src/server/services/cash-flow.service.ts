@@ -1,9 +1,9 @@
 import '@tanstack/react-start/server-only'
 import Decimal from 'decimal.js'
-import { D, sum } from '~/lib/finance/money'
+import { D, sum } from '~/lib/core/money'
 import { addDays } from '~/lib/format/date'
-import type { Id, MetricMeta, Money, Period } from '~/lib/finance/types'
-import type { CoaTree } from '~/lib/finance/coa-tree'
+import type { Id, MetricMeta, Money, Period } from '~/lib/core/types'
+import type { CoaTree } from '~/lib/finance/coa/coa-tree'
 import {
   type AppContextFilter,
   buildMetricMeta,
@@ -12,14 +12,14 @@ import {
 } from '~/server/context'
 import { memoMetric } from '~/server/cache'
 import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
-import { resolveBaskets } from '~/lib/finance/basket-resolver'
+import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
 import { balancesAt } from '~/server/services/balance.service'
 import {
   linesOfCashJournals,
   getCashFlowSetup,
   type CashJournalLineRow,
 } from '~/server/repo/cashflow.repo'
-import { UNCLASSIFIED_SUBGROUP } from '~/lib/finance/cashflow-labels'
+import { UNCLASSIFIED_SUBGROUP } from '~/lib/finance/cash/cashflow-labels'
 import {
   allocateCash,
   makeIsOurCash,
@@ -30,7 +30,7 @@ import {
   type CfLine,
   type CfSetupRow,
   type ClassifiedPortion,
-} from '~/lib/finance/cashflow'
+} from '~/lib/finance/cash/cashflow'
 
 export type CashFlowResult = {
   meta: MetricMeta

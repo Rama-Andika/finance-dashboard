@@ -21,8 +21,8 @@ import { PrintHeader } from '~/components/export/PrintHeader'
 import { useOpenDrill } from '~/components/drill/useOpenDrill'
 import { formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
 import { formatMonthYear, getCompareLabel } from '~/lib/format/date'
-import type { Breakdown, Lang } from '~/lib/finance/types'
-import type { InTransitDetailItem } from '~/lib/finance/cash-position'
+import type { Breakdown, Lang } from '~/lib/core/types'
+import type { InTransitDetailItem } from '~/lib/finance/cash/cash-position'
 
 export const Route = createFileRoute('/_authed/cash-position')({
   validateSearch: drillSearchSchema,

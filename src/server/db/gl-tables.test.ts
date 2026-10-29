@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { glTablesOf, groupPeriodsByTable, tablesBetween } from './gl-tables'
-import type { Period } from '~/lib/finance/types'
+import type { Period } from '~/lib/core/types'
 
 describe('glTablesOf', () => {
   it('returns gl and gl_detail for main table', () => {

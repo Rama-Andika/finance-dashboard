@@ -3,9 +3,9 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { ChevronRight, ChevronDown, Search, Folder, FileText } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '~/lib/cn'
-import type { CoaTree, CoaNode } from '~/lib/finance/coa-tree'
-import type { Id } from '~/lib/finance/types'
-import { checkState } from '~/lib/finance/basket-resolver'
+import type { CoaTree, CoaNode } from '~/lib/finance/coa/coa-tree'
+import type { Id } from '~/lib/core/types'
+import { checkState } from '~/lib/finance/coa/basket-resolver'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '~/components/ui/tooltip'
 
 export interface CoaTreePickerProps {

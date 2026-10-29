@@ -1,8 +1,8 @@
-import { postableAccountIds } from '~/lib/finance/coa-tree'
+import { postableAccountIds } from '~/lib/finance/coa/coa-tree'
 import '@tanstack/react-start/server-only'
 import Decimal from 'decimal.js'
-import { D, sum } from '~/lib/finance/money'
-import type { Money, Id, MetricMeta, Breakdown } from '~/lib/finance/types'
+import { D, sum } from '~/lib/core/money'
+import type { Money, Id, MetricMeta, Breakdown } from '~/lib/core/types'
 import {
   type AppContextFilter,
   buildMetricMeta,
@@ -17,7 +17,7 @@ import {
   computeNetRevenue,
   groupFolders,
   buildRevenueBreakdown,
-} from '~/lib/finance/revenue'
+} from '~/lib/finance/pnl/revenue'
 
 export type RevenueResult = {
   meta: MetricMeta

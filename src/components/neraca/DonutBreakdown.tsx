@@ -1,6 +1,6 @@
 import React from 'react'
 import Decimal from 'decimal.js'
-import type { Lang, Money } from '~/lib/finance/types'
+import type { Lang, Money } from '~/lib/core/types'
 import { formatMoneyShort } from '~/lib/format/number'
 import { useTranslation } from 'react-i18next'
 

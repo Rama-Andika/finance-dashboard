@@ -1,6 +1,6 @@
 import '@tanstack/react-start/server-only'
-import type { CoaTree } from '~/lib/finance/coa-tree'
-import type { AccountMapping } from '~/lib/finance/basket-resolver'
+import type { CoaTree } from '~/lib/finance/coa/coa-tree'
+import type { AccountMapping } from '~/lib/finance/coa/basket-resolver'
 import { getMappingRow } from '~/server/repo/settings.repo'
 import { parseMapping, defaultMapping } from '~/lib/settings/mapping-schema'
 

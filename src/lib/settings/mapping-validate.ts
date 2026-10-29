@@ -1,7 +1,7 @@
-import type { AccountMapping } from '~/lib/finance/basket-resolver'
-import { resolveBaskets } from '~/lib/finance/basket-resolver'
-import type { CoaTree } from '~/lib/finance/coa-tree'
-import type { BasketKey, Id } from '~/lib/finance/types'
+import type { AccountMapping } from '~/lib/finance/coa/basket-resolver'
+import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
+import type { CoaTree } from '~/lib/finance/coa/coa-tree'
+import type { BasketKey, Id } from '~/lib/core/types'
 
 export type MappingIssue =
   | { kind: 'conflict'; coaId: Id; baskets: BasketKey[] } // same account in >1 of cash/bank/deposit/inTransit -> BLOCKS saving

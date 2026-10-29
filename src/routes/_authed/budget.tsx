@@ -17,8 +17,8 @@ import { PrintHeader } from '~/components/export/PrintHeader'
 import { useOpenDrill } from '~/components/drill/useOpenDrill'
 import { formatMoneyFull } from '~/lib/format/number'
 import { formatMonthYear } from '~/lib/format/date'
-import type { Lang } from '~/lib/finance/types'
-import type { BudgetRow } from '~/lib/finance/budget'
+import type { Lang } from '~/lib/core/types'
+import type { BudgetRow } from '~/lib/finance/pnl/budget'
 
 export const Route = createFileRoute('/_authed/budget')({
   validateSearch: drillSearchSchema,

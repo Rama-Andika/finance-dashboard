@@ -13,9 +13,9 @@ import {
   PAYMENT_STATUS_PAID,
   intList,
 } from '~/server/db/erp-codes'
-import { D } from '~/lib/finance/money'
+import { D } from '~/lib/core/money'
 import { addDays } from '~/lib/format/date'
-import type { Id, IsoDate, Money, Period } from '~/lib/finance/types'
+import type { Id, IsoDate, Money, Period } from '~/lib/core/types'
 
 export type QCheckSummary = {
   count: number

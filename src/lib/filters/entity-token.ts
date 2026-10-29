@@ -1,4 +1,4 @@
-import type { Entity, Id } from '~/lib/finance/types'
+import type { Entity, Id } from '~/lib/core/types'
 
 /**
  * The `entity` URL parameter: `all`, or comma-separated location ids (`pos_location.location_id`),

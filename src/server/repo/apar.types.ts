@@ -1,4 +1,4 @@
-import type { Id, IsoDate, Money } from '~/lib/finance/types'
+import type { Id, IsoDate, Money } from '~/lib/core/types'
 
 export type AgingSide = 'ap' | 'ar'
 

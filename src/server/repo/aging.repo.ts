@@ -9,14 +9,14 @@ import {
   MODULE_TYPE,
   intList,
 } from '~/server/db/erp-codes'
-import { D } from '~/lib/finance/money'
+import { D } from '~/lib/core/money'
 import { memo } from '~/server/cache'
 import { addDays } from '~/lib/format/date'
 import { apArSnapshotCovers, snapshotOpenInvoices, snapshotUnallocated } from '~/server/dash/snapshot'
 import { apArHistCovers, histOpenInvoices, histUnallocated } from '~/server/dash/snapshot-hist'
 import { idOrEmpty, locationFilter, toDay } from '~/server/repo/apar.shared'
 import type { AgingInvoice, AgingSide, AgingUnallocated } from '~/server/repo/apar.types'
-import type { Id, IsoDate, Money } from '~/lib/finance/types'
+import type { Id, IsoDate, Money } from '~/lib/core/types'
 
 const AGING_CACHE_MS = 5 * 60 * 1000
 

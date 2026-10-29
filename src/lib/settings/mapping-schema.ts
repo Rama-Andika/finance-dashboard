@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import type { AccountMapping } from '~/lib/finance/basket-resolver'
-import type { CoaTree } from '~/lib/finance/coa-tree'
+import type { AccountMapping } from '~/lib/finance/coa/basket-resolver'
+import type { CoaTree } from '~/lib/finance/coa/coa-tree'
 
 const idList = z.array(z.string().regex(/^\d{1,20}$/)).max(1000)
 

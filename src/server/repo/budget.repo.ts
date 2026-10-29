@@ -4,8 +4,8 @@ import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
 import { chunkOrAll } from '~/server/db/chunk'
 import { assertSegmentColumn } from '~/server/db/segment-column'
-import { D } from '~/lib/finance/money'
-import type { Id, Money } from '~/lib/finance/types'
+import { D } from '~/lib/core/money'
+import type { Id, Money } from '~/lib/core/types'
 
 export type BudgetAmountRow = {
   coaId: Id

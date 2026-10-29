@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseMapping, defaultMapping, mappingSchema } from './mapping-schema'
-import { buildCoaTree } from '~/lib/finance/coa-tree'
+import { buildCoaTree } from '~/lib/finance/coa/coa-tree'
 import { mockCoaRows } from 'tests/fixtures/coa.fixture'
 
 describe('mappingSchema & parseMapping', () => {

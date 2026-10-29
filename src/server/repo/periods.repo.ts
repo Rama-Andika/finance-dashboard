@@ -1,7 +1,7 @@
 import '@tanstack/react-start/server-only'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
-import type { Period, PeriodStatus } from '~/lib/finance/types'
+import type { Period, PeriodStatus } from '~/lib/core/types'
 
 type PeriodRow = {
   periodeId: string

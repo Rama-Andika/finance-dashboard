@@ -5,12 +5,12 @@ import { inList } from '~/server/db/in-list'
 import { chunk, chunkOrAll } from '~/server/db/chunk'
 import { assertSegmentColumn } from '~/server/db/segment-column'
 import { glTablesOf, groupPeriodsByTable } from '~/server/db/gl-tables'
-import { D } from '~/lib/finance/money'
+import { D } from '~/lib/core/money'
 import { diffDays } from '~/lib/format/date'
-import { mergeJournalPages } from '~/lib/finance/journal-page'
+import { mergeJournalPages } from '~/lib/finance/journal/journal-page'
 import { glMovementsCache, hashIds, type CachedMovementRow } from '~/server/cache'
 import { GL_SNAPSHOT_SEGMENT_COLUMN, builtGlPeriods, snapshotMovements } from '~/server/dash/gl-snapshot'
-import type { AccountGroup, Id, IsoDate, Money, Period } from '~/lib/finance/types'
+import type { AccountGroup, Id, IsoDate, Money, Period } from '~/lib/core/types'
 
 export type MovementRow = CachedMovementRow
 

@@ -1,6 +1,6 @@
 import '@tanstack/react-start/server-only'
-import { D, sum } from '~/lib/finance/money'
-import type { Money, Id, MetricMeta, Breakdown } from '~/lib/finance/types'
+import { D, sum } from '~/lib/core/money'
+import type { Money, Id, MetricMeta, Breakdown } from '~/lib/core/types'
 import {
   type AppContextFilter,
   buildMetricMeta,
@@ -9,7 +9,7 @@ import {
 } from '~/server/context'
 import { memoMetric } from '~/server/cache'
 import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
-import { resolveBaskets } from '~/lib/finance/basket-resolver'
+import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
 import { balancesAt, balancesBySegmentAt } from '~/server/services/balance.service'
 import { unsettledByChannel } from '~/server/repo/bank-payment.repo'
 import {
@@ -19,7 +19,7 @@ import {
   reconcileInTransit,
   type InTransitDetailItem,
   type CashPositionReconciliation,
-} from '~/lib/finance/cash-position'
+} from '~/lib/finance/cash/cash-position'
 
 export type CashPositionResult = {
   meta: MetricMeta

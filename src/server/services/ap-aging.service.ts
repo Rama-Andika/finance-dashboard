@@ -1,10 +1,10 @@
 import '@tanstack/react-start/server-only'
-import { D, sum } from '~/lib/finance/money'
+import { D, sum } from '~/lib/core/money'
 import { addDays } from '~/lib/format/date'
 import { memoMetric } from '~/server/cache'
 import { apArSnapshotCovers, apArSnapshotInfo, memoBySnapshot } from '~/server/dash/snapshot'
 import { apArHistCovers } from '~/server/dash/snapshot-hist'
-import type { Id, MetricMeta, Money } from '~/lib/finance/types'
+import type { Id, MetricMeta, Money } from '~/lib/core/types'
 import {
   type AppContextFilter,
   buildMetricMeta,
@@ -16,9 +16,9 @@ import { balancesAt } from '~/server/services/balance.service'
 import {
   computeApAging as calculateApAging,
   type VendorAgingSummary,
-} from '~/lib/finance/apar'
-import type { AgingBucket } from '~/lib/finance/aging'
-import type { CoaTree } from '~/lib/finance/coa-tree'
+} from '~/lib/finance/ap-ar/apar'
+import type { AgingBucket } from '~/lib/finance/ap-ar/aging'
+import type { CoaTree } from '~/lib/finance/coa/coa-tree'
 
 export type ApAgingResult = {
   meta: MetricMeta

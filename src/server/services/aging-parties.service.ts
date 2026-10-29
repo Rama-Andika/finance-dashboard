@@ -7,7 +7,7 @@ import {
   toPartyRow,
   type AgingPartyRow,
   type AgingSide,
-} from '~/lib/finance/aging-parties'
+} from '~/lib/finance/ap-ar/aging-parties'
 import { paginate, type Page, type TableQuery } from '~/lib/table/query'
 
 /** Every vendor / customer of the aging core. It lives as long as the snapshot, so paging never re-queries the DB or the GL. */

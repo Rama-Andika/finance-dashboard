@@ -1,15 +1,15 @@
 import '@tanstack/react-start/server-only'
 import Decimal from 'decimal.js'
-import { D } from '~/lib/finance/money'
-import { type Entity, type Id, type IsoDate, type Period } from '~/lib/finance/types'
+import { D } from '~/lib/core/money'
+import { type Entity, type Id, type IsoDate, type Period } from '~/lib/core/types'
 import { type AppContextFilter } from '~/server/context'
 import { journalHeaders, journalLines, movementsByPeriods } from '~/server/repo/gl.repo'
 import { tablesBetween } from '~/server/db/gl-tables'
 import { listPlanStatuses } from '~/server/repo/payment-plan.repo'
-import { postableDescendants, type CoaTree } from '~/lib/finance/coa-tree'
-import { signedAmount } from '~/lib/finance/sign'
-import { getJournalGroupKey } from '~/lib/finance/journal-type'
-import { bucketOf, planStatus } from '~/lib/finance/aging'
+import { postableDescendants, type CoaTree } from '~/lib/finance/coa/coa-tree'
+import { signedAmount } from '~/lib/finance/coa/sign'
+import { getJournalGroupKey } from '~/lib/finance/journal/journal-type'
+import { bucketOf, planStatus } from '~/lib/finance/ap-ar/aging'
 import { type ClassifiedCashPortion } from '~/server/services/cash-flow.service'
 import { type DrillStep, type DrillStepKind } from '~/lib/filters/search-schema'
 
@@ -33,7 +33,7 @@ export type DrillResult = {
 }
 
 export const PAGE_SIZE = 200
-export { AP_BILL_ITEM_TYPES } from '~/lib/finance/expense-paid'
+export { AP_BILL_ITEM_TYPES } from '~/lib/finance/ap-ar/expense-paid'
 
 export const col = (id: string, kind: DrillColumnKind, labelKey = `drill.col.${id}`): DrillColumn => ({
   id,

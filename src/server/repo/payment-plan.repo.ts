@@ -3,9 +3,9 @@ import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
 import { chunk } from '~/server/db/chunk'
-import { ACTIVE_VOUCHER_STATUSES } from '~/lib/finance/aging'
+import { ACTIVE_VOUCHER_STATUSES } from '~/lib/finance/ap-ar/aging'
 import { memo } from '~/server/cache'
-import type { Id } from '~/lib/finance/types'
+import type { Id } from '~/lib/core/types'
 
 const PLAN_STATUS_CACHE_MS = 5 * 60 * 1000
 

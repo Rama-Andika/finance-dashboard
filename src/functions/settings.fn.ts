@@ -2,9 +2,9 @@ import { createServerFn } from '@tanstack/react-start'
 import { authMiddleware } from '~/functions/middleware'
 import { mappingSchema } from '~/lib/settings/mapping-schema'
 import { metricInputSchema } from '~/lib/filters/search-schema'
-import type { AccountMapping } from '~/lib/finance/basket-resolver'
+import type { AccountMapping } from '~/lib/finance/coa/basket-resolver'
 import type { MappingIssue } from '~/lib/settings/mapping-validate'
-import type { AccountGroup, Id, Money } from '~/lib/finance/types'
+import type { AccountGroup, Id, Money } from '~/lib/core/types'
 
 export type GetAccountMappingResult = {
   mapping: AccountMapping
@@ -44,7 +44,7 @@ export const saveAccountMappingFn = createServerFn({ method: 'POST' })
       data,
     }): Promise<{ ok: true; mapping: AccountMapping } | { ok: false; blocking: MappingIssue[] }> => {
       const { listCoa } = await import('~/server/repo/coa.repo')
-      const { buildCoaTree } = await import('~/lib/finance/coa-tree')
+      const { buildCoaTree } = await import('~/lib/finance/coa/coa-tree')
       const { validateMapping } = await import('~/lib/settings/mapping-validate')
       const { upsertMapping } = await import('~/server/repo/settings.repo')
       const { clearCache } = await import('~/server/cache')

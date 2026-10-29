@@ -1,9 +1,9 @@
-import { postableAccountIds } from '~/lib/finance/coa-tree'
+import { postableAccountIds } from '~/lib/finance/coa/coa-tree'
 import '@tanstack/react-start/server-only'
 import Decimal from 'decimal.js'
-import { D, sum } from '~/lib/finance/money'
-import { signedAmount } from '~/lib/finance/sign'
-import type { AccountGroup, Id, MetricMeta, Money } from '~/lib/finance/types'
+import { D, sum } from '~/lib/core/money'
+import { signedAmount } from '~/lib/finance/coa/sign'
+import type { AccountGroup, Id, MetricMeta, Money } from '~/lib/core/types'
 import {
   type AppContextFilter,
   buildMetricMeta,
@@ -11,14 +11,14 @@ import {
 } from '~/server/context'
 import { memoMetric } from '~/server/cache'
 import { loadPlMovements, onlyAccounts } from '~/server/services/shared/pl-movements'
-import { PNL_ACCOUNT_GROUPS as BUDGET_ACCOUNT_GROUPS, isIncomeGroup } from '~/lib/finance/account-groups'
+import { PNL_ACCOUNT_GROUPS as BUDGET_ACCOUNT_GROUPS, isIncomeGroup } from '~/lib/finance/coa/account-groups'
 import { budgetAmounts } from '~/server/repo/budget.repo'
 import {
   buildBudgetTree,
   computeVariance,
   monthToMonth0,
   type BudgetRow,
-} from '~/lib/finance/budget'
+} from '~/lib/finance/pnl/budget'
 
 export type BudgetResult = {
   meta: MetricMeta

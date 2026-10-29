@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Period } from '~/lib/finance/types'
+import type { Period } from '~/lib/core/types'
 
 const rowsMock = vi.fn()
 vi.mock('~/server/db/query', () => ({ rows: (...args: unknown[]) => rowsMock(...args) }))

@@ -6,9 +6,9 @@ import { chunk, chunkOrAll } from '~/server/db/chunk'
 import { assertSegmentColumn } from '~/server/db/segment-column'
 import { BANK_PAYMENT_CHANNEL_TYPES, BANK_PAYMENT_STATUS, intList } from '~/server/db/erp-codes'
 import { addDays } from '~/lib/format/date'
-import { D } from '~/lib/finance/money'
+import { D } from '~/lib/core/money'
 import { hashIds, memo } from '~/server/cache'
-import type { Id, IsoDate, Money } from '~/lib/finance/types'
+import type { Id, IsoDate, Money } from '~/lib/core/types'
 
 const UNSETTLED_CACHE_MS = 60 * 1000
 

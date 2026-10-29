@@ -27,7 +27,7 @@ import { PrintButton } from '~/components/export/PrintButton'
 import { PrintHeader } from '~/components/export/PrintHeader'
 import { formatAxisShort, formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
 import { formatMonth, formatMonthYear, getCompareLabel } from '~/lib/format/date'
-import type { Breakdown, Lang } from '~/lib/finance/types'
+import type { Breakdown, Lang } from '~/lib/core/types'
 
 export const Route = createFileRoute('/_authed/revenue')({
   validateSearch: drillSearchSchema,

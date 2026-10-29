@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
-import type { IsoDate, Lang, Money } from '~/lib/finance/types'
+import type { IsoDate, Lang, Money } from '~/lib/core/types'
 import { FigureTooltip } from '~/components/neraca/FigureTooltip'
-import { D } from '~/lib/finance/money'
+import { D } from '~/lib/core/money'
 import { formatAmountShort, formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
 import { cn } from '~/lib/cn'
 

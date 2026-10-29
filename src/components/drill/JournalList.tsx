@@ -1,4 +1,4 @@
-import type { Lang } from '~/lib/finance/types'
+import type { Lang } from '~/lib/core/types'
 import { formatDate } from '~/lib/format/date'
 import { formatMoneyFull } from '~/lib/format/number'
 import { useTranslation } from 'react-i18next'

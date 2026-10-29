@@ -5,9 +5,9 @@ import { inList } from '~/server/db/in-list'
 import { chunk, chunkOrAll } from '~/server/db/chunk'
 import { assertSegmentColumn } from '~/server/db/segment-column'
 import { glTablesOf, groupPeriodsByTable } from '~/server/db/gl-tables'
-import { D } from '~/lib/finance/money'
+import { D } from '~/lib/core/money'
 import { hashIds, memo } from '~/server/cache'
-import type { Id, Money, Period } from '~/lib/finance/types'
+import type { Id, Money, Period } from '~/lib/core/types'
 
 const CASH_LINES_CACHE_MS = 60 * 1000
 

@@ -1,8 +1,8 @@
 import '@tanstack/react-start/server-only'
 import Decimal from 'decimal.js'
-import { D } from '~/lib/finance/money'
+import { D } from '~/lib/core/money'
 import { addDays } from '~/lib/format/date'
-import type { Breakdown, Id, MetricMeta, Money } from '~/lib/finance/types'
+import type { Breakdown, Id, MetricMeta, Money } from '~/lib/core/types'
 import {
   type AppContextFilter,
   buildMetricMeta,
@@ -12,17 +12,17 @@ import {
 } from '~/server/context'
 import { memoMetric } from '~/server/cache'
 import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
-import { resolveBaskets } from '~/lib/finance/basket-resolver'
+import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
 import { expensePaidAllocated, expensePaidUnallocated } from '~/server/repo/expense-paid.repo'
 import { listVendors } from '~/server/repo/party.repo'
 import { linesOfCashJournals } from '~/server/repo/cashflow.repo'
-import { allocateCash, makeIsOurCash } from '~/lib/finance/cashflow'
-import { isDirectExpenseGroup } from '~/lib/finance/account-groups'
+import { allocateCash, makeIsOurCash } from '~/lib/finance/cash/cashflow'
+import { isDirectExpenseGroup } from '~/lib/finance/coa/account-groups'
 import {
   AP_BILL_ITEM_TYPES,
   computeExpensePaidBreakdown,
   type DirectExpensePortion,
-} from '~/lib/finance/expense-paid'
+} from '~/lib/finance/ap-ar/expense-paid'
 import { allCashAccountIds } from '~/server/services/cash-flow.service'
 
 export type ExpensePaidResult = {

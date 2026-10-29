@@ -1,7 +1,7 @@
 import '@tanstack/react-start/server-only'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
-import type { CoaRow } from '~/lib/finance/coa-tree'
+import type { CoaRow } from '~/lib/finance/coa/coa-tree'
 
 export async function listCoa(): Promise<CoaRow[]> {
   const result = await rows<{

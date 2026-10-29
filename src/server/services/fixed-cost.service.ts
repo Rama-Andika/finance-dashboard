@@ -1,6 +1,6 @@
-import { postableAccountIds } from '~/lib/finance/coa-tree'
+import { postableAccountIds } from '~/lib/finance/coa/coa-tree'
 import '@tanstack/react-start/server-only'
-import type { Breakdown, Id, MetricMeta, Money } from '~/lib/finance/types'
+import type { Breakdown, Id, MetricMeta, Money } from '~/lib/core/types'
 import {
   type AppContextFilter,
   buildMetricMeta,
@@ -8,14 +8,14 @@ import {
   getCachedPeriods,
 } from '~/server/context'
 import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
-import { resolveBaskets } from '~/lib/finance/basket-resolver'
+import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
 import { memoMetric } from '~/server/cache'
 import { loadPlMovements, onlyAccounts } from '~/server/services/shared/pl-movements'
 import {
   computeFixedCost as calculateFixedCost,
   type MonthCost,
   type FixedCostMovement,
-} from '~/lib/finance/fixed-cost'
+} from '~/lib/finance/pnl/fixed-cost'
 
 export type FixedCostResult = {
   meta: MetricMeta

@@ -3,7 +3,7 @@ import { getCachedEntities, getCachedPeriods } from '~/server/context'
 import { builtGlPeriods } from '~/server/dash/gl-snapshot'
 import { movementsByPeriods, type MovementRow } from '~/server/repo/gl.repo'
 import { clearCache } from '~/server/cache'
-import type { Period } from '~/lib/finance/types'
+import type { Period } from '~/lib/core/types'
 
 /**
  * Closed-period GL movements from the snapshot must equal the live ERP query, for every option combination the

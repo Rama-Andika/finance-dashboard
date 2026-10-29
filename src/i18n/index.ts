@@ -1,6 +1,6 @@
 import i18next, { type i18n } from 'i18next'
 import { initReactI18next } from 'react-i18next'
-import type { Lang } from '~/lib/finance/types'
+import type { Lang } from '~/lib/core/types'
 import en from './locales/en.json'
 import id from './locales/id.json'
 

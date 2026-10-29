@@ -1,6 +1,6 @@
 import Decimal from 'decimal.js'
 import { useTranslation } from 'react-i18next'
-import type { Lang, Money } from '~/lib/finance/types'
+import type { Lang, Money } from '~/lib/core/types'
 import { DeltaPill } from '~/components/neraca/DeltaPill'
 import { FigureTooltip } from '~/components/neraca/FigureTooltip'
 import { formatAmountShort, formatMoneyFull, formatMoneyShort } from '~/lib/format/number'

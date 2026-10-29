@@ -1,4 +1,4 @@
-import type { CfLine, CfSetupRow } from '~/lib/finance/cashflow'
+import type { CfLine, CfSetupRow } from '~/lib/finance/cash/cashflow'
 
 export const mockCashCoaIds = ['1110', '1120', '1130'] // Kas, Bank, Deposito
 

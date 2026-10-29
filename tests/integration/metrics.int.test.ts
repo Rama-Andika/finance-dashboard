@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll } from 'vitest'
-import { D, sum } from '~/lib/finance/money'
+import { D, sum } from '~/lib/core/money'
 import { resolveFilter, getCachedEntities, type AppContextFilter } from '~/server/context'
 import { computeCashPosition } from '~/server/services/cash-position.service'
 import { computeRevenue } from '~/server/services/revenue.service'

@@ -3,10 +3,10 @@ import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { AGING_SIDES, type AgingSide } from '~/server/db/erp-codes'
 import { clearCache, memo, memoMetric } from '~/server/cache'
-import type { Id, IsoDate } from '~/lib/finance/types'
+import type { Id, IsoDate } from '~/lib/core/types'
 import type { AgingInvoice, AgingUnallocated } from '~/server/repo/apar.types'
 import { env } from '~/server/env'
-import type { SnapshotProblem } from '~/lib/finance/snapshot-state'
+import type { SnapshotProblem } from '~/lib/finance/ap-ar/snapshot-state'
 import { DASH_TABLES, SNAPSHOT_AP_AR } from './tables'
 
 export type SnapshotInfo = {

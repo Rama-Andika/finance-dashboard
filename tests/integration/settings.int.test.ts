@@ -2,8 +2,8 @@ import { describe, expect, it, afterAll } from 'vitest'
 import { getMappingRow, upsertMapping, MAPPING_KEY } from '~/server/repo/settings.repo'
 import { parseMapping, defaultMapping } from '~/lib/settings/mapping-schema'
 import { listCoa } from '~/server/repo/coa.repo'
-import { buildCoaTree } from '~/lib/finance/coa-tree'
-import type { AccountMapping } from '~/lib/finance/basket-resolver'
+import { buildCoaTree } from '~/lib/finance/coa/coa-tree'
+import type { AccountMapping } from '~/lib/finance/coa/basket-resolver'
 
 // Tests write to their own system_main row so the real dashboard mapping is never touched.
 const TEST_KEY = 'DASHBOARD_ACCOUNT_MAPPING_TEST'

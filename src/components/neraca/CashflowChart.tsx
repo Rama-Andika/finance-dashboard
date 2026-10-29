@@ -10,8 +10,8 @@ import {
   Tooltip as RechartsTooltip,
   Cell,
 } from 'recharts'
-import type { Lang } from '~/lib/finance/types'
-import type { Money } from '~/lib/finance/types'
+import type { Lang } from '~/lib/core/types'
+import type { Money } from '~/lib/core/types'
 import { formatAxisShort, formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
 import { formatMonth, formatMonthYear } from '~/lib/format/date'
 import { useTranslation } from 'react-i18next'

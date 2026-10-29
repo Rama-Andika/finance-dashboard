@@ -1,4 +1,4 @@
-import { limitMonthOptions } from '~/lib/finance/period-options'
+import { limitMonthOptions } from '~/lib/finance/period/period-options'
 import { useEffect, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Calendar } from 'lucide-react'

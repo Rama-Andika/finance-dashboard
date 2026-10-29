@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildCoaTree, type CoaRow } from '~/lib/finance/coa-tree'
-import type { Period } from '~/lib/finance/types'
+import { buildCoaTree, type CoaRow } from '~/lib/finance/coa/coa-tree'
+import type { Period } from '~/lib/core/types'
 
 /**
  * Query budgets: how many repository (= SQL) calls a metric may make per request.

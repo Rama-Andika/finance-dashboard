@@ -2,7 +2,7 @@ import '@tanstack/react-start/server-only'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { isSegmentColumn } from '~/server/db/segment-column'
-import type { Entity, Id } from '~/lib/finance/types'
+import type { Entity, Id } from '~/lib/core/types'
 
 export type EntitySegment = { segmentId: Id; columnName: string }
 

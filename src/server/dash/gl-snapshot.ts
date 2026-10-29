@@ -7,7 +7,7 @@ import { chunk, chunkOrAll } from '~/server/db/chunk'
 import { glTablesOf } from '~/server/db/gl-tables'
 import { memo } from '~/server/cache'
 import { listPeriods } from '~/server/repo/periods.repo'
-import type { AccountGroup, Id, Period } from '~/lib/finance/types'
+import type { AccountGroup, Id, Period } from '~/lib/core/types'
 import type { CachedMovementRow } from '~/server/cache'
 import { DASH_TABLES, dashTable } from './tables'
 

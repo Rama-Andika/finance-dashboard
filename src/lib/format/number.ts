@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js'
-import type { Lang, Money } from '~/lib/finance/types'
+import type { Lang, Money } from '~/lib/core/types'
 
 // One number style for every language: 1,000,000.50 (the `lang` parameters below are kept only so
 // call sites do not change; they no longer affect separators or units).

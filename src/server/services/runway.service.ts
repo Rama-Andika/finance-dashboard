@@ -1,8 +1,8 @@
 import '@tanstack/react-start/server-only'
 import Decimal from 'decimal.js'
-import { postableAccountIds } from '~/lib/finance/coa-tree'
-import { D, sum } from '~/lib/finance/money'
-import type { Id, MetricMeta, Money, Period } from '~/lib/finance/types'
+import { postableAccountIds } from '~/lib/finance/coa/coa-tree'
+import { D, sum } from '~/lib/core/money'
+import type { Id, MetricMeta, Money, Period } from '~/lib/core/types'
 import {
   type AppContextFilter,
   buildMetricMeta,
@@ -11,17 +11,17 @@ import {
 } from '~/server/context'
 import { memoMetric } from '~/server/cache'
 import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
-import { resolveBaskets } from '~/lib/finance/basket-resolver'
+import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
 import { balancesAt } from '~/server/services/balance.service'
 import { computeCashPosition } from '~/server/services/cash-position.service'
 import { computePnl } from '~/server/services/pnl.service'
 import { linesOfCashJournals } from '~/server/repo/cashflow.repo'
-import { allocateCash, makeIsOurCash } from '~/lib/finance/cashflow'
+import { allocateCash, makeIsOurCash } from '~/lib/finance/cash/cashflow'
 import {
   computeAvgBurn,
   computeRunway,
   computeRatios,
-} from '~/lib/finance/runway'
+} from '~/lib/finance/cash/runway'
 
 export type RunwayResult = {
   meta: MetricMeta

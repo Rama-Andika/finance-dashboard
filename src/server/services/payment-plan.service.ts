@@ -1,18 +1,18 @@
 import { memoMetric } from '~/server/cache'
 import { paginate, type Page, type TableQuery } from '~/lib/table/query'
-import { paymentBillComparators } from '~/lib/finance/payment-plan-bills'
-import type { PaymentPlanBill } from '~/lib/finance/payment-plan'
+import { paymentBillComparators } from '~/lib/finance/ap-ar/payment-plan-bills'
+import type { PaymentPlanBill } from '~/lib/finance/ap-ar/payment-plan'
 import '@tanstack/react-start/server-only'
-import { D } from '~/lib/finance/money'
+import { D } from '~/lib/core/money'
 import { addDays } from '~/lib/format/date'
-import type { Id, MetricMeta, Money } from '~/lib/finance/types'
+import type { Id, MetricMeta, Money } from '~/lib/core/types'
 import {
   type AppContextFilter,
   buildMetricMeta,
   getCachedCoaTree,
 } from '~/server/context'
 import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
-import { resolveBaskets } from '~/lib/finance/basket-resolver'
+import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
 import { computeCashPosition } from '~/server/services/cash-position.service'
 import { apOpenInvoices, arOpenInvoices } from '~/server/repo/aging.repo'
 import { listActivePlanStatuses } from '~/server/repo/payment-plan.repo'
@@ -21,14 +21,14 @@ import {
   unsettledByChannel,
   settlementLag,
 } from '~/server/repo/bank-payment.repo'
-import { planStatus } from '~/lib/finance/aging'
+import { planStatus } from '~/lib/finance/ap-ar/aging'
 import {
   buildPaymentPlan,
   type ApItemForPlan,
   type ArItemForPlan,
   type PaymentPlanDay,
   type UnsettledBankForPlan,
-} from '~/lib/finance/payment-plan'
+} from '~/lib/finance/ap-ar/payment-plan'
 
 export type { PaymentPlanBill }
 

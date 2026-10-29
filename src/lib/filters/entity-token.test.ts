@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { describeEntityToken, parseEntityToken, serializeEntityToken } from './entity-token'
-import type { Entity } from '~/lib/finance/types'
+import type { Entity } from '~/lib/core/types'
 
 // Real location ids are 18+ digit strings; they must stay strings.
 const mockEntities: Entity[] = [

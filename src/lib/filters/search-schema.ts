@@ -1,8 +1,8 @@
 import { z } from 'zod'
+import { PRESETS, type Preset } from '~/lib/finance/period/presets'
 
-export const PRESETS = ['this-month', 'last-month', 'this-quarter', 'ytd', 'last-12m'] as const // F3
+export { PRESETS, type Preset }
 export const HORIZONS = ['7', '14', '30'] as const // F4
-export type Preset = (typeof PRESETS)[number]
 export type Horizon = (typeof HORIZONS)[number]
 
 export const MONTH_KEY_RE = /^\d{4}-(0[1-9]|1[0-2])$/

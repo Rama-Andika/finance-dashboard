@@ -10,10 +10,10 @@ import { CoaTreePicker } from '~/components/settings/CoaTreePicker'
 import { BasketPreview } from '~/components/settings/BasketPreview'
 import { accountMappingQueryOptions, coaTreeQueryOptions } from '~/queries/settings.queries'
 import { saveAccountMappingFn } from '~/functions/settings.fn'
-import { buildCoaTree } from '~/lib/finance/coa-tree'
-import { toggleNode, resolveBaskets, type AccountMapping } from '~/lib/finance/basket-resolver'
+import { buildCoaTree } from '~/lib/finance/coa/coa-tree'
+import { toggleNode, resolveBaskets, type AccountMapping } from '~/lib/finance/coa/basket-resolver'
 import { validateMapping } from '~/lib/settings/mapping-validate'
-import type { BasketKey, Id } from '~/lib/finance/types'
+import type { BasketKey, Id } from '~/lib/core/types'
 
 export const Route = createFileRoute('/_authed/settings/account-mapping')({
   component: AccountMappingPage,

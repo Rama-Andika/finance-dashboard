@@ -1,7 +1,7 @@
 import '@tanstack/react-start/server-only'
 import { sql, type SQL } from 'drizzle-orm'
 import { inList } from '~/server/db/in-list'
-import type { Id, IsoDate } from '~/lib/finance/types'
+import type { Id, IsoDate } from '~/lib/core/types'
 
 export const toDay = (v: unknown): IsoDate => String(v).slice(0, 10)
 export const idOrEmpty = (v: unknown): Id => (v ? String(v) : '')

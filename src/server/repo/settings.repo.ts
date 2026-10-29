@@ -5,7 +5,7 @@ import { db } from '~/server/db/client'
 import { rows } from '~/server/db/query'
 import { env } from '~/server/env'
 import { generateErpOid } from '~/server/oid'
-import type { Id } from '~/lib/finance/types'
+import type { Id } from '~/lib/core/types'
 
 /** system_main key of the dashboard account mapping (convention O7). */
 export const MAPPING_KEY = 'DASHBOARD_ACCOUNT_MAPPING'

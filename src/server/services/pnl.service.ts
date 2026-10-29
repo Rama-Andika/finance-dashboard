@@ -1,5 +1,5 @@
 import '@tanstack/react-start/server-only'
-import type { Id, MetricMeta, Money } from '~/lib/finance/types'
+import type { Id, MetricMeta, Money } from '~/lib/core/types'
 import { env } from '~/server/env'
 import { memoMetric } from '~/server/cache'
 import {
@@ -8,15 +8,15 @@ import {
   getCachedCoaTree,
 } from '~/server/context'
 import { loadPlMovements, onlyAccounts } from '~/server/services/shared/pl-movements'
-import { postableAccountIds } from '~/lib/finance/coa-tree'
-import { PNL_ACCOUNT_GROUPS } from '~/lib/finance/account-groups'
+import { postableAccountIds } from '~/lib/finance/coa/coa-tree'
+import { PNL_ACCOUNT_GROUPS } from '~/lib/finance/coa/account-groups'
 import {
   buildPnl,
   findOciCoaIds,
   type PnlLine,
   type PnlLineKey,
   type PnlMovement,
-} from '~/lib/finance/pnl'
+} from '~/lib/finance/pnl/pnl'
 
 export type PnlResult = {
   meta: MetricMeta

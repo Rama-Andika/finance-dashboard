@@ -1,4 +1,4 @@
-import { translateCfLabel } from '~/lib/finance/cashflow-labels'
+import { translateCfLabel } from '~/lib/finance/cash/cashflow-labels'
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useOpenDrill } from '~/components/drill/useOpenDrill'
@@ -33,8 +33,8 @@ import { PrintButton } from '~/components/export/PrintButton'
 import { PrintHeader } from '~/components/export/PrintHeader'
 import { formatAxisShort, formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
 import { formatMonthYear } from '~/lib/format/date'
-import type { Breakdown, Lang } from '~/lib/finance/types'
-import { buildActivityRows, buildWaterfall, localizeExpense, type CashFlowActivityRow } from '~/lib/finance/cashflow-view'
+import type { Breakdown, Lang } from '~/lib/core/types'
+import { buildActivityRows, buildWaterfall, localizeExpense, type CashFlowActivityRow } from '~/lib/finance/cash/cashflow-view'
 
 export const Route = createFileRoute('/_authed/cash-flow')({
   validateSearch: drillSearchSchema,

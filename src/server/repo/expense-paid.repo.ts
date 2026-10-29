@@ -3,9 +3,9 @@ import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { chunkOrAll } from '~/server/db/chunk'
 import { EXPENSE_PAID_TYPES, IN_OUT_VALUES, MODULE_TYPE, intList } from '~/server/db/erp-codes'
-import { D } from '~/lib/finance/money'
+import { D } from '~/lib/core/money'
 import { idOrEmpty, locationFilter, toDay } from '~/server/repo/apar.shared'
-import type { Id, IsoDate, Money } from '~/lib/finance/types'
+import type { Id, IsoDate, Money } from '~/lib/core/types'
 
 export type ExpensePaidAllocatedRow = {
   cardId: Id

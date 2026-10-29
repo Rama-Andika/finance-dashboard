@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { authMiddleware } from '~/functions/middleware'
 import type { Preset } from '~/lib/filters/search-schema'
-import type { IsoDate } from '~/lib/finance/types'
+import type { IsoDate } from '~/lib/core/types'
 
 export type FilterOptions = {
   /** `id` is the location id: the `entity` URL parameter is a comma-separated list of these (kept as strings). */
@@ -16,7 +16,7 @@ export const getFilterOptionsFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .handler(async (): Promise<FilterOptions> => {
     const { getCachedEntities, getCachedPeriods, appToday } = await import('~/server/context')
-    const { resolvePeriod } = await import('~/lib/finance/periods')
+    const { resolvePeriod } = await import('~/lib/finance/period/periods')
     const { PRESETS } = await import('~/lib/filters/search-schema')
 
     const { entities } = await getCachedEntities()

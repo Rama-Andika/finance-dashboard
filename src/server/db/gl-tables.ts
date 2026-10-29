@@ -1,5 +1,5 @@
 import '@tanstack/react-start/server-only'
-import type { Period } from '~/lib/finance/types'
+import type { Period } from '~/lib/core/types'
 
 const GL_TABLE_RE = /^gl(_20\d{2})?$/ // 'gl', 'gl_2015', ..., 'gl_2099'
 

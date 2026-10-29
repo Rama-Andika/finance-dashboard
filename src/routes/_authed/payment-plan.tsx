@@ -1,4 +1,4 @@
-import { summarizePlan } from '~/lib/finance/payment-plan'
+import { summarizePlan } from '~/lib/finance/ap-ar/payment-plan'
 import { searchUpdater } from '~/lib/filters/search-update'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -32,9 +32,9 @@ import { PrintButton } from '~/components/export/PrintButton'
 import { PrintHeader } from '~/components/export/PrintHeader'
 import { formatAxisShort, formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
 import { formatDate, formatMonthYear } from '~/lib/format/date'
-import { D, sum } from '~/lib/finance/money'
-import type { Lang } from '~/lib/finance/types'
-import type { PaymentPlanDay } from '~/lib/finance/payment-plan'
+import { D, sum } from '~/lib/core/money'
+import type { Lang } from '~/lib/core/types'
+import type { PaymentPlanDay } from '~/lib/finance/ap-ar/payment-plan'
 
 export const Route = createFileRoute('/_authed/payment-plan')({
   validateSearch: paymentPlanSearchSchema.extend(drillSearchSchema.shape),

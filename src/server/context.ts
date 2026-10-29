@@ -2,14 +2,14 @@ import '@tanstack/react-start/server-only'
 import { env } from '~/server/env'
 import { todayIn } from '~/lib/format/date'
 import type { MetricInput } from '~/lib/filters/search-schema'
-import type { ResolvedFilter, Id, MetricMeta } from '~/lib/finance/types'
+import type { ResolvedFilter, Id, MetricMeta } from '~/lib/core/types'
 import { memo } from '~/server/cache'
 import { getEntitySegment, listEntities } from '~/server/repo/entities.repo'
 import { listPeriods } from '~/server/repo/periods.repo'
 import { listCoa } from '~/server/repo/coa.repo'
-import { buildCoaTree } from '~/lib/finance/coa-tree'
+import { buildCoaTree } from '~/lib/finance/coa/coa-tree'
 import { parseEntityToken } from '~/lib/filters/entity-token'
-import { resolvePeriod } from '~/lib/finance/periods'
+import { resolvePeriod } from '~/lib/finance/period/periods'
 
 const TEN_MINUTES = 10 * 60 * 1000
 

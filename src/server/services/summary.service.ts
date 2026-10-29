@@ -1,5 +1,5 @@
 import '@tanstack/react-start/server-only'
-import type { Breakdown, MetricMeta, Money } from '~/lib/finance/types'
+import type { Breakdown, MetricMeta, Money } from '~/lib/core/types'
 import { type AppContextFilter, buildMetricMeta } from '~/server/context'
 import { computeCashPosition } from '~/server/services/cash-position.service'
 import { computeRevenue } from '~/server/services/revenue.service'

@@ -1,5 +1,5 @@
 import '@tanstack/react-start/server-only'
-import type { Id, IsoDate, Money, ResolvedFilter, AccountGroup, Period } from '~/lib/finance/types'
+import type { Id, IsoDate, Money, ResolvedFilter, AccountGroup, Period } from '~/lib/core/types'
 import { getCachedCoaTree, getCachedPeriods } from '~/server/context'
 import {
   openingBalances,
@@ -8,7 +8,7 @@ import {
   type DateMovementRow,
   type OpeningBalanceRow,
 } from '~/server/repo/gl.repo'
-import { pickOpeningPeriod, combineBalances } from '~/lib/finance/balance'
+import { pickOpeningPeriod, combineBalances } from '~/lib/finance/period/balance'
 import { addDays } from '~/lib/format/date'
 import { hashIds, memo } from '~/server/cache'
 import { tablesBetween } from '~/server/db/gl-tables'
