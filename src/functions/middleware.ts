@@ -26,5 +26,11 @@ export const authMiddleware = createMiddleware({ type: 'function' }).server(asyn
   // Start the background refresh of the snapshot tables once per server process (no-op afterwards).
   void import('~/server/dash/scheduler').then((m) => m.ensureDashScheduler()).catch(() => {})
 
-  return next({ context: { userId } })
+  // Errors from the handler or its validator may carry SQL text and parameters; the browser only gets a code.
+  const { toPublicError } = await import('~/server/public-error')
+  try {
+    return await next({ context: { userId } })
+  } catch (error) {
+    throw toPublicError(error)
+  }
 })

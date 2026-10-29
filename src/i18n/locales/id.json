@@ -90,6 +90,7 @@
     "missingMonthsWarning": "Beberapa bulan belum memiliki data transaksi.",
     "errorTitle": "Terjadi kesalahan saat memuat data.",
     "errorBody": "Gagal memuat data metrik dari server.",
+    "sessionExpired": "Sesi Anda sudah berakhir. Silakan masuk kembali.",
     "tryAgain": "Coba lagi",
     "exportCsv": "Ekspor CSV",
     "print": "Cetak",

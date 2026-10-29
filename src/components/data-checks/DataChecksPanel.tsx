@@ -10,6 +10,7 @@ import { Skeleton } from '~/components/neraca/Skeleton'
 import { useGlobalMetricInput } from '~/components/layout/useGlobalMetricInput'
 import { dataChecksOptions } from '~/queries/data-checks.queries'
 import { formatMoneyFull } from '~/lib/format/number'
+import { errorMessageKey } from '~/lib/error-message'
 import type { Lang } from '~/lib/finance/types'
 
 export interface DataChecksPanelProps {
@@ -85,7 +86,7 @@ export function DataChecksPanel({ open, onOpenChange }: DataChecksPanelProps) {
             <Notice
               tone="danger"
               title={t('ui.shell.loadFailed')}
-              body={error instanceof Error ? error.message : t('ui.shell.systemError')}
+              body={t(errorMessageKey(error, 'ui.shell.systemError'))}
             />
           ) : !checks || checks.length === 0 ? (
             <div className="py-12 text-center space-y-3">

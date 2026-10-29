@@ -90,6 +90,7 @@
     "missingMonthsWarning": "Some months do not have transaction data.",
     "errorTitle": "An error occurred while loading data.",
     "errorBody": "Failed to load metric data from the server.",
+    "sessionExpired": "Your session has expired. Please sign in again.",
     "tryAgain": "Try again",
     "exportCsv": "Export CSV",
     "print": "Print",
