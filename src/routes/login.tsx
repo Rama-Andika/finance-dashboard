@@ -8,8 +8,7 @@ import { z } from 'zod'
 import { getCurrentUserFn, loginFn } from '~/functions/auth.fn'
 import { Button } from '~/components/neraca/Button'
 import { Notice } from '~/components/neraca/Notice'
-import { usePrefs } from '~/components/layout/prefs-context'
-import { Sun, Moon } from 'lucide-react'
+import { ThemeToggle, LangToggle } from '~/components/neraca/PrefsToggles'
 
 const searchSchema = z.object({
   redirect: safeRedirectSchema,
@@ -29,16 +28,12 @@ export const Route = createFileRoute('/login')({
 function LoginPage() {
   const router = useRouter()
   const search = Route.useSearch()
-  const { prefs, setTheme, setLang } = usePrefs()
   const { t } = useTranslation()
 
   const [loginId, setLoginId] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<'invalid' | 'tooMany' | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const toggleTheme = () => setTheme(prefs.theme === 'light' ? 'dark' : 'light')
-  const toggleLang = () => setLang(prefs.lang === 'id' ? 'en' : 'id')
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -73,27 +68,8 @@ function LoginPage() {
     <div className="min-h-screen bg-canvas text-ink flex flex-col justify-center items-center p-4 relative">
       {/* Quick theme and language switches in header/corner */}
       <div className="absolute top-4 right-4 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={toggleTheme}
-          className="nr-btn nr-btn-icon"
-          aria-label={prefs.theme === 'light' ? t('ui.shell.switchToDark') : t('ui.shell.switchToLight')}
-        >
-          {prefs.theme === 'light' ? (
-            <Moon className="nr-icon" size={18} strokeWidth={1.75} />
-          ) : (
-            <Sun className="nr-icon" size={18} strokeWidth={1.75} />
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={toggleLang}
-          className="nr-btn h-9 px-2.5 text-xs font-semibold"
-          aria-label={t('ui.shell.switchLanguage')}
-        >
-          {prefs.lang.toUpperCase()}
-        </button>
+        <ThemeToggle />
+        <LangToggle />
       </div>
 
       <div className="w-full max-w-sm flex flex-col items-center">

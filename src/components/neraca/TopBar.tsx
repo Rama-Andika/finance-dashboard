@@ -3,14 +3,12 @@ import { useRouter, useRouterState } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
   Menu,
-  Sun,
-  Moon,
   Bell,
   ChevronDown,
   LogOut,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { usePrefs } from '~/components/layout/prefs-context'
+import { ThemeToggle, LangToggle } from '~/components/neraca/PrefsToggles'
 import { logoutFn } from '~/functions/auth.fn'
 import { filterOptionsQueryOptions } from '~/queries/filters.queries'
 import { EntityPicker } from '~/components/neraca/EntityPicker'
@@ -54,7 +52,6 @@ export function TopBar({
 }: TopBarProps) {
   const router = useRouter()
   const routerState = useRouterState()
-  const { prefs, setTheme, setLang } = usePrefs()
   const { t } = useTranslation()
 
   const userName = user?.name || t('ui.topBar.user')
@@ -116,9 +113,6 @@ export function TopBar({
     mergeSearch({ horizon: newHorizon })
   }
 
-  const toggleTheme = () => setTheme(prefs.theme === 'light' ? 'dark' : 'light')
-  const toggleLang = () => setLang(prefs.lang === 'en' ? 'id' : 'en')
-
   return (
     <header className={cn('nr-topbar flex-col md:flex-row gap-3', className)}>
       <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto justify-between md:justify-start min-w-0">
@@ -140,26 +134,8 @@ export function TopBar({
 
         {/* Action icons on mobile top row */}
         <div className="flex items-center gap-1.5 md:hidden shrink-0">
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="nr-btn nr-btn-icon"
-            aria-label={prefs.theme === 'light' ? t('ui.shell.switchToDark') : t('ui.shell.switchToLight')}
-          >
-            {prefs.theme === 'light' ? (
-              <Moon className="nr-icon" size={18} strokeWidth={1.75} />
-            ) : (
-              <Sun className="nr-icon" size={18} strokeWidth={1.75} />
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={toggleLang}
-            className="nr-btn h-9 px-2 text-xs font-semibold"
-            aria-label={t('ui.shell.switchLanguage')}
-          >
-            {prefs.lang.toUpperCase()}
-          </button>
+          <ThemeToggle />
+          <LangToggle />
           {onOpenDataChecks && (
             <button
               type="button"
@@ -224,27 +200,8 @@ export function TopBar({
 
       {/* Desktop action buttons: Theme, Lang, Notifications, User Profile */}
       <div className="hidden md:flex items-center gap-2">
-        <button
-          type="button"
-          onClick={toggleTheme}
-          className="nr-btn nr-btn-icon"
-          aria-label={prefs.theme === 'light' ? t('ui.shell.switchToDark') : t('ui.shell.switchToLight')}
-        >
-          {prefs.theme === 'light' ? (
-            <Moon className="nr-icon" size={18} strokeWidth={1.75} />
-          ) : (
-            <Sun className="nr-icon" size={18} strokeWidth={1.75} />
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={toggleLang}
-          className="nr-btn h-9 px-2.5 text-xs font-semibold"
-          aria-label={t('ui.shell.switchLanguage')}
-        >
-          {prefs.lang.toUpperCase()}
-        </button>
+        <ThemeToggle />
+        <LangToggle />
 
         <button
           type="button"
