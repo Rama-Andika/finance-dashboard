@@ -18,140 +18,106 @@ export type FixedCostMovement = {
   credit: Money
 }
 
-/**
- * Computes monthly fixed and variable cost, average fixed cost, and folder breakdown.
- */
-export function computeFixedCost(input: {
+type FixedCostInput = {
   fixedCoaIds: Set<Id>
   expenseCoaIds: Set<Id>
   movements: FixedCostMovement[]
   months: Array<{ month: string; periodIds: Id[] }>
   tree: CoaTree
-}): {
+}
+
+export type FixedCostCalculation = {
   months: MonthCost[]
   averageFixed: Money
   byFolder: Breakdown[]
   basketEmpty: boolean
-} {
-  const { fixedCoaIds, expenseCoaIds, movements, months, tree } = input
+}
+
+function addTo<K>(map: Map<K, Decimal>, key: K, amount: Decimal): void {
+  map.set(key, (map.get(key) ?? D(0)).plus(amount))
+}
+
+/**
+ * One pass over the movements: net expense per period (fixed = accounts of the basket, variable =
+ * the other expense accounts) and per account over all movements. An account in both lists is fixed.
+ */
+function indexMovements(input: FixedCostInput) {
+  const fixedByPeriod = new Map<Id, Decimal>()
+  const variableByPeriod = new Map<Id, Decimal>()
+  const totalByCoa = new Map<Id, Decimal>()
+
+  for (const m of input.movements) {
+    const net = D(signedAmount('Expense', m.debet, m.credit))
+    addTo(totalByCoa, m.coaId, net)
+    if (input.fixedCoaIds.has(m.coaId)) addTo(fixedByPeriod, m.periodId, net)
+    else if (input.expenseCoaIds.has(m.coaId)) addTo(variableByPeriod, m.periodId, net)
+  }
+  return { fixedByPeriod, variableByPeriod, totalByCoa }
+}
+
+const sumPeriods = (byPeriod: Map<Id, Decimal>, periodIds: Id[]): Decimal =>
+  periodIds.reduce((acc, periodId) => acc.plus(byPeriod.get(periodId) ?? D(0)), D(0))
+
+/** Fixed cost accounts grouped under their parent folder, each with the total of all its movements. */
+function fixedCostFolders(fixedCoaIds: Set<Id>, totalByCoa: Map<Id, Decimal>, tree: CoaTree): Breakdown[] {
+  const parentGroups = new Map<string, { parentLabel: string; parentCode?: string; accounts: Breakdown[] }>()
+
+  for (const coaId of fixedCoaIds) {
+    const node = tree.byId.get(coaId)
+    const parentNode = node?.parentId ? tree.byId.get(node.parentId) : undefined
+    const parentKey = parentNode ? parentNode.coaId : '__root__'
+
+    const group = parentGroups.get(parentKey) ?? {
+      parentLabel: parentNode ? parentNode.name : i18nLabel('fixedCostRoot'),
+      parentCode: parentNode?.code,
+      accounts: [],
+    }
+    group.accounts.push({
+      id: coaId,
+      label: node?.name ?? `Account ${coaId}`,
+      code: node?.code,
+      amount: (totalByCoa.get(coaId) ?? D(0)).toFixed(2),
+    })
+    parentGroups.set(parentKey, group)
+  }
+
+  return Array.from(parentGroups, ([folderId, group]) => ({
+    id: folderId,
+    label: group.parentLabel,
+    code: group.parentCode,
+    amount: group.accounts.reduce((acc, account) => acc.plus(D(account.amount)), D(0)).toFixed(2),
+    children: group.accounts,
+  }))
+}
+
+/**
+ * Computes monthly fixed and variable cost, average fixed cost, and folder breakdown.
+ */
+export function computeFixedCost(input: FixedCostInput): FixedCostCalculation {
+  const { fixedCoaIds, months, tree } = input
 
   if (fixedCoaIds.size === 0) {
     return {
-      months: months.map((m) => ({
-        month: m.month,
-        fixed: '0.00',
-        variable: '0.00',
-      })),
+      months: months.map((m) => ({ month: m.month, fixed: '0.00', variable: '0.00' })),
       averageFixed: '0.00',
       byFolder: [],
       basketEmpty: true,
     }
   }
 
-  // Index movements by periodId and coaId
-  const byPeriodCoa = new Map<string, Decimal>()
-  const totalByCoa = new Map<Id, Decimal>()
+  const { fixedByPeriod, variableByPeriod, totalByCoa } = indexMovements(input)
 
-  for (const m of movements) {
-    const net = D(signedAmount('Expense', m.debet, m.credit))
-    const key = `${m.periodId}::${m.coaId}`
-    byPeriodCoa.set(key, (byPeriodCoa.get(key) ?? D(0)).plus(net))
-
-    totalByCoa.set(m.coaId, (totalByCoa.get(m.coaId) ?? D(0)).plus(net))
-  }
-
-  // Monthly fixed & variable
-  let totalFixedSum = D(0)
-  const monthResults: MonthCost[] = []
-
-  for (const m of months) {
-    let mFixed = D(0)
-    let mVar = D(0)
-
-    for (const pId of m.periodIds) {
-      for (const coaId of fixedCoaIds) {
-        const val = byPeriodCoa.get(`${pId}::${coaId}`)
-        if (val) {
-          mFixed = mFixed.plus(val)
-        }
-      }
-
-      for (const coaId of expenseCoaIds) {
-        // Exclude fixed cost accounts from variable costs
-        if (!fixedCoaIds.has(coaId)) {
-          const val = byPeriodCoa.get(`${pId}::${coaId}`)
-          if (val) {
-            mVar = mVar.plus(val)
-          }
-        }
-      }
-    }
-
-    totalFixedSum = totalFixedSum.plus(mFixed)
-    monthResults.push({
-      month: m.month,
-      fixed: mFixed.toFixed(2),
-      variable: mVar.toFixed(2),
-    })
-  }
-
-  // Average fixed cost
-  const averageFixed =
-    months.length > 0
-      ? totalFixedSum.div(months.length).toFixed(2)
-      : '0.00'
-
-  // Folder breakdown for fixed cost accounts
-  const parentGroups = new Map<
-    string,
-    { parentLabel: string; parentCode?: string; accounts: Breakdown[] }
-  >()
-
-  for (const coaId of fixedCoaIds) {
-    const node = tree.byId.get(coaId)
-    const amount = (totalByCoa.get(coaId) ?? D(0)).toFixed(2)
-
-    const leafItem: Breakdown = {
-      id: coaId,
-      label: node?.name ?? `Account ${coaId}`,
-      code: node?.code,
-      amount,
-    }
-
-    const parentNode = node?.parentId ? tree.byId.get(node.parentId) : undefined
-    const parentKey = parentNode ? parentNode.coaId : '__root__'
-    const parentLabel = parentNode ? parentNode.name : i18nLabel('fixedCostRoot')
-    const parentCode = parentNode?.code
-
-    const grp = parentGroups.get(parentKey) ?? {
-      parentLabel,
-      parentCode,
-      accounts: [],
-    }
-    grp.accounts.push(leafItem)
-    parentGroups.set(parentKey, grp)
-  }
-
-  const byFolder: Breakdown[] = []
-  for (const [folderId, grp] of parentGroups.entries()) {
-    let folderSum = D(0)
-    for (const acc of grp.accounts) {
-      folderSum = folderSum.plus(D(acc.amount))
-    }
-
-    byFolder.push({
-      id: folderId,
-      label: grp.parentLabel,
-      code: grp.parentCode,
-      amount: folderSum.toFixed(2),
-      children: grp.accounts,
-    })
-  }
+  const monthResults = months.map((m) => ({
+    month: m.month,
+    fixed: sumPeriods(fixedByPeriod, m.periodIds),
+    variable: sumPeriods(variableByPeriod, m.periodIds),
+  }))
+  const totalFixed = monthResults.reduce((acc, m) => acc.plus(m.fixed), D(0))
 
   return {
-    months: monthResults,
-    averageFixed,
-    byFolder,
+    months: monthResults.map((m) => ({ month: m.month, fixed: m.fixed.toFixed(2), variable: m.variable.toFixed(2) })),
+    averageFixed: months.length > 0 ? totalFixed.div(months.length).toFixed(2) : '0.00',
+    byFolder: fixedCostFolders(fixedCoaIds, totalByCoa, tree),
     basketEmpty: false,
   }
 }

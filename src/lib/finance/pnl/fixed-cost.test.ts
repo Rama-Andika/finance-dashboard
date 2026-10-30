@@ -105,3 +105,74 @@ describe('fixed cost pure calculations', () => {
     expect(res.byFolder).toHaveLength(0)
   })
 })
+
+describe("fixed cost: edge cases", () => {
+  const row = (coaId: string, parentId: string, status: "HEADER" | "POSTABLE", name: string): CoaRow => ({
+    coaId, parentId, code: coaId, name, status, level: 1, accountGroup: "Expense", subAccountGroup: "", saldoNormal: "DEBET",
+  })
+  const tree = buildCoaTree([
+    row("60", "0", "HEADER", "Staff"),
+    row("61", "60", "POSTABLE", "Salary"),
+    row("62", "60", "POSTABLE", "Bonus"),
+    row("70", "0", "HEADER", "Premises"),
+    row("71", "70", "POSTABLE", "Rent"),
+    row("80", "0", "POSTABLE", "Other expense"),
+    row("90", "0", "POSTABLE", "Not an expense account"),
+  ])
+  const mv = (coaId: string, periodId: string, debet: string, credit = "0.00") => ({ coaId, periodId, debet, credit })
+
+  it("adds every period of a month, ignores periods outside the months and accounts outside both baskets", () => {
+    const res = computeFixedCost({
+      fixedCoaIds: new Set(["61", "71"]),
+      expenseCoaIds: new Set(["61", "71", "80"]),
+      movements: [
+        mv("61", "p1", "100.00"),
+        mv("61", "p1b", "50.00"), // second period of the same month
+        mv("71", "p1", "30.00"),
+        mv("80", "p1", "20.00"), // variable
+        mv("90", "p1", "999.00"), // in no basket: ignored
+        mv("61", "p9", "7.00"), // period of no listed month: not in the monthly figures
+      ],
+      months: [{ month: "2026-09", periodIds: ["p1", "p1b"] }, { month: "2026-10", periodIds: ["p2"] }],
+      tree,
+    })
+    expect(res.months).toEqual([
+      { month: "2026-09", fixed: "180.00", variable: "20.00" },
+      { month: "2026-10", fixed: "0.00", variable: "0.00" },
+    ])
+    expect(res.averageFixed).toBe("90.00")
+  })
+
+  it("lets a credit reduce the cost and counts an account in both baskets as fixed only", () => {
+    const res = computeFixedCost({
+      fixedCoaIds: new Set(["61"]),
+      expenseCoaIds: new Set(["61", "80"]),
+      movements: [mv("61", "p1", "100.00", "40.00"), mv("80", "p1", "10.00")],
+      months: [{ month: "2026-10", periodIds: ["p1"] }],
+      tree,
+    })
+    expect(res.months).toEqual([{ month: "2026-10", fixed: "60.00", variable: "10.00" }])
+  })
+
+  it("groups the fixed accounts under their parent folder and sums every movement of the account", () => {
+    const res = computeFixedCost({
+      fixedCoaIds: new Set(["61", "62", "71", "80"]),
+      expenseCoaIds: new Set(["61", "62", "71", "80"]),
+      movements: [mv("61", "p1", "100.00"), mv("62", "p1", "25.00"), mv("71", "p1", "30.00"), mv("80", "p1", "5.00"), mv("61", "p9", "1.00")],
+      months: [{ month: "2026-10", periodIds: ["p1"] }],
+      tree,
+    })
+    const folders = res.byFolder.map((f) => [f.id, f.label, f.amount, (f.children ?? []).map((c) => [c.id, c.amount])])
+    expect(folders).toEqual([
+      ["60", "Staff", "126.00", [["61", "101.00"], ["62", "25.00"]]],
+      ["70", "Premises", "30.00", [["71", "30.00"]]],
+      ["__root__", "i18n:fixedCostRoot", "5.00", [["80", "5.00"]]],
+    ])
+  })
+
+  it("returns a zero average when there are no months", () => {
+    const res = computeFixedCost({ fixedCoaIds: new Set(["61"]), expenseCoaIds: new Set(["61"]), movements: [mv("61", "p1", "10.00")], months: [], tree })
+    expect(res.averageFixed).toBe("0.00")
+    expect(res.months).toEqual([])
+  })
+})

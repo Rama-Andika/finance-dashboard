@@ -31,6 +31,88 @@ export type PnlMovement = {
   credit: Money
 }
 
+type CoaTotals = {
+  totalDebet: Decimal
+  totalCredit: Decimal
+  byPeriod: Map<Id, { debet: Decimal; credit: Decimal }>
+}
+
+type PnlContext = {
+  tree: CoaTree
+  byCoa: Map<Id, CoaTotals>
+  periodIds: Id[]
+}
+
+/** One account group of the statement: the total, the amount per period and the folder breakdown. */
+type LineComponent = {
+  total: Decimal
+  byPeriod: Record<Id, Money>
+  folders: Breakdown[]
+}
+
+/** Debit and credit per account, in total and per period. */
+function indexByCoa(movements: PnlMovement[]): Map<Id, CoaTotals> {
+  const byCoa = new Map<Id, CoaTotals>()
+  for (const m of movements) {
+    let entry = byCoa.get(m.coaId)
+    if (!entry) {
+      entry = { totalDebet: D(0), totalCredit: D(0), byPeriod: new Map() }
+      byCoa.set(m.coaId, entry)
+    }
+
+    const debet = D(m.debet)
+    const credit = D(m.credit)
+    entry.totalDebet = entry.totalDebet.plus(debet)
+    entry.totalCredit = entry.totalCredit.plus(credit)
+
+    const period = entry.byPeriod.get(m.periodId) ?? { debet: D(0), credit: D(0) }
+    period.debet = period.debet.plus(debet)
+    period.credit = period.credit.plus(credit)
+    entry.byPeriod.set(m.periodId, period)
+  }
+  return byCoa
+}
+
+/** Total, per period and folders of one account group, signed by the group's natural side (sign.ts). */
+function computeLine(ctx: PnlContext, accountGroup: AccountGroup): LineComponent {
+  const { tree, byCoa, periodIds } = ctx
+  const debitSide = accountSide(accountGroup) === 'debit'
+  const signed = (debet: Decimal, credit: Decimal): Decimal => (debitSide ? debet.minus(credit) : credit.minus(debet))
+  const netOf = (coaId: Id): Decimal => {
+    const totals = byCoa.get(coaId)
+    return totals ? signed(totals.totalDebet, totals.totalCredit) : D(0)
+  }
+
+  let total = D(0)
+  const byPeriod = new Map<Id, Decimal>(periodIds.map((periodId) => [periodId, D(0)]))
+  for (const node of tree.byId.values()) {
+    if (node.status !== 'POSTABLE' || node.coaId === ORPHAN_FOLDER_ID || node.accountGroup !== accountGroup) continue
+    const totals = byCoa.get(node.coaId)
+    if (!totals) continue
+
+    total = total.plus(signed(totals.totalDebet, totals.totalCredit))
+    for (const [periodId, p] of totals.byPeriod) {
+      byPeriod.set(periodId, (byPeriod.get(periodId) ?? D(0)).plus(signed(p.debet, p.credit)))
+    }
+  }
+
+  const folders: Breakdown[] = groupFolders(tree, accountGroup).map((folder) => {
+    const accountIds = folder.status === 'POSTABLE' ? [folder.coaId] : postableDescendants(tree, folder.coaId)
+    const children: Breakdown[] = accountIds.map((coaId) => {
+      const node = tree.byId.get(coaId)
+      return { id: coaId, label: node?.name ?? `Account ${coaId}`, code: node?.code, amount: netOf(coaId).toFixed(2) }
+    })
+    const folderSum = accountIds.reduce((acc, coaId) => acc.plus(netOf(coaId)), D(0))
+    return { id: folder.coaId, label: folder.name, code: folder.code, amount: folderSum.toFixed(2), children }
+  })
+
+  return {
+    total,
+    byPeriod: Object.fromEntries(Array.from(byPeriod, ([periodId, amount]) => [periodId, amount.toFixed(2)])),
+    folders,
+  }
+}
+
 export function buildPnl(input: {
   tree: CoaTree
   movements: PnlMovement[]
@@ -38,234 +120,58 @@ export function buildPnl(input: {
   lines: PnlLine[]
 } {
   const { tree, movements } = input
+  const periodIds = Array.from(new Set(movements.map((m) => m.periodId)))
+  const ctx: PnlContext = { tree, byCoa: indexByCoa(movements), periodIds }
 
-  // Identify all distinct periods in movements
-  const allPeriodIds = Array.from(new Set(movements.map((m) => m.periodId)))
+  /** The amount of every period, from the amounts of that period in the lines it is built from. */
+  const perPeriod = (amountOf: (periodId: Id) => Decimal): Record<Id, Money> =>
+    Object.fromEntries(periodIds.map((periodId) => [periodId, amountOf(periodId).toFixed(2)]))
+  const at = (byPeriod: Record<Id, Money>, periodId: Id): Decimal => D(byPeriod[periodId] ?? '0.00')
 
-  // Index movements by coaId and periodId
-  // coaId -> { totalDebet, totalCredit, byPeriod: Map<periodId, { debet, credit }> }
-  const byCoa = new Map<
-    Id,
-    {
-      totalDebet: Decimal
-      totalCredit: Decimal
-      byPeriod: Map<Id, { debet: Decimal; credit: Decimal }>
-    }
-  >()
+  const revenue = computeLine(ctx, 'Revenue')
+  const cogs = computeLine(ctx, 'Cost Of Sales')
+  const opex = computeLine(ctx, 'Expense')
+  const otherRevenue = computeLine(ctx, 'Other Revenue')
+  const otherExpense = computeLine(ctx, 'Other Expense')
 
-  for (const m of movements) {
-    let entry = byCoa.get(m.coaId)
-    if (!entry) {
-      entry = {
-        totalDebet: D(0),
-        totalCredit: D(0),
-        byPeriod: new Map(),
-      }
-      byCoa.set(m.coaId, entry)
-    }
+  // Gross profit = Revenue - COGS; operating profit = gross profit - OPEX;
+  // net profit = operating profit + other revenue - other expense
+  const grossProfit = revenue.total.minus(cogs.total)
+  const grossProfitByPeriod = perPeriod((p) => at(revenue.byPeriod, p).minus(at(cogs.byPeriod, p)))
+  const operatingProfit = grossProfit.minus(opex.total)
+  const operatingProfitByPeriod = perPeriod((p) => at(grossProfitByPeriod, p).minus(at(opex.byPeriod, p)))
+  const netProfit = operatingProfit.plus(otherRevenue.total).minus(otherExpense.total)
+  const netProfitByPeriod = perPeriod((p) =>
+    at(operatingProfitByPeriod, p).plus(at(otherRevenue.byPeriod, p)).minus(at(otherExpense.byPeriod, p)),
+  )
 
-    const d = D(m.debet)
-    const c = D(m.credit)
-    entry.totalDebet = entry.totalDebet.plus(d)
-    entry.totalCredit = entry.totalCredit.plus(c)
+  /** Share of revenue as a decimal ratio; null when there is no revenue. */
+  const marginOf = (amount: Decimal): string | null =>
+    revenue.total.isZero() ? null : safeDiv(amount.toFixed(2), revenue.total.toFixed(2)) || null
 
-    const pEntry = entry.byPeriod.get(m.periodId) ?? { debet: D(0), credit: D(0) }
-    pEntry.debet = pEntry.debet.plus(d)
-    pEntry.credit = pEntry.credit.plus(c)
-    entry.byPeriod.set(m.periodId, pEntry)
+  const line = (
+    key: PnlLineKey,
+    amount: Decimal,
+    byPeriod: Record<Id, Money>,
+    opts: { folders?: Breakdown[]; margin?: boolean } = {},
+  ): PnlLine => ({
+    key,
+    amount: amount.toFixed(2),
+    margin: opts.margin ? marginOf(amount) : null,
+    byPeriod,
+    folders: opts.folders ?? [],
+  })
+
+  return {
+    lines: [
+      line('revenue', revenue.total, revenue.byPeriod, { folders: revenue.folders }),
+      line('cogs', cogs.total, cogs.byPeriod, { folders: cogs.folders }),
+      line('grossProfit', grossProfit, grossProfitByPeriod, { margin: true }),
+      line('opex', opex.total, opex.byPeriod, { folders: opex.folders }),
+      line('operatingProfit', operatingProfit, operatingProfitByPeriod, { margin: true }),
+      line('otherRevenue', otherRevenue.total, otherRevenue.byPeriod, { folders: otherRevenue.folders }),
+      line('otherExpense', otherExpense.total, otherExpense.byPeriod, { folders: otherExpense.folders }),
+      line('netProfit', netProfit, netProfitByPeriod, { margin: true }),
+    ],
   }
-
-  // Helper to compute line data for a set of coaIds, signed by the account group's natural side (sign.ts)
-  function computeLine(
-    accountGroup: AccountGroup,
-    filterCoa?: (coaId: Id) => boolean,
-  ): {
-    total: Decimal
-    byPeriod: Record<Id, Money>
-    folders: Breakdown[]
-  } {
-    const debitSide = accountSide(accountGroup) === 'debit'
-    const signed = (debet: Decimal, credit: Decimal): Decimal => (debitSide ? debet.minus(credit) : credit.minus(debet))
-    // 1. Determine target accounts
-    const targetCoaIds: Id[] = []
-    for (const node of tree.byId.values()) {
-      if (node.status !== 'POSTABLE' || node.coaId === ORPHAN_FOLDER_ID) continue
-      if (node.accountGroup === accountGroup && (!filterCoa || filterCoa(node.coaId))) {
-        targetCoaIds.push(node.coaId)
-      }
-    }
-
-    let lineTotal = D(0)
-    const lineByPeriod: Record<Id, Decimal> = {}
-    for (const pId of allPeriodIds) {
-      lineByPeriod[pId] = D(0)
-    }
-
-    for (const coaId of targetCoaIds) {
-      const coaData = byCoa.get(coaId)
-      if (!coaData) continue
-
-      const net = signed(coaData.totalDebet, coaData.totalCredit)
-
-      lineTotal = lineTotal.plus(net)
-
-      for (const pId of allPeriodIds) {
-        const pData = coaData.byPeriod.get(pId)
-        if (pData) {
-          const pNet = signed(pData.debet, pData.credit)
-          lineByPeriod[pId] = lineByPeriod[pId]!.plus(pNet)
-        }
-      }
-    }
-
-    // Breakdown folders
-    const folders: Breakdown[] = groupFolders(tree, accountGroup).map((f) => {
-      const descs = f.status === 'POSTABLE' ? [f.coaId] : postableDescendants(tree, f.coaId)
-      const validDescs = descs.filter((id) => !filterCoa || filterCoa(id))
-
-      let folderSum = D(0)
-      const children: Breakdown[] = []
-
-      for (const coaId of validDescs) {
-        const node = tree.byId.get(coaId)
-        const cData = byCoa.get(coaId)
-        const net = cData ? signed(cData.totalDebet, cData.totalCredit) : D(0)
-
-        folderSum = folderSum.plus(net)
-        children.push({
-          id: coaId,
-          label: node?.name ?? `Account ${coaId}`,
-          code: node?.code,
-          amount: net.toFixed(2),
-        })
-      }
-
-      return {
-        id: f.coaId,
-        label: f.name,
-        code: f.code,
-        amount: folderSum.toFixed(2),
-        children,
-      }
-    })
-
-    const byPeriodFormatted: Record<Id, Money> = {}
-    for (const [pId, dec] of Object.entries(lineByPeriod)) {
-      byPeriodFormatted[pId] = dec.toFixed(2)
-    }
-
-    return {
-      total: lineTotal,
-      byPeriod: byPeriodFormatted,
-      folders,
-    }
-  }
-
-  // Compute components
-  const revenueComp = computeLine('Revenue')
-  const cogsComp = computeLine('Cost Of Sales')
-
-  // Gross profit = Revenue - COGS
-  const grossProfitTotal = revenueComp.total.minus(cogsComp.total)
-  const grossProfitByPeriod: Record<Id, Money> = {}
-  for (const pId of allPeriodIds) {
-    const revP = D(revenueComp.byPeriod[pId] ?? '0.00')
-    const cogsP = D(cogsComp.byPeriod[pId] ?? '0.00')
-    grossProfitByPeriod[pId] = revP.minus(cogsP).toFixed(2)
-  }
-
-  const opexComp = computeLine('Expense')
-
-  // Operating profit = Gross profit - OPEX
-  const opProfitTotal = grossProfitTotal.minus(opexComp.total)
-  const opProfitByPeriod: Record<Id, Money> = {}
-  for (const pId of allPeriodIds) {
-    const gpP = D(grossProfitByPeriod[pId] ?? '0.00')
-    const opexP = D(opexComp.byPeriod[pId] ?? '0.00')
-    opProfitByPeriod[pId] = gpP.minus(opexP).toFixed(2)
-  }
-
-  const otherRevComp = computeLine('Other Revenue')
-  const otherExpComp = computeLine('Other Expense')
-
-  // Net profit = Operating profit + Other revenue - Other expense
-  const netProfitTotal = opProfitTotal
-    .plus(otherRevComp.total)
-    .minus(otherExpComp.total)
-  const netProfitByPeriod: Record<Id, Money> = {}
-  for (const pId of allPeriodIds) {
-    const opP = D(opProfitByPeriod[pId] ?? '0.00')
-    const oRevP = D(otherRevComp.byPeriod[pId] ?? '0.00')
-    const oExpP = D(otherExpComp.byPeriod[pId] ?? '0.00')
-    netProfitByPeriod[pId] = opP.plus(oRevP).minus(oExpP).toFixed(2)
-  }
-
-  // Margin helper
-  function calcMargin(amt: Decimal): string | null {
-    if (revenueComp.total.isZero()) return null
-    const ratio = safeDiv(amt.toFixed(2), revenueComp.total.toFixed(2))
-    if (!ratio) return null
-    return ratio
-  }
-
-  const lines: PnlLine[] = [
-    {
-      key: 'revenue',
-      amount: revenueComp.total.toFixed(2),
-      margin: null,
-      byPeriod: revenueComp.byPeriod,
-      folders: revenueComp.folders,
-    },
-    {
-      key: 'cogs',
-      amount: cogsComp.total.toFixed(2),
-      margin: null,
-      byPeriod: cogsComp.byPeriod,
-      folders: cogsComp.folders,
-    },
-    {
-      key: 'grossProfit',
-      amount: grossProfitTotal.toFixed(2),
-      margin: calcMargin(grossProfitTotal),
-      byPeriod: grossProfitByPeriod,
-      folders: [],
-    },
-    {
-      key: 'opex',
-      amount: opexComp.total.toFixed(2),
-      margin: null,
-      byPeriod: opexComp.byPeriod,
-      folders: opexComp.folders,
-    },
-    {
-      key: 'operatingProfit',
-      amount: opProfitTotal.toFixed(2),
-      margin: calcMargin(opProfitTotal),
-      byPeriod: opProfitByPeriod,
-      folders: [],
-    },
-    {
-      key: 'otherRevenue',
-      amount: otherRevComp.total.toFixed(2),
-      margin: null,
-      byPeriod: otherRevComp.byPeriod,
-      folders: otherRevComp.folders,
-    },
-    {
-      key: 'otherExpense',
-      amount: otherExpComp.total.toFixed(2),
-      margin: null,
-      byPeriod: otherExpComp.byPeriod,
-      folders: otherExpComp.folders,
-    },
-    {
-      key: 'netProfit',
-      amount: netProfitTotal.toFixed(2),
-      margin: calcMargin(netProfitTotal),
-      byPeriod: netProfitByPeriod,
-      folders: [],
-    },
-  ]
-
-  return { lines }
 }
