@@ -70,7 +70,7 @@ function DefaultDonut({
   // Sort items descending by absolute amount
   const sorted = [...items]
     .map((item) => ({ ...item, decAmount: new Decimal(item.amount || '0').abs() }))
-    .sort((a, b) => (b.decAmount.gt(a.decAmount) ? 1 : b.decAmount.lt(a.decAmount) ? -1 : 0))
+    .sort((a, b) => b.decAmount.cmp(a.decAmount))
 
   // Max 5 segments: 4 largest + "Lainnya"
   let displayItems: Array<{ id: string; name: string; amount: Money; decAmount: Decimal }> = []

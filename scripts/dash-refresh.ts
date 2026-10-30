@@ -8,7 +8,13 @@ try {
   const today = env.APP_TODAY ?? todayIn(env.APP_TIMEZONE)
   console.log(`Refreshing the AP/AR snapshot as of ${today} ...`)
   const result = await refreshApArSnapshot(today, { force: process.argv.includes('--force') })
-  console.log(result.ran ? `Done in ${Math.round(result.durationMs / 1000)}s: ${result.openRows} open invoices, ${result.unallocatedRows} unallocated` : result.reason === 'unchanged' ? 'The ERP data has not changed since the last refresh (use --force to rebuild anyway).' : 'Another refresh is already running.')
+  if (result.ran) {
+    console.log(`Done in ${Math.round(result.durationMs / 1000)}s: ${result.openRows} open invoices, ${result.unallocatedRows} unallocated`)
+  } else if (result.reason === 'unchanged') {
+    console.log('The ERP data has not changed since the last refresh (use --force to rebuild anyway).')
+  } else {
+    console.log('Another refresh is already running.')
+  }
   await pool.end()
 } catch (error) {
   console.error('Refresh failed:', error instanceof Error ? error.message : error)

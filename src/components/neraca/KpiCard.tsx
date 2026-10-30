@@ -90,7 +90,7 @@ export function KpiCard({
       {(changePercent !== null || compareLabel) && (
         <div className="nr-kpi-foot">
           {changePercent !== null && (
-            <DeltaPill change={changePercent} higherIsBetter={higherIsBetter ?? true} lang={lang} />
+            <DeltaPill change={changePercent} higherIsBetter={higherIsBetter ?? true} />
           )}
           {compareLabel && (
             <span>

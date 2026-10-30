@@ -19,12 +19,10 @@ export function PrintHeader({ title, entity, preset, asOf }: PrintHeaderProps) {
   // The URL holds location ids; print the entity codes instead.
   const { data: filterOptions } = useQuery(filterOptionsQueryOptions())
   const entityInfo = describeEntityToken(entity ?? 'all', filterOptions?.entities ?? [])
-  const entityText =
-    entityInfo.kind === 'all'
-      ? t('ui.shell.allEntitiesPrint')
-      : entityInfo.kind === 'codes'
-        ? entityInfo.codes.join(', ')
-        : t('ui.printHeader.entityCount', { count: entityInfo.count })
+  let entityText: string
+  if (entityInfo.kind === 'all') entityText = t('ui.shell.allEntitiesPrint')
+  else if (entityInfo.kind === 'codes') entityText = entityInfo.codes.join(', ')
+  else entityText = t('ui.printHeader.entityCount', { count: entityInfo.count })
   const printTimestamp = new Date().toLocaleString(t('ui.printHeader.enUs'), {
     dateStyle: 'medium',
     timeStyle: 'short',

@@ -1,16 +1,15 @@
 import { useTranslation } from 'react-i18next'
 import { ScrollArea } from '~/components/ui/scroll-area'
 import type { CoaTree } from '~/lib/finance/coa/coa-tree'
-import type { Id, Money } from '~/lib/core/types'
+import type { Id } from '~/lib/core/types'
 
 export interface BasketPreviewProps {
   tree: CoaTree
   accountIds: Id[]
-  balances?: Record<Id, Money>
   className?: string
 }
 
-export function BasketPreview({ tree, accountIds, balances = {}, className }: BasketPreviewProps) {
+export function BasketPreview({ tree, accountIds, className }: BasketPreviewProps) {
   const { t } = useTranslation()
 
   const resolvedNodes = accountIds

@@ -1,0 +1,3 @@
+# Git keeps text files with LF in the repository; the working copy follows the platform
+# (CRLF on Windows with core.autocrlf), so a checkout never changes a file by itself.
+* text=auto

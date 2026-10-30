@@ -5,6 +5,13 @@ import { ChevronRight, ChevronLeft, ArrowUp, ArrowDown, ArrowUpDown } from 'luci
 import { PAGE_SIZES, type SortDir } from '~/lib/table/query'
 import type { TableColumnMeta } from '~/components/neraca/DataTable'
 
+/** The `aria-sort` of a header: nothing when the column cannot be sorted, 'none' when it is not the sorted one. */
+function ariaSortOf(sortable: boolean, isSorted: boolean, dir: SortDir | undefined) {
+  if (!sortable) return undefined
+  if (!isSorted) return 'none'
+  return dir === 'asc' ? 'ascending' : 'descending'
+}
+
 /** One header cell: a plain label, or a button that asks for a server-side sort when the column has a `sortKey`. */
 export function SortHeader<T extends object>({
   header,
@@ -31,7 +38,7 @@ export function SortHeader<T extends object>({
   return (
     <th
       className={isRight ? 'nr-r' : undefined}
-      aria-sort={isSorted ? (sort?.dir === 'asc' ? 'ascending' : 'descending') : sortKey ? 'none' : undefined}
+      aria-sort={ariaSortOf(sortKey !== undefined, isSorted, sort?.dir)}
     >
       {sortKey ? (
         <button

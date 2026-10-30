@@ -67,8 +67,9 @@ export function CashflowChart({
   // The period shown is the one picked in the top bar; the chart just labels it.
   const first = data[0]?.month
   const last = data[data.length - 1]?.month
-  const rangeLabel =
-    !first || !last ? '' : first === last ? formatMonth(first, lang) : `${formatMonth(first, lang)} – ${formatMonth(last, lang)}`
+  const monthRange = (a: string, b: string) =>
+    a === b ? formatMonth(a, lang) : `${formatMonth(a, lang)} – ${formatMonth(b, lang)}`
+  const rangeLabel = first && last ? monthRange(first, last) : ''
 
   const ariaLabel =
     t('ui.cashflowChart.ariaLabel', { range: rangeLabel, peak: maxMonth ? formatMonth(maxMonth, lang) : '-' })

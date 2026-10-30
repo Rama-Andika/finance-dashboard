@@ -19,7 +19,9 @@ export function CashBankTable({ rows, lang, scope }: { rows: Breakdown[]; lang: 
   const categoryIds = new Set(rows.map((c) => c.id))
   const folderIds = new Set(rows.flatMap((c) => (c.children ?? []).map((f) => f.id)))
   const openRow = (r: Breakdown) => {
-    const kind = categoryIds.has(r.id) ? 'section' : folderIds.has(r.id) ? 'folder' : 'account'
+    let kind: 'section' | 'folder' | 'account' = 'account'
+    if (categoryIds.has(r.id)) kind = 'section'
+    else if (folderIds.has(r.id)) kind = 'folder'
     openDrill('cashPosition', [{ kind, id: r.id, label: r.label }])
   }
 

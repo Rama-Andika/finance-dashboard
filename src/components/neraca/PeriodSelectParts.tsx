@@ -7,6 +7,8 @@ import type { Lang } from '~/lib/core/types'
 
 export type PeriodMonthOption = { month: string; status: 'Open' | 'Pre Closed' | 'Closed' }
 
+const STATUS_KEY = { Open: 'open', 'Pre Closed': 'preClosed', Closed: 'closed' } as const
+
 /** One choice of the period list (a preset or a look-ahead horizon), with an optional month hint. */
 export function PeriodOption({
   label,
@@ -66,7 +68,7 @@ export function CustomRangeForm({
   )
 
   const statusLabel = (status: PeriodMonthOption['status']) =>
-    t(`period.picker.${status === 'Open' ? 'open' : status === 'Pre Closed' ? 'preClosed' : 'closed'}`)
+    t(`period.picker.${STATUS_KEY[status]}`)
   const monthLabel = (month: string) => formatMonthYear(`${month}-01`, lang)
 
   const monthSelect = (value: string, onChange: (month: string) => void) => (

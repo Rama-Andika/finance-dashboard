@@ -50,7 +50,7 @@ export function BudgetTable({
       header: t('ui.col.variancePct'),
       meta: { align: 'right' },
       cell: ({ row }) => (
-        <DeltaPill change={row.original.variancePercent} higherIsBetter={row.original.higherIsBetter} lang={lang} />
+        <DeltaPill change={row.original.variancePercent} higherIsBetter={row.original.higherIsBetter} />
       ),
     },
   ]
@@ -85,7 +85,7 @@ export function BudgetTable({
         <div className="space-y-1">
           <div className="flex justify-between items-start">
             <span className={isGroup(r) ? 'font-bold' : undefined}>{r.name}</span>
-            <DeltaPill change={r.variancePercent} higherIsBetter={r.higherIsBetter} lang={lang} />
+            <DeltaPill change={r.variancePercent} higherIsBetter={r.higherIsBetter} />
           </div>
           <div className="text-xs text-muted flex justify-between">
             <span>{t('ui.budget.budgetShort')}: {formatMoneyFull(r.budget, lang)}</span>

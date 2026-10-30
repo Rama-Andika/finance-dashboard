@@ -411,6 +411,13 @@ export async function journalLines(opts: JournalLinesOptions): Promise<JournalLi
   return multiTable ? mergeJournalPages(pages, offset, limit) : (pages[0] ?? [])
 }
 
+/** Which journals to read: those of the given periods, else those inside the date range, else all. */
+function journalPeriodClause(tablePeriods: Period[], opts: JournalLinesOptions) {
+  if (tablePeriods.length > 0) return sql`AND g.period_id IN (${inList(tablePeriods.map((p) => p.periodeId))})`
+  if (opts.startDate && opts.endDate) return sql`AND g.trans_date >= ${opts.startDate} AND g.trans_date <= ${opts.endDate}`
+  return sql``
+}
+
 /** The first `limit` journal lines (after `offset`) of one GL table, newest first. */
 async function journalPageOfTable(
   tableName: string,
@@ -424,13 +431,7 @@ async function journalPageOfTable(
   const glIdent = sql.identifier(gl)
   const glDetailIdent = sql.identifier(glDetail)
 
-  const periodIdList = tablePeriods.map((p) => p.periodeId)
-  const periodClause =
-    periodIdList.length > 0
-      ? sql`AND g.period_id IN (${inList(periodIdList)})`
-      : opts.startDate && opts.endDate
-        ? sql`AND g.trans_date >= ${opts.startDate} AND g.trans_date <= ${opts.endDate}`
-        : sql``
+  const periodClause = journalPeriodClause(tablePeriods, opts)
 
   const coaClause =
     opts.coaIds && opts.coaIds.length > 0 ? sql`AND d.coa_id IN (${inList(opts.coaIds)})` : sql``

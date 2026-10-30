@@ -1,14 +1,12 @@
-import type { Lang } from '~/lib/core/types'
 import { cn } from '~/lib/cn'
 
 export interface DeltaPillProps {
   change: string | null
   higherIsBetter: boolean
-  lang: Lang
   className?: string
 }
 
-export function DeltaPill({ change, higherIsBetter, lang, className }: DeltaPillProps) {
+export function DeltaPill({ change, higherIsBetter, className }: DeltaPillProps) {
   if (change === null) {
     return <span className={cn('nr-delta nr-delta-flat', className)}>–</span>
   }

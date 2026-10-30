@@ -1,3 +1,5 @@
+import { compareAsc } from '../../core/compare'
+
 export type JournalPageRow = {
   glId: string
   transDate: string
@@ -6,7 +8,7 @@ export type JournalPageRow = {
 
 function compareIds(a: string, b: string): number {
   if (a.length !== b.length) return a.length - b.length
-  return a < b ? -1 : a > b ? 1 : 0
+  return compareAsc(a, b)
 }
 
 /** Newest first: trans_date DESC, gl_id DESC, then coa_id ASC (a stable total order). */

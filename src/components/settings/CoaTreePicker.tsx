@@ -9,6 +9,12 @@ import type { Id } from '~/lib/core/types'
 import { checkState } from '~/lib/finance/coa/basket-resolver'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '~/components/ui/tooltip'
 
+/** The `data-checked` value of a box: all, some (mixed) or none of the accounts below are in the basket. */
+function checkedAttribute(isPartial: boolean, isChecked: boolean): 'mixed' | 'true' | 'false' {
+  if (isPartial) return 'mixed'
+  return isChecked ? 'true' : 'false'
+}
+
 export interface CoaTreePickerProps {
   tree: CoaTree
   include: Id[]
@@ -171,7 +177,7 @@ export function CoaTreePicker({
                         e.stopPropagation()
                         onToggle(node.coaId)
                       }}
-                      data-checked={isPartial ? 'mixed' : isChecked ? 'true' : 'false'}
+                      data-checked={checkedAttribute(isPartial, isChecked)}
                       className="nr-box cursor-pointer shrink-0"
                       aria-label={node.name}
                     >

@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js'
 import { D, sum } from '../../core/money'
 import { largestRemainderPercentages } from '../../core/donut'
+import { compareAsc } from '../../core/compare'
 import type { Id, Money } from '../../core/types'
 
 /** The ring shows at most this many entities; the rest merge into one "Other" segment. */
@@ -49,13 +50,11 @@ export type EntityTableRow = {
 
 type Ranked = EntityRevenue & { dec: Decimal }
 
-const compareText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
-
 /** Largest amount first; equal amounts by name, then by id, so the order never changes between renders. */
 function rankByAmount(entities: readonly EntityRevenue[]): Ranked[] {
   return entities
     .map((e) => ({ ...e, dec: D(e.amount) }))
-    .sort((a, b) => b.dec.cmp(a.dec) || compareText(a.name, b.name) || compareText(a.id, b.id))
+    .sort((a, b) => b.dec.cmp(a.dec) || compareAsc(a.name, b.name) || compareAsc(a.id, b.id))
 }
 
 /** Entities with revenue above zero: the ones the donut can draw. */
