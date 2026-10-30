@@ -14,9 +14,10 @@ import { ExportCsvButton, exportFilename } from '~/components/export/ExportCsvDi
 import { PrintButton } from '~/components/export/PrintButton'
 import { PrintHeader } from '~/components/export/PrintHeader'
 import { MonthlyTrendChart } from '~/components/revenue/MonthlyTrendChart'
-import { formatMoneyFull } from '~/lib/format/number'
+import { formatMoneyFull, formatPercent } from '~/lib/format/number'
 import { formatMonthYear, getCompareLabel } from '~/lib/format/date'
-import { largestByAmount } from '~/lib/core/money'
+import { D, largestByAmount } from '~/lib/core/money'
+import { buildEntityTableRows, type EntityTableRow } from '~/lib/finance/pnl/revenue-entity'
 import type { Breakdown, Lang } from '~/lib/core/types'
 
 export const Route = createFileRoute('/_authed/revenue')({
@@ -47,6 +48,7 @@ function RevenuePage() {
   const compareLabel = getCompareLabel(deps.from && deps.to ? 'custom' : deps.preset, lang)
   const topCategory = largestByAmount(data.byFolder)
   const topEntity = largestByAmount(data.byEntity)
+  const entityRows = buildEntityTableRows(data.byEntity, data.entityUnassigned, t('ui.revenue.noEntity'))
 
   const handleSelectFolder = (folderId: string, folderLabel?: string) => {
     const folder = data.byFolder.find((f) => f.id === folderId)
@@ -74,6 +76,26 @@ function RevenuePage() {
       header: t('ui.revenue.totalIdr'),
       meta: { align: 'right' },
       cell: ({ getValue }) => formatMoneyFull(getValue() as string, lang),
+    },
+  ]
+
+  const entityColumns: ColumnDef<EntityTableRow, unknown>[] = [
+    {
+      accessorKey: 'name',
+      header: t('ui.revenue.entity'),
+      cell: ({ row }) => <span className="nr-name">{row.original.name}</span>,
+    },
+    {
+      accessorKey: 'amount',
+      header: t('ui.revenue.totalIdr'),
+      meta: { align: 'right' },
+      cell: ({ getValue }) => formatMoneyFull(getValue() as string, lang),
+    },
+    {
+      accessorKey: 'share',
+      header: t('ui.revenue.share'),
+      meta: { align: 'right' },
+      cell: ({ row }) => formatPercent(row.original.share, lang, 1),
     },
   ]
 
@@ -167,6 +189,38 @@ function RevenuePage() {
           <div className="flex justify-between items-center">
             <span className="font-semibold">{r.label}</span>
             <span className="font-semibold tabular-nums">{formatMoneyFull(r.amount, lang)}</span>
+          </div>
+        )}
+      />
+
+      <DataTable
+        title={t('ui.revenue.revenueByEntity')}
+        columns={entityColumns}
+        data={entityRows}
+        getRowId={(r) => r.id}
+        emptyMessage={t('common.noData')}
+        headerActions={
+          <ExportCsvButton
+            rows={entityRows}
+            columns={[
+              { header: t('ui.col.entity'), value: (r) => r.name, kind: 'text' },
+              { header: t('ui.col.total'), value: (r) => r.amount, kind: 'money' },
+              {
+                header: t('ui.col.share'),
+                value: (r) => (r.share === null ? null : D(r.share).times(100).toFixed(2)),
+                kind: 'number',
+              },
+            ]}
+            filename={exportFilename('revenue-by-entity', deps)}
+          />
+        }
+        mobileCard={(r) => (
+          <div className="flex justify-between items-center gap-3">
+            <span className="font-semibold">{r.name}</span>
+            <span className="tabular-nums">
+              <span className="font-semibold">{formatMoneyFull(r.amount, lang)}</span>
+              <span className="nr-muted"> · {formatPercent(r.share, lang, 1)}</span>
+            </span>
           </div>
         )}
       />

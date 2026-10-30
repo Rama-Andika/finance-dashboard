@@ -62,6 +62,7 @@ Berlaku untuk semua kartu di Summary.
 | Payables | `ap-aging.service.ts` | `ap_ar_card`, `ap_ar_card_detail`, `vendor` (via snapshot `dash_*`) |
 | Cash Flow | `cash-flow.service.ts` | `gl`, `gl_detail`, `cash_flow_setup`, `cash_flow_group` |
 | Composition | `revenue.service.ts`, `fixed-cost.service.ts` | `gl`, `gl_detail`, `coa`, `system_main` |
+| Revenue by Entity | `revenue.service.ts` | `gl`, `gl_detail`, `coa`, `segment_detail`, `pos_location` |
 | Tabel tagihan (dua tab) | `payment-plan.service.ts` | AP open invoices, `bankpo_payment`, `bankpo_payment_detail`, `vendor` |
 | Runway, Margin, Current Ratio | `runway.service.ts` | Cash Position + arus kas + P&L + saldo akun |
 
@@ -178,7 +179,7 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 - **Data:** akun grup *Revenue* yang POSTABLE (`coa`), periode terpilih (`periode`), jumlah debet/kredit dari `gl` + `gl_detail` per akun, per periode, per lokasi.
 - **Rumus:** Revenue = Σ (kredit − debet) akun Revenue pada `period_id` terpilih. *Other Revenue* **tidak** termasuk.
 - **Pembanding:** rumus yang sama untuk rentang sebelumnya dengan panjang yang sama.
-- **Dipakai juga di:** donut Composition (tab Revenue).
+- **Dipakai juga di:** donut Composition (tab Revenue) dan donut Revenue by Entity (bagian 7).
 
 **Perlu dikonfirmasi:**
 - Retur dan diskon sudah tercatat di akun Revenue sehingga angkanya neto?
@@ -244,6 +245,20 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 - **Tab Expense:** hanya akun di keranjang **Biaya Tetap** (Fixed Cost), per folder, debit − kredit selama periode terpilih.
 - Judulnya "Total Expense" padahal HPP dan biaya variabel tidak ikut. **Perlu konfirmasi:** sesuai harapan, atau sebaiknya semua Beban?
 
+### Revenue by Entity (donut kedua)
+
+- **Data:** sama dengan kartu Revenue: pembacaan mutasi yang sama (Q11 / Q12 dengan pengelompokan per lokasi `pos_location` lewat kolom segmen entitas). **Tidak ada query baru.**
+- **Rumus:** Revenue per entitas = Σ (kredit − debet) akun Revenue entitas itu pada periode terpilih (rumus yang sama dengan bagian 3). *Other Revenue* tidak termasuk.
+- **Tanpa entitas:** jurnal Revenue yang tidak punya lokasi (atau lokasinya tidak ada di daftar entitas) tidak masuk baris entitas mana pun. Selisihnya dihitung = Total Revenue − Σ semua entitas. Di halaman Revenue tampil sebagai baris "Tanpa entitas"; di donut digabung ke segmen "Lainnya" bila positif.
+- **Yang digambar:** hanya entitas dengan Revenue > 0. Entitas bernilai nol atau negatif (mis. retur melebihi penjualan) tidak digambar; catatan kecil di bawah legenda menyebut jumlahnya, dan semuanya tetap tampil di tabel halaman Revenue. Karena itu angka di tengah donut bisa berbeda dari kartu Revenue bila ada entitas negatif atau baris "Tanpa entitas" negatif.
+- **Persentase:** dari jumlah yang digambar, dibulatkan ke bilangan bulat dengan metode sisa terbesar sehingga total selalu 100. Nilai yang membulat ke 0 ditulis "<1%".
+- **Segmen:** maksimal 10 entitas terbesar; entitas berikutnya dan "Tanpa entitas" digabung menjadi satu segmen "Lainnya" (selalu paling akhir). Legenda memuat 5 segmen terbesar (nama dan persen); sisanya dijumlah dalam satu baris "+N lainnya".
+- **Interaksi:** arahkan kursor ke segmen atau baris legenda untuk nominal penuh. Klik segmen atau "Details ›" membuka halaman Revenue dengan filter yang sama, tempat tabel Revenue by Entity (entitas, total, porsi; ada export CSV).
+- **Kapan kartu disembunyikan:** bila filter hanya memilih 1 entitas, atau bila kurang dari 2 entitas punya Revenue > 0. Saat disembunyikan, tata letak kembali seperti semula (Cash Flow 2/3 + Composition 1/3).
+- **Tata letak bila tampil:** Cash Flow selebar penuh; di bawahnya Composition dan Revenue by Entity berdampingan 50/50.
+
+**Perlu dikonfirmasi:** apakah Revenue tanpa lokasi (baris "Tanpa entitas") memang ada di data klien, dan bagaimana finance ingin menanganinya.
+
 ---
 
 ## 8. Tabel tagihan: jatuh tempo ≤ 7 hari dan lewat jatuh tempo
@@ -302,6 +317,7 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 - Teks "terposting sampai" sempat dibuat lalu dibatalkan (D34), jadi tidak ada di halaman.
 - Dihitung di server tetapi tidak ditampilkan di Summary: pembanding Cash Position, saldo awal dan overdue Payment Plan 7 hari, pembanding AP, rekonsiliasi GL terhadap AP. Query-nya tetap berjalan.
 - Untuk tanggal acuan masa lalu yang bukan akhir bulan, AP memakai query langsung ke ERP yang lambat.
+- Donut Revenue by Entity: `computeRevenue` mengirim `byEntity` (dengan `id` lokasi) dan `entityUnassigned` (= total − Σ entitas); `computeSummary` meneruskannya. Pengelompokan segmen, persentase, dan baris tabel dihitung di `lib/finance/pnl/revenue-entity.ts`; persentase sisa-terbesar dan geometri cincin dipakai bersama dengan donut Composition lewat `lib/core/donut.ts`. Komponennya `components/neraca/EntityDonut.tsx`, dipanggil lewat `<DonutBreakdown variant="entity">`. Kartu disembunyikan di `summary.tsx` (`showEntityCard`).
 
 ---
 
@@ -315,3 +331,4 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 | 2026-10-30 | Rencana gelombang 2: filter canceled_date opsional; register dana pencairan untuk tanggal lampau; margin rasio desimal; giro beredar; tab tagihan jatuh tempo & terlambat; overdue kotor; ambang umur transit; istilah Pengakuan Biaya. Lihat D31–D38 di `decisions.md`. |
 | 2026-10-30 | Fitur OCI dinonaktifkan sementara (D39): Net Profit dan margin menghitung semua akun menurut grupnya; tidak ada lagi baris OCI/Total Laba Komprehensif di P&L. Bagian 4 disesuaikan. |
 | 2026-10-30 | Struktur halaman dirapikan tanpa mengubah angka: tabel tagihan dan kartu mini dipisah ke komponen; margin, runway, dan rekonsiliasi memakai fungsi bersama. Bagian 8 diganti judulnya menjadi tabel tagihan dua tab dan ditambah cara pakai tabel. |
+| 2026-10-30 | Kartu baru Revenue by Entity (donut) di Summary, di sebelah Composition; Cash Flow menjadi selebar penuh saat kartu tampil. Bagian 1 (peta), 3, 7, dan 11 diperbarui. Tabel Revenue by Entity ditambahkan di halaman Revenue (D40). |

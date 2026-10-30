@@ -35,6 +35,12 @@
   --chart-3: #6fa88c;
   --chart-4: #cfeea0;
   --chart-5: #dbe4de;
+  --chart-6: #4f7f3a;
+  --chart-7: #2f8f83;
+  --chart-8: #b5c95a;
+  --chart-9: #8a7a3d;
+  --chart-10: #5b7f95;
+  --chart-other: #c9d3cc;
   --indicator: var(--forest);
   --focus: #1f7a5a;
   --focus-on-forest: #a6e22e;
@@ -78,6 +84,12 @@
   --chart-3: #9cd0b6;
   --chart-4: #7d9a4c;
   --chart-5: #33423a;
+  --chart-6: #8fbf6a;
+  --chart-7: #4fb3a5;
+  --chart-8: #d7e68a;
+  --chart-9: #c2b073;
+  --chart-10: #8fb0c4;
+  --chart-other: #4a5a51;
   --indicator: var(--lime);
   --focus: #b2e84a;
   --focus-on-forest: #b2e84a;

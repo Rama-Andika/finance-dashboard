@@ -217,7 +217,7 @@ Mesin: `src/server/repo/gl.repo.ts` · `movementsByPeriods`. Periode dikelompokk
 ```sql
 SELECT STRAIGHT_JOIN d.coa_id AS coaId
        -- , g.period_id AS periodId                 ← byPeriod (selalu untuk periode Closed)
-       -- , sd.location_id AS locationId            ← byLocation (kartu Revenue)
+       -- , sd.location_id AS locationId            ← byLocation (kartu Revenue dan Revenue by Entity)
        , SUM(d.debet) AS debet, SUM(d.credit) AS credit
 FROM <GL> g
 JOIN <GL_DETAIL> d ON d.gl_id = g.gl_id
@@ -267,6 +267,7 @@ Cache 30 detik. Bila tabel `dash_*` belum ada, error ditelan dan semua periode d
 | Kartu | Rumus | File |
 |---|---|---|
 | Revenue | Σ (credit − debet) akun grup Revenue | `src/lib/finance/pnl/revenue.ts` |
+| Revenue per entitas (donut dan tabel) | Σ (credit − debet) akun Revenue per `locationId`; **Tanpa entitas = total − Σ entitas** (dihitung di JavaScript, tanpa query) | `src/server/services/revenue.service.ts`, `src/lib/finance/pnl/revenue-entity.ts` |
 | Laba Kotor | Revenue − Σ (debet − credit) Cost Of Sales | `src/lib/finance/pnl/pnl.ts` |
 | Laba Usaha | Laba Kotor − Σ (debet − credit) Expense | idem |
 | **Net Profit** | Laba Usaha + Other Revenue − Other Expense | idem |
@@ -589,6 +590,7 @@ Hasil ditulis ke tabel bayangan `dash_snap_ap_ar_open_new` / `dash_snap_ap_ar_un
 | Cash Flow (grafik) | Q1–Q5, Q7–Q9 (kas awal/akhir), Q20, Q21 |
 | Composition — Revenue | sama dengan kartu Revenue |
 | Composition — Expense | Q11 / Q12 (akun keranjang Biaya Tetap termasuk di pembacaan bersama) |
+| Revenue by Entity (donut) | sama dengan kartu Revenue (Q11 / Q12 dengan `byLocation`); selisih "Tanpa entitas" dihitung di JavaScript, **tanpa query tambahan** |
 | Tabel tagihan (dua tab) | Q14 (atau Q16), Q19, Q18, Cash Position hari ini (Q7–Q10) |
 | Runway | Q20 (3 bulan sebelumnya), Cash Position, P&L |
 | Gross / Net margin | hasil P&L (Q11 / Q12) |
@@ -656,3 +658,4 @@ WHERE table_schema = DATABASE()
 | 2026-10-30 | Rencana gelombang 2: Q10 memakai aturan belum cair pada asOf; Q22 dan Q24 ditambahkan (Q23 dibatalkan); istilah Pengakuan Biaya. |
 | 2026-10-30 | Disinkronkan dengan kode terbaru: tabel tagihan dua tab (`filterBillsByScope`, `planStatusInUse`), rekonsiliasi AP/AR (`reconcileAging`), `settledJournals`, `sliceCombos`, Q20 menandai kondisi `canceled_date` sebagai opsional, matriks dan tabel cache ditambah Q22 dan Q24. Tidak ada query yang berubah isinya. |
 | 2026-10-30 | Fitur OCI dinonaktifkan (D39): akun OCI tidak lagi dikeluarkan dari baris P&L dan tidak ikut dibaca sebagai kelompok tersendiri di Q11/Q12. |
+| 2026-10-30 | Kartu Revenue by Entity memakai Q11 / Q12 yang sama (`byLocation`); tidak ada query baru. Ditambah baris rumus "Revenue per entitas" dan baris matriks. |

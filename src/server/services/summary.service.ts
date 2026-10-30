@@ -2,7 +2,7 @@ import '@tanstack/react-start/server-only'
 import type { Breakdown, MetricMeta, Money } from '~/lib/core/types'
 import { type AppContextFilter, buildMetricMeta } from '~/server/context'
 import { computeCashPosition } from '~/server/services/cash-position.service'
-import { computeRevenue } from '~/server/services/revenue.service'
+import { computeRevenue, type RevenueResult } from '~/server/services/revenue.service'
 import { computePnl } from '~/server/services/pnl.service'
 import { computeApAging } from '~/server/services/ap-aging.service'
 import { computeCashFlow } from '~/server/services/cash-flow.service'
@@ -27,6 +27,8 @@ export type SummaryResult = {
     compare: Money | null
     trend: Array<{ month: string; amount: Money }>
     byFolder: Breakdown[]
+    byEntity: RevenueResult['byEntity']
+    entityUnassigned: Money
   }
   expenseFolders: Breakdown[]
   pnl: {
@@ -113,6 +115,8 @@ export async function computeSummary(
       compare: revenue.compareTotal,
       trend: revenue.trend,
       byFolder: revenue.byFolder,
+      byEntity: revenue.byEntity,
+      entityUnassigned: revenue.entityUnassigned,
     },
     expenseFolders: fixedCost.byFolder,
     pnl: {

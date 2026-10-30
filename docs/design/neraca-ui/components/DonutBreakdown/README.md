@@ -9,3 +9,7 @@ A card with Pendapatan/Beban tabs, a donut of the top categories with the total 
 - Clicking a segment or legend row opens the drill-down sheet for that folder.
 
 Consumer provides: the tab state, the period label, and `{ name, amount }` for each category already merged to five; percentages are computed from the total and rounded so they add up to 100.
+
+## Variant: per entity
+
+`<DonutBreakdown variant="entity" />` draws a ring of up to 10 entities plus a merged "Lainnya" segment (`chart-1` … `chart-10`, `chart-other`). The legend lists only the 5 largest as a colour dot, the name and the percent (no amounts) and adds one "+N lainnya" row for the rest. Hover on a segment or legend row shows the full amount. The card header has a "Details ›" link (`nr-card-link`). Entities with zero or negative revenue are not drawn; a small note says how many were left out.

@@ -29,7 +29,7 @@ Neraca UI adalah bahasa visual Finance Dashboard grup holding: kanvas abu kehija
 - `lime` hanya sebagai **isian** dengan teks `on-lime` di atasnya. Jangan pernah lime sebagai warna teks atau garis tipis di latar terang (kontrasnya terlalu rendah).
 - `lime-soft` untuk chip berwarna lembut dan latar avatar; teks di atasnya `ink`.
 - Status: `danger` / `on-danger` / `danger-soft`, `warning` / `on-warning` / `warning-soft`, `positive` (teks saja). Warna status terpisah dari aksen; jangan pakai `lime` untuk "berhasil" di tabel status — pakai pill netral "Lunas".
-- Grafik: `chart-income` (lime) untuk uang masuk, `chart-expense` (forest; sage di tema gelap) untuk uang keluar, `chart-1` … `chart-5` untuk kategori berurutan dari porsi terbesar, `chart-grid` untuk gridline, `chart-axis` untuk garis nol.
+- Grafik: `chart-income` (lime) untuk uang masuk, `chart-expense` (forest; sage di tema gelap) untuk uang keluar, `chart-1` … `chart-5` untuk kategori berurutan dari porsi terbesar (donat per entitas memakai `chart-1` … `chart-10`, dan `chart-other` untuk "Lainnya"), `chart-grid` untuk gridline, `chart-axis` untuk garis nol.
 - Fokus keyboard: garis `focus` 2px dengan offset 2px; di atas kartu forest pakai `focus-on-forest`.
 
 ## Tipografi
@@ -63,7 +63,7 @@ Neraca UI adalah bahasa visual Finance Dashboard grup holding: kanvas abu kehija
 - Arus kas bulanan = batang **divergen**: pendapatan di atas garis nol (`chart-income`), pengeluaran di bawah (`chart-expense`), ujung luar membulat `radius-xs`.
 - Bulan terpilih/hover: batang diberi `shadow-glow` + garis `lime-strong`, dan tooltip `shadow-pop` berisi bulan + dua angka.
 - Sumbu dan label memakai `caption` `ink-muted`; gridline `chart-grid` horizontal saja; sumbu Y disingkat sesuai bahasa (`10 M`, `5 M`, `0`, `−5 M`).
-- Donat: maksimal 5 segmen (sisanya digabung "Lainnya" dengan `chart-5`), angka total di tengah `figure-md`, legenda di bawah berisi chip persen + nama + angka rata kanan.
+- Donat: maksimal 5 segmen (sisanya digabung "Lainnya" dengan `chart-5`), angka total di tengah `figure-md`, legenda di bawah berisi chip persen + nama + angka rata kanan. Varian **per entitas**: sampai 10 segmen berwarna `chart-1` … `chart-10` plus "Lainnya" (`chart-other`), legenda hanya 5 terbesar (titik warna + nama + persen) dan satu baris "+N lainnya", tooltip nominal penuh, dan link "Details ›" di kepala kartu.
 - Setiap grafik punya padanan tabel (drill-down) dan teks alternatif ringkas.
 
 ## Status & state

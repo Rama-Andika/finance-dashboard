@@ -1,0 +1,55 @@
+import Decimal from 'decimal.js'
+import { describe, expect, it } from 'vitest'
+import { buildDonutArcs, largestRemainderPercentages } from './donut'
+
+const decs = (values: number[]) => values.map((v) => new Decimal(v))
+
+describe('largestRemainderPercentages', () => {
+  it('returns exact percentages when they divide evenly', () => {
+    expect(largestRemainderPercentages(decs([50, 30, 20]))).toEqual([50, 30, 20])
+  })
+
+  it('hands the missing point to the largest remainder, the first one on a tie', () => {
+    expect(largestRemainderPercentages(decs([1, 1, 1]))).toEqual([34, 33, 33])
+    expect(largestRemainderPercentages(decs([500, 100]))).toEqual([83, 17])
+  })
+
+  it('always adds up to 100', () => {
+    const result = largestRemainderPercentages(decs([1, 2, 3, 4, 5, 6, 7]))
+    expect(result).toEqual([4, 7, 11, 14, 18, 21, 25])
+    expect(result.reduce((a, b) => a + b, 0)).toBe(100)
+  })
+
+  it('returns zeros for an empty list or when everything is zero', () => {
+    expect(largestRemainderPercentages([])).toEqual([])
+    expect(largestRemainderPercentages(decs([0, 0]))).toEqual([0, 0])
+  })
+
+  it('treats a negative value as zero', () => {
+    expect(largestRemainderPercentages(decs([-5, 10]))).toEqual([0, 100])
+  })
+})
+
+describe('buildDonutArcs', () => {
+  it('splits the circumference minus the gaps in proportion to the values', () => {
+    // 2 segments, gap 2 → 100 − 4 = 96 to share: 75% = 72, 25% = 24
+    expect(buildDonutArcs(decs([75, 25]), 100, 2)).toEqual([
+      { dashArray: '72.0 28.0', dashOffset: '0.0' },
+      { dashArray: '24.0 76.0', dashOffset: '-74.0' },
+    ])
+  })
+
+  it('draws no gap when only one segment is drawn, and skips zero values', () => {
+    expect(buildDonutArcs(decs([100, 0]), 100, 2)).toEqual([
+      { dashArray: '100.0 0.0', dashOffset: '0.0' },
+      { dashArray: '0 100.0', dashOffset: '0' },
+    ])
+  })
+
+  it('draws nothing when every value is zero', () => {
+    expect(buildDonutArcs(decs([0, 0]), 100, 2)).toEqual([
+      { dashArray: '0 100.0', dashOffset: '0' },
+      { dashArray: '0 100.0', dashOffset: '0' },
+    ])
+  })
+})

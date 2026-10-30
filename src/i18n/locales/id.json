@@ -398,13 +398,19 @@
       "totalRevenue": "Total pendapatan",
       "revenueByFolder": "Rincian Folder Pendapatan",
       "topCategory": "Kategori Terbesar",
-      "topEntity": "Entitas Terbesar"
+      "topEntity": "Entitas Terbesar",
+      "revenueByEntity": "Pendapatan per Entitas",
+      "entity": "Entitas",
+      "share": "Porsi",
+      "noEntity": "Tanpa entitas"
     },
     "summary": {
       "overdue": "Overdue",
       "composition": "Komposisi",
       "totalRevenue": "Total pendapatan",
-      "totalExpense": "Total beban"
+      "totalExpense": "Total beban",
+      "revenueByEntity": "Pendapatan per Entitas",
+      "details": "Detail"
     },
     "journalList": {
       "noJournalLines": "Tidak ada baris jurnal",
@@ -435,7 +441,9 @@
     "donutBreakdown": {
       "other": "Lainnya",
       "composition": "Komposisi",
-      "ariaLabel": "{{title}} {{period}}, total {{total}}. Terbesar {{top}} {{pct}} persen."
+      "ariaLabel": "{{title}} {{period}}, total {{total}}. Terbesar {{top}} {{pct}} persen.",
+      "moreItems": "+{{count}} lainnya",
+      "hiddenEntities": "{{count}} entitas dengan pendapatan nol atau negatif tidak ditampilkan"
     },
     "topBar": {
       "user": "Pengguna"
@@ -449,6 +457,8 @@
       "totalPayable": "Total Utang (Rp)",
       "totalReceivable": "Total Piutang (Rp)",
       "total": "Total (Rp)",
+      "entity": "Entitas",
+      "share": "Porsi (%)",
       "date": "Tanggal",
       "planStatus": "Status Rencana Bayar",
       "payableBalance": "Sisa Utang (Rp)",

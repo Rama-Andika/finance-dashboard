@@ -51,6 +51,12 @@ describe('Metrics DB integration (demo data window)', () => {
     expect(D(sum(revenue.byEntity.map((e) => e.amount))).lte(D(revenue.total).plus(1))).toBe(true)
   })
 
+  it('Revenue: entity rows plus the unassigned amount equal the total exactly', { timeout: TEST_TIMEOUT }, async () => {
+    const revenue = await computeRevenue(filter)
+    expect(revenue.entityUnassigned).toMatch(MONEY_REGEX)
+    expect(D(sum(revenue.byEntity.map((e) => e.amount))).plus(D(revenue.entityUnassigned)).toFixed(2)).toBe(revenue.total)
+  })
+
   it('P&L: revenue line equals the Revenue metric and net profit follows the formula', { timeout: TEST_TIMEOUT }, async () => {
     const [pnl, revenue] = await Promise.all([computePnl(filter), computeRevenue(filter)])
     const line = (k: string) => pnl.lines.find((l) => l.key === k)?.amount ?? '0.00'

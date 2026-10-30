@@ -20,6 +20,7 @@ import { BillsTable } from '~/components/summary/BillsTable'
 import { MiniMetricsBar } from '~/components/summary/MiniMetricsBar'
 import { formatPercent } from '~/lib/format/number'
 import { formatMonthYear, getCompareLabel } from '~/lib/format/date'
+import { D } from '~/lib/core/money'
 import type { Lang } from '~/lib/core/types'
 
 export const Route = createFileRoute('/_authed/summary')({
@@ -67,6 +68,41 @@ function SummaryPage() {
           name: translateLabel(t, f.label),
           amount: f.amount,
         }))
+
+  // A ring with a single entity is one full circle and says nothing: the card needs at least two
+  // selected entities and at least two of them with revenue above zero.
+  const positiveEntities = data.revenue.byEntity.filter((e) => D(e.amount).gt(0)).length
+  const showEntityCard = data.meta.entityCount >= 2 && positiveEntities >= 2
+
+  const cashflowChart = (
+    <CashflowChart
+      title={t('nav.cashFlow')}
+      data={data.cashFlow.monthly}
+      net={data.cashFlow.netCashFlow}
+      lang={lang}
+      onSelectMonth={() => goTo('/cash-flow')}
+    />
+  )
+
+  const compositionDonut = (
+    <DonutBreakdown
+      title={t('ui.summary.composition')}
+      tabs={[
+        { id: 'revenue', label: t('metric.tabs.revenue') },
+        { id: 'expense', label: t('metric.tabs.expense') },
+      ]}
+      activeTab={donutTab}
+      onTabChange={(tab) => setDonutTab(tab as 'revenue' | 'expense')}
+      items={donutItems}
+      totalLabel={
+        donutTab === 'revenue'
+          ? t('ui.summary.totalRevenue')
+          : t('ui.summary.totalExpense')
+      }
+      lang={lang}
+      onSelect={() => goTo(donutTab === 'revenue' ? '/revenue' : '/profit-loss')}
+    />
+  )
 
   return (
     <div className="space-y-6">
@@ -133,37 +169,31 @@ function SummaryPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <CashflowChart
-            title={t('nav.cashFlow')}
-            data={data.cashFlow.monthly}
-            net={data.cashFlow.netCashFlow}
-            lang={lang}
-            onSelectMonth={() => goTo('/cash-flow')}
-          />
+      {showEntityCard ? (
+        <div className="space-y-6">
+          {cashflowChart}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {compositionDonut}
+            <DonutBreakdown
+              variant="entity"
+              title={t('ui.summary.revenueByEntity')}
+              items={data.revenue.byEntity.map((e) => ({ id: e.id, name: e.name, amount: e.amount }))}
+              unassigned={data.revenue.entityUnassigned}
+              totalLabel={t('ui.summary.totalRevenue')}
+              lang={lang}
+              periodLabel={formatMonthYear(data.meta.asOf, lang)}
+              detailsLabel={t('ui.summary.details')}
+              onDetails={() => goTo('/revenue')}
+              onSelect={() => goTo('/revenue')}
+            />
+          </div>
         </div>
-
-        <div className="lg:col-span-1">
-          <DonutBreakdown
-            title={t('ui.summary.composition')}
-            tabs={[
-              { id: 'revenue', label: t('metric.tabs.revenue') },
-              { id: 'expense', label: t('metric.tabs.expense') },
-            ]}
-            activeTab={donutTab}
-            onTabChange={(tab) => setDonutTab(tab as 'revenue' | 'expense')}
-            items={donutItems}
-            totalLabel={
-              donutTab === 'revenue'
-                ? t('ui.summary.totalRevenue')
-                : t('ui.summary.totalExpense')
-            }
-            lang={lang}
-            onSelect={() => goTo(donutTab === 'revenue' ? '/revenue' : '/profit-loss')}
-          />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">{cashflowChart}</div>
+          <div className="lg:col-span-1">{compositionDonut}</div>
         </div>
-      </div>
+      )}
 
       <BillsTable filters={deps} lang={lang} onRowClick={() => goTo('/payment-plan')} />
 

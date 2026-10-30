@@ -25,7 +25,9 @@ export type RevenueResult = {
   compareTotal: Money | null
   trend: Array<{ month: string; amount: Money }>
   byFolder: Breakdown[]
-  byEntity: Array<{ code: string; name: string; amount: Money }>
+  byEntity: Array<{ id: Id; code: string; name: string; amount: Money }>
+  /** Revenue that belongs to no entity row (journal lines without a location): total − Σ byEntity. "0.00" when none. */
+  entityUnassigned: Money
 }
 
 export function computeRevenue(filter: AppContextFilter): Promise<RevenueResult> {
@@ -48,6 +50,7 @@ async function computeRevenueUncached(filter: AppContextFilter): Promise<Revenue
       trend: filter.months.map((m) => ({ month: m, amount: '0.00' })),
       byFolder: [],
       byEntity: [],
+      entityUnassigned: '0.00',
     }
   }
 
@@ -138,11 +141,15 @@ async function computeRevenueUncached(filter: AppContextFilter): Promise<Revenue
   const byEntity = targetEntities.map((e) => {
     const entAmount = byLocationMap.get(e.locationId) ?? D(0)
     return {
+      id: e.locationId,
       code: e.code,
       name: e.name,
       amount: entAmount.toFixed(2),
     }
   })
+
+  // Revenue lines without a location (or of a location outside the list) belong to no entity row.
+  const entityUnassigned = totalSum.minus(D(sum(byEntity.map((e) => e.amount)))).toFixed(2)
 
   return {
     meta,
@@ -151,5 +158,6 @@ async function computeRevenueUncached(filter: AppContextFilter): Promise<Revenue
     trend,
     byFolder,
     byEntity,
+    entityUnassigned,
   }
 }

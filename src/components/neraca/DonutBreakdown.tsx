@@ -3,6 +3,14 @@ import Decimal from 'decimal.js'
 import type { Lang, Money } from '~/lib/core/types'
 import { formatMoneyShort } from '~/lib/format/number'
 import { useTranslation } from 'react-i18next'
+import {
+  DONUT_CIRCUMFERENCE,
+  DONUT_GAP,
+  DONUT_RADIUS,
+  buildDonutArcs,
+  largestRemainderPercentages,
+} from '~/lib/core/donut'
+import { EntityDonut } from '~/components/neraca/EntityDonut'
 
 export interface DonutBreakdownItem {
   id: string
@@ -20,13 +28,35 @@ export interface DonutBreakdownProps {
   lang: Lang
   onSelect?: (id: string) => void
   periodLabel?: string
+  /** 'entity': up to 10 ring segments, a legend of the 5 largest (percent only) and a "Details" link. */
+  variant?: 'default' | 'entity'
+  /** Entity variant: revenue that belongs to no entity; joins the "Other" segment when positive. */
+  unassigned?: Money
+  /** Entity variant: text and handler of the "Details ›" link in the card header. */
+  detailsLabel?: string
+  onDetails?: () => void
 }
 
-const RADIUS = 60
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS // ~376.99
-const GAP = 2
+export function DonutBreakdown(props: DonutBreakdownProps) {
+  if (props.variant === 'entity') {
+    return (
+      <EntityDonut
+        title={props.title}
+        items={props.items}
+        unassigned={props.unassigned ?? '0.00'}
+        totalLabel={props.totalLabel}
+        lang={props.lang}
+        periodLabel={props.periodLabel}
+        detailsLabel={props.detailsLabel}
+        onDetails={props.onDetails}
+        onSelect={props.onSelect}
+      />
+    )
+  }
+  return <DefaultDonut {...props} />
+}
 
-export function DonutBreakdown({
+function DefaultDonut({
   title,
   tabs,
   activeTab,
@@ -66,55 +96,16 @@ export function DonutBreakdown({
   const totalDec = displayItems.reduce((sum, it) => sum.add(it.decAmount), new Decimal(0))
   const totalFormatted = formatMoneyShort(totalDec.toFixed(0), lang)
 
-  // Compute percentages that sum to 100% using Hare-Niemeyer / Largest Remainder
-  const count = displayItems.length
-  let percentages: number[] = []
-  if (totalDec.isZero() || count === 0) {
-    percentages = displayItems.map(() => 0)
-  } else {
-    const rawPcts = displayItems.map((it) => it.decAmount.div(totalDec).times(100).toNumber())
-    const floorPcts = rawPcts.map((p) => Math.floor(p))
-    const remainders = rawPcts.map((p, idx) => ({ idx, rem: p - floorPcts[idx]! }))
-    remainders.sort((a, b) => b.rem - a.rem)
-
-    let deficit = 100 - floorPcts.reduce((a, b) => a + b, 0)
-    percentages = [...floorPcts]
-    for (let i = 0; i < deficit && i < remainders.length; i++) {
-      const idx = remainders[i]!.idx
-      percentages[idx]! += 1
-    }
-  }
-
-  // Calculate arc dash arrays & offsets
-  // Total gap = count * GAP if count > 1
-  const visibleSegments = displayItems.filter((it) => it.decAmount.gt(0))
-  const totalGap = visibleSegments.length > 1 ? visibleSegments.length * GAP : 0
-  const availableLength = CIRCUMFERENCE - totalGap
-
-  let currentOffset = 0
-  const segmentsData = displayItems.map((item, idx) => {
-    if (totalDec.isZero() || item.decAmount.isZero()) {
-      return {
-        ...item,
-        pct: percentages[idx] || 0,
-        dashArray: `0 ${CIRCUMFERENCE.toFixed(1)}`,
-        dashOffset: '0',
-      }
-    }
-
-    const proportion = item.decAmount.div(totalDec).toNumber()
-    const arcLength = Math.max(0, proportion * availableLength)
-    const dashArray = `${arcLength.toFixed(1)} ${(CIRCUMFERENCE - arcLength).toFixed(1)}`
-    const dashOffset = (-currentOffset).toFixed(1)
-    currentOffset += arcLength + (visibleSegments.length > 1 ? GAP : 0)
-
-    return {
-      ...item,
-      pct: percentages[idx] || 0,
-      dashArray,
-      dashOffset,
-    }
-  })
+  // Percentages that add up to 100 (largest remainder) and the stroke settings of each arc
+  const amounts = displayItems.map((it) => it.decAmount)
+  const percentages = largestRemainderPercentages(amounts)
+  const arcs = buildDonutArcs(amounts, DONUT_CIRCUMFERENCE, DONUT_GAP)
+  const segmentsData = displayItems.map((item, idx) => ({
+    ...item,
+    pct: percentages[idx] ?? 0,
+    dashArray: arcs[idx]?.dashArray ?? '0 0',
+    dashOffset: arcs[idx]?.dashOffset ?? '0',
+  }))
 
   // Accessible description
   const topSegment = displayItems[0]
@@ -172,7 +163,7 @@ export function DonutBreakdown({
           <circle
             cx="80"
             cy="80"
-            r={RADIUS}
+            r={DONUT_RADIUS}
             fill="none"
             stroke="var(--surface-sunken)"
             strokeWidth="18"
@@ -185,7 +176,7 @@ export function DonutBreakdown({
                 className={`s${classNum}`}
                 cx="80"
                 cy="80"
-                r={RADIUS}
+                r={DONUT_RADIUS}
                 strokeDasharray={seg.dashArray}
                 strokeDashoffset={seg.dashOffset}
                 style={{ cursor: onSelect ? 'pointer' : 'default' }}

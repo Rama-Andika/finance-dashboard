@@ -398,13 +398,19 @@
       "totalRevenue": "Total revenue",
       "revenueByFolder": "Revenue by Folder",
       "topCategory": "Top Category",
-      "topEntity": "Top Location"
+      "topEntity": "Top Location",
+      "revenueByEntity": "Revenue by Entity",
+      "entity": "Entity",
+      "share": "Share",
+      "noEntity": "No entity"
     },
     "summary": {
       "overdue": "Overdue",
       "composition": "Composition",
       "totalRevenue": "Total revenue",
-      "totalExpense": "Total expense"
+      "totalExpense": "Total expense",
+      "revenueByEntity": "Revenue by Entity",
+      "details": "Details"
     },
     "journalList": {
       "noJournalLines": "No journal lines",
@@ -435,7 +441,9 @@
     "donutBreakdown": {
       "other": "Other",
       "composition": "Composition",
-      "ariaLabel": "{{title}} {{period}}, total {{total}}. Largest {{top}} {{pct}} percent."
+      "ariaLabel": "{{title}} {{period}}, total {{total}}. Largest {{top}} {{pct}} percent.",
+      "moreItems": "+{{count}} more",
+      "hiddenEntities": "{{count}} entities with zero or negative revenue are not shown"
     },
     "topBar": {
       "user": "User"
@@ -449,6 +457,8 @@
       "totalPayable": "Total Payable (IDR)",
       "totalReceivable": "Total Receivable (IDR)",
       "total": "Total (IDR)",
+      "entity": "Entity",
+      "share": "Share (%)",
       "date": "Date",
       "planStatus": "Payment Plan Status",
       "payableBalance": "Outstanding (IDR)",

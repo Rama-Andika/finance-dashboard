@@ -169,6 +169,29 @@ body { margin: 0; font-family: var(--font-sans); font-size: 14px; line-height: 2
 .nr-donut-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 .nr-donut-list li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--space-3); font-size: 13px; line-height: 18px; }
 .nr-donut-list li b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.nr-donut-ring .s6 { stroke: var(--chart-6); }
+.nr-donut-ring .s7 { stroke: var(--chart-7); }
+.nr-donut-ring .s8 { stroke: var(--chart-8); }
+.nr-donut-ring .s9 { stroke: var(--chart-9); }
+.nr-donut-ring .s10 { stroke: var(--chart-10); }
+.nr-donut-ring .so { stroke: var(--chart-other); }
+.nr-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+.nr-dot-1 { background: var(--chart-1); }
+.nr-dot-2 { background: var(--chart-2); }
+.nr-dot-3 { background: var(--chart-3); }
+.nr-dot-4 { background: var(--chart-4); }
+.nr-dot-5 { background: var(--chart-5); }
+.nr-dot-6 { background: var(--chart-6); }
+.nr-dot-7 { background: var(--chart-7); }
+.nr-dot-8 { background: var(--chart-8); }
+.nr-dot-9 { background: var(--chart-9); }
+.nr-dot-10 { background: var(--chart-10); }
+.nr-dot-other { background: var(--chart-other); }
+.nr-donut-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nr-donut-rest { color: var(--ink-muted); }
+.nr-donut-note { margin: 0; font-size: 12px; line-height: 16px; }
+.nr-card-link { border: 0; background: none; padding: 0; font: 600 13px/18px var(--font-sans); color: var(--ink); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.nr-card-link:hover { text-decoration-thickness: 2px; }
 
 /* aging bar */
 .nr-aging { display: flex; flex-direction: column; gap: var(--space-3); }
