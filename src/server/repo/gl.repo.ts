@@ -112,6 +112,25 @@ async function queryMovementsFromDb(
   return resultRows
 }
 
+/**
+ * Adds `amounts` to the row stored under `key`, or stores a new row (made by `create`) when there is none.
+ * Debit and credit are summed as exact decimals.
+ */
+function accumulate<T extends { debet: Money; credit: Money }>(
+  map: Map<string, T>,
+  key: string,
+  amounts: { debet: Money; credit: Money },
+  create: () => T,
+): void {
+  const existing = map.get(key)
+  if (!existing) {
+    map.set(key, create())
+    return
+  }
+  existing.debet = D(existing.debet).plus(D(amounts.debet)).toFixed(2)
+  existing.credit = D(existing.credit).plus(D(amounts.credit)).toFixed(2)
+}
+
 export async function movementsByPeriods(opts: MovementsByPeriodsOptions): Promise<MovementRow[]> {
   if (opts.periods.length === 0) return []
   if (opts.coaIds && opts.coaIds.length === 0) return []
@@ -125,13 +144,7 @@ export async function movementsByPeriods(opts: MovementsByPeriodsOptions): Promi
     for (const r of rowsToMerge) {
       const periodId = opts.byPeriod ? r.periodId : undefined
       const key = `${r.coaId}|${periodId ?? ''}|${r.locationId ?? ''}`
-      const existing = resultMap.get(key)
-      if (existing) {
-        existing.debet = D(existing.debet).plus(D(r.debet)).toFixed(2)
-        existing.credit = D(existing.credit).plus(D(r.credit)).toFixed(2)
-      } else {
-        resultMap.set(key, { ...r, periodId })
-      }
+      accumulate(resultMap, key, r, () => ({ ...r, periodId }))
     }
   }
 
@@ -209,72 +222,73 @@ export async function movementsByDate(opts: MovementsByDateOptions): Promise<Dat
   if (opts.segIds !== 'all' && opts.segIds.length === 0) return []
 
   assertSegmentColumn(opts.segCol)
-  const segIdent = sql.identifier(opts.segCol)
 
   // Short ranges: drive from gl's trans_date index (see movementsByPeriods). Long ranges (trial-balance
   // fallback over the whole history) are better served by the coa_id index, so the optimizer decides.
   const driveFromGl = diffDays(opts.to, opts.from) <= MAX_TRANS_DATE_INDEX_RANGE_DAYS
 
-  const resultMap = new Map<string, DateMovementRow>()
-
   await prefetchCanceledDateColumns(opts.tables)
-  for (const tableName of opts.tables) {
-    const notCanceled = await notCanceledClause(tableName, 'g')
-    const { gl, glDetail } = glTablesOf(tableName)
-    const glIdent = sql.identifier(gl)
-    const glDetailIdent = sql.identifier(glDetail)
+  // One read per GL table, all tables in parallel; merged in table order so the result order is stable.
+  const perTable = await Promise.all(opts.tables.map((tableName) => dateMovementsOfTable(tableName, opts, driveFromGl)))
 
-    for (const [cChunk, sChunk] of sliceCombos(chunkOrAll(opts.coaIds), chunkOrAll(opts.segIds))) {
-      const query = sql`
-        SELECT ${driveFromGl ? sql`STRAIGHT_JOIN ` : sql``}d.coa_id AS coaId
-               ${opts.byDate ? sql`, DATE(g.trans_date) AS transDate` : sql``}
-               ${opts.bySegment ? sql`, d.${segIdent} AS segmentDetailId` : sql``}
-               , SUM(d.debet) AS debet, SUM(d.credit) AS credit
-        FROM ${glIdent} g
-        JOIN ${glDetailIdent} d ON d.gl_id = g.gl_id
-        WHERE g.posted_status = 1
-          ${notCanceled}
-          AND g.trans_date >= ${opts.from}
-          AND g.trans_date <= ${opts.to}
-          ${cChunk ? sql`AND d.coa_id IN (${inList(cChunk)})` : sql``}
-          ${sChunk ? sql`AND d.${segIdent} IN (${inList(sChunk)})` : sql``}
-        GROUP BY d.coa_id
-                 ${opts.byDate ? sql`, DATE(g.trans_date)` : sql``}
-                 ${opts.bySegment ? sql`, d.${segIdent}` : sql``}
-      `
+  const resultMap = new Map<string, DateMovementRow>()
+  for (const row of perTable.flat()) {
+    accumulate(resultMap, `${row.coaId}|${row.transDate ?? ''}|${row.segmentDetailId ?? ''}`, row, () => ({ ...row }))
+  }
+  return Array.from(resultMap.values())
+}
 
-      const queryRows = await rows<{
-        coaId: string
-        transDate?: string
-        segmentDetailId?: string | null
-        debet: string | number
-        credit: string | number
-      }>(query)
+/** The movements of one GL table (one query per slice when the account or segment list is above the IN limit). */
+async function dateMovementsOfTable(
+  tableName: string,
+  opts: MovementsByDateOptions,
+  driveFromGl: boolean,
+): Promise<DateMovementRow[]> {
+  const segIdent = sql.identifier(opts.segCol)
+  const notCanceled = await notCanceledClause(tableName, 'g')
+  const { gl, glDetail } = glTablesOf(tableName)
+  const glIdent = sql.identifier(gl)
+  const glDetailIdent = sql.identifier(glDetail)
 
-      for (const r of queryRows) {
-        const coaId = String(r.coaId)
-        const transDate = r.transDate ? String(r.transDate).slice(0, 10) : undefined
-        const segmentDetailId = opts.bySegment ? String(r.segmentDetailId ?? '') : undefined
-        const key = `${coaId}|${transDate ?? ''}|${segmentDetailId ?? ''}`
+  const result: DateMovementRow[] = []
+  for (const [cChunk, sChunk] of sliceCombos(chunkOrAll(opts.coaIds), chunkOrAll(opts.segIds))) {
+    const query = sql`
+      SELECT ${driveFromGl ? sql`STRAIGHT_JOIN ` : sql``}d.coa_id AS coaId
+             ${opts.byDate ? sql`, DATE(g.trans_date) AS transDate` : sql``}
+             ${opts.bySegment ? sql`, d.${segIdent} AS segmentDetailId` : sql``}
+             , SUM(d.debet) AS debet, SUM(d.credit) AS credit
+      FROM ${glIdent} g
+      JOIN ${glDetailIdent} d ON d.gl_id = g.gl_id
+      WHERE g.posted_status = 1
+        ${notCanceled}
+        AND g.trans_date >= ${opts.from}
+        AND g.trans_date <= ${opts.to}
+        ${cChunk ? sql`AND d.coa_id IN (${inList(cChunk)})` : sql``}
+        ${sChunk ? sql`AND d.${segIdent} IN (${inList(sChunk)})` : sql``}
+      GROUP BY d.coa_id
+               ${opts.byDate ? sql`, DATE(g.trans_date)` : sql``}
+               ${opts.bySegment ? sql`, d.${segIdent}` : sql``}
+    `
 
-        const existing = resultMap.get(key)
-        if (existing) {
-          existing.debet = D(existing.debet).plus(D(r.debet || 0)).toFixed(2)
-          existing.credit = D(existing.credit).plus(D(r.credit || 0)).toFixed(2)
-        } else {
-          resultMap.set(key, {
-            coaId,
-            transDate,
-            segmentDetailId,
-            debet: D(r.debet || 0).toFixed(2),
-            credit: D(r.credit || 0).toFixed(2),
-          })
-        }
-      }
+    const queryRows = await rows<{
+      coaId: string
+      transDate?: string
+      segmentDetailId?: string | null
+      debet: string | number
+      credit: string | number
+    }>(query)
+
+    for (const r of queryRows) {
+      result.push({
+        coaId: String(r.coaId),
+        transDate: r.transDate ? String(r.transDate).slice(0, 10) : undefined,
+        segmentDetailId: opts.bySegment ? String(r.segmentDetailId ?? '') : undefined,
+        debet: D(r.debet || 0).toFixed(2),
+        credit: D(r.credit || 0).toFixed(2),
+      })
     }
   }
-
-  return Array.from(resultMap.values())
+  return result
 }
 
 export type OpeningBalanceRow = {
@@ -386,78 +400,88 @@ export async function journalLines(opts: JournalLinesOptions): Promise<JournalLi
   const perTableLimit = multiTable ? offset + limit : limit
   const perTableOffset = multiTable ? 0 : offset
 
-  const pages: JournalLineRow[][] = []
-
   await prefetchCanceledDateColumns(grouped.keys())
-  for (const [tableName, tablePeriods] of grouped.entries()) {
-    const notCanceled = await notCanceledClause(tableName, 'g')
-    const { gl, glDetail } = glTablesOf(tableName)
-    const glIdent = sql.identifier(gl)
-    const glDetailIdent = sql.identifier(glDetail)
-
-    const periodIdList = tablePeriods.map((p) => p.periodeId)
-    const periodClause =
-      periodIdList.length > 0
-        ? sql`AND g.period_id IN (${inList(periodIdList)})`
-        : opts.startDate && opts.endDate
-          ? sql`AND g.trans_date >= ${opts.startDate} AND g.trans_date <= ${opts.endDate}`
-          : sql``
-
-    const coaClause =
-      opts.coaIds && opts.coaIds.length > 0 ? sql`AND d.coa_id IN (${inList(opts.coaIds)})` : sql``
-
-    const segClause =
-      opts.segCol && opts.segIds && opts.segIds !== 'all'
-        ? sql`AND d.${sql.identifier(opts.segCol)} IN (${inList(opts.segIds)})`
-        : sql``
-
-    const query = sql`
-      SELECT STRAIGHT_JOIN g.gl_id AS glId,
-             g.journal_number AS journalNumber,
-             DATE(g.trans_date) AS transDate,
-             g.journal_type AS journalType,
-             COALESCE(g.memo, '') AS memo,
-             d.coa_id AS coaId,
-             SUM(d.debet) AS debet,
-             SUM(d.credit) AS credit
-      FROM ${glIdent} g
-      JOIN ${glDetailIdent} d ON d.gl_id = g.gl_id
-      WHERE g.posted_status = 1
-        ${notCanceled}
-        ${periodClause}
-        ${coaClause}
-        ${segClause}
-      GROUP BY g.gl_id, g.journal_number, DATE(g.trans_date), g.journal_type, g.memo, d.coa_id
-      ORDER BY g.trans_date DESC, g.gl_id DESC, d.coa_id
-      LIMIT ${perTableLimit} OFFSET ${perTableOffset}
-    `
-
-    const queryRows = await rows<{
-      glId: string | number
-      journalNumber: string
-      transDate: string
-      journalType: number
-      memo: string
-      coaId: string | number
-      debet: string | number
-      credit: string | number
-    }>(query)
-
-    pages.push(
-      queryRows.map((r) => ({
-        glId: String(r.glId),
-        journalNumber: r.journalNumber || '',
-        transDate: String(r.transDate).slice(0, 10),
-        journalType: Number(r.journalType) || 0,
-        memo: r.memo || '',
-        coaId: String(r.coaId),
-        debet: D(r.debet || 0).toFixed(2),
-        credit: D(r.credit || 0).toFixed(2),
-      })),
-    )
-  }
+  // One page per GL table, all tables in parallel (the pages stay in table order).
+  const pages = await Promise.all(
+    Array.from(grouped, ([tableName, tablePeriods]) =>
+      journalPageOfTable(tableName, tablePeriods, opts, perTableLimit, perTableOffset),
+    ),
+  )
 
   return multiTable ? mergeJournalPages(pages, offset, limit) : (pages[0] ?? [])
+}
+
+/** The first `limit` journal lines (after `offset`) of one GL table, newest first. */
+async function journalPageOfTable(
+  tableName: string,
+  tablePeriods: Period[],
+  opts: JournalLinesOptions,
+  limit: number,
+  offset: number,
+): Promise<JournalLineRow[]> {
+  const notCanceled = await notCanceledClause(tableName, 'g')
+  const { gl, glDetail } = glTablesOf(tableName)
+  const glIdent = sql.identifier(gl)
+  const glDetailIdent = sql.identifier(glDetail)
+
+  const periodIdList = tablePeriods.map((p) => p.periodeId)
+  const periodClause =
+    periodIdList.length > 0
+      ? sql`AND g.period_id IN (${inList(periodIdList)})`
+      : opts.startDate && opts.endDate
+        ? sql`AND g.trans_date >= ${opts.startDate} AND g.trans_date <= ${opts.endDate}`
+        : sql``
+
+  const coaClause =
+    opts.coaIds && opts.coaIds.length > 0 ? sql`AND d.coa_id IN (${inList(opts.coaIds)})` : sql``
+
+  const segClause =
+    opts.segCol && opts.segIds && opts.segIds !== 'all'
+      ? sql`AND d.${sql.identifier(opts.segCol)} IN (${inList(opts.segIds)})`
+      : sql``
+
+  const query = sql`
+    SELECT STRAIGHT_JOIN g.gl_id AS glId,
+           g.journal_number AS journalNumber,
+           DATE(g.trans_date) AS transDate,
+           g.journal_type AS journalType,
+           COALESCE(g.memo, '') AS memo,
+           d.coa_id AS coaId,
+           SUM(d.debet) AS debet,
+           SUM(d.credit) AS credit
+    FROM ${glIdent} g
+    JOIN ${glDetailIdent} d ON d.gl_id = g.gl_id
+    WHERE g.posted_status = 1
+      ${notCanceled}
+      ${periodClause}
+      ${coaClause}
+      ${segClause}
+    GROUP BY g.gl_id, g.journal_number, DATE(g.trans_date), g.journal_type, g.memo, d.coa_id
+    ORDER BY g.trans_date DESC, g.gl_id DESC, d.coa_id
+    LIMIT ${limit} OFFSET ${offset}
+  `
+
+  const queryRows = await rows<{
+    glId: string | number
+    journalNumber: string
+    transDate: string
+    journalType: number
+    memo: string
+    coaId: string | number
+    debet: string | number
+    credit: string | number
+  }>(query)
+
+  return queryRows.map((r) => ({
+    glId: String(r.glId),
+    journalNumber: r.journalNumber || '',
+    transDate: String(r.transDate).slice(0, 10),
+    journalType: Number(r.journalType) || 0,
+    memo: r.memo || '',
+    coaId: String(r.coaId),
+    debet: D(r.debet || 0).toFixed(2),
+    credit: D(r.credit || 0).toFixed(2),
+  }))
 }
 
 export type JournalHeaderRow = {

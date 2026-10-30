@@ -53,71 +53,85 @@ export function linesOfCashJournals(
 
 async function queryCashLines(opts: LinesOfCashJournalsOptions): Promise<CashJournalLineRow[]> {
   const grouped = groupPeriodsByTable(opts.periods)
-  // A journal that matches in two slices (account or segment lists above 1000 ids) comes back once per slice.
-  const unique = new Map<string, CashJournalLineRow>()
 
   await prefetchCanceledDateColumns(grouped.keys())
-  for (const [tableName, tablePeriods] of grouped.entries()) {
-    const { gl, glDetail } = glTablesOf(tableName)
-    const glIdent = sql.identifier(gl)
-    const glDetailIdent = sql.identifier(glDetail)
-    const segIdent = sql.identifier(opts.segCol)
-    const notCanceledMain = await notCanceledClause(tableName, 'g')
-    const notCanceledSub = await notCanceledClause(tableName, 'g2')
+  // One read per GL table, all tables in parallel; merged in table order so the result order is stable.
+  const perTable = await Promise.all(
+    Array.from(grouped, ([tableName, tablePeriods]) => cashLinesOfTable(tableName, tablePeriods, opts)),
+  )
 
-    for (const [pChunk, cChunk, sChunk] of sliceCombos(chunk(tablePeriods.map((p) => p.periodeId)), chunk(opts.cashCoaIds), chunkOrAll(opts.segIds))) {
-      const query = sql`
-        SELECT d.gl_id AS glId,
-               g.journal_type AS journalType,
-               g.period_id AS periodId,
-               d.coa_id AS coaId,
-               d.${segIdent} AS segmentDetailId,
-               SUM(d.debet) AS debet,
-               SUM(d.credit) AS credit
-        FROM ${glIdent} g
-        JOIN ${glDetailIdent} d ON d.gl_id = g.gl_id
-        JOIN (
-          -- STRAIGHT_JOIN: start from the selected periods, not from the cash accounts' full history
-          SELECT DISTINCT STRAIGHT_JOIN d2.gl_id
-          FROM ${glIdent} g2
-          JOIN ${glDetailIdent} d2 ON d2.gl_id = g2.gl_id
-          WHERE g2.posted_status = 1
-            ${notCanceledSub}
-            AND g2.period_id IN (${inList(pChunk)})
-            AND d2.coa_id IN (${inList(cChunk)})
-            ${sChunk ? sql`AND d2.${segIdent} IN (${inList(sChunk)})` : sql``}
-        ) k ON k.gl_id = g.gl_id
-        WHERE g.posted_status = 1
-          ${notCanceledMain}
-        GROUP BY d.gl_id, g.journal_type, g.period_id, d.coa_id, d.${segIdent}
-      `
+  // A journal that matches in two slices (account or segment lists above 1000 ids) comes back once per slice.
+  const unique = new Map<string, CashJournalLineRow>()
+  for (const line of perTable.flat()) {
+    unique.set(`${line.glId}|${line.coaId}|${line.segmentDetailId ?? ''}`, line)
+  }
+  return Array.from(unique.values())
+}
 
-      const res = await rows<{
-        glId: string
-        journalType: number | string
-        periodId: string
-        coaId: string
-        segmentDetailId: string | null
-        debet: number | string
-        credit: number | string
-      }>(query)
+/** The cash journal lines of one GL table (one query per slice of periods, accounts and segments). */
+async function cashLinesOfTable(
+  tableName: string,
+  tablePeriods: Period[],
+  opts: LinesOfCashJournalsOptions,
+): Promise<CashJournalLineRow[]> {
+  const { gl, glDetail } = glTablesOf(tableName)
+  const glIdent = sql.identifier(gl)
+  const glDetailIdent = sql.identifier(glDetail)
+  const segIdent = sql.identifier(opts.segCol)
+  const notCanceledMain = await notCanceledClause(tableName, 'g')
+  const notCanceledSub = await notCanceledClause(tableName, 'g2')
 
-      for (const r of res) {
-        const line: CashJournalLineRow = {
-          glId: String(r.glId),
-          journalType: Number(r.journalType) || 0,
-          periodId: String(r.periodId),
-          coaId: String(r.coaId),
-          segmentDetailId: r.segmentDetailId ? String(r.segmentDetailId) : null,
-          debet: D(r.debet || 0).toFixed(2),
-          credit: D(r.credit || 0).toFixed(2),
-        }
-        unique.set(`${line.glId}|${line.coaId}|${line.segmentDetailId ?? ''}`, line)
-      }
+  const result: CashJournalLineRow[] = []
+  for (const [pChunk, cChunk, sChunk] of sliceCombos(chunk(tablePeriods.map((p) => p.periodeId)), chunk(opts.cashCoaIds), chunkOrAll(opts.segIds))) {
+    const query = sql`
+      SELECT d.gl_id AS glId,
+             g.journal_type AS journalType,
+             g.period_id AS periodId,
+             d.coa_id AS coaId,
+             d.${segIdent} AS segmentDetailId,
+             SUM(d.debet) AS debet,
+             SUM(d.credit) AS credit
+      FROM ${glIdent} g
+      JOIN ${glDetailIdent} d ON d.gl_id = g.gl_id
+      JOIN (
+        -- STRAIGHT_JOIN: start from the selected periods, not from the cash accounts' full history
+        SELECT DISTINCT STRAIGHT_JOIN d2.gl_id
+        FROM ${glIdent} g2
+        JOIN ${glDetailIdent} d2 ON d2.gl_id = g2.gl_id
+        WHERE g2.posted_status = 1
+          ${notCanceledSub}
+          AND g2.period_id IN (${inList(pChunk)})
+          AND d2.coa_id IN (${inList(cChunk)})
+          ${sChunk ? sql`AND d2.${segIdent} IN (${inList(sChunk)})` : sql``}
+      ) k ON k.gl_id = g.gl_id
+      WHERE g.posted_status = 1
+        ${notCanceledMain}
+      GROUP BY d.gl_id, g.journal_type, g.period_id, d.coa_id, d.${segIdent}
+    `
+
+    const res = await rows<{
+      glId: string
+      journalType: number | string
+      periodId: string
+      coaId: string
+      segmentDetailId: string | null
+      debet: number | string
+      credit: number | string
+    }>(query)
+
+    for (const r of res) {
+      result.push({
+        glId: String(r.glId),
+        journalType: Number(r.journalType) || 0,
+        periodId: String(r.periodId),
+        coaId: String(r.coaId),
+        segmentDetailId: r.segmentDetailId ? String(r.segmentDetailId) : null,
+        debet: D(r.debet || 0).toFixed(2),
+        credit: D(r.credit || 0).toFixed(2),
+      })
     }
   }
-
-  return Array.from(unique.values())
+  return result
 }
 
 export type CashFlowSetupRow = {

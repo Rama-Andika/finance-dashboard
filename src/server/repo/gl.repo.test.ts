@@ -17,7 +17,7 @@ vi.mock('~/server/dash/gl-snapshot', () => ({
   snapshotMovements: (...args: unknown[]) => snapshotMovements(...args),
 }))
 
-const { movementsByPeriods } = await import('./gl.repo')
+const { movementsByPeriods, movementsByDate, journalLines } = await import('./gl.repo')
 const { glMovementsCache } = await import('~/server/cache')
 
 const period = (periodeId: string, status: Period['status'] = 'Closed'): Period => ({
@@ -107,5 +107,56 @@ describe('movementsByPeriods query budget', () => {
     await movementsByPeriods({ periods: [period('p1')], segCol: 'segment1_id', segIds: 'all', useSnapshot: false })
     expect(snapshotMovements).not.toHaveBeenCalled()
     expect(rowsMock).toHaveBeenCalledTimes(2)
+  })
+})
+
+
+/** A query that stays open until `release()` is called, to see whether the next query already started. */
+function gate<T>(value: T) {
+  let release: () => void = () => {}
+  const promise = new Promise<T>((resolve) => { release = () => resolve(value) })
+  return { promise, release }
+}
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+describe('reads over several GL tables', () => {
+  beforeEach(() => {
+    rowsMock.mockReset()
+  })
+
+  it('movementsByDate starts every table at once and keeps the table order in the result', async () => {
+    const first = gate([{ coaId: '20', debet: '100', credit: '0' }])
+    rowsMock.mockReturnValueOnce(first.promise)
+    rowsMock.mockResolvedValueOnce([
+      { coaId: '10', debet: '5', credit: '0' },
+      { coaId: '20', debet: '1', credit: '0' },
+    ])
+
+    const pending = movementsByDate({ from: '2026-10-01', to: '2026-10-31', tables: ['gl', 'gl_2020'], segCol: 'segment1_id', segIds: 'all' })
+    await tick()
+    // The second table is already being read although the first one has not answered yet.
+    expect(rowsMock).toHaveBeenCalledTimes(2)
+
+    first.release()
+    const result = await pending
+    // Table order, not answer order: the first table's account comes first; the same account is summed.
+    expect(result.map((r) => [r.coaId, r.debet])).toEqual([['20', '101.00'], ['10', '5.00']])
+  })
+
+  it('journalLines reads every table at once and merges the pages into one global order', async () => {
+    const line = (glId: string, transDate: string) => ({
+      glId, journalNumber: 'J' + glId, transDate, journalType: 1, memo: '', coaId: '10', debet: '1', credit: '0',
+    })
+    const first = gate([line('3', '2026-10-03'), line('1', '2026-10-01')])
+    rowsMock.mockReturnValueOnce(first.promise)
+    rowsMock.mockResolvedValueOnce([line('2', '2026-10-02')])
+
+    const pending = journalLines({ tables: ['gl', 'gl_2020'], startDate: '2026-10-01', endDate: '2026-10-31', limit: 2, offset: 0 })
+    await tick()
+    expect(rowsMock).toHaveBeenCalledTimes(2)
+
+    first.release()
+    const result = await pending
+    expect(result.map((r) => r.glId)).toEqual(['3', '2'])
   })
 })

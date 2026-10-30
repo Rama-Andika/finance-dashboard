@@ -60,3 +60,27 @@ describe('linesOfCashJournals', () => {
     ).toThrow()
   })
 })
+
+
+describe('linesOfCashJournals over several GL tables', () => {
+  beforeEach(() => {
+    rowsMock.mockReset()
+    clearCache()
+  })
+
+  it('starts every table at once and keeps the table order in the result', async () => {
+    let releaseFirst: () => void = () => {}
+    const first = new Promise<ReturnType<typeof line>[]>((resolve) => { releaseFirst = () => resolve([line('g1', '11')]) })
+    rowsMock.mockReturnValueOnce(first)
+    rowsMock.mockResolvedValueOnce([line('g2', '12')])
+
+    const archived: Period = { ...period, periodeId: 'p0', tableName: 'gl_2020' }
+    const pending = linesOfCashJournals({ periods: [period, archived], segCol: 'segment1_id', segIds: 'all', cashCoaIds: ['11', '12'] })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(rowsMock).toHaveBeenCalledTimes(2)
+
+    releaseFirst()
+    const result = await pending
+    expect(result.map((l) => l.glId)).toEqual(['g1', 'g2'])
+  })
+})
