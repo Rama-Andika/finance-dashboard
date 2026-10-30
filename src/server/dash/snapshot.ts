@@ -8,6 +8,8 @@ import type { AgingInvoice, AgingUnallocated } from '~/server/repo/apar.types'
 import { env } from '~/server/env'
 import type { SnapshotProblem } from '~/lib/finance/ap-ar/snapshot-state'
 import { DASH_TABLES, SNAPSHOT_AP_AR } from './tables'
+import { dashLog } from './log'
+import { errorText } from '~/server/log'
 
 export type SnapshotInfo = {
   /** The day the numbers describe */
@@ -64,7 +66,7 @@ export async function apArSnapshotInfo(): Promise<SnapshotInfo | null> {
       tablesMissing = true
       if (!warnedMissing) {
         warnedMissing = true
-        console.warn(`dash: snapshot tables are not available (${error instanceof Error ? error.message : error}); using the slow live ERP queries. Run "npm run db:dash:migrate".`)
+        dashLog.warn(`snapshot tables are not available (${errorText(error)}); using the slow live ERP queries. Run "npm run db:dash:migrate".`)
       }
       return null
     }

@@ -6,6 +6,8 @@ import { openBalance } from '~/lib/finance/ap-ar/open-invoices'
 import { chunk } from '~/server/db/chunk'
 import { addDays } from '~/lib/format/date'
 import { DASH_INSERT_BATCH_SIZE, DASH_MAX_ERROR_LENGTH, DASH_TABLES, SNAPSHOT_AP_AR, dashTable, ints } from './tables'
+import { dashLog } from './log'
+import { errorText } from '~/server/log'
 
 export type Row = unknown[]
 
@@ -232,8 +234,8 @@ export async function refreshApArSnapshot(today: string, options: { force?: bool
     await setMeta(conn, { status: 'ok', asOfDate: today, rowCount: openRows.length + unallocRows.length, durationMs, fingerprint })
     return { ran: true, asOfDate: today, openRows: openRows.length, unallocatedRows: unallocRows.length, durationMs }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    console.error('AP/AR snapshot refresh failed:', message)
+    const message = errorText(error)
+    dashLog.error(`AP/AR snapshot refresh failed: ${message}`)
     if (locked) await setMeta(conn, { status: 'failed', error: message.slice(0, DASH_MAX_ERROR_LENGTH) }).catch(() => {})
     throw error
   } finally {

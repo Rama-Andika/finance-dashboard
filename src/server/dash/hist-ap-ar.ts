@@ -8,6 +8,7 @@ import { isFinalMonthEnd, monthEndsBefore, planHistBuilds, type HistBuilt } from
 import type { IsoDate } from '~/lib/core/types'
 import { listPeriods } from '~/server/repo/periods.repo'
 import { DASH_INSERT_BATCH_SIZE, DASH_TABLES, dashTable } from './tables'
+import { dashLog } from './log'
 import { OPEN_COLUMNS, UNALLOC_COLUMNS, loadOpenInvoices, loadUnallocated, type Row } from './refresh-ap-ar'
 
 const LOCK_NAME = 'dash_refresh_ap_ar_hist'
@@ -68,7 +69,7 @@ export async function refreshApArHistSnapshots(today: IsoDate, options: { maxBui
       const t0 = Date.now()
       const isFinal = isFinalMonthEnd(wanted.indexOf(asOfDate), asOfDate, closedMonthEnds)
       const rowCount = await buildMonth(conn, asOfDate, isFinal)
-      console.log(`dash: AP/AR history ${index + 1}/${plan.build.length}: ${asOfDate} (${rowCount} rows, ${Math.round((Date.now() - t0) / 1000)}s)`)
+      dashLog.info(`AP/AR history ${index + 1}/${plan.build.length}: ${asOfDate} (${rowCount} rows, ${Math.round((Date.now() - t0) / 1000)}s)`)
     }
 
     return { ran: true, built: plan.build, pruned: plan.prune.length, durationMs: Date.now() - started }

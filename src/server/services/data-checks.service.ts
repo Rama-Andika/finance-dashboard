@@ -1,5 +1,6 @@
 import '@tanstack/react-start/server-only'
 import { memoMetric } from '~/server/cache'
+import { createLogger, errorText } from '~/server/log'
 import { buildDataChecks, type DataCheckItem } from '~/lib/finance/checks/data-checks'
 import { type AppContextFilter, getCachedPeriods } from '~/server/context'
 import {
@@ -17,12 +18,14 @@ import { computeArAging } from '~/server/services/ar-aging.service'
 
 export type { DataCheckItem }
 
+const log = createLogger()
+
 /** One failed sub-check must not hide the others, but it must not pass silently either. */
 export async function settle<T>(name: string, work: Promise<T>, failures: string[]): Promise<T | null> {
   try {
     return await work
   } catch (error) {
-    console.error(`Data check "${name}" failed:`, error instanceof Error ? error.message : error)
+    log.error(`Data check "${name}" failed: ${errorText(error)}`)
     failures.push(name)
     return null
   }

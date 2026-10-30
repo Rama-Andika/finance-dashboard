@@ -11,6 +11,7 @@ import { listPeriods } from '~/server/repo/periods.repo'
 import type { AccountGroup, Id, Period } from '~/lib/core/types'
 import type { CachedMovementRow } from '~/server/cache'
 import { DASH_TABLES, dashTable } from './tables'
+import { dashLog } from './log'
 
 /** The snapshot holds the entity segment only (segment1_id); other segment columns are always read from the ERP. */
 export const GL_SNAPSHOT_SEGMENT_COLUMN = 'segment1_id'
@@ -125,7 +126,7 @@ export async function refreshGlMonthlySnapshot(): Promise<GlRefreshResult> {
     for (const [index, period] of missing.entries()) {
       const t0 = Date.now()
       await buildPeriod(conn, period)
-      console.log(`dash: GL snapshot ${index + 1}/${missing.length}: ${period.name} (${Math.round((Date.now() - t0) / 1000)}s)`)
+      dashLog.info(`GL snapshot ${index + 1}/${missing.length}: ${period.name} (${Math.round((Date.now() - t0) / 1000)}s)`)
     }
 
     if (missing.length === 0 && stale.length === 0) return { ran: false, reason: 'nothing-to-do' }

@@ -1,4 +1,6 @@
 import { createMiddleware } from '@tanstack/react-start'
+import { dashLog } from '~/server/dash/log'
+import { errorText } from '~/server/log'
 
 /** Required on ALL server functions except login/logout/getCurrentUser/prefs (G31). */
 export const authMiddleware = createMiddleware({ type: 'function' }).server(async ({ next }) => {
@@ -18,7 +20,7 @@ export const authMiddleware = createMiddleware({ type: 'function' }).server(asyn
   // Start the background refresh of the snapshot tables once per server process (no-op afterwards).
   void import('~/server/dash/scheduler')
     .then((m) => m.ensureDashScheduler())
-    .catch((error) => console.error('dash: scheduler could not be loaded:', error instanceof Error ? error.message : error))
+    .catch((error) => dashLog.error(`scheduler could not be loaded: ${errorText(error)}`))
 
   // Errors from the handler or its validator may carry SQL text and parameters; the browser only gets a code.
   const { toPublicError } = await import('~/server/public-error')

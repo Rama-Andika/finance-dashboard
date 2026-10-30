@@ -1,5 +1,7 @@
 import '@tanstack/react-start/server-only'
 import { env } from '~/server/env'
+import { dashLog } from './log'
+import { errorText } from '~/server/log'
 import { todayIn } from '~/lib/format/date'
 import { dashMigrationStatus, runDashMigrations } from './migrate'
 import { refreshApArSnapshot } from './refresh-ap-ar'
@@ -29,25 +31,25 @@ async function tick(state: { running: boolean }): Promise<void> {
   try {
     const status = await dashMigrationStatus()
     if (status.pending.length > 0) {
-      console.warn(`dash: ${status.pending.length} migration(s) pending (${status.pending.join(', ')}); run "npm run db:dash:migrate". Snapshot refresh skipped.`)
+      dashLog.warn(`${status.pending.length} migration(s) pending (${status.pending.join(', ')}); run "npm run db:dash:migrate". Snapshot refresh skipped.`)
       return
     }
     const result = await refreshApArSnapshot(today())
     await warmApArSnapshot()
     // Closed GL periods: cheap when nothing is new, a few seconds to minutes per new period otherwise
     const gl = await refreshGlMonthlySnapshot()
-    if (gl.ran) console.log(`dash: GL snapshot built ${gl.built} period(s), removed ${gl.removed} in ${Math.round(gl.durationMs / 1000)}s`)
+    if (gl.ran) dashLog.info(`GL snapshot built ${gl.built} period(s), removed ${gl.removed} in ${Math.round(gl.durationMs / 1000)}s`)
     // Month-end AP/AR history: one month per run (the first fill takes a few runs; `npm run dash:refresh-hist` does it at once)
     const hist = await refreshApArHistSnapshots(today(), { maxBuilds: HIST_MAX_BUILDS_PER_TICK })
     if (hist.ran) {
       clearCache('dash:ap-ar:hist')
-      console.log(`dash: AP/AR history built ${hist.built.length} month(s), removed ${hist.pruned} in ${Math.round(hist.durationMs / 1000)}s`)
+      dashLog.info(`AP/AR history built ${hist.built.length} month(s), removed ${hist.pruned} in ${Math.round(hist.durationMs / 1000)}s`)
     }
     if (result.ran) {
-      console.log(`dash: AP/AR snapshot refreshed in ${Math.round(result.durationMs / 1000)}s (${result.openRows} open invoices, ${result.unallocatedRows} unallocated)`)
+      dashLog.info(`AP/AR snapshot refreshed in ${Math.round(result.durationMs / 1000)}s (${result.openRows} open invoices, ${result.unallocatedRows} unallocated)`)
     }
   } catch (error) {
-    console.error('dash: snapshot refresh failed:', error instanceof Error ? error.message : error)
+    dashLog.error(`snapshot refresh failed: ${errorText(error)}`)
   } finally {
     state.running = false
   }
@@ -77,7 +79,7 @@ export function ensureDashScheduler(): void {
         setInterval(() => void tick(state), intervalMs).unref()
       }, firstDelay).unref()
     } catch (error) {
-      console.error('dash: scheduler could not start:', error instanceof Error ? error.message : error)
+      dashLog.error(`scheduler could not start: ${errorText(error)}`)
       globalThis.__dashScheduler = undefined
       globalThis.__dashSchedulerRetryAt = Date.now() + 60_000
     }

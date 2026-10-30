@@ -11,6 +11,8 @@ import { hashIds, memo } from '~/server/cache'
 import type { Id, IsoDate, Money } from '~/lib/core/types'
 
 const UNSETTLED_CACHE_MS = 60 * 1000
+/** How far back the settlement lag of a payment channel is averaged. */
+const SETTLEMENT_LAG_WINDOW_DAYS = 90
 
 /**
  * Register rows that are still "not settled" at the end of the as-of day: open now, or settled only after that day.
@@ -106,7 +108,7 @@ async function queryUnsettledByChannel(
 
 /**
  * settlementLag(today, coaIds)
- * Average settlement lag in days over the last 90 days (data-model §6.9)
+ * Average settlement lag in days over the last SETTLEMENT_LAG_WINDOW_DAYS days (data-model §6.9)
  */
 export async function settlementLag(
   today: IsoDate,
@@ -114,7 +116,7 @@ export async function settlementLag(
 ): Promise<SettlementLagRow[]> {
   if (coaIds.length === 0) return []
 
-  const todayMinus90 = addDays(today, -90)
+  const windowStart = addDays(today, -SETTLEMENT_LAG_WINDOW_DAYS)
   const todayPlusOne = addDays(today, 1)
 
   const result: SettlementLagRow[] = []
@@ -128,7 +130,7 @@ export async function settlementLag(
       WHERE bp.type IN (${intList(BANK_PAYMENT_CHANNEL_TYPES)})
         AND bp.status = ${BANK_PAYMENT_STATUS.SETTLED}
         AND bp.payment_date IS NOT NULL
-        AND bp.transaction_date >= ${todayMinus90}
+        AND bp.transaction_date >= ${windowStart}
         AND bp.transaction_date < ${todayPlusOne}
         AND bp.coa_id IN (${inList(cChunk)})
       GROUP BY bp.coa_id
