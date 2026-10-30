@@ -19,6 +19,7 @@ export type SummaryResult = {
     bank: Money
     deposit: Money
     inTransit: Money
+    giroOutstanding: Money
     entityCount?: number
   }
   revenue: {
@@ -41,6 +42,7 @@ export type SummaryResult = {
     total: Money
     unpaidBills: Money
     overdueSubtotal: Money
+    overdueBills: Money
   }
   cashFlow: {
     netCashFlow: Money
@@ -105,6 +107,7 @@ export async function computeSummary(
       bank: cashPos.bank,
       deposit: cashPos.deposit,
       inTransit: cashPos.inTransit,
+      giroOutstanding: cashPos.giroOutstanding,
       entityCount: filter.entityCount,
     },
     revenue: {
@@ -127,6 +130,7 @@ export async function computeSummary(
       total: apAging.total,
       unpaidBills: apAging.unpaidBills,
       overdueSubtotal: apAging.overdueSubtotal,
+      overdueBills: apAging.overdueBills,
     },
     cashFlow: {
       netCashFlow: cashFlow.netCashFlow,

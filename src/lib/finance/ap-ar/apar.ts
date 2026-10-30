@@ -88,6 +88,8 @@ function accumulateAging(input: {
   nonTrade: Decimal
   total: Decimal
   overdueSubtotal: Decimal
+  /** Sum of POSITIVE open items that are past due: bills only, without vendor credits and unallocated payments. */
+  overdueBills: Decimal
   buckets: Record<AgingBucket, Decimal>
   parties: Map<Id, PartyAccum>
   controlAccounts: ControlAccount[]
@@ -98,6 +100,7 @@ function accumulateAging(input: {
   let credits = D(0)
   let unallocated = D(0)
   let nonTrade = D(0)
+  let overdueBills = D(0)
   const buckets = initBuckets()
   const parties = new Map<Id, PartyAccum>()
   const controlCoaIds = new Set<Id>()
@@ -124,6 +127,7 @@ function accumulateAging(input: {
     // Bucket calculation: use dueDate or txDate if dueDate is null
     const bucket = bucketOf(asOf, a.dueDate || a.txDate)
     buckets[bucket] = buckets[bucket].plus(bal)
+    if (bal.gt(0) && OVERDUE_BUCKETS.includes(bucket)) overdueBills = overdueBills.plus(bal)
     addToParty(a.partyId, bucket, bal)
   }
 
@@ -153,6 +157,7 @@ function accumulateAging(input: {
     nonTrade,
     total: unpaid.plus(credits).plus(unallocated),
     overdueSubtotal,
+    overdueBills,
     buckets,
     parties,
     controlAccounts,
@@ -172,6 +177,7 @@ export function computeApAging(input: {
   unallocatedPayments: Money
   buckets: Record<AgingBucket, Money>
   overdueSubtotal: Money
+  overdueBills: Money
   byVendor: VendorAgingSummary[]
   controlAccounts: ControlAccount[]
 } {
@@ -189,6 +195,7 @@ export function computeApAging(input: {
     unallocatedPayments: r.unallocated.toFixed(2),
     buckets: formatBuckets(r.buckets),
     overdueSubtotal: r.overdueSubtotal.toFixed(2),
+    overdueBills: r.overdueBills.toFixed(2),
     byVendor: Array.from(r.parties.entries()).map(([vendorId, acc]) => {
       const v = input.vendors.get(vendorId)
       return {

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { PAYMENT_BILL_SORT_KEYS, paymentBillComparators } from './payment-plan-bills'
+import {
+  PAYMENT_BILL_SORT_KEYS,
+  filterBillsByScope,
+  paymentBillComparators,
+  summarizeBillScopes,
+} from './payment-plan-bills'
 import type { PaymentPlanBill } from './payment-plan'
 
 const bill = (over: Partial<PaymentPlanBill>): PaymentPlanBill => ({
@@ -10,6 +15,7 @@ const bill = (over: Partial<PaymentPlanBill>): PaymentPlanBill => ({
   dueDate: '2025-10-15',
   balance: '100.00',
   status: 'approved',
+  overdue: false,
   ...over,
 })
 
@@ -40,5 +46,32 @@ describe('paymentBillComparators', () => {
     const rows = [bill({ status: 'submitted' }), bill({ status: 'approved' })]
     rows.sort(paymentBillComparators.status)
     expect(rows.map((r) => r.status)).toEqual(['approved', 'submitted'])
+  })
+})
+
+describe('bill scopes', () => {
+  const bills = [
+    bill({ invoiceId: '1', dueDate: '2026-10-31', balance: '100.00' }),
+    bill({ invoiceId: '2', dueDate: '2026-10-01', balance: '40.50', overdue: true }),
+    bill({ invoiceId: '3', dueDate: '2026-09-01', balance: '9.50', overdue: true }),
+  ]
+
+  it('splits bills into due and overdue', () => {
+    expect(filterBillsByScope(bills, 'due').map((b) => b.invoiceId)).toEqual(['1'])
+    expect(filterBillsByScope(bills, 'overdue').map((b) => b.invoiceId)).toEqual(['2', '3'])
+  })
+
+  it('counts and totals each scope', () => {
+    expect(summarizeBillScopes(bills)).toEqual({
+      due: { count: 1, total: '100.00' },
+      overdue: { count: 2, total: '50.00' },
+    })
+  })
+
+  it('handles an empty list', () => {
+    expect(summarizeBillScopes([])).toEqual({
+      due: { count: 0, total: '0.00' },
+      overdue: { count: 0, total: '0.00' },
+    })
   })
 })

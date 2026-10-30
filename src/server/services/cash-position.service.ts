@@ -8,10 +8,11 @@ import {
   getCachedEntities,
 } from '~/server/context'
 import { memoMetric } from '~/server/cache'
+import { env } from '~/server/env'
 import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
 import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
 import { balancesAt, balancesBySegmentAt } from '~/server/services/balance.service'
-import { unsettledByChannel } from '~/server/repo/bank-payment.repo'
+import { outstandingGiro, unsettledByChannel } from '~/server/repo/bank-payment.repo'
 import {
   buildCashPositionBreakdown,
   computeCashTotals,
@@ -28,6 +29,8 @@ export type CashPositionResult = {
   cashPosition: Money
   deposit: Money
   inTransit: Money
+  /** Giro / cheque payments not cleared by the bank yet: information next to the cash position, not part of it. */
+  giroOutstanding: Money
   compare: { cashPosition: Money | null }
   byFolder: Breakdown[]
   byEntity: Array<{ code: string; name: string; amount: Money; isNegative: boolean }>
@@ -74,6 +77,7 @@ async function computeCashPositionUncached(
       cashPosition: '0.00',
       deposit: '0.00',
       inTransit: '0.00',
+      giroOutstanding: '0.00',
       compare: { cashPosition: null },
       byFolder: [],
       byEntity: [],
@@ -113,16 +117,18 @@ async function computeCashPositionUncached(
     filter.segmentDetailIds,
     filter.entitySegmentColumn,
   )
+  const giroPromise = outstandingGiro(filter.asOf, filter.segmentDetailIds, filter.entitySegmentColumn)
   const byEntityPromise = includeByEntity
     ? balancesBySegmentAt({ asOf: filter.asOf, coaIds: cashAndBankIds, filter })
     : null
 
   // Awaited together so a failure in one read never leaves another rejection unhandled.
-  const [asOfBalances, compareRes, unsettled, byEntityBalances] = await Promise.all([
+  const [asOfBalances, compareRes, unsettled, byEntityBalances, giroOutstanding] = await Promise.all([
     asOfPromise,
     comparePromise,
     unsettledPromise,
     byEntityPromise,
+    giroPromise,
   ])
 
   // 2. Compare cash position at compare.asOf
@@ -161,6 +167,7 @@ async function computeCashPositionUncached(
     tree,
     unsettled,
     today: filter.today,
+    alertDays: env.IN_TRANSIT_ALERT_DAYS,
   })
 
   const registerUnsettledTotal = sum(unsettled.map((u) => u.amount))
@@ -201,6 +208,7 @@ async function computeCashPositionUncached(
     cashPosition: totals.cashPosition,
     deposit: totals.deposit,
     inTransit: totals.inTransit,
+    giroOutstanding,
     compare: { cashPosition: compareCashPosition },
     byFolder,
     byEntity: byEntityList,

@@ -42,6 +42,15 @@ describe('ap aging calculations', () => {
     ['v2', { code: 'V02', name: 'Vendor Two' }],
   ])
 
+  it('overdueBills counts only positive bills past due, while overdueSubtotal is net', () => {
+    const res = computeApAging({ partA: mockApPartA, partB: mockApPartB, asOf, vendors, tree })
+
+    // inv_1 (800.00, 13 days past due) is the only positive overdue bill; inv_2 is not due yet.
+    expect(res.overdueBills).toBe('800.00')
+    // The net overdue figure also carries the vendor credit (-100.00, due 3 days ago) and the unallocated payment (-200.00).
+    expect(res.overdueSubtotal).toBe('500.00')
+  })
+
   it('calculates net total, unpaid bills, vendor credits, and unallocated payments', () => {
     const res = computeApAging({
       partA: mockApPartA,

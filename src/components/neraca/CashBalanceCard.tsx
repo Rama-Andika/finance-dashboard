@@ -12,6 +12,8 @@ export interface CashBalanceCardProps {
   bank: Money
   deposit: Money
   inTransit: Money
+  /** Giro / cheque payments the bank has not cleared yet: shown as information, not part of the cash position. */
+  giroOutstanding?: Money
   onOpen?: () => void
   className?: string
 }
@@ -23,6 +25,7 @@ export function CashBalanceCard({
   bank,
   deposit,
   inTransit,
+  giroOutstanding,
   onOpen,
   className,
 }: CashBalanceCardProps) {
@@ -74,6 +77,12 @@ export function CashBalanceCard({
         <dd>{formatMoneyShort(deposit, lang)}</dd>
         <dt>{t('cashCard.inTransit')}</dt>
         <dd>{formatMoneyShort(inTransit, lang)}</dd>
+        {giroOutstanding !== undefined && !D(giroOutstanding).isZero() && (
+          <>
+            <dt>{t('cashCard.giro')}</dt>
+            <dd>{formatMoneyShort(giroOutstanding, lang)}</dd>
+          </>
+        )}
       </dl>
     </article>
   )

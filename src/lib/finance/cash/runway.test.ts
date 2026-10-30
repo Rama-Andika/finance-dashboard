@@ -35,8 +35,8 @@ describe('runway and financial ratios logic', () => {
       currentLiabilities: '1000.00',
     })
 
-    expect(ratios1.grossMargin).toBe('40.0%')
-    expect(ratios1.netMargin).toBe('20.0%')
+    expect(ratios1.grossMargin).toBe('0.4')
+    expect(ratios1.netMargin).toBe('0.2')
     expect(ratios1.currentRatio).toBe('1.50')
 
     // Divisors 0 -> null

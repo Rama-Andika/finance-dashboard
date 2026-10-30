@@ -5,6 +5,7 @@ import { pool } from '~/server/db/client'
 import { inList } from '~/server/db/in-list'
 import { chunk, chunkOrAll } from '~/server/db/chunk'
 import { glTablesOf } from '~/server/db/gl-tables'
+import { glTableHasCanceledDate } from '~/server/db/gl-columns'
 import { memo } from '~/server/cache'
 import { listPeriods } from '~/server/repo/periods.repo'
 import type { AccountGroup, Id, Period } from '~/lib/core/types'
@@ -151,12 +152,14 @@ async function buildPeriod(conn: Conn, period: Period): Promise<void> {
   await conn.beginTransaction()
   try {
     await conn.query('DELETE FROM ?? WHERE period_id = ?', [monthly, period.periodeId])
+    // Older ERP versions have no canceled_date column on the GL header; the filter is only added when the column exists.
+    const notCanceled = (await glTableHasCanceledDate(gl)) ? ' AND g.canceled_date IS NULL' : ''
     // STRAIGHT_JOIN: drive from gl (period index) into gl_detail, as the live queries do
     const [result] = await conn.query(
       `INSERT INTO ?? (period_id, coa_id, segment_id, debet, credit)
        SELECT STRAIGHT_JOIN g.period_id, d.coa_id, COALESCE(d.${GL_SNAPSHOT_SEGMENT_COLUMN}, 0), SUM(d.debet), SUM(d.credit)
        FROM ?? g JOIN ?? d ON d.gl_id = g.gl_id
-       WHERE g.posted_status = 1 AND g.canceled_date IS NULL AND g.period_id = ?
+       WHERE g.posted_status = 1${notCanceled} AND g.period_id = ?
        GROUP BY g.period_id, d.coa_id, COALESCE(d.${GL_SNAPSHOT_SEGMENT_COLUMN}, 0)`,
       [monthly, gl, glDetail, period.periodeId],
     )

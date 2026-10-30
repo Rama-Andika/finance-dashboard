@@ -42,7 +42,7 @@ Berlaku untuk semua kartu di Summary.
 **Filter entitas** menentukan lokasi (`pos_location`) mana yang dijumlahkan. Penjumlahan biasa, **tanpa eliminasi antar-entitas**.
 
 **Aturan akuntansi:**
-- Hanya jurnal `posted_status = 1` dan `canceled_date` kosong. Jurnal draft **tidak** dihitung.
+- Hanya jurnal `posted_status = 1` (dan `canceled_date` kosong, bila tabel `gl` punya kolom itu). Jurnal draft **tidak** dihitung.
 - Jurnal pembalik ikut dihitung bersama jurnal aslinya (saling meniadakan).
 - Tanda angka mengikuti sisi alami kelompok akun (`account_group`), bukan `coa.saldo_normal`:
   - Harta, Harga Pokok Penjualan (HPP), Beban → debit − kredit.
@@ -83,14 +83,14 @@ Orkestrator: `src/server/services/summary.service.ts`. Halaman: `src/routes/_aut
 | Entitas | `pos_location`, `segment`, `segment_detail` | Filter lokasi |
 | Saldo awal | `coa_opening_balance_location` | Titik awal saldo |
 | Mutasi | `gl` + `gl_detail` | Transaksi setelah saldo awal |
-| Dana belum cair | `bank_payment` | Hanya rekonsiliasi; tidak tampil di kartu Summary |
+| Dana belum cair dan giro/cek beredar | `bank_payment` | Rekonsiliasi dana pencairan; giro/cek beredar tampil sebagai baris tambahan di kartu |
 
 ### Query yang berjalan (bahasa biasa)
 
 1. Ambil seluruh daftar akun dan periode (cache 10 menit) dan pengaturan keranjang (cache 2 menit).
 2. **Saldo awal:** jumlah `opening_balance` per akun untuk satu periode, untuk akun di keranjang dan entitas terpilih.
 3. **Mutasi:** jumlah debet dan jumlah kredit per akun dari jurnal posted dengan `trans_date` antara hari setelah akhir periode Closed terakhir dan `asOf`.
-4. **Dana belum cair:** dari `bank_payment` (`type` 1 atau 2, `status` 0 = belum cair, akun transit, tanggal ≤ `asOf`), dikelompokkan per akun, entitas, tanggal.
+4. **Dana belum cair:** dari `bank_payment` (`type` 1 atau 2, akun transit, `transaction_date` ≤ `asOf`) yang belum cair pada `asOf`: `status` 0, atau `status` 1 tetapi `payment_date` sesudah `asOf` (supaya tanggal lampau benar). Dikelompokkan per akun, entitas, tanggal.
 5. **Saldo pembanding** (periode sebelumnya). Query ini ikut berjalan tetapi kartu Summary tidak menampilkannya.
 
 ### Cara hitung saldo satu akun pada `asOf`
@@ -100,7 +100,55 @@ Orkestrator: `src/server/services/summary.service.ts`. Halaman: `src/routes/_aut
 3. Saldo = saldo awal P\* + (debit − kredit) jurnal posted antara hari setelah akhir C dan `asOf`.
 4. Bila P\* tidak punya baris saldo awal → cara cadangan: jumlah semua jurnal posted sejak awal data.
 
-Contoh: saldo awal Bank X Rp1.000, debet Rp500, kredit Rp300 sesudahnya → saldo Rp1.200.
+#### Contoh kasus
+
+Sistem tidak menjumlahkan semua transaksi sejak awal. Ia memakai **saldo awal yang sudah tersimpan di ERP** sebagai titik mulai, lalu menambahkan transaksi sesudahnya. Analoginya buku tabungan: lihat saldo di awal halaman terakhir, lalu tambahkan transaksi sesudahnya.
+
+**Hari ini (`asOf`) = 15 Oktober 2025.** Status periode di ERP:
+
+| Periode | Status |
+|---|---|
+| Januari – Agustus 2025 | Closed |
+| September 2025 | Pre Closed |
+| Oktober 2025 | Open |
+
+Akun yang dihitung: **Bank Operasional**.
+
+1. **Cari C.** Periode Closed yang berakhir sebelum 15 Okt: Januari sampai Agustus. Yang terakhir adalah **Agustus**. September tidak dipakai karena belum Closed.
+2. **Cari P\*.** Periode tepat setelah Agustus adalah **September**. Saldo awal September di `coa_opening_balance_location` untuk Bank Operasional = **Rp1.000 jt**. Angka ini sama dengan saldo akhir Agustus, jadi seluruh transaksi Januari–Agustus sudah terwakili.
+3. **Tambahkan transaksi 1 September – 15 Oktober:**
+
+| Tanggal | Keterangan | Debet (masuk) | Kredit (keluar) | Dihitung? |
+|---|---|---|---|---|
+| 5 Sep | Pelanggan membayar | 500 jt | | Ya |
+| 12 Sep | Bayar supplier | | 300 jt | Ya |
+| 30 Sep | Bayar gaji | | 200 jt | Ya |
+| 3 Okt | Setoran penjualan | 400 jt | | Ya |
+| 10 Okt | Bayar sewa | | 150 jt | Ya |
+| 14 Okt | Bayar vendor (masih draft) | | 100 jt | **Tidak**: belum posted |
+| 16 Okt | Pelanggan membayar | 250 jt | | **Tidak**: setelah `asOf` |
+| 20 Agu | Bayar listrik | | 80 jt | **Tidak**: sudah termasuk di saldo awal September |
+
+Total debet yang dihitung = 500 + 400 = **900 jt**. Total kredit yang dihitung = 300 + 200 + 150 = **650 jt**.
+
+```
+Saldo 15 Okt = saldo awal September + debet − kredit
+             = 1.000 jt + 900 jt − 650 jt
+             = 1.250 jt
+```
+
+Akun bank termasuk Harta (Liquid Assets), jadi debet menambah saldo dan kredit mengurangi.
+
+**Variasi 1: bila September sudah Closed.** C = September dan P\* = Oktober. Saldo awal Oktober dipakai, lalu hanya mutasi 1–15 Oktober yang ditambahkan. Hasilnya tetap Rp1.250 jt.
+
+**Variasi 2: "Bulan lalu" dengan `asOf` = 31 Agustus.** Agustus berakhir tepat di 31 Agustus, bukan *sebelum* tanggal itu, jadi Agustus bukan C. C = Juli dan P\* = Agustus. Saldo = saldo awal Agustus + mutasi 1–31 Agustus. Ini mengikuti Buku Besar ERP.
+
+**Cara cadangan (langkah 4).** Bila P\* belum punya baris saldo awal, sistem menjumlahkan semua jurnal posted sejak data pertama sampai `asOf`. Misalnya total debet Rp50 miliar − total kredit Rp48,75 miliar = Rp1,25 miliar. Hasilnya seharusnya sama, hanya lebih lambat karena membaca seluruh riwayat jurnal.
+
+**Tiga hal yang perlu diingat:**
+1. Transaksi dicocokkan dengan **tanggal transaksi**, bukan periode pencatatan.
+2. Hanya jurnal **posted** dan tidak dibatalkan yang dihitung (draft tidak masuk).
+3. Bila satu entitas dipilih, saldo awal dan mutasi difilter ke entitas itu.
 
 ### Penjumlahan per keranjang
 
@@ -108,6 +156,7 @@ Contoh: saldo awal Bank X Rp1.000, debet Rp500, kredit Rp300 sesudahnya → sald
 - Bank = Σ saldo akun di keranjang Bank.
 - **Cash Position = Kas + Bank.**
 - Deposito dan Dana dalam pencairan dijumlah dengan cara yang sama untuk keranjangnya masing-masing.
+- **Giro/cek beredar** (baris tambahan, muncul bila tidak nol; **tidak** masuk Cash Position): jumlah `bank_payment` `type` 0 (BG), 4 (cek tangguh), 7 (e-banking) yang belum cair pada `asOf`. Pembayaran dengan cara ini sudah mengurangi hutang, tetapi saldo bank baru turun saat giro dicairkan.
 
 Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 1122, Transit = 1132 + akun QRIS/e-wallet di 1138. **Perlu dicek langsung di Settings.**
 
@@ -120,6 +169,7 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 5. Apakah angka sama dengan Neraca / Buku Besar ERP pada tanggal yang sama?
 6. Kartu mengikuti filter periode (saldo akhir periode terpilih), bukan selalu hari ini. Sesuai harapan?
 7. Saldo kas per entitas bisa janggal karena segmen Lokasi bersifat *non-balancing* (NBAL), misalnya tagihan satu entitas dibayar dari rekening entitas lain.
+8. Apakah giro/cek beredar harus dikurangkan dari "kas yang bisa dipakai" (misalnya untuk Payment Plan)? Sekarang hanya ditampilkan sebagai informasi.
 
 ---
 
@@ -159,16 +209,16 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 - **Bagian A, tagihan:** tipe transaksi 0–6 dan 12. Sisa = nominal × arah (`in_out`) + jumlah detail pelunasan dari kartu bayar (tipe 7–11, 13, 14) bertanggal ≤ `asOf`. Hanya sisa ≠ 0 yang masuk.
 - **Bagian B, pembayaran belum dialokasikan:** kartu bayar tanpa baris detail. Nilainya negatif dan mengurangi utang.
 - **Angka besar = A + B (neto)**, mengikuti laporan AP Aging ERP.
-- **Overdue** = jumlah bucket yang sudah jatuh tempo (0–30, 31–60, 61–90, >90 hari).
+- **Overdue di kartu Summary** = jumlah saldo **positif** tagihan yang sudah jatuh tempo (D37). Halaman Payables menampilkan overdue **neto** per bucket (0–30, 31–60, 61–90, >90 hari), yaitu setelah kredit vendor dan pembayaran belum dialokasikan.
   - Umur = `asOf` − `due_date`. Jatuh tempo **hari ini** sudah masuk bucket 0–30.
   - `due_date` kosong → dipakai tanggal transaksi.
   - Pembayaran belum dialokasikan diumurkan berdasarkan tanggal transaksinya.
-- `payment_status` sengaja **tidak** dipakai (sudah "lunas" begitu tagihan masuk voucher, padahal uang belum keluar).
+- `payment_status` sengaja **tidak** dipakai (sudah "lunas" begitu tagihan masuk dokumen Pengakuan Biaya, padahal uang belum keluar).
 
 **Perlu dikonfirmasi:**
 1. Total sama dengan AP Aging ERP pada tanggal yang sama?
-2. Overdue sudah dikurangi kredit vendor dan pembayaran belum dialokasikan, sehingga bisa lebih kecil dari jumlah tagihan yang benar-benar lewat tempo. Diinginkan?
-3. Tagihan yang sudah masuk voucher tetapi belum diposting tetap dihitung sebagai utang.
+2. Overdue di kartu Summary hanya menghitung tagihan positif (tidak dinetto dengan kredit vendor dan pembayaran belum dialokasikan). Sesuai?
+3. Tagihan yang sudah masuk dokumen Pengakuan Biaya tetapi belum dibayar tetap dihitung sebagai utang.
 4. Cek apakah ada pembayaran vendor belum dialokasikan dalam jumlah besar.
 
 ---
@@ -198,19 +248,21 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 
 ## 8. Tabel "Bills due in 7 days"
 
-- **Data:** tagihan AP bagian A dengan sisa > 0 dan jatuh tempo ≤ hari ini + 6 hari. Tanggal acuan = hari ini (bukan filter periode); filter entitas tetap berlaku.
+- **Data:** tagihan AP bagian A dengan sisa > 0, dalam dua tab. Tanggal acuan = hari ini (bukan filter periode); filter entitas tetap berlaku.
+  - **Jatuh tempo ≤ 7 hari:** jatuh tempo dari hari ini sampai hari ini + 6 hari.
+  - **Lewat jatuh tempo:** jatuh tempo (atau tanggal transaksi bila kosong) sebelum hari ini, seberapa pun lamanya.
 - **Kolom:**
   - Vendor (`vendor`: id, kode, nama).
   - Nomor tagihan.
   - Jatuh tempo.
   - Sisa.
-  - **Status rencana bayar** dari voucher `bankpo_payment` tipe 0:
-    - *Disetujui* = Posted atau Partialy Paid.
-    - *Diajukan* = Not Posted.
-    - *Belum diajukan* = tidak ada voucher aktif.
+  - **Status rencana bayar** dari dokumen **Pengakuan Biaya** (`bankpo_payment` tipe 0, dibuat lewat menu Seleksi Invoice di ERP). Kolom ini disembunyikan bila tidak ada dokumen tipe 0 yang aktif:
+    - *Disetujui, menunggu bayar* = Posted atau Partialy Paid.
+    - *Diseleksi, belum disetujui* = Not Posted.
+    - *Belum diseleksi* = tidak ada dokumen Pengakuan Biaya aktif.
 
 **Perlu dikonfirmasi:**
-- Semua tagihan yang sudah lewat jatuh tempo ikut tampil, seberapa pun lamanya, bukan hanya yang jatuh tempo dalam 7 hari. Sesuai?
+- Tagihan yang sudah lewat jatuh tempo dipisah ke tab sendiri. Apakah tagihan yang sangat lama (mis. > 180 hari) perlu ditandai atau ditinjau terpisah?
 - Hanya tagihan positif; kredit vendor tidak dinetto, jadi total tabel tidak akan sama dengan kartu Payables.
 
 ---
@@ -238,7 +290,7 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 
 ## 11. Catatan developer (bukan untuk finance)
 
-- Kartu margin dan label Net margin di Summary kemungkinan tampil **NaN%**: server mengirim teks seperti "12.3%" (`formatPercent` di `src/lib/finance/pnl/pnl.ts`), sedangkan halaman mengalikannya lagi dengan 100 setelah `Number(...)` (`src/routes/_authed/summary.tsx`). Berdasarkan pembacaan kode, belum dilihat di layar.
+- Margin (Gross, Operating, Net) dikirim server sebagai rasio desimal (mis. "0.4") dan diformat di klien dengan `formatPercent` (D33).
 - Dihitung di server tetapi tidak ditampilkan di Summary: pembanding Cash Position, saldo awal dan overdue Payment Plan 7 hari, pembanding AP, rekonsiliasi GL terhadap AP. Query-nya tetap berjalan.
 - Untuk tanggal acuan masa lalu yang bukan akhir bulan, AP memakai query langsung ke ERP yang lambat.
 
@@ -250,3 +302,5 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 |---|---|
 | 2026-10-30 | Dokumen dibuat dari pembacaan kode Summary (belum ada perubahan pada halaman). |
 | 2026-10-30 | Ditambah tautan ke `summary-queries.md` (katalog query SQL untuk developer). |
+| 2026-10-30 | Bagian Cash Position: contoh kasus lengkap cara hitung saldo akun pada `asOf` (dua variasi dan cara cadangan). |
+| 2026-10-30 | Rencana gelombang 2: filter canceled_date opsional; register dana pencairan untuk tanggal lampau; margin rasio desimal; giro beredar; tab tagihan jatuh tempo & terlambat; overdue kotor; ambang umur transit; istilah Pengakuan Biaya. Lihat D31–D38 di `decisions.md`. |

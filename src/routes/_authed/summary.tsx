@@ -7,11 +7,12 @@ import { useTranslation } from 'react-i18next'
 import { drillSearchSchema } from '~/lib/filters/search-schema'
 import { summaryMetricOptions, paymentBillsOptions, exportPaymentBills } from '~/queries/metrics.queries'
 import { tableSearchSchema } from '~/lib/table/query'
-import { PAYMENT_BILL_SORT_KEYS } from '~/lib/finance/ap-ar/payment-plan-bills'
+import { PAYMENT_BILL_SORT_KEYS, type BillScope } from '~/lib/finance/ap-ar/payment-plan-bills'
 import { useTableSearch } from '~/components/neraca/useTableSearch'
 import { MetricSkeleton } from '~/components/neraca/MetricSkeleton'
 import { MetricError } from '~/components/neraca/MetricError'
 import { Notice } from '~/components/neraca/Notice'
+import { Tabs } from '~/components/neraca/Tabs'
 import { CashBalanceCard } from '~/components/neraca/CashBalanceCard'
 import { KpiCard } from '~/components/neraca/KpiCard'
 import { CashflowChart } from '~/components/neraca/CashflowChart'
@@ -21,9 +22,10 @@ import { PlanStatusPill } from '~/components/neraca/PlanStatusPill'
 import { ExportCsvButton, formatExportFilename } from '~/components/export/ExportCsvDialog'
 import { PrintButton } from '~/components/export/PrintButton'
 import { PrintHeader } from '~/components/export/PrintHeader'
-import { formatMoneyFull } from '~/lib/format/number'
+import { formatMoneyFull, formatPercent } from '~/lib/format/number'
 import { formatDate, formatMonthYear, getCompareLabel } from '~/lib/format/date'
 import type { Lang } from '~/lib/core/types'
+import type { CsvColumn } from '~/lib/format/csv'
 import type { PaymentPlanBill } from '~/lib/finance/ap-ar/payment-plan'
 
 export const Route = createFileRoute('/_authed/summary')({
@@ -49,7 +51,10 @@ function SummaryPage() {
   const { data } = useQuery(summaryMetricOptions(deps))
   const { t, i18n } = useTranslation()
   const table = useTableSearch(PAYMENT_BILL_SORT_KEYS)
-  const bills = useQuery(paymentBillsOptions({ entity: deps.entity, preset: deps.preset, from: deps.from, to: deps.to, p13: deps.p13, ...table.query }))
+  const [billScope, setBillScope] = useState<BillScope>('due')
+  const bills = useQuery(paymentBillsOptions({ entity: deps.entity, preset: deps.preset, from: deps.from, to: deps.to, p13: deps.p13, ...table.query, scope: billScope }))
+  // While the first page loads, assume the status column is in use so the table does not jump.
+  const planStatusInUse = bills.data?.planStatusInUse ?? true
   const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
 
   const [donutTab, setDonutTab] = useState<'revenue' | 'expense'>('revenue')
@@ -83,13 +88,26 @@ function SummaryPage() {
       meta: { align: 'right', sortKey: 'balance', sortDefault: 'desc' },
       cell: ({ getValue }) => formatMoneyFull(getValue() as string, lang),
     },
-    {
+  ]
+
+  if (planStatusInUse) {
+    columns.push({
       accessorKey: 'status',
       meta: { sortKey: 'status' },
       header: t('ui.col.status'),
       cell: ({ row }) => <PlanStatusPill status={row.original.status} />,
-    },
+    })
+  }
+
+  const exportColumns: CsvColumn<PaymentPlanBill>[] = [
+    { header: t('ui.col.billNumber'), value: (r) => r.invoiceNumber, kind: 'text' },
+    { header: t('ui.col.vendor'), value: (r) => r.vendorName, kind: 'text' },
+    { header: t('ui.col.dueDate'), value: (r) => r.dueDate, kind: 'date' },
+    { header: t('ui.col.payableBalance'), value: (r) => r.balance, kind: 'money' },
   ]
+  if (planStatusInUse) {
+    exportColumns.push({ header: t('ui.col.planStatus'), value: (r) => r.status, kind: 'text' })
+  }
 
   const donutItems =
     donutTab === 'revenue'
@@ -138,6 +156,7 @@ function SummaryPage() {
           bank={data.cashPosition.bank}
           deposit={data.cashPosition.deposit}
           inTransit={data.cashPosition.inTransit}
+          giroOutstanding={data.cashPosition.giroOutstanding}
           onOpen={() => navigate({ to: '/cash-position', search: searchUpdater((prev) => prev) })}
         />
 
@@ -154,7 +173,7 @@ function SummaryPage() {
           label={t('nav.pnl')}
           value={data.pnl.netProfit}
           compareLabel={
-            data.pnl.netMargin ? `Net margin: ${(Number(data.pnl.netMargin) * 100).toFixed(1)}%` : undefined
+            data.pnl.netMargin ? `${t('metric.netMargin')}: ${formatPercent(data.pnl.netMargin, lang, 1)}` : undefined
           }
           higherIsBetter={true}
           onOpen={() => navigate({ to: '/profit-loss', search: searchUpdater((prev) => prev) })}
@@ -163,7 +182,7 @@ function SummaryPage() {
         <KpiCard
           label={t('nav.payables')}
           value={data.apAging.total}
-          compareValue={data.apAging.overdueSubtotal}
+          compareValue={data.apAging.overdueBills}
           compareLabel={t('ui.summary.overdue')}
           higherIsBetter={false}
           onOpen={() => navigate({ to: '/payables', search: searchUpdater((prev) => prev) })}
@@ -210,8 +229,21 @@ function SummaryPage() {
       </div>
 
       {/* 7-Day Payment Plan Table */}
+      <div className="w-full max-w-xl">
+        <Tabs<BillScope>
+          tabs={[
+            { id: 'due', label: t('metric.billsTabDue', { count: bills.data?.scopes.due.count ?? 0 }) },
+            { id: 'overdue', label: t('metric.billsTabOverdue', { count: bills.data?.scopes.overdue.count ?? 0 }) },
+          ]}
+          value={billScope}
+          onChange={(id) => {
+            setBillScope(id)
+            table.setPage(1)
+          }}
+        />
+      </div>
       <DataTable
-        title={t('metric.billsDue7Days')}
+        title={billScope === 'overdue' ? t('metric.billsOverdue') : t('metric.billsDue7Days')}
         columns={columns}
         data={bills.data?.rows ?? []}
         getRowId={(r) => r.invoiceId}
@@ -225,14 +257,8 @@ function SummaryPage() {
         headerActions={
           <div className="flex items-center gap-2">
             <ExportCsvButton
-              loadRows={() => exportPaymentBills({ entity: deps.entity, preset: deps.preset, from: deps.from, to: deps.to, p13: deps.p13, sortBy: table.query.sortBy, sortDir: table.query.sortDir })}
-              columns={[
-                { header: t('ui.col.billNumber'), value: (r) => r.invoiceNumber, kind: 'text' },
-                { header: t('ui.col.vendor'), value: (r) => r.vendorName, kind: 'text' },
-                { header: t('ui.col.dueDate'), value: (r) => r.dueDate, kind: 'date' },
-                { header: t('ui.col.payableBalance'), value: (r) => r.balance, kind: 'money' },
-                { header: t('ui.col.planStatus'), value: (r) => r.status, kind: 'text' },
-              ]}
+              loadRows={() => exportPaymentBills({ entity: deps.entity, preset: deps.preset, from: deps.from, to: deps.to, p13: deps.p13, sortBy: table.query.sortBy, sortDir: table.query.sortDir, scope: billScope })}
+              columns={exportColumns}
               filename={formatExportFilename('summary_bills_7d', deps.entity, deps.from && deps.to ? `${deps.from}_${deps.to}` : deps.preset)}
             />
             <PrintButton />
@@ -255,9 +281,11 @@ function SummaryPage() {
                 </div>
               </div>
             </div>
-            <div className="mt-1">
-              <PlanStatusPill status={r.status} />
-            </div>
+            {planStatusInUse && (
+              <div className="mt-1">
+                <PlanStatusPill status={r.status} />
+              </div>
+            )}
           </>
         )}
       />
@@ -278,14 +306,14 @@ function SummaryPage() {
         <div className="nr-card p-4">
           <span className="text-xs text-muted block mb-1">{t('metric.grossMargin')}</span>
           <span className="text-lg font-bold">
-            {data.pnl.grossMargin ? `${(Number(data.pnl.grossMargin) * 100).toFixed(1)}%` : '—'}
+            {data.pnl.grossMargin ? formatPercent(data.pnl.grossMargin, lang, 1) : '—'}
           </span>
         </div>
 
         <div className="nr-card p-4">
           <span className="text-xs text-muted block mb-1">{t('metric.netMargin')}</span>
           <span className="text-lg font-bold">
-            {data.pnl.netMargin ? `${(Number(data.pnl.netMargin) * 100).toFixed(1)}%` : '—'}
+            {data.pnl.netMargin ? formatPercent(data.pnl.netMargin, lang, 1) : '—'}
           </span>
         </div>
 

@@ -257,7 +257,7 @@ function ProfitLossPage() {
                     kind: 'text',
                   },
                   { header: t('ui.col.amount'), value: (r) => r.amount, kind: 'money' },
-                  { header: t('ui.col.marginPct'), value: (r) => (r.margin ? `${r.margin}%` : ''), kind: 'text' },
+                  { header: t('ui.col.marginPct'), value: (r) => (r.margin ? formatPercent(r.margin, lang, 1) : ''), kind: 'text' },
                 ]}
                 filename={formatExportFilename('profit_loss', deps.entity, deps.from && deps.to ? `${deps.from}_${deps.to}` : deps.preset)}
               />

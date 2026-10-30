@@ -1,6 +1,5 @@
 import Decimal from 'decimal.js'
 import { D, safeDiv } from '../../core/money'
-import { formatPercent } from '~/lib/format/number'
 import type { Money } from '../../core/types'
 
 export type RunwayRatioResult = {
@@ -78,10 +77,10 @@ export function computeRatios(input: {
 
   if (!revD.isZero()) {
     const gmRatio = safeDiv(grossProfit, revenue)
-    grossMargin = gmRatio ? formatPercent(gmRatio, 'en', 1) : null
+    grossMargin = gmRatio
 
     const nmRatio = safeDiv(netProfit, revenue)
-    netMargin = nmRatio ? formatPercent(nmRatio, 'en', 1) : null
+    netMargin = nmRatio
   }
 
   // Current ratio = Liquid Assets / Current Liabilities

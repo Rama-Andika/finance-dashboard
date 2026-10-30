@@ -60,6 +60,7 @@ describe('cash-position pure logic', () => {
       tree,
       unsettled,
       today: '2026-10-28',
+      alertDays: 3,
     })
 
     expect(detail).toHaveLength(1)
@@ -67,7 +68,17 @@ describe('cash-position pure logic', () => {
     expect(firstDetail.amount).toBe('200.00')
     expect(firstDetail.count).toBe(3)
     expect(firstDetail.oldestAgeDays).toBe(4)
-    expect(firstDetail.overThreeDays).toBe(true)
+    expect(firstDetail.overAlertAge).toBe(true)
+
+    // The oldest transaction is 4 days old: not flagged when the alert age is 4 days.
+    const relaxed = computeInTransitDetail({
+      inTransitCoaIds: [inTransitCoaId],
+      tree,
+      unsettled,
+      today: '2026-10-28',
+      alertDays: 4,
+    })
+    expect(relaxed[0]!.overAlertAge).toBe(false)
   })
 
   it('builds category and folder hierarchy for cash and bank breakdown', () => {

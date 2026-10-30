@@ -1,16 +1,26 @@
 import '@tanstack/react-start/server-only'
-import { sql } from 'drizzle-orm'
+import { sql, type SQL } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
 import { chunk, chunkOrAll } from '~/server/db/chunk'
 import { assertSegmentColumn } from '~/server/db/segment-column'
-import { BANK_PAYMENT_CHANNEL_TYPES, BANK_PAYMENT_STATUS, intList } from '~/server/db/erp-codes'
+import { BANK_PAYMENT_CHANNEL_TYPES, BANK_PAYMENT_GIRO_TYPES, BANK_PAYMENT_STATUS, intList } from '~/server/db/erp-codes'
 import { addDays } from '~/lib/format/date'
 import { D } from '~/lib/core/money'
 import { hashIds, memo } from '~/server/cache'
 import type { Id, IsoDate, Money } from '~/lib/core/types'
 
 const UNSETTLED_CACHE_MS = 60 * 1000
+
+/**
+ * Register rows that are still "not settled" at the end of the as-of day: open now, or settled only after that day.
+ * `asOfPlusOne` is the day after the as-of date. Without the second branch, a past date would lose every row
+ * that has been settled since then. A settled row without a payment date is not counted.
+ * Used by the totals and by the drill-down list, so both always add up.
+ */
+export function unsettledAtClause(asOfPlusOne: IsoDate): SQL {
+  return sql`AND (bp.status = ${BANK_PAYMENT_STATUS.UNSETTLED} OR (bp.status = ${BANK_PAYMENT_STATUS.SETTLED} AND bp.payment_date >= ${asOfPlusOne}))`
+}
 
 export type UnsettledChannelRow = {
   coaId: Id
@@ -66,7 +76,7 @@ async function queryUnsettledByChannel(
                COALESCE(SUM(bp.amount), 0) AS amount
         FROM bank_payment bp
         WHERE bp.type IN (${intList(BANK_PAYMENT_CHANNEL_TYPES)})
-          AND bp.status = ${BANK_PAYMENT_STATUS.UNSETTLED}
+          ${unsettledAtClause(asOfPlusOne)}
           AND bp.coa_id IN (${inList(cChunk)})
           AND bp.transaction_date < ${asOfPlusOne}
           ${sChunk ? sql`AND bp.${segIdent} IN (${inList(sChunk)})` : sql``}
@@ -144,6 +154,43 @@ export async function settlementLag(
   return result
 }
 
+/**
+ * Giro, pending cheque and e-banking payments to vendors (bank_payment types 0, 4, 7) that the bank has not cleared
+ * at the end of `asOf`. The payable is already reduced when the payment is recorded, but the bank balance only drops
+ * when the payment clears, so this amount is shown next to the cash position (it is NOT part of it).
+ */
+export function outstandingGiro(
+  asOf: IsoDate,
+  segIds: Id[] | 'all',
+  segCol: string = 'segment1_id',
+): Promise<Money> {
+  if (segIds !== 'all' && segIds.length === 0) return Promise.resolve('0.00')
+
+  assertSegmentColumn(segCol)
+  const key = `giro|${asOf}|${segCol}|${hashIds(segIds)}`
+  return memo(key, UNSETTLED_CACHE_MS, () => queryOutstandingGiro(asOf, segIds, segCol))
+}
+
+async function queryOutstandingGiro(asOf: IsoDate, segIds: Id[] | 'all', segCol: string): Promise<Money> {
+  const asOfPlusOne = addDays(asOf, 1)
+  const segIdent = sql.identifier(segCol)
+  let total = D(0)
+
+  for (const sChunk of chunkOrAll(segIds)) {
+    const res = await rows<{ amount: number | string | null }>(sql`
+      SELECT COALESCE(SUM(bp.amount), 0) AS amount
+      FROM bank_payment bp
+      WHERE bp.type IN (${intList(BANK_PAYMENT_GIRO_TYPES)})
+        AND bp.transaction_date < ${asOfPlusOne}
+        ${unsettledAtClause(asOfPlusOne)}
+        ${sChunk ? sql`AND bp.${segIdent} IN (${inList(sChunk)})` : sql``}
+    `)
+    total = total.plus(D(res[0]?.amount ?? 0))
+  }
+
+  return total.toFixed(2)
+}
+
 export type UnsettledTransactionRow = {
   id: Id
   number: string
@@ -174,7 +221,7 @@ export async function unsettledTransactions(opts: {
            bp.amount AS amount
     FROM bank_payment bp
     WHERE bp.type IN (${intList(BANK_PAYMENT_CHANNEL_TYPES)})
-      AND bp.status = ${BANK_PAYMENT_STATUS.UNSETTLED}
+      ${unsettledAtClause(asOfPlusOne)}
       AND bp.coa_id = ${opts.coaId}
       AND bp.transaction_date < ${asOfPlusOne}
       ${opts.txDate ? sql`AND bp.transaction_date >= ${opts.txDate} AND bp.transaction_date < ${addDays(opts.txDate, 1)}` : sql``}

@@ -113,14 +113,14 @@ describe('pnl calculations', () => {
     expect(lineMap.get('revenue')?.amount).toBe('1000.00')
     expect(lineMap.get('cogs')?.amount).toBe('600.00')
     expect(lineMap.get('grossProfit')?.amount).toBe('400.00')
-    expect(lineMap.get('grossProfit')?.margin).toBe('40.0%') // 400 / 1000
+    expect(lineMap.get('grossProfit')?.margin).toBe('0.4') // 400 / 1000
     expect(lineMap.get('opex')?.amount).toBe('200.00')
     expect(lineMap.get('operatingProfit')?.amount).toBe('200.00')
-    expect(lineMap.get('operatingProfit')?.margin).toBe('20.0%') // 200 / 1000
+    expect(lineMap.get('operatingProfit')?.margin).toBe('0.2') // 200 / 1000
     expect(lineMap.get('otherRevenue')?.amount).toBe('50.00')
     expect(lineMap.get('otherExpense')?.amount).toBe('30.00')
     expect(lineMap.get('netProfit')?.amount).toBe('220.00')
-    expect(lineMap.get('netProfit')?.margin).toBe('22.0%') // 220 / 1000
+    expect(lineMap.get('netProfit')?.margin).toBe('0.22') // 220 / 1000
     expect(lineMap.get('oci')?.amount).toBe('20.00')
     expect(lineMap.get('comprehensiveIncome')?.amount).toBe('240.00')
   })

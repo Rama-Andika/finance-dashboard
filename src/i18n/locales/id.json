@@ -109,6 +109,9 @@
       "expensePaid": "Biaya Dibayar"
     },
     "billsDue7Days": "Tagihan Jatuh Tempo 7 Hari Ke Depan",
+    "billsOverdue": "Tagihan Lewat Jatuh Tempo",
+    "billsTabDue": "Jatuh tempo ≤ 7 hari ({{count}})",
+    "billsTabOverdue": "Lewat jatuh tempo ({{count}})",
     "unallocated": "Belum terklasifikasi",
     "operating": "Operasi",
     "investing": "Investasi",
@@ -261,8 +264,8 @@
     }
   },
   "planStatus": {
-    "notSubmitted": "Belum diajukan",
-    "submitted": "Diajukan",
+    "notSubmitted": "Belum diseleksi",
+    "submitted": "Diseleksi, belum disetujui",
     "approved": "Disetujui, menunggu bayar"
   },
   "cashCard": {
@@ -271,7 +274,8 @@
     "cash": "Kas",
     "bank": "Bank",
     "deposit": "Deposito (terpisah)",
-    "inTransit": "Dana dalam pencairan (terpisah)"
+    "inTransit": "Dana dalam pencairan (terpisah)",
+    "giro": "Giro/cek beredar (belum cair, terpisah)"
   },
   "ui": {
     "budget": {
@@ -308,7 +312,7 @@
       "oldestAge": "Umur Tertua",
       "days": "hari",
       "amountIdr": "Nilai (Rp)",
-      "over3Days": "Lewat 3 hari",
+      "overAlertAge": "Melewati batas umur",
       "normal": "Lancar",
       "entity": "Entitas",
       "likelySomeSettlementJournalsHave": "Kemungkinan ada jurnal pencairan yang belum diposting.",
@@ -464,7 +468,7 @@
       "budget": "Anggaran (Rp)",
       "cashFlowActivity": "Aktivitas Arus Kas",
       "negativeBalance": "Saldo negatif",
-      "overThreeDays": "Lewat 3 hari",
+      "overAlertAge": "Melewati batas umur",
       "negativeClosing": "Saldo minus",
       "unclassified": "Belum terklasifikasi",
       "apBills": "Pembayaran tagihan AP",

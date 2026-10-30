@@ -109,6 +109,9 @@
       "expensePaid": "Expense Paid"
     },
     "billsDue7Days": "Bills Due in Next 7 Days",
+    "billsOverdue": "Overdue Bills",
+    "billsTabDue": "Due in 7 days ({{count}})",
+    "billsTabOverdue": "Overdue ({{count}})",
     "unallocated": "Unclassified",
     "operating": "Operating",
     "investing": "Investing",
@@ -261,8 +264,8 @@
     }
   },
   "planStatus": {
-    "notSubmitted": "Not submitted",
-    "submitted": "Submitted",
+    "notSubmitted": "Not selected",
+    "submitted": "Selected, pending approval",
     "approved": "Approved, awaiting payment"
   },
   "cashCard": {
@@ -271,7 +274,8 @@
     "cash": "Cash",
     "bank": "Bank",
     "deposit": "Time deposits (excluded)",
-    "inTransit": "Funds in settlement (excluded)"
+    "inTransit": "Funds in settlement (excluded)",
+    "giro": "Outstanding giro/cheques (not cleared, excluded)"
   },
   "ui": {
     "budget": {
@@ -308,7 +312,7 @@
       "oldestAge": "Oldest Age",
       "days": "days",
       "amountIdr": "Amount (IDR)",
-      "over3Days": "Over 3 days",
+      "overAlertAge": "Past alert age",
       "normal": "Normal",
       "entity": "Entity",
       "likelySomeSettlementJournalsHave": "Likely some settlement journals have not been posted yet.",
@@ -464,7 +468,7 @@
       "budget": "Budget (IDR)",
       "cashFlowActivity": "Cash Flow Activity",
       "negativeBalance": "Negative balance",
-      "overThreeDays": "Over 3 days",
+      "overAlertAge": "Past alert age",
       "negativeClosing": "Negative balance",
       "unclassified": "Unclassified",
       "apBills": "AP bill payments",

@@ -8,6 +8,7 @@
 > - `<GL>` / `<GL_DETAIL>` = `gl` / `gl_detail` atau tabel arsip `gl_20XX` / `gl_detail_20XX`, ditentukan `periode.table_name` (`src/server/db/gl-tables.ts`, pola `^gl(_20\d{2})?$`).
 > - Daftar `IN (...)` dipecah per **1.000** id (`IN_LIST_LIMIT`); satu query logis bisa menjadi beberapa eksekusi.
 > - Semua SQL harus kompatibel **MySQL 5.7** (tanpa CTE / window function). Dijaga oleh `src/server/repo/sql-guard.test.ts`.
+> - Kondisi `canceled_date IS NULL` pada `gl` **hanya ditambahkan bila tabel itu punya kolomnya** (`notCanceledClause`, lihat Q24). Pada ERP tanpa kolom itu, kondisinya tidak muncul di SQL.
 > - Drizzle membuat nilai parameter jadi `?`. Alias kolom camelCase memakai `AS`.
 >
 > **Belum dijalankan.** Dokumen ini tidak dibuat dengan mengeksekusi query ke database.
@@ -21,11 +22,12 @@
 3. [Mutasi per periode (Revenue, P&L, Composition)](#3-mutasi-per-periode)
 4. [AP (Payables dan tabel 7 hari)](#4-ap-payables-dan-tabel-7-hari)
 5. [Cash Flow dan Runway](#5-cash-flow-dan-runway)
-6. [Status voucher pembayaran](#6-status-voucher-pembayaran)
+6. [Status Pengakuan Biaya](#6-status-pengakuan-biaya)
 7. [Query pembangun snapshot `dash_*`](#7-query-pembangun-snapshot-dash_)
 8. [Matriks: kartu → query](#8-matriks-kartu--query)
 9. [Cache dan jumlah eksekusi](#9-cache-dan-jumlah-eksekusi)
-10. [Riwayat Perubahan](#riwayat-perubahan)
+10. [Query tambahan (Q22–Q24)](#10-query-tambahan-q22q24)
+11. [Riwayat Perubahan](#riwayat-perubahan)
 
 ---
 
@@ -178,7 +180,8 @@ SELECT bp.coa_id AS coaId,
        COALESCE(SUM(bp.amount), 0) AS amount
 FROM bank_payment bp
 WHERE bp.type IN (1, 2)                       -- BANK_PAYMENT_CHANNEL_TYPES
-  AND bp.status = 0                           -- UNSETTLED
+  AND ( bp.status = 0                         -- belum cair sekarang
+        OR (bp.status = 1 AND bp.payment_date >= :asOfPlusOne) )   -- atau baru cair setelah asOf
   AND bp.coa_id IN (:inTransitCoaIds)
   AND bp.transaction_date < :asOfPlusOne
   -- AND bp.<SEG> IN (:segIds)
@@ -377,7 +380,8 @@ Total (angka kartu) = unpaid + vendorCredits + unallocated
 umur       = asOf − COALESCE(due_date, tx_date)        (pembayaran belum dialokasikan: asOf − tx_date)
 umur ≥ 0 : overdue0_30 (0–30), overdue31_60, overdue61_90, overdue90plus
 umur < 0 : due1_30 (−1…−30), due31_60, due61_90, due90plus
-Overdue (angka kecil kartu) = Σ keempat bucket overdue*   (sudah dinetto kredit & pembayaran belum dialokasikan)
+Overdue (halaman Payables)   = Σ keempat bucket overdue*   (neto: sudah dikurangi kredit vendor & pembayaran belum dialokasikan)
+Overdue (kartu Summary)      = Σ saldo POSITIF item yang bucket-nya overdue*   (overdueBills; tanpa kredit vendor)
 ```
 
 Sumber: `src/lib/finance/ap-ar/apar.ts`, `src/lib/finance/ap-ar/aging.ts`.
@@ -393,7 +397,9 @@ Memakai Q14/Q16 dengan `:asOfPlusOne = today + 1`, lalu di JavaScript:
 
 ```
 tampil bila balance > 0  DAN  COALESCE(due_date, tx_date) ≤ today + 6 hari
-status    = planStatus(statusVoucher(invoice_id))      (lihat Q19)
+status    = planStatus(statusPengakuanBiaya(invoice_id))      (lihat Q19)
+tab "Jatuh tempo ≤ 7 hari" = tagihan dengan COALESCE(due_date, tx_date) >= today
+tab "Lewat jatuh tempo"    = tagihan dengan COALESCE(due_date, tx_date) <  today
 vendor    = Q18
 ```
 
@@ -490,9 +496,9 @@ Gross dan Net margin memakai hasil P&L di bagian 3.
 
 ---
 
-## 6. Status voucher pembayaran
+## 6. Status Pengakuan Biaya
 
-### Q19 — Voucher aktif per tagihan
+### Q19 — Dokumen Pengakuan Biaya aktif per tagihan
 `src/server/repo/payment-plan.repo.ts` · `listActivePlanStatuses`. Satu query untuk semua tagihan, cache 5 menit.
 
 ```sql
@@ -605,8 +611,42 @@ Semua metrik dijalankan paralel (`Promise.all` di `summary.service.ts`), dan beb
 
 ---
 
-## Riwayat Perubahan
+## 10. Query tambahan (Q22–Q24)
+
+Query yang ditambahkan pada gelombang 2 (keputusan D31 dan D35 di `decisions.md`).
+
+### Q22 — Giro/cek beredar
+`src/server/repo/bank-payment.repo.ts` · `outstandingGiro`. Cache 60 detik. Dipakai kartu Cash Position (informasi, bukan bagian angka utama).
+
+```sql
+SELECT COALESCE(SUM(bp.amount), 0) AS amount
+FROM bank_payment bp
+WHERE bp.type IN (0, 4, 7)                    -- BG, cek tangguh, e-banking
+  AND bp.transaction_date < :asOfPlusOne
+  AND ( bp.status = 0 OR (bp.status = 1 AND bp.payment_date >= :asOfPlusOne) )
+  -- AND bp.<SEG> IN (:segIds)
+;
+```
+
+### Q23 — Tidak dipakai
+Nomor ini dikosongkan: query "terposting sampai" dibatalkan (D34) sehingga tidak ada di kode.
+
+### Q24 — Apakah tabel GL punya kolom `canceled_date`
+`src/server/db/gl-columns.ts` · `glTableHasCanceledDate`. Cache 1 jam per nama tabel (`gl`, `gl_2024`, …).
+
+```sql
+SELECT COUNT(*) AS n
+FROM information_schema.columns
+WHERE table_schema = DATABASE()
+  AND table_name = :glTable
+  AND column_name = 'canceled_date';
+```
+
+---
+
+## 11. Riwayat Perubahan
 
 | Tanggal | Perubahan |
 |---|---|
 | 2026-10-30 | Dokumen dibuat dari pembacaan kode (belum ada perubahan pada halaman Summary). |
+| 2026-10-30 | Rencana gelombang 2: Q10 memakai aturan belum cair pada asOf; Q22 dan Q24 ditambahkan (Q23 dibatalkan); istilah Pengakuan Biaya. |

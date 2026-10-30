@@ -32,6 +32,9 @@ const envSchema = z.object({
   // 1 = apply pending dash_* migrations when the server starts (off by default in production)
   AUTO_MIGRATE: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['0', '1']).default('0')),
   PNL_OCI_ROOT_CODES: z.string().default('9'),
+  // Cash Position flags funds in settlement whose oldest transaction is older than this many days.
+  // Raise it for a client that releases settlements late (the usual delay is the right order of magnitude).
+  IN_TRANSIT_ALERT_DAYS: z.preprocess((v) => (v === '' ? undefined : v), z.coerce.number().int().min(0).max(120).default(3)),
   ERP_APP_ID_INDEX: z.coerce.number().int().min(0).max(99).default(7),
   NODE_ENV: z.string().default('development'),
 })

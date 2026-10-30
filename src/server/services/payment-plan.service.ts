@@ -1,6 +1,12 @@
 import { memoMetric } from '~/server/cache'
 import { paginate, type Page, type TableQuery } from '~/lib/table/query'
-import { paymentBillComparators } from '~/lib/finance/ap-ar/payment-plan-bills'
+import {
+  paymentBillComparators,
+  filterBillsByScope,
+  summarizeBillScopes,
+  type BillScope,
+  type BillScopeSummary,
+} from '~/lib/finance/ap-ar/payment-plan-bills'
 import type { PaymentPlanBill } from '~/lib/finance/ap-ar/payment-plan'
 import '@tanstack/react-start/server-only'
 import { D } from '~/lib/core/money'
@@ -38,6 +44,8 @@ export type PaymentPlanResult = {
   overdue: Money
   days: PaymentPlanDay[]
   bills: PaymentPlanBill[]
+  /** True when at least one bill has a live Pengakuan Biaya document (Posted, Partialy Paid or Not Posted). */
+  planStatusInUse: boolean
 }
 
 export type PaymentPlanOptions = {
@@ -149,6 +157,7 @@ async function computePaymentPlanUncached(
     dueDate: b.dueDate || b.txDate,
     balance: b.balance,
     status: planStatus(statusMap.get(b.invoiceId) ?? []),
+    overdue: (b.dueDate || b.txDate) < today,
   }))
 
   return {
@@ -157,15 +166,25 @@ async function computePaymentPlanUncached(
     overdue: res.overdue,
     days: res.days,
     bills,
+    planStatusInUse: statusRows.length > 0,
   }
 }
 
-/** One sorted page of the bills due in the horizon (the plan itself is memoized, so paging does not re-query). */
+export type BillsPage = Page<PaymentPlanBill> & {
+  /** Count and total of both tabs, whichever tab is shown. */
+  scopes: BillScopeSummary
+  /** False when no bill has a live Pengakuan Biaya document: the status column then says nothing. */
+  planStatusInUse: boolean
+}
+
+/** One sorted page of the bills of one tab (the plan itself is memoized, so paging does not re-query). */
 export async function listPaymentPlanBills(
   filter: AppContextFilter,
   opts: PaymentPlanOptions,
   query: TableQuery,
-): Promise<Page<PaymentPlanBill>> {
+  scope: BillScope,
+): Promise<BillsPage> {
   const plan = await computePaymentPlan(filter, opts)
-  return paginate(plan.bills, query, paymentBillComparators)
+  const page = paginate(filterBillsByScope(plan.bills, scope), query, paymentBillComparators)
+  return { ...page, scopes: summarizeBillScopes(plan.bills), planStatusInUse: plan.planStatusInUse }
 }

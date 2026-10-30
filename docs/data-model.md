@@ -156,7 +156,7 @@ Tabel `department` dan semua kolom `department_id` (`gl_detail`, `coa_budget`, `
 | `period_id` | Periode akuntansi |
 | `journal_type` | Sumber jurnal (lihat §3.4) |
 | `posted_status` | Hanya yang sudah diposting yang dihitung |
-| `canceled_date` | Jurnal batal **tidak dihitung** |
+| `canceled_date` | Jurnal batal **tidak dihitung**. Kolom ini tidak ada di semua versi ERP: filternya dipasang hanya bila kolom itu ada di tabel `gl` (D31) |
 | `is_reversal`, `ref_journal_number` | Penanda jurnal pembalik (info) |
 
 #### `gl_detail` — baris debit/kredit
@@ -257,7 +257,7 @@ Tagihan AP (ap_ar_card)
 
 | Tabel.Kolom | Isi |
 |---|---|
-| `bankpo_payment.type` | `0` voucher (pengakuan) · `1` pembayaran bank · `3` pembayaran langsung |
+| `bankpo_payment.type` | `0` **Pengakuan Biaya** (di dokumen ini juga disebut "voucher"; dibuat lewat menu Seleksi Invoice) · `1` Pembayaran Bank · `2` Non-trade · `3` Pembayaran langsung. Nama konstanta di ERP: `TYPE_PENGAKUAN_BIAYA`, `TYPE_PEMBAYARAN_BANK`, `TYPE_NON_TRADE`, `TYPE_PEMBAYARAN_DIRECT` |
 | `bankpo_payment.status` | `Not Posted` · `Posted` · `Partialy Paid` · `Paid` |
 | `bankpo_payment.ref_id` | Pada type 1: voucher type 0 yang dibayar |
 | `bankpo_payment.trans_date`, `date` | Tanggal dokumen |
@@ -428,7 +428,7 @@ Kolom "Di data" = pemakaian nyata di DB `demo` (Des 2021 – Okt 2025).
 
 ```
 gl.posted_status = 1          -- POSTED (konstanta DbGl.POSTED = 1; NOT_POSTED = 0) ✔️ terkonfirmasi dari kode ERP
-AND gl.canceled_date IS NULL  -- pengaman; di DB demo tidak ada jurnal yang terisi canceled_date
+AND gl.canceled_date IS NULL  -- pengaman; hanya bila tabel gl punya kolom ini (D31); di DB demo tidak ada jurnal yang terisi canceled_date
 ```
 
 - Laporan resmi ERP (Neraca, Laba Rugi, Buku Besar mode "POSTED") **hanya** memfilter `posted_status = 1`. Di DB `demo`: 1,48 juta jurnal posted, 145 draft, 0 batal, 0 reversal.
@@ -672,10 +672,11 @@ DanaTransit = saldo(basket('inTransit'), asOf)    ← kartu terpisah
 ```
 
 - **Drill-down Cash Position:** Kas/Bank → folder (Kas Besar, Kas Kecil, …) → akun → mutasi.
-- **Drill-down Dana Transit:** per channel/akun (QRIS, EDC, GoPay, …) → lokasi → tanggal transaksi → daftar transaksi belum cair, dari `bank_payment` (`type IN (1,2) AND status = 0`, `coa_id ∈ basket('inTransit')`).
-- **Umur dana belum cair** (`hari ini − transaction_date`): normalnya 0–2 hari; > 3 hari ditandai ⚠️ (kemungkinan belum direkonsiliasi / gagal settlement).
+- **Drill-down Dana Transit:** per channel/akun (QRIS, EDC, GoPay, …) → lokasi → tanggal transaksi → daftar transaksi belum cair, dari `bank_payment` (`type IN (1,2)` dan belum cair pada `asOf`, yaitu `status = 0` ATAU (`status = 1` DAN `payment_date` > `asOf`) (D32), `coa_id ∈ basket('inTransit')`).
+- **Umur dana belum cair** (`hari ini − transaction_date`): normalnya 0–2 hari; di atas ambang `IN_TRANSIT_ALERT_DAYS` (bawaan 3 hari, D38) ditandai ⚠️ (kemungkinan belum direkonsiliasi / gagal settlement).
 - **Cek rekonsiliasi (info):** saldo GL keranjang `inTransit` ≈ Σ `bank_payment.amount` yang belum cair untuk akun-akun yang sama. Selisih → ⚠️ "GL & register pencairan tidak sinkron" (mis. jurnal pencairan belum diposting).
 - **Edge case:** saldo kas **negatif** di satu entitas (efek NBAL) → tampilkan apa adanya + ikon ⓘ.
+- **Giro/cek beredar (informasi, tidak masuk angka utama; D35):** pembayaran hutang dengan BG, cek tangguh, atau e-banking mengkredit akun Hutang Giro dan baru mengurangi bank saat dicairkan (`bank_payment.status` 0 → 1 dan jurnal Giro Keluar). Dashboard menjumlahkan `bank_payment.amount` untuk `type IN (0, 4, 7)` yang belum cair pada `asOf` (aturan sama dengan register Dana dalam pencairan) dan menampilkannya sebagai baris tambahan di kartu Cash Position. Pembayaran non-PO (`type` 5, 6, 8) belum dihitung.
 
 > **Referensi ERP:** `web/fin/freport/cashflow_report.jsp`. ERP mengambil setiap jurnal di periode yang menyentuh akun **`Liquid Assets` + `sub_account_group = 'Cash'`**, lalu menjumlahkan **baris lawan** di jurnal itu berdasarkan `account_group` + `sub_account_group` yang dipetakan di `cash_flow_setup` (§2.2). Dashboard memakai **pemetaan yang sama**, dengan dua perbaikan yang disetujui user: **alokasi proporsional ke kas** dan **baris "Belum terklasifikasi"** (decisions.md D27).
 
@@ -775,7 +776,9 @@ dibayar     = Σ (− detail.amount) untuk item.transaction_type ∈ {0, 1, 2, 4
               -- "pembayaran belum dialokasikan" (§6.6 bagian B); tampil sebagai kategori tersendiri
 ```
 > Kartu type 7/8 (incoming adjustment) **bukan** uang keluar — hanya menyesuaikan nilai tagihan.
-> Kartu bayar type 10 dibuat ERP saat **Pembayaran Bank** (`bankpo_payment` type 1/3) diposting, jadi tanggal kartu = tanggal uang keluar. **Jangan** memakai voucher `bankpo_payment` type 0 sebagai Expense Paid — itu baru rencana bayar.
+> Kartu bayar dibuat ERP saat pembayaran diposting: type **9** (Payment single) untuk **Pembayaran Bank** (`bankpo_payment` type 1, alur Seleksi Invoice) dan type **10** (Payment multi) untuk **Pembayaran langsung** (type 3), jadi tanggal kartu = tanggal uang keluar. **Jangan** memakai voucher `bankpo_payment` type 0 sebagai Expense Paid — itu baru rencana bayar.
+>
+> ⚠️ Untuk pembayaran dengan **BG, cek tangguh, atau e-banking**, tanggal kartu adalah tanggal pembayaran dicatat, sedangkan uang keluar dari bank baru saat giro dicairkan. Selama belum cair, kreditnya berada di akun Hutang Giro.
 > Kartu type 10 dengan `in_out = +1` (retur melebihi tagihan → vendor berutang ke kita) dihitung sebagai **pengurang** Expense Paid.
 
 **(b) Pembayaran langsung tanpa tagihan** (petty cash, bank non-PO, dll.)

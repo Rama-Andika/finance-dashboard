@@ -29,6 +29,8 @@ export type ApAgingResult = {
   compareTotal: Money | null
   buckets: Record<AgingBucket, Money>
   overdueSubtotal: Money
+  /** Past-due bills only (positive items): no vendor credits, no unallocated payments. */
+  overdueBills: Money
   byVendor: VendorAgingSummary[]
   controlAccounts: Array<{ coaId: Id; code: string; name: string }>
   reconciliation: { gl: Money; subledger: Money; diff: Money; inSync: boolean }
@@ -124,6 +126,7 @@ async function computeApAgingUncached(filter: AppContextFilter): Promise<ApAging
     compareTotal,
     buckets: computed.buckets,
     overdueSubtotal: computed.overdueSubtotal,
+    overdueBills: computed.overdueBills,
     byVendor: computed.byVendor,
     controlAccounts: computed.controlAccounts,
     reconciliation: {

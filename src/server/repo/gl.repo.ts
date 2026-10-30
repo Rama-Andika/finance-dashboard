@@ -5,6 +5,7 @@ import { inList } from '~/server/db/in-list'
 import { chunk, chunkOrAll } from '~/server/db/chunk'
 import { assertSegmentColumn } from '~/server/db/segment-column'
 import { glTablesOf, groupPeriodsByTable } from '~/server/db/gl-tables'
+import { notCanceledClause } from '~/server/db/gl-columns'
 import { D } from '~/lib/core/money'
 import { diffDays } from '~/lib/format/date'
 import { mergeJournalPages } from '~/lib/finance/journal/journal-page'
@@ -55,6 +56,7 @@ async function queryMovementsFromDb(
   const glDetailIdent = sql.identifier(glDetail)
   const segIdent = sql.identifier(opts.segCol)
 
+  const notCanceled = await notCanceledClause(tableName, 'g')
   const periodChunks = chunk(tablePeriods.map((p) => p.periodeId))
   const resultRows: MovementRow[] = []
 
@@ -81,7 +83,7 @@ async function queryMovementsFromDb(
               : sql``
           }
           WHERE g.posted_status = 1
-            AND g.canceled_date IS NULL
+            ${notCanceled}
             AND g.period_id IN (${inList(pChunk)})
             ${cChunk ? sql`AND d.coa_id IN (${inList(cChunk)})` : sql``}
             ${sChunk ? sql`AND d.${segIdent} IN (${inList(sChunk)})` : sql``}
@@ -214,6 +216,7 @@ export async function movementsByDate(opts: MovementsByDateOptions): Promise<Dat
   const resultMap = new Map<string, DateMovementRow>()
 
   for (const tableName of opts.tables) {
+    const notCanceled = await notCanceledClause(tableName, 'g')
     const { gl, glDetail } = glTablesOf(tableName)
     const glIdent = sql.identifier(gl)
     const glDetailIdent = sql.identifier(glDetail)
@@ -228,7 +231,7 @@ export async function movementsByDate(opts: MovementsByDateOptions): Promise<Dat
           FROM ${glIdent} g
           JOIN ${glDetailIdent} d ON d.gl_id = g.gl_id
           WHERE g.posted_status = 1
-            AND g.canceled_date IS NULL
+            ${notCanceled}
             AND g.trans_date >= ${opts.from}
             AND g.trans_date <= ${opts.to}
             ${cChunk ? sql`AND d.coa_id IN (${inList(cChunk)})` : sql``}
@@ -387,6 +390,7 @@ export async function journalLines(opts: JournalLinesOptions): Promise<JournalLi
   const pages: JournalLineRow[][] = []
 
   for (const [tableName, tablePeriods] of grouped.entries()) {
+    const notCanceled = await notCanceledClause(tableName, 'g')
     const { gl, glDetail } = glTablesOf(tableName)
     const glIdent = sql.identifier(gl)
     const glDetailIdent = sql.identifier(glDetail)
@@ -419,7 +423,7 @@ export async function journalLines(opts: JournalLinesOptions): Promise<JournalLi
       FROM ${glIdent} g
       JOIN ${glDetailIdent} d ON d.gl_id = g.gl_id
       WHERE g.posted_status = 1
-        AND g.canceled_date IS NULL
+        ${notCanceled}
         ${periodClause}
         ${coaClause}
         ${segClause}

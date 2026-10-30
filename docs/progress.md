@@ -1,5 +1,7 @@
 # Progress — Finance Dashboard
 
+> Pekerjaan gelombang 2 (perbaikan dari studi data klien, folder `plans/`) dicatat di [`progress-gelombang-2.md`](./progress-gelombang-2.md).
+
 | Tanggal | Langkah | Hasil | Cek |
 |---|---|---|---|
 | 2026-10-28 | 0.1 | Dibuat file docs/progress.md | File ada dengan 3 heading utama (Lulus) |

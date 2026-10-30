@@ -24,6 +24,8 @@ export const AR_UNALLOCATED_CREDIT_TYPE = 2
 
 /** bank_payment.type: customer receipts that sit in a settlement channel. */
 export const BANK_PAYMENT_CHANNEL_TYPES = [1, 2] as const
+/** bank_payment.type of vendor payments by BG (0), pending cheque (4) and e-banking (7): not cleared until the bank settles them. */
+export const BANK_PAYMENT_GIRO_TYPES = [0, 4, 7] as const
 /** bank_payment.status */
 export const BANK_PAYMENT_STATUS = { UNSETTLED: 0, SETTLED: 1 } as const
 

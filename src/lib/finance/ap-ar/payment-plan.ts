@@ -191,6 +191,8 @@ export type PaymentPlanBill = {
   dueDate: string
   balance: Money
   status: string
+  /** Due before today (a missing due date falls back to the transaction date). */
+  overdue: boolean
 }
 
 /** Headline numbers of a plan: everything going out (overdue + all days) and the lowest closing balance. */

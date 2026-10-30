@@ -112,8 +112,8 @@ function CashPositionPage() {
       id: 'status',
       header: t('ui.col.status'),
       cell: ({ row }) =>
-        row.original.overThreeDays ? (
-          <StatusPill tone="warning">{t('ui.cashPosition.over3Days')}</StatusPill>
+        row.original.overAlertAge ? (
+          <StatusPill tone="warning">{t('ui.cashPosition.overAlertAge')}</StatusPill>
         ) : (
           <StatusPill tone="neutral">{t('ui.cashPosition.normal')}</StatusPill>
         ),
@@ -198,6 +198,7 @@ function CashPositionPage() {
           bank={data.bank}
           deposit={data.deposit}
           inTransit={data.inTransit}
+          giroOutstanding={data.giroOutstanding}
         />
 
         <KpiCard
@@ -271,7 +272,7 @@ function CashPositionPage() {
             </div>
             <div className="text-xs text-muted flex justify-between">
               <span>{r.count} transaksi · tertua {r.oldestAgeDays} hari</span>
-              {r.overThreeDays && <StatusPill tone="warning">{t('ui.col.overThreeDays')}</StatusPill>}
+              {r.overAlertAge && <StatusPill tone="warning">{t('ui.col.overAlertAge')}</StatusPill>}
             </div>
           </div>
         )}

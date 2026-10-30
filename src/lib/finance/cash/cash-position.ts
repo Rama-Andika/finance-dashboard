@@ -10,7 +10,8 @@ export type InTransitDetailItem = {
   amount: Money
   count: number
   oldestAgeDays: number
-  overThreeDays: boolean
+  /** True when the oldest unsettled transaction is older than the alert age. */
+  overAlertAge: boolean
 }
 
 export type CashPositionReconciliation = {
@@ -75,8 +76,10 @@ export function computeInTransitDetail(input: {
   tree: CoaTree
   unsettled: UnsettledItem[]
   today: IsoDate
+  /** Age in days above which the oldest transaction of a channel is flagged. */
+  alertDays: number
 }): InTransitDetailItem[] {
-  const { inTransitCoaIds, tree, unsettled, today } = input
+  const { inTransitCoaIds, tree, unsettled, today, alertDays } = input
   const byCoa = new Map<Id, UnsettledItem[]>()
 
   for (const item of unsettled) {
@@ -99,7 +102,7 @@ export function computeInTransitDetail(input: {
         amount: '0.00',
         count: 0,
         oldestAgeDays: 0,
-        overThreeDays: false,
+        overAlertAge: false,
       }
     }
 
@@ -123,7 +126,7 @@ export function computeInTransitDetail(input: {
       amount: totalAmount.toFixed(2),
       count: totalCount,
       oldestAgeDays: oldestAge,
-      overThreeDays: oldestAge > 3,
+      overAlertAge: oldestAge > alertDays,
     }
   })
 }

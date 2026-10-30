@@ -5,6 +5,7 @@ import { inList } from '~/server/db/in-list'
 import { chunk, chunkOrAll } from '~/server/db/chunk'
 import { assertSegmentColumn } from '~/server/db/segment-column'
 import { glTablesOf, groupPeriodsByTable } from '~/server/db/gl-tables'
+import { notCanceledClause } from '~/server/db/gl-columns'
 import { D } from '~/lib/core/money'
 import { hashIds, memo } from '~/server/cache'
 import type { Id, Money, Period } from '~/lib/core/types'
@@ -60,6 +61,8 @@ async function queryCashLines(opts: LinesOfCashJournalsOptions): Promise<CashJou
     const glIdent = sql.identifier(gl)
     const glDetailIdent = sql.identifier(glDetail)
     const segIdent = sql.identifier(opts.segCol)
+    const notCanceledMain = await notCanceledClause(tableName, 'g')
+    const notCanceledSub = await notCanceledClause(tableName, 'g2')
 
     for (const pChunk of chunk(tablePeriods.map((p) => p.periodeId))) {
       for (const cChunk of chunk(opts.cashCoaIds)) {
@@ -80,13 +83,13 @@ async function queryCashLines(opts: LinesOfCashJournalsOptions): Promise<CashJou
               FROM ${glIdent} g2
               JOIN ${glDetailIdent} d2 ON d2.gl_id = g2.gl_id
               WHERE g2.posted_status = 1
-                AND g2.canceled_date IS NULL
+                ${notCanceledSub}
                 AND g2.period_id IN (${inList(pChunk)})
                 AND d2.coa_id IN (${inList(cChunk)})
                 ${sChunk ? sql`AND d2.${segIdent} IN (${inList(sChunk)})` : sql``}
             ) k ON k.gl_id = g.gl_id
             WHERE g.posted_status = 1
-              AND g.canceled_date IS NULL
+              ${notCanceledMain}
             GROUP BY d.gl_id, g.journal_type, g.period_id, d.coa_id, d.${segIdent}
           `
 

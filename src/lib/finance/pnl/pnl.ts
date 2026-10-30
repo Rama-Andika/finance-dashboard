@@ -1,6 +1,5 @@
 import Decimal from 'decimal.js'
 import { D, safeDiv } from '../../core/money'
-import { formatPercent } from '~/lib/format/number'
 import type { AccountGroup, Breakdown, Id, Money } from '../../core/types'
 import { type CoaTree, type CoaNode, ORPHAN_FOLDER_ID, postableDescendants } from '../coa/coa-tree'
 import { groupFolders } from './revenue'
@@ -21,6 +20,7 @@ export type PnlLineKey =
 export type PnlLine = {
   key: PnlLineKey
   amount: Money
+  /** Ratio to revenue as a decimal string (0.25 = 25%), or null when revenue is zero; the client formats it. */
   margin: string | null
   byPeriod: Record<Id, Money>
   folders: Breakdown[]
@@ -266,7 +266,7 @@ export function buildPnl(input: {
     if (revenueComp.total.isZero()) return null
     const ratio = safeDiv(amt.toFixed(2), revenueComp.total.toFixed(2))
     if (!ratio) return null
-    return formatPercent(ratio, 'en', 1)
+    return ratio
   }
 
   const lines: PnlLine[] = [

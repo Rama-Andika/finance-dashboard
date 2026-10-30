@@ -3,6 +3,10 @@ import type { Period } from '~/lib/core/types'
 
 const rowsMock = vi.fn()
 vi.mock('~/server/db/query', () => ({ rows: (...args: unknown[]) => rowsMock(...args) }))
+vi.mock('~/server/db/gl-columns', async () => {
+  const { sql } = await import('drizzle-orm')
+  return { glTableHasCanceledDate: async () => true, notCanceledClause: async () => sql`` }
+})
 
 const { linesOfCashJournals } = await import('./cashflow.repo')
 const { clearCache } = await import('~/server/cache')
