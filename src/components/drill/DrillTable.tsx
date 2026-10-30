@@ -62,7 +62,7 @@ export function DrillTable({
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={columns.length + (hasNext ? 1 : 0)} className="text-center py-10 text-muted text-sm">
+              <td colSpan={columns.length + (hasNext ? 1 : 0)} className="text-center py-10 text-ink-muted text-sm">
                 {t('drill.empty')}
               </td>
             </tr>
@@ -77,7 +77,7 @@ export function DrillTable({
                   <DrillCell key={c.id} column={c} value={row[c.id]} lang={lang} />
                 ))}
                 {hasNext && (
-                  <td className="text-right text-muted pr-3">
+                  <td className="text-right text-ink-muted pr-3">
                     <ChevronRight className="w-4 h-4 inline" />
                   </td>
                 )}

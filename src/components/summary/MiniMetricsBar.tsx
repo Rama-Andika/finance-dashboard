@@ -25,7 +25,7 @@ export function MiniMetricsBar({ metrics, lang }: { metrics: MiniMetrics; lang: 
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
       {items.map((item) => (
         <div key={item.label} className="nr-card p-4">
-          <span className="text-xs text-muted block mb-1">{item.label}</span>
+          <span className="text-xs text-ink-muted block mb-1">{item.label}</span>
           <span className="text-lg font-bold">{item.value}</span>
         </div>
       ))}

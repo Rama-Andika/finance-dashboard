@@ -22,7 +22,7 @@ export function JournalList({ items, lang }: JournalListProps) {
   const { t } = useTranslation()
   if (items.length === 0) {
     return (
-      <div className="text-center py-8 text-muted text-sm">
+      <div className="text-center py-8 text-ink-muted text-sm">
         {t('ui.journalList.noJournalLines')}
       </div>
     )

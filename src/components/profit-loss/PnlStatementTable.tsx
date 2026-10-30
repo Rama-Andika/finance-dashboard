@@ -27,7 +27,7 @@ export function PnlStatementTable({ lines, lang, scope }: { lines: PnlLine[]; la
             <span className={isSubtotal ? 'font-bold text-ink' : undefined}>{t(`pnlLine.${item.key}`)}</span>
             {item.key === 'operatingProfit' && (
               <span
-                className="text-xs text-muted inline-flex items-center cursor-help"
+                className="text-xs text-ink-muted inline-flex items-center cursor-help"
                 title={t('ui.profitLoss.beforeDepreciationDeduction')}
               >
                 <Info className="nr-icon nr-icon-sm" />
@@ -45,7 +45,7 @@ export function PnlStatementTable({ lines, lang, scope }: { lines: PnlLine[]; la
         const val = getValue() as string | null
         if (!val) return '—'
         return (
-          <span className={SUBTOTAL_KEYS.has(row.original.key) ? 'font-semibold' : 'text-muted'}>
+          <span className={SUBTOTAL_KEYS.has(row.original.key) ? 'font-semibold' : 'text-ink-muted'}>
             {formatPercent(val, lang)}
           </span>
         )
@@ -94,7 +94,7 @@ export function PnlStatementTable({ lines, lang, scope }: { lines: PnlLine[]; la
           <div>
             <span className={SUBTOTAL_KEYS.has(r.key) ? 'font-bold' : undefined}>{t(`pnlLine.${r.key}`)}</span>
             {r.margin && (
-              <span className="text-xs text-muted block">
+              <span className="text-xs text-ink-muted block">
                 {t('metric.margin')}: {formatPercent(r.margin, lang)}
               </span>
             )}

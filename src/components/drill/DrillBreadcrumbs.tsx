@@ -29,7 +29,7 @@ export function DrillBreadcrumbs({
         const label = translateCfLabel(t, step.label)
         return (
           <React.Fragment key={`${step.kind}-${step.id}-${idx}`}>
-            <ChevronRight className="w-3.5 h-3.5 text-muted shrink-0" />
+            <ChevronRight className="w-3.5 h-3.5 text-ink-muted shrink-0" />
             {isLast ? (
               <span className="active truncate max-w-[200px]" title={label}>
                 {label}

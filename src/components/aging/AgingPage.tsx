@@ -265,7 +265,7 @@ export function AgingPage({
             <div className="flex justify-between items-start">
               <div>
                 <span className="font-semibold">{partyName(r)}</span>
-                <span className="text-xs text-muted block font-mono">{r.code}</span>
+                <span className="text-xs text-ink-muted block font-mono">{r.code}</span>
               </div>
               <span className="font-semibold tabular-nums">{formatMoneyFull(r.total, lang)}</span>
             </div>

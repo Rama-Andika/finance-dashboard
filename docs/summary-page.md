@@ -334,3 +334,4 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 | 2026-10-30 | Kartu baru Revenue by Entity (donut) di Summary, di sebelah Composition; Cash Flow menjadi selebar penuh saat kartu tampil. Bagian 1 (peta), 3, 7, dan 11 diperbarui. Tabel Revenue by Entity ditambahkan di halaman Revenue (D40). |
 | 2026-10-30 | Struktur halaman dirapikan tanpa mengubah angka atau tampilan: empat kartu atas dan grafik dipindah ke `SummaryKpiRow` dan `SummaryCharts` (bagian 11). |
 | 2026-10-30 | Kartu Payables: Overdue tampil sebagai teks tanpa persentase perubahan (sebelumnya persentase dihitung terhadap total utang dan menyesatkan). Catatan tabel tagihan dilengkapi: total tabel juga berbeda dari kartu karena batas 7 hari. |
+| 2026-10-30 | Judul empat kartu mini dan teks keterangan kecil di Summary tampil terlalu pucat (kelas warna salah); diperbaiki, tanpa perubahan angka. |

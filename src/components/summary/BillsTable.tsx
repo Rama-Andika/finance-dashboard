@@ -125,11 +125,11 @@ export function BillsTable({
             <div className="flex justify-between items-start">
               <div>
                 <div className="font-semibold">{r.vendorName}</div>
-                <div className="text-xs font-mono text-muted">{r.invoiceNumber}</div>
+                <div className="text-xs font-mono text-ink-muted">{r.invoiceNumber}</div>
               </div>
               <div className="text-right">
                 <div className="font-semibold tabular-nums">{formatMoneyFull(r.balance, lang)}</div>
-                <div className="text-xs text-muted">{formatDate(r.dueDate, lang)}</div>
+                <div className="text-xs text-ink-muted">{formatDate(r.dueDate, lang)}</div>
               </div>
             </div>
             {planStatusInUse && (

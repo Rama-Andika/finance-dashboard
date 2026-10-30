@@ -78,7 +78,7 @@ function CashFlowPage() {
         />
       )}
 
-      <div className="text-xs text-muted flex items-center gap-1.5">
+      <div className="text-xs text-ink-muted flex items-center gap-1.5">
         <Info className="nr-icon nr-icon-sm" />
         <span>
           {t('ui.cashFlow.classificationSource')}{' '}

@@ -91,7 +91,7 @@ export function DailyScheduleTable({
               {formatMoneyFull(r.closing, lang)}
             </span>
           </div>
-          <div className="text-xs text-muted flex justify-between">
+          <div className="text-xs text-ink-muted flex justify-between">
             <span>
               {t('ui.paymentPlan.inflowShort')}: {formatMoneyFull(r.inflow, lang)}
             </span>

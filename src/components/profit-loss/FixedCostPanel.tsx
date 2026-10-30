@@ -90,10 +90,10 @@ export function FixedCostPanel({ data, lang, scope }: { data: FixedCostPanelData
                   return (
                     <div className="nr-tooltip">
                       <div className="font-semibold">{formatMonthYear(item.month, lang)}</div>
-                      <div className="text-xs text-muted mt-1">
+                      <div className="text-xs text-ink-muted mt-1">
                         {t('ui.profitLoss.fixedLabel')}: {formatMoneyFull(item.rawFixed, lang)}
                       </div>
-                      <div className="text-xs text-muted">
+                      <div className="text-xs text-ink-muted">
                         {t('ui.profitLoss.variableLabel')}: {formatMoneyFull(item.rawVariable, lang)}
                       </div>
                     </div>

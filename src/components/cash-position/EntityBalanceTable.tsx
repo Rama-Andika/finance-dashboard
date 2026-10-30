@@ -49,7 +49,7 @@ export function EntityBalanceTable({ rows, lang }: { rows: EntityBalance[]; lang
         <div className="flex justify-between items-center">
           <div>
             <div className="font-semibold">{r.name}</div>
-            <div className="text-xs text-muted font-mono">{r.code}</div>
+            <div className="text-xs text-ink-muted font-mono">{r.code}</div>
           </div>
           <span className={`font-semibold tabular-nums ${r.isNegative ? 'text-danger' : ''}`}>
             {formatMoneyFull(r.amount, lang)}

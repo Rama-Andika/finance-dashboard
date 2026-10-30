@@ -60,7 +60,7 @@ export function InTransitTable({ rows, lang }: { rows: InTransitDetailItem[]; la
             <span className="font-semibold">{r.name}</span>
             <span className="font-semibold tabular-nums">{formatMoneyFull(r.amount, lang)}</span>
           </div>
-          <div className="text-xs text-muted flex justify-between">
+          <div className="text-xs text-ink-muted flex justify-between">
             <span>{t('ui.cashPosition.transactionsOldest', { count: r.count, days: r.oldestAgeDays })}</span>
             {r.overAlertAge && <StatusPill tone="warning">{t('ui.col.overAlertAge')}</StatusPill>}
           </div>

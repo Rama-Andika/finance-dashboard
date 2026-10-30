@@ -87,7 +87,7 @@ export function BudgetTable({
             <span className={isGroup(r) ? 'font-bold' : undefined}>{r.name}</span>
             <DeltaPill change={r.variancePercent} higherIsBetter={r.higherIsBetter} />
           </div>
-          <div className="text-xs text-muted flex justify-between">
+          <div className="text-xs text-ink-muted flex justify-between">
             <span>{t('ui.budget.budgetShort')}: {formatMoneyFull(r.budget, lang)}</span>
             <span>{t('ui.budget.actualShort')}: {formatMoneyFull(r.actual, lang)}</span>
           </div>

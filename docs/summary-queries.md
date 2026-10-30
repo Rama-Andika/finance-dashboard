@@ -661,3 +661,4 @@ WHERE table_schema = DATABASE()
 | 2026-10-30 | Kartu Revenue by Entity memakai Q11 / Q12 yang sama (`byLocation`); tidak ada query baru. Ditambah baris rumus "Revenue per entitas" dan baris matriks. |
 | 2026-10-30 | Tidak ada query yang berubah isinya: pembacaan Q9 / Q20 / daftar jurnal per tabel GL kini paralel (hasil sama, urutan tabel dijaga), dan pemuatan AP/AR memakai satu pembaca bersama (`shared/aging-reader.ts`). |
 | 2026-10-30 | Kartu Payables tidak lagi menampilkan persentase terhadap Overdue; tidak ada query yang berubah. |
+| 2026-10-30 | Perbaikan warna teks keterangan di halaman; tidak ada query yang berubah. |
