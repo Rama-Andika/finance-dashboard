@@ -92,6 +92,7 @@ export function DrillSheet() {
         memo: r.memo ?? '',
         debet: r.debet ?? '0.00',
         credit: r.credit ?? '0.00',
+        entityName: r.entityName ?? null,
       }))
     : []
 
@@ -159,7 +160,7 @@ export function DrillSheet() {
             <MetricError error={error} reset={() => refetch()} />
           ) : isJournalLeaf ? (
             <>
-              <JournalList items={journalItems} lang={lang} />
+              <JournalList items={journalItems} lang={lang} showEntity={Boolean(data?.showEntity)} />
               {loadMore}
             </>
           ) : (
@@ -168,6 +169,7 @@ export function DrillSheet() {
                 columns={data?.columns ?? []}
                 rows={allRows}
                 hasNext={Boolean(data?.nextKind)}
+                showEntity={Boolean(data?.showEntity)}
                 lang={lang}
                 onRowClick={handleRowDrill}
               />

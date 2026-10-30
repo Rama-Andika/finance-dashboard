@@ -11,6 +11,7 @@ const bill = (over: Partial<PaymentPlanBill>): PaymentPlanBill => ({
   invoiceId: '1',
   vendorId: '1',
   vendorName: 'Alpha',
+  entityName: null,
   invoiceNumber: 'INV-1',
   dueDate: '2025-10-15',
   balance: '100.00',

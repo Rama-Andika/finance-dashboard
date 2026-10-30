@@ -159,4 +159,16 @@ describe('reads over several GL tables', () => {
     const result = await pending
     expect(result.map((r) => r.glId)).toEqual(['3', '2'])
   })
+
+  it('journalLines reports the segment detail of a line only when asked to group by segment', async () => {
+    const dbRow = {
+      glId: '1', journalNumber: 'J1', transDate: '2026-10-01', journalType: 1, memo: '', coaId: '10', debet: '1', credit: '0', segmentDetailId: 's7',
+    }
+    rowsMock.mockResolvedValueOnce([dbRow])
+    const grouped = await journalLines({ tables: ['gl'], segCol: 'segment1_id', segIds: 'all', bySegment: true })
+    rowsMock.mockResolvedValueOnce([dbRow])
+    const plain = await journalLines({ tables: ['gl'], segCol: 'segment1_id', segIds: 'all' })
+    expect(grouped.map((r) => r.segmentDetailId)).toEqual(['s7'])
+    expect(plain.map((r) => r.segmentDetailId)).toEqual([''])
+  })
 })

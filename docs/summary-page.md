@@ -8,7 +8,7 @@
 >
 > **Query SQL lengkap untuk developer:** lihat [`summary-queries.md`](./summary-queries.md). Kedua dokumen harus diperbarui bersamaan.
 >
-> **Terakhir diperbarui:** 2026-10-30
+> **Terakhir diperbarui:** 2026-10-31
 
 ## Daftar isi
 
@@ -275,10 +275,11 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
     - *Disetujui, menunggu bayar* = Posted atau Partialy Paid.
     - *Diseleksi, belum disetujui* = Not Posted.
     - *Belum diseleksi* = tidak ada dokumen Pengakuan Biaya aktif.
+  - **Entitas pemilik** (keterangan kecil di bawah nomor tagihan): tampil hanya bila lebih dari 1 entitas masuk filter. Namanya diambil dari lokasi (`location_id`) tagihan; tagihan yang lokasinya kosong atau tidak dikenal tampil "Tanpa entitas".
 - **Cara pakai tabel:**
   - Dua tab di atas tabel menampilkan jumlah baris masing-masing; berpindah tab mengembalikan tabel ke halaman 1.
   - Tabel bisa diurutkan (vendor, jatuh tempo, sisa, status) dan dibagi per halaman.
-  - Tombol ekspor CSV memuat **seluruh** baris pada tab yang sedang dipilih, dengan urutan yang sedang tampil. Kolom status ikut diekspor hanya bila kolomnya tampil.
+  - Tombol ekspor CSV memuat **seluruh** baris pada tab yang sedang dipilih, dengan urutan yang sedang tampil. Kolom status ikut diekspor hanya bila kolomnya tampil; kolom Entitas (setelah kolom Vendor) ikut diekspor hanya bila keterangan entitas tampil.
   - Mengklik baris membuka halaman Payment Plan.
 
 **Perlu dikonfirmasi:**
@@ -318,6 +319,7 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 - Dihitung di server tetapi tidak ditampilkan di Summary: pembanding Cash Position, saldo awal dan overdue Payment Plan 7 hari, pembanding AP, rekonsiliasi GL terhadap AP. Query-nya tetap berjalan.
 - Untuk tanggal acuan masa lalu yang bukan akhir bulan, AP memakai query langsung ke ERP yang lambat.
 - Donut Revenue by Entity: `computeRevenue` mengirim `byEntity` (dengan `id` lokasi) dan `entityUnassigned` (= total − Σ entitas); `computeSummary` meneruskannya. Pengelompokan segmen, persentase, dan baris tabel dihitung di `lib/finance/pnl/revenue-entity.ts`; persentase sisa-terbesar dan geometri cincin dipakai bersama dengan donut Composition lewat `lib/core/donut.ts`. Komponennya `components/neraca/EntityDonut.tsx`, dipanggil lewat `<DonutBreakdown variant="entity">`. Kartu disembunyikan di `components/summary/SummaryCharts.tsx` (`showEntityCard`, memakai `countEntitiesWithRevenue`).
+- Keterangan entitas pada tabel tagihan: `computePaymentPlan` mengisi `entityName` tiap tagihan lewat `lib/core/entity-owner.ts` (daftar entitas dari `getCachedEntities`, tanpa query baru); `listPaymentPlanBills` mengirim `showEntity` (= `entityCount > 1`). Komponennya `components/neraca/EntityCaption.tsx`; dipakai juga di drill-down (daftar tagihan Payables/Receivables/Payment Plan dan baris jurnal) tanpa mengubah angka.
 
 ---
 
@@ -335,3 +337,4 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 | 2026-10-30 | Struktur halaman dirapikan tanpa mengubah angka atau tampilan: empat kartu atas dan grafik dipindah ke `SummaryKpiRow` dan `SummaryCharts` (bagian 11). |
 | 2026-10-30 | Kartu Payables: Overdue tampil sebagai teks tanpa persentase perubahan (sebelumnya persentase dihitung terhadap total utang dan menyesatkan). Catatan tabel tagihan dilengkapi: total tabel juga berbeda dari kartu karena batas 7 hari. |
 | 2026-10-30 | Judul empat kartu mini dan teks keterangan kecil di Summary tampil terlalu pucat (kelas warna salah); diperbaiki, tanpa perubahan angka. |
+| 2026-10-31 | Tabel tagihan menampilkan keterangan entitas pemilik (nama kecil di bawah nomor tagihan) bila lebih dari 1 entitas dipilih; ekspor CSV ikut mendapat kolom Entitas (D41). Bagian 8 dan 11 diperbarui; tidak ada angka yang berubah. |

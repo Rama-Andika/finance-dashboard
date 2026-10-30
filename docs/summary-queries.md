@@ -13,7 +13,7 @@
 >
 > **Belum dijalankan.** Dokumen ini tidak dibuat dengan mengeksekusi query ke database.
 >
-> **Terakhir diperbarui:** 2026-10-30
+> **Terakhir diperbarui:** 2026-10-31
 
 ## Daftar isi
 
@@ -406,6 +406,8 @@ vendor    = Q18
 
 Untuk "overdue" di rencana pembayaran: `due_date < today`. Pemisahan per tab (`filterBillsByScope`), penyortiran, dan paging dilakukan di memori (`paginate`), bukan di SQL. Hasil rencana di-memo, jadi ganti tab atau halaman tidak memicu query baru. Jumlah baris dan total kedua tab (`summarizeBillScopes`) dihitung dari daftar yang sama. Kolom status disembunyikan bila Q19 tidak mengembalikan satu baris pun (`planStatusInUse`).
 
+Keterangan entitas: **tidak ada query baru.** Nama entitas tiap tagihan diambil dari kolom `location_id` hasil Q14/Q16 dan daftar entitas yang sudah di-cache (Q4), lewat `ownerNameOfLocation` (`lib/core/entity-owner.ts`). Lokasi kosong atau tidak ada di daftar menjadi "Tanpa entitas". Penanda `showEntity` = jumlah entitas dalam filter > 1.
+
 ---
 
 ## 5. Cash Flow dan Runway
@@ -662,3 +664,4 @@ WHERE table_schema = DATABASE()
 | 2026-10-30 | Tidak ada query yang berubah isinya: pembacaan Q9 / Q20 / daftar jurnal per tabel GL kini paralel (hasil sama, urutan tabel dijaga), dan pemuatan AP/AR memakai satu pembaca bersama (`shared/aging-reader.ts`). |
 | 2026-10-30 | Kartu Payables tidak lagi menampilkan persentase terhadap Overdue; tidak ada query yang berubah. |
 | 2026-10-30 | Perbaikan warna teks keterangan di halaman; tidak ada query yang berubah. |
+| 2026-10-31 | Keterangan entitas pada tabel tagihan memakai kolom `location_id` yang sudah dibaca Q14/Q16 dan daftar entitas Q4; tidak ada query Summary yang berubah. (Di drill-down baris jurnal, query daftar jurnal mendapat satu kolom segmen tambahan di `SELECT`/`GROUP BY`/`ORDER BY` hanya saat lebih dari 1 entitas dipilih; query itu bukan bagian dari katalog Summary.) |

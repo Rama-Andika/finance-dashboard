@@ -1,6 +1,7 @@
 import '@tanstack/react-start/server-only'
 import Decimal from 'decimal.js'
 import { D } from '~/lib/core/money'
+import { buildEntityOwners, countEntitiesInScope, ownerNameOfSegment } from '~/lib/core/entity-owner'
 import { type Entity, type Id, type IsoDate, type Period } from '~/lib/core/types'
 import { type AppContextFilter } from '~/server/context'
 import { journalHeaders, journalLines, movementsByPeriods } from '~/server/repo/gl.repo'
@@ -30,6 +31,8 @@ export type DrillResult = {
   rows: Array<Record<string, string | null>>
   nextKind: DrillStepKind | null
   hasMore: boolean
+  /** True when rows carry `entityName` (more than one entity in scope); the client then shows it as a caption. */
+  showEntity?: boolean
 }
 
 export const PAGE_SIZE = 200
@@ -164,6 +167,9 @@ export async function journalRows(
   label: string,
   dateRange?: { from: IsoDate; to: IsoDate },
 ): Promise<DrillResult> {
+  // Name the entity of each line only when several entities are in scope; the lines are then split per entity.
+  const showEntity = countEntitiesInScope(segIds, ctx.entities) > 1
+  const owners = buildEntityOwners(ctx.entities)
   const lines = await journalLines({
     periods: dateRange ? undefined : ctx.activePeriods,
     startDate: dateRange?.from,
@@ -173,6 +179,7 @@ export async function journalRows(
     segCol: ctx.filter.entitySegmentColumn,
     segIds,
     limit: PAGE_SIZE,
+    bySegment: showEntity,
     offset: ctx.offset,
   })
   return {
@@ -180,7 +187,7 @@ export async function journalRows(
     titleLabel: label,
     columns: JOURNAL_COLUMNS,
     rows: lines.map((j) => ({
-      id: `${j.glId}-${j.coaId}`,
+      id: showEntity ? `${j.glId}-${j.coaId}-${j.segmentDetailId}` : `${j.glId}-${j.coaId}`,
       journalNumber: j.journalNumber,
       transDate: j.transDate,
       journalTypeKey: getJournalGroupKey(j.journalType),
@@ -188,9 +195,11 @@ export async function journalRows(
       memo: j.memo,
       debet: j.debet,
       credit: j.credit,
+      ...(showEntity ? { entityName: ownerNameOfSegment(owners, j.segmentDetailId) } : {}),
     })),
     nextKind: null,
     hasMore: lines.length === PAGE_SIZE,
+    showEntity,
   }
 }
 

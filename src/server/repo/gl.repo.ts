@@ -355,6 +355,8 @@ export async function countOpeningRows(periodeId: Id): Promise<number> {
 }
 
 export type JournalLineRow = {
+  /** Entity segment detail of the line; '' unless the page was grouped by segment (`bySegment`). */
+  segmentDetailId: Id
   glId: Id
   journalNumber: string
   transDate: IsoDate
@@ -372,6 +374,8 @@ export type JournalLinesOptions = {
   segIds?: Id[] | 'all'
   startDate?: IsoDate
   endDate?: IsoDate
+  /** Split the lines per entity segment detail (one row per journal × account × segment); needs `segCol`. */
+  bySegment?: boolean
   /** GL tables to read when no periods are given (a plain date range); defaults to the active table `gl`. */
   tables?: string[]
   limit?: number
@@ -433,6 +437,11 @@ async function journalPageOfTable(
 
   const periodClause = journalPeriodClause(tablePeriods, opts)
 
+  // One more grouping column when the caller wants the entity of every line.
+  const segIdent = opts.bySegment && opts.segCol ? sql.identifier(opts.segCol) : null
+  const segSelect = segIdent ? sql`, d.${segIdent} AS segmentDetailId` : sql``
+  const segGroup = segIdent ? sql`, d.${segIdent}` : sql``
+
   const coaClause =
     opts.coaIds && opts.coaIds.length > 0 ? sql`AND d.coa_id IN (${inList(opts.coaIds)})` : sql``
 
@@ -447,7 +456,7 @@ async function journalPageOfTable(
            DATE(g.trans_date) AS transDate,
            g.journal_type AS journalType,
            COALESCE(g.memo, '') AS memo,
-           d.coa_id AS coaId,
+           d.coa_id AS coaId${segSelect},
            SUM(d.debet) AS debet,
            SUM(d.credit) AS credit
     FROM ${glIdent} g
@@ -457,8 +466,8 @@ async function journalPageOfTable(
       ${periodClause}
       ${coaClause}
       ${segClause}
-    GROUP BY g.gl_id, g.journal_number, DATE(g.trans_date), g.journal_type, g.memo, d.coa_id
-    ORDER BY g.trans_date DESC, g.gl_id DESC, d.coa_id
+    GROUP BY g.gl_id, g.journal_number, DATE(g.trans_date), g.journal_type, g.memo, d.coa_id${segGroup}
+    ORDER BY g.trans_date DESC, g.gl_id DESC, d.coa_id${segGroup}
     LIMIT ${limit} OFFSET ${offset}
   `
 
@@ -469,6 +478,7 @@ async function journalPageOfTable(
     journalType: number
     memo: string
     coaId: string | number
+    segmentDetailId?: string | number | null
     debet: string | number
     credit: string | number
   }>(query)
@@ -476,6 +486,7 @@ async function journalPageOfTable(
   return queryRows.map((r) => ({
     glId: String(r.glId),
     journalNumber: r.journalNumber || '',
+    segmentDetailId: segIdent ? String(r.segmentDetailId ?? '') : '',
     transDate: String(r.transDate).slice(0, 10),
     journalType: Number(r.journalType) || 0,
     memo: r.memo || '',

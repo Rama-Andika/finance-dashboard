@@ -10,12 +10,14 @@ import {
 import type { PaymentPlanBill } from '~/lib/finance/ap-ar/payment-plan'
 import '@tanstack/react-start/server-only'
 import { D } from '~/lib/core/money'
+import { buildEntityOwners, ownerNameOfLocation } from '~/lib/core/entity-owner'
 import { addDays } from '~/lib/format/date'
 import type { Id, MetricMeta, Money } from '~/lib/core/types'
 import {
   type AppContextFilter,
   buildMetricMeta,
   getCachedCoaTree,
+  getCachedEntities,
 } from '~/server/context'
 import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
 import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
@@ -146,13 +148,15 @@ async function computePaymentPlanUncached(
   // 6. Bills due in horizon (apPositive already holds only those, overdue included)
   const horizonBills = apPositive
   const vendorIds = Array.from(new Set(horizonBills.map((b) => b.vendorId)))
-  const vendorList = await listVendors(vendorIds)
+  const [vendorList, { entities }] = await Promise.all([listVendors(vendorIds), getCachedEntities()])
+  const owners = buildEntityOwners(entities)
   const vendorMap = new Map(vendorList.map((v) => [v.vendorId, v.name]))
 
   const bills: PaymentPlanBill[] = horizonBills.map((b) => ({
     invoiceId: b.invoiceId,
     vendorId: b.vendorId,
     vendorName: vendorMap.get(b.vendorId) || b.vendorId,
+    entityName: ownerNameOfLocation(owners, b.locationId),
     invoiceNumber: b.invoiceNumber || b.invoiceId,
     dueDate: b.dueDate || b.txDate,
     balance: b.balance,
@@ -173,6 +177,8 @@ async function computePaymentPlanUncached(
 export type BillsPage = Page<PaymentPlanBill> & {
   /** Count and total of both tabs, whichever tab is shown. */
   scopes: BillScopeSummary
+  /** True when more than one entity is in scope: the table then names the entity of every bill. */
+  showEntity: boolean
   /** False when no bill has a live Pengakuan Biaya document: the status column then says nothing. */
   planStatusInUse: boolean
 }
@@ -186,5 +192,10 @@ export async function listPaymentPlanBills(
 ): Promise<BillsPage> {
   const plan = await computePaymentPlan(filter, opts)
   const page = paginate(filterBillsByScope(plan.bills, scope), query, paymentBillComparators)
-  return { ...page, scopes: summarizeBillScopes(plan.bills), planStatusInUse: plan.planStatusInUse }
+  return {
+    ...page,
+    scopes: summarizeBillScopes(plan.bills),
+    planStatusInUse: plan.planStatusInUse,
+    showEntity: filter.entityCount > 1,
+  }
 }

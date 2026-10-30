@@ -7,6 +7,7 @@ import { useTableSearch } from '~/components/neraca/useTableSearch'
 import { DataTable, type ColumnDef } from '~/components/neraca/DataTable'
 import { Tabs } from '~/components/neraca/Tabs'
 import { PlanStatusPill } from '~/components/neraca/PlanStatusPill'
+import { EntityCaption } from '~/components/neraca/EntityCaption'
 import { ExportCsvButton, exportFilename } from '~/components/export/ExportCsvDialog'
 import type { MetricInput } from '~/lib/filters/search-schema'
 import { PrintButton } from '~/components/export/PrintButton'
@@ -35,6 +36,8 @@ export function BillsTable({
   const bills = useQuery(paymentBillsOptions({ ...filters, ...table.query, scope }))
   // While the first page loads, assume the status column is in use so the table does not jump.
   const planStatusInUse = bills.data?.planStatusInUse ?? true
+  // The server sets this only when more than one entity is in scope.
+  const showEntity = bills.data?.showEntity ?? false
 
   const columns: ColumnDef<PaymentPlanBill, unknown>[] = [
     {
@@ -45,6 +48,7 @@ export function BillsTable({
         <div>
           <span className="nr-name">{row.original.vendorName}</span>
           <span className="nr-sub">{row.original.invoiceNumber}</span>
+          {showEntity && <EntityCaption name={row.original.entityName} />}
         </div>
       ),
     },
@@ -75,6 +79,9 @@ export function BillsTable({
   const exportColumns: CsvColumn<PaymentPlanBill>[] = [
     { header: t('ui.col.billNumber'), value: (r) => r.invoiceNumber, kind: 'text' },
     { header: t('ui.col.vendor'), value: (r) => r.vendorName, kind: 'text' },
+    ...(showEntity
+      ? [{ header: t('common.entity'), value: (r: PaymentPlanBill) => r.entityName ?? t('common.noEntity'), kind: 'text' as const }]
+      : []),
     { header: t('ui.col.dueDate'), value: (r) => r.dueDate, kind: 'date' },
     { header: t('ui.col.payableBalance'), value: (r) => r.balance, kind: 'money' },
     ...(planStatusInUse ? [{ header: t('ui.col.planStatus'), value: (r: PaymentPlanBill) => r.status, kind: 'text' as const }] : []),
@@ -126,6 +133,7 @@ export function BillsTable({
               <div>
                 <div className="font-semibold">{r.vendorName}</div>
                 <div className="text-xs font-mono text-ink-muted">{r.invoiceNumber}</div>
+                {showEntity && <EntityCaption name={r.entityName} className="block text-xs text-ink-muted" />}
               </div>
               <div className="text-right">
                 <div className="font-semibold tabular-nums">{formatMoneyFull(r.balance, lang)}</div>

@@ -1,7 +1,9 @@
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight } from 'lucide-react'
 import { translateCfLabel } from '~/lib/finance/cash/cashflow-labels'
 import { PlanStatusPill } from '~/components/neraca/PlanStatusPill'
+import { EntityCaption } from '~/components/neraca/EntityCaption'
 import { formatMoneyFull } from '~/lib/format/number'
 import { formatDate } from '~/lib/format/date'
 import type { Lang } from '~/lib/core/types'
@@ -9,7 +11,18 @@ import type { Lang } from '~/lib/core/types'
 export type DrillColumn = { id: string; labelKey: string; kind: string }
 export type DrillRow = Record<string, string | null>
 
-function DrillCell({ column, value, lang }: { column: DrillColumn; value: string | null | undefined; lang: Lang }) {
+function DrillCell({
+  column,
+  value,
+  lang,
+  caption,
+}: {
+  column: DrillColumn
+  value: string | null | undefined
+  lang: Lang
+  /** Entity caption under the value. Only the first column gets one, and it is drawn by 'code' and text cells. */
+  caption?: ReactNode
+}) {
   const { t } = useTranslation()
   switch (column.kind) {
     case 'money':
@@ -20,6 +33,7 @@ function DrillCell({ column, value, lang }: { column: DrillColumn; value: string
       return (
         <td>
           <span className="nr-code">{value || '—'}</span>
+          {caption}
         </td>
       )
     case 'date':
@@ -27,7 +41,12 @@ function DrillCell({ column, value, lang }: { column: DrillColumn; value: string
     case 'status':
       return <td>{value ? <PlanStatusPill status={value} /> : '—'}</td>
     default:
-      return <td className="text-sm">{value ? translateCfLabel(t, value) : '—'}</td>
+      return (
+        <td className="text-sm">
+          {value ? translateCfLabel(t, value) : '—'}
+          {caption}
+        </td>
+      )
   }
 }
 
@@ -36,12 +55,15 @@ export function DrillTable({
   columns,
   rows,
   hasNext,
+  showEntity,
   lang,
   onRowClick,
 }: {
   columns: DrillColumn[]
   rows: DrillRow[]
   hasNext: boolean
+  /** True when rows carry `entityName` (several entities in scope): it is shown under the first column. */
+  showEntity: boolean
   lang: Lang
   onRowClick: (row: DrillRow) => void
 }) {
@@ -73,8 +95,14 @@ export function DrillTable({
                 onClick={() => onRowClick(row)}
                 className={hasNext ? 'cursor-pointer hover:bg-canvas/60 transition' : undefined}
               >
-                {columns.map((c) => (
-                  <DrillCell key={c.id} column={c} value={row[c.id]} lang={lang} />
+                {columns.map((c, colIdx) => (
+                  <DrillCell
+                    key={c.id}
+                    column={c}
+                    value={row[c.id]}
+                    lang={lang}
+                    caption={showEntity && colIdx === 0 ? <EntityCaption name={row.entityName ?? null} /> : undefined}
+                  />
                 ))}
                 {hasNext && (
                   <td className="text-right text-ink-muted pr-3">

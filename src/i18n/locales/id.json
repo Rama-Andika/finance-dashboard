@@ -29,6 +29,7 @@
     "selectedOf": "{{count}} dari {{total}} dipilih",
     "inactive": "(nonaktif)",
     "dash": "—",
+    "noEntity": "Tanpa entitas",
     "entitiesSelected": "{{count}} dari {{total}}",
     "notFoundTitle": "Halaman tidak ditemukan",
     "notFoundBody": "Halaman yang Anda cari tidak ada atau sudah dipindahkan.",

@@ -167,6 +167,8 @@ export type PaymentPlanBill = {
   invoiceId: Id
   vendorId: Id
   vendorName: string
+  /** Name of the entity (location) that owns the bill; null when the bill has no known entity. */
+  entityName: string | null
   invoiceNumber: string
   dueDate: string
   balance: Money
