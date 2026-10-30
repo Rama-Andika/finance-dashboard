@@ -61,6 +61,7 @@ describe('fetchAllChunks', () => {
     expect(server).toHaveBeenCalledTimes(1)
   })
 })
+
 describe('exportChunkShape', () => {
   const shape = exportChunkShape(['name', 'amount'] as const)
   const schema = z.object(shape)

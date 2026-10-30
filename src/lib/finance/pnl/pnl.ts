@@ -111,7 +111,7 @@ export function buildPnl(input: {
     // 1. Determine target accounts
     const targetCoaIds: Id[] = []
     for (const node of tree.byId.values()) {
-      if (node.status !== 'POSTABLE' || node.coaId === '__orphans__') continue
+      if (node.status !== 'POSTABLE' || node.coaId === ORPHAN_FOLDER_ID) continue
       if (accountGroup === 'OCI') {
         if (ociCoaIds.has(node.coaId)) {
           targetCoaIds.push(node.coaId)

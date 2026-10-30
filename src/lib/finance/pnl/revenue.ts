@@ -1,7 +1,7 @@
 import { D, sum } from '../../core/money'
 import { signedAmount } from '../coa/sign'
 import type { AccountGroup, Breakdown, Id, Money } from '../../core/types'
-import { type CoaTree, type CoaNode, postableDescendants } from '../coa/coa-tree'
+import { type CoaTree, type CoaNode, ORPHAN_FOLDER_ID, postableDescendants } from '../coa/coa-tree'
 
 export type RevenueMovement = {
   coaId: Id
@@ -19,7 +19,7 @@ export function groupFolders(tree: CoaTree, group: AccountGroup): CoaNode[] {
   // 1. Take all POSTABLE of this group
   const postables: CoaNode[] = []
   for (const node of tree.byId.values()) {
-    if (node.status === 'POSTABLE' && node.accountGroup === group && node.coaId !== '__orphans__') {
+    if (node.status === 'POSTABLE' && node.accountGroup === group && node.coaId !== ORPHAN_FOLDER_ID) {
       postables.push(node)
     }
   }
