@@ -31,7 +31,7 @@ export function PrintHeader({ title, entity, preset, asOf }: PrintHeaderProps) {
   })
 
   return (
-    <div className="print-only mb-6 pb-4 border-b border-[#cfd8d2] text-[#111111]">
+    <div className="print-only mb-6 pb-4 border-b">
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-xl font-bold tracking-tight m-0 text-black">

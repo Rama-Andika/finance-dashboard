@@ -1,4 +1,3 @@
-import { searchUpdater } from '~/lib/filters/search-update'
 import { useRouter, useRouterState } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -13,7 +12,7 @@ import { logoutFn } from '~/functions/auth.fn'
 import { filterOptionsQueryOptions } from '~/queries/filters.queries'
 import { EntityPicker } from '~/components/neraca/EntityPicker'
 import { PeriodSelect } from '~/components/neraca/PeriodSelect'
-import type { Preset, Horizon, GlobalSearch, PaymentPlanSearch } from '~/lib/filters/search-schema'
+import { useTopBarFilters } from '~/components/neraca/useTopBarFilters'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,44 +73,20 @@ export function TopBar({
   const titleKey = PAGE_TITLE_KEYS[currentPath]
   const pageTitle = titleKey ? t(titleKey) : 'Dashboard'
 
-  const search = useRouterState({
-    select: (s) => (s.location.search as Partial<GlobalSearch & PaymentPlanSearch>) || {},
-  })
-
   const { data: filterOptions } = useQuery(filterOptionsQueryOptions())
 
-  const isPaymentPlan = currentPath === '/payment-plan'
-  const currentEntity = (search.entity as string) || 'all'
-  const currentPreset = (search.preset as Preset) || 'this-month'
-  const currentP13 = Boolean(search.p13)
-  const currentFrom = search.from
-  const currentTo = search.to
-  const currentHorizon = (search.horizon as Horizon) || '7'
-
-  const mergeSearch = (patch: Record<string, unknown>) => {
-    router.navigate({ search: searchUpdater((prev) => ({ ...prev, ...patch })) })
-  }
-
-  const handleEntityApply = (newEntity: string) => {
-    mergeSearch({ entity: newEntity })
-  }
-
-  const handlePresetChange = (newPreset: Preset) => {
-    // A preset replaces any explicit month range
-    mergeSearch({ preset: newPreset, from: undefined, to: undefined })
-  }
-
-  const handleRangeChange = (from: string, to: string) => {
-    mergeSearch({ from, to })
-  }
-
-  const handleP13Change = (newP13: boolean) => {
-    mergeSearch({ p13: newP13 })
-  }
-
-  const handleHorizonChange = (newHorizon: Horizon) => {
-    mergeSearch({ horizon: newHorizon })
-  }
+  const {
+    isPaymentPlan,
+    currentEntity,
+    currentPreset,
+    currentFrom,
+    currentTo,
+    currentHorizon,
+    handleEntityApply,
+    handlePresetChange,
+    handleRangeChange,
+    handleHorizonChange,
+  } = useTopBarFilters()
 
   return (
     <header className={cn('nr-topbar flex-col md:flex-row gap-3', className)}>
@@ -188,9 +163,7 @@ export function TopBar({
           to={currentTo}
           months={filterOptions?.months}
           onRangeChange={handleRangeChange}
-          p13={currentP13}
           onPresetChange={handlePresetChange}
-          onP13Change={handleP13Change}
           presetHints={filterOptions?.presets}
           isForwardMode={isPaymentPlan}
           horizon={currentHorizon}

@@ -13,8 +13,9 @@ import {
 import { flexRender, type ExpandedState } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { cn } from '~/lib/cn'
-import { ChevronRight, ChevronLeft, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
-import { PAGE_SIZES, type SortDir } from '~/lib/table/query'
+import { ChevronRight } from 'lucide-react'
+import type { SortDir } from '~/lib/table/query'
+import { SortHeader, TablePager } from '~/components/neraca/DataTableParts'
 
 export type { ColumnDef }
 
@@ -89,16 +90,6 @@ export function DataTable<T extends object>({
 
   const rows = table.getRowModel().rows
   const isVirtual = rows.length > 200
-
-  const requestSort = (sortKey: string, sortDefault: SortDir = 'asc') => {
-    if (!onSortChange) return
-    const next: SortDir = sort?.by === sortKey ? (sort.dir === 'asc' ? 'desc' : 'asc') : sortDefault
-    onSortChange(sortKey, next)
-  }
-
-  const pageCount = pagination ? Math.max(1, Math.ceil(pagination.total / pagination.pageSize)) : 1
-  const firstShown = pagination && pagination.total > 0 ? (pagination.page - 1) * pagination.pageSize + 1 : 0
-  const lastShown = pagination ? Math.min(pagination.total, pagination.page * pagination.pageSize) : 0
 
   const tableContainerRef = React.useRef<HTMLDivElement>(null)
 
@@ -201,44 +192,9 @@ export function DataTable<T extends object>({
           <thead>
             {table.getHeaderGroups().map((headerGroup: LegacyHeaderGroup<T>) => (
               <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header: LegacyHeader<T, unknown>) => {
-                  const meta = header.column.columnDef.meta as TableColumnMeta | undefined
-                  const isRight = meta?.align === 'right'
-                  const sortKey = onSortChange ? meta?.sortKey : undefined
-                  const isSorted = sortKey !== undefined && sort?.by === sortKey
-                  const content = header.isPlaceholder
-                    ? null
-                    : flexRender(header.column.columnDef.header, header.getContext())
-                  return (
-                    <th
-                      key={header.id}
-                      className={isRight ? 'nr-r' : undefined}
-                      aria-sort={isSorted ? (sort?.dir === 'asc' ? 'ascending' : 'descending') : sortKey ? 'none' : undefined}
-                    >
-                      {sortKey ? (
-                        <button
-                          type="button"
-                          className="nr-sort-btn"
-                          onClick={() => requestSort(sortKey, meta?.sortDefault)}
-                          title={t('ui.table.sortBy')}
-                        >
-                          {content}
-                          {isSorted ? (
-                            sort?.dir === 'asc' ? (
-                              <ArrowUp className="nr-icon nr-icon-sm" aria-hidden="true" />
-                            ) : (
-                              <ArrowDown className="nr-icon nr-icon-sm" aria-hidden="true" />
-                            )
-                          ) : (
-                            <ArrowUpDown className="nr-icon nr-icon-sm nr-sort-idle" aria-hidden="true" />
-                          )}
-                        </button>
-                      ) : (
-                        content
-                      )}
-                    </th>
-                  )
-                })}
+                {headerGroup.headers.map((header: LegacyHeader<T, unknown>) => (
+                  <SortHeader key={header.id} header={header} sort={sort} onSortChange={onSortChange} />
+                ))}
               </tr>
             ))}
           </thead>
@@ -281,50 +237,7 @@ export function DataTable<T extends object>({
       </div>
 
       {pagination && (
-        <nav className="nr-pager" aria-label={t('ui.table.pagination')}>
-          <span className="nr-pager-info">
-            {t('ui.table.range', {
-              from: firstShown.toLocaleString('en-US'),
-              to: lastShown.toLocaleString('en-US'),
-              total: pagination.total.toLocaleString('en-US'),
-            })}
-          </span>
-          <label className="nr-pager-size">
-            {t('ui.table.rowsPerPage')}
-            <select
-              value={pagination.pageSize}
-              onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
-              className="nr-select"
-            >
-              {PAGE_SIZES.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="nr-pager-nav">
-            <button
-              type="button"
-              className="nr-btn"
-              disabled={pagination.page <= 1}
-              onClick={() => onPageChange?.(pagination.page - 1)}
-              aria-label={t('ui.table.prev')}
-            >
-              <ChevronLeft className="nr-icon nr-icon-sm" aria-hidden="true" />
-            </button>
-            <span className="nr-pager-page">{t('ui.table.pageOf', { page: pagination.page, pages: pageCount })}</span>
-            <button
-              type="button"
-              className="nr-btn"
-              disabled={pagination.page >= pageCount}
-              onClick={() => onPageChange?.(pagination.page + 1)}
-              aria-label={t('ui.table.next')}
-            >
-              <ChevronRight className="nr-icon nr-icon-sm" aria-hidden="true" />
-            </button>
-          </div>
-        </nav>
+        <TablePager pagination={pagination} onPageChange={onPageChange} onPageSizeChange={onPageSizeChange} />
       )}
 
       {/* Mobile cards view (active on screens < 768px when mobileCard prop is provided) */}

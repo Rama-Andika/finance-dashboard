@@ -58,6 +58,10 @@ function rankByAmount(entities: readonly EntityRevenue[]): Ranked[] {
     .sort((a, b) => b.dec.cmp(a.dec) || compareText(a.name, b.name) || compareText(a.id, b.id))
 }
 
+/** Entities with revenue above zero: the ones the donut can draw. */
+export const countEntitiesWithRevenue = (entities: readonly EntityRevenue[]): number =>
+  entities.filter((e) => D(e.amount).gt(0)).length
+
 const positiveOrZero = (value: Decimal): Decimal => (value.gt(0) ? value : new Decimal(0))
 
 /**

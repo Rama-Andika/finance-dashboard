@@ -26,6 +26,8 @@
   /* Show header specifically prepared for paper */
   .print-only {
     display: block !important;
+    border-color: #cfd8d2;
+    color: #111111;
   }
 
   /* Cards avoid awkward page breaks across borders */

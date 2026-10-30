@@ -3,7 +3,8 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { ChevronRight, ChevronDown, Search, Folder, FileText } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '~/lib/cn'
-import type { CoaTree, CoaNode } from '~/lib/finance/coa/coa-tree'
+import type { CoaTree } from '~/lib/finance/coa/coa-tree'
+import { flattenVisible, matchingCoaIds } from '~/lib/finance/coa/coa-tree-view'
 import type { Id } from '~/lib/core/types'
 import { checkState } from '~/lib/finance/coa/basket-resolver'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '~/components/ui/tooltip'
@@ -13,13 +14,6 @@ export interface CoaTreePickerProps {
   include: Id[]
   onToggle: (coaId: Id) => void
   className?: string
-}
-
-type FlatNode = {
-  node: CoaNode
-  depth: number
-  hasChildren: boolean
-  isExpanded: boolean
 }
 
 export function CoaTreePicker({
@@ -49,28 +43,8 @@ export function CoaTreePicker({
     })
   }
 
-  // Pre-filter matching IDs when searching
-  const matchingIds = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase()
-    if (!q) return null
-
-    const matched = new Set<Id>()
-    for (const node of tree.byId.values()) {
-      if (
-        node.name.toLowerCase().includes(q) ||
-        node.code.toLowerCase().includes(q)
-      ) {
-        matched.add(node.coaId)
-        // Add all ancestors so the path is visible
-        let curr = node.parentId ? tree.byId.get(node.parentId) : undefined
-        while (curr) {
-          matched.add(curr.coaId)
-          curr = curr.parentId ? tree.byId.get(curr.parentId) : undefined
-        }
-      }
-    }
-    return matched
-  }, [tree, searchQuery])
+  // Ids to keep while searching (hits and their ancestors); null when there is no search
+  const matchingIds = useMemo(() => matchingCoaIds(tree, searchQuery), [tree, searchQuery])
 
   // Automatically expand all ancestor nodes when searching
   useEffect(() => {
@@ -85,35 +59,7 @@ export function CoaTreePicker({
     }
   }, [matchingIds])
 
-  // Flatten the tree into an array of visible nodes
-  const visibleItems = useMemo(() => {
-    const items: FlatNode[] = []
-
-    function traverse(nodes: CoaNode[], depth: number) {
-      for (const node of nodes) {
-        if (matchingIds && !matchingIds.has(node.coaId)) {
-          continue
-        }
-
-        const hasChildren = node.children.length > 0
-        const isExpanded = expandedIds.has(node.coaId) || Boolean(matchingIds)
-
-        items.push({
-          node,
-          depth,
-          hasChildren,
-          isExpanded,
-        })
-
-        if (hasChildren && isExpanded) {
-          traverse(node.children, depth + 1)
-        }
-      }
-    }
-
-    traverse(tree.roots, 0)
-    return items
-  }, [tree.roots, expandedIds, matchingIds])
+  const visibleItems = useMemo(() => flattenVisible(tree, expandedIds, matchingIds), [tree, expandedIds, matchingIds])
 
   const virtualizer = useVirtualizer({
     count: visibleItems.length,

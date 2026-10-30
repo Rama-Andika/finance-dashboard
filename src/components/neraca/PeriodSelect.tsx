@@ -1,19 +1,18 @@
-import { limitMonthOptions } from '~/lib/finance/period/period-options'
-import { useEffect, useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Calendar } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/popover'
-import { cn } from '~/lib/cn'
 import type { Preset, Horizon } from '~/lib/filters/search-schema'
 import { formatMonthYear } from '~/lib/format/date'
+import { CustomRangeForm, PeriodOption, type PeriodMonthOption } from '~/components/neraca/PeriodSelectParts'
+
+export type { PeriodMonthOption }
 
 export interface PresetHint {
   preset: Preset
   from: string
   to: string
 }
-
-export type PeriodMonthOption = { month: string; status: 'Open' | 'Pre Closed' | 'Closed' }
 
 export interface PeriodSelectProps {
   preset: Preset
@@ -23,9 +22,7 @@ export interface PeriodSelectProps {
   /** Months that exist in the periode table, newest first. */
   months?: PeriodMonthOption[]
   onRangeChange?: (from: string, to: string) => void
-  p13: boolean
   onPresetChange: (preset: Preset) => void
-  onP13Change: (p13: boolean) => void
   presetHints?: PresetHint[]
   isForwardMode?: boolean // true on /payment-plan
   horizon?: Horizon
@@ -39,9 +36,7 @@ export function PeriodSelect({
   to,
   months = [],
   onRangeChange,
-  p13,
   onPresetChange,
-  onP13Change,
   presetHints = [],
   isForwardMode = false,
   horizon = '7',
@@ -81,27 +76,13 @@ export function PeriodSelect({
   ]
 
   const hasRange = Boolean(from && to)
-
-  const [draftFrom, setDraftFrom] = useState(from ?? months[0]?.month ?? '')
-  const [draftTo, setDraftTo] = useState(to ?? months[0]?.month ?? '')
-  useEffect(() => {
-    // The month list arrives after the first render, and the URL range can change from outside
-    setDraftFrom(from ?? months[0]?.month ?? '')
-    setDraftTo(to ?? months[0]?.month ?? '')
-  }, [from, to, months])
-  const draftInvalid = !draftFrom || !draftTo || draftFrom > draftTo
-  // Only the newest 12 months are listed; the range that is selected right now always stays listed.
-  const monthOptions = useMemo(() => limitMonthOptions(months, [from, to, draftFrom, draftTo]), [months, from, to, draftFrom, draftTo])
-
-  const statusLabel = (status: PeriodMonthOption['status']) =>
-    t(`period.picker.${status === 'Open' ? 'open' : status === 'Pre Closed' ? 'preClosed' : 'closed'}`)
   const monthLabel = (month: string) => formatMonthYear(`${month}-01`, lang)
 
   // Current trigger display text
   const currentLabel = useMemo(() => {
     if (isForwardMode) {
       const match = forwardPresets.find((p) => p.id === horizon)
-      return match ? match.label : '7 hari'
+      return match ? match.label : t('period.next7')
     }
     if (from && to) {
       return from === to ? monthLabel(from) : `${monthLabel(from)} – ${monthLabel(to)}`
@@ -138,110 +119,48 @@ export function PeriodSelect({
       >
         <div role="listbox" aria-label={t('ui.shell.periodChoices')} className="space-y-0.5">
           {isForwardMode ? (
-            forwardPresets.map((item) => {
-              const isSelected = item.id === horizon
-              return (
-                <div
-                  key={item.id}
-                  role="option"
-                  aria-selected={isSelected}
-                  onClick={() => {
-                    onHorizonChange?.(item.id)
-                    setOpen(false)
-                  }}
-                  className={cn(
-                    'nr-menu-item flex items-center justify-between px-3 py-2 rounded text-sm cursor-pointer transition-colors',
-                    isSelected
-                      ? 'bg-primary-subtle text-ink font-semibold'
-                      : 'hover:bg-canvas text-ink',
-                  )}
-                >
-                  <span>{item.label}</span>
-                </div>
-              )
-            })
+            forwardPresets.map((item) => (
+              <PeriodOption
+                key={item.id}
+                label={item.label}
+                selected={item.id === horizon}
+                onSelect={() => {
+                  onHorizonChange?.(item.id)
+                  setOpen(false)
+                }}
+              />
+            ))
           ) : (
             <>
-              {standardPresets.map((item) => {
-                const isSelected = !hasRange && item.id === preset
-                const hint = hintsMap.get(item.id)
-                return (
-                  <div
-                    key={item.id}
-                    role="option"
-                    aria-selected={isSelected}
-                    onClick={() => {
-                      onPresetChange(item.id)
-                      setOpen(false)
-                    }}
-                    className={cn(
-                      'nr-menu-item flex items-center justify-between px-3 py-2 rounded text-sm cursor-pointer transition-colors',
-                      isSelected
-                        ? 'bg-primary-subtle text-ink font-semibold'
-                        : 'hover:bg-canvas text-ink',
-                    )}
-                  >
-                    <span>{item.label}</span>
-                    {hint && <span className="nr-menu-hint text-xs text-ink-muted">{hint}</span>}
-                  </div>
-                )
-              })}
+              {standardPresets.map((item) => (
+                <PeriodOption
+                  key={item.id}
+                  label={item.label}
+                  hint={hintsMap.get(item.id)}
+                  selected={!hasRange && item.id === preset}
+                  onSelect={() => {
+                    onPresetChange(item.id)
+                    setOpen(false)
+                  }}
+                />
+              ))}
 
               <div className="nr-menu-sep h-px bg-line my-1" role="separator" />
 
-              {/* Choose real periods (months of the periode table) */}
               {months.length > 0 && onRangeChange && (
-                <div className="px-3 py-2 space-y-2">
-                  <span className="text-xs font-semibold text-ink-muted">{t('period.picker.custom')}</span>
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="flex flex-col gap-1 text-[11px] text-ink-muted">
-                      {t('period.picker.from')}
-                      <select
-                        className="nr-select h-8 text-sm text-ink w-full"
-                        value={draftFrom}
-                        onChange={(e) => setDraftFrom(e.target.value)}
-                      >
-                        {monthOptions.map((m) => (
-                          <option key={m.month} value={m.month}>
-                            {monthLabel(m.month)} · {statusLabel(m.status)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="flex flex-col gap-1 text-[11px] text-ink-muted">
-                      {t('period.picker.to')}
-                      <select
-                        className="nr-select h-8 text-sm text-ink w-full"
-                        value={draftTo}
-                        onChange={(e) => setDraftTo(e.target.value)}
-                      >
-                        {monthOptions.map((m) => (
-                          <option key={m.month} value={m.month}>
-                            {monthLabel(m.month)} · {statusLabel(m.status)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                  {draftFrom > draftTo && (
-                    <p className="text-[11px] text-danger" role="alert">{t('period.picker.invalidRange')}</p>
-                  )}
-                  <button
-                    type="button"
-                    className="nr-btn w-full justify-center text-sm"
-                    disabled={draftInvalid}
-                    onClick={() => {
-                      onRangeChange(draftFrom, draftTo)
-                      setOpen(false)
-                    }}
-                  >
-                    {t('period.picker.apply')}
-                  </button>
-                </div>
+                <CustomRangeForm
+                  months={months}
+                  from={from}
+                  to={to}
+                  lang={lang}
+                  onApply={(rangeFrom, rangeTo) => {
+                    onRangeChange(rangeFrom, rangeTo)
+                    setOpen(false)
+                  }}
+                />
               )}
 
               <div className="nr-menu-sep h-px bg-line my-1" role="separator" />
-
             </>
           )}
         </div>

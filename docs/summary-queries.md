@@ -137,7 +137,7 @@ GROUP BY o.coa_id
 ```
 
 ### Q9 — Mutasi per akun menurut tanggal
-`gl.repo.ts` · `movementsByDate`. Dijalankan **per tabel GL** yang menutup rentang `:fromDate … :asOf` (`tablesBetween`).
+`gl.repo.ts` · `movementsByDate`. Dijalankan **per tabel GL** yang menutup rentang `:fromDate … :asOf` (`tablesBetween`); tabel-tabel itu dibaca **paralel** dan hasilnya digabung menurut urutan tabel.
 
 ```sql
 SELECT /* STRAIGHT_JOIN hanya bila rentang ≤ 400 hari */ STRAIGHT_JOIN d.coa_id AS coaId
@@ -282,7 +282,7 @@ Pembanding Revenue dan Net Profit: Q11/Q12 yang sama dengan `:periodIds = compar
 
 ## 4. AP (Payables dan tabel tagihan)
 
-Logika: `src/server/services/ap-aging.service.ts`, `src/lib/finance/ap-ar/apar.ts`. Pembacaan data: `src/server/repo/aging.repo.ts`.
+Logika: `src/server/services/ap-aging.service.ts` (pemuatan dan total pembanding bersama dengan AR di `shared/aging-reader.ts`), `src/lib/finance/ap-ar/apar.ts`. Pembacaan data: `src/server/repo/aging.repo.ts`.
 
 Urutan sumber data (`agingInvoices` / `agingUnallocated`):
 1. `asOf` ≥ tanggal snapshot hari ini → **snapshot** (Q14, Q15).
@@ -659,3 +659,4 @@ WHERE table_schema = DATABASE()
 | 2026-10-30 | Disinkronkan dengan kode terbaru: tabel tagihan dua tab (`filterBillsByScope`, `planStatusInUse`), rekonsiliasi AP/AR (`reconcileAging`), `settledJournals`, `sliceCombos`, Q20 menandai kondisi `canceled_date` sebagai opsional, matriks dan tabel cache ditambah Q22 dan Q24. Tidak ada query yang berubah isinya. |
 | 2026-10-30 | Fitur OCI dinonaktifkan (D39): akun OCI tidak lagi dikeluarkan dari baris P&L dan tidak ikut dibaca sebagai kelompok tersendiri di Q11/Q12. |
 | 2026-10-30 | Kartu Revenue by Entity memakai Q11 / Q12 yang sama (`byLocation`); tidak ada query baru. Ditambah baris rumus "Revenue per entitas" dan baris matriks. |
+| 2026-10-30 | Tidak ada query yang berubah isinya: pembacaan Q9 / Q20 / daftar jurnal per tabel GL kini paralel (hasil sama, urutan tabel dijaga), dan pemuatan AP/AR memakai satu pembaca bersama (`shared/aging-reader.ts`). |

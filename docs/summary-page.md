@@ -311,13 +311,13 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 ## 11. Catatan developer (bukan untuk finance)
 
 - Margin (Gross, Operating, Net) dikirim server sebagai rasio desimal (mis. "0.4") dan diformat di klien dengan `formatPercent` (D33).
-- Struktur halaman: `summary.tsx` hanya merangkai kartu; tabel tagihan (tab, urut, halaman, ekspor) ada di `components/summary/BillsTable.tsx`, dan empat kartu mini di `components/summary/MiniMetricsBar.tsx`. Teks runway dibuat oleh `runwayLabel` (`lib/finance/cash/runway-label.ts`), dipakai juga oleh halaman Cash Position.
+- Struktur halaman: `summary.tsx` hanya merangkai halaman; empat kartu atas ada di `components/summary/SummaryKpiRow.tsx`, grafik (Cash Flow, Composition, Revenue by Entity, termasuk state tab donut dan aturan menyembunyikan kartu entitas) di `components/summary/SummaryCharts.tsx`; tabel tagihan (tab, urut, halaman, ekspor) ada di `components/summary/BillsTable.tsx`, dan empat kartu mini di `components/summary/MiniMetricsBar.tsx`. Teks runway dibuat oleh `runwayLabel` (`lib/finance/cash/runway-label.ts`), dipakai juga oleh halaman Cash Position.
 - Rekonsiliasi GL terhadap AP/AR memakai `reconcileAging` (`lib/finance/ap-ar/aging-reconciliation.ts`): selisih di bawah Rp1 dianggap pembulatan. Pembanding AP hanya dihitung bila snapshot atau riwayat bulan mencakup tanggalnya (`agingCompareIsAvailable`).
 - Filter `canceled_date` diputuskan sekali per tabel GL dan di-cache 1 jam; semua tabel GL yang dipakai dicek paralel di awal (`prefetchCanceledDateColumns`).
 - Teks "terposting sampai" sempat dibuat lalu dibatalkan (D34), jadi tidak ada di halaman.
 - Dihitung di server tetapi tidak ditampilkan di Summary: pembanding Cash Position, saldo awal dan overdue Payment Plan 7 hari, pembanding AP, rekonsiliasi GL terhadap AP. Query-nya tetap berjalan.
 - Untuk tanggal acuan masa lalu yang bukan akhir bulan, AP memakai query langsung ke ERP yang lambat.
-- Donut Revenue by Entity: `computeRevenue` mengirim `byEntity` (dengan `id` lokasi) dan `entityUnassigned` (= total − Σ entitas); `computeSummary` meneruskannya. Pengelompokan segmen, persentase, dan baris tabel dihitung di `lib/finance/pnl/revenue-entity.ts`; persentase sisa-terbesar dan geometri cincin dipakai bersama dengan donut Composition lewat `lib/core/donut.ts`. Komponennya `components/neraca/EntityDonut.tsx`, dipanggil lewat `<DonutBreakdown variant="entity">`. Kartu disembunyikan di `summary.tsx` (`showEntityCard`).
+- Donut Revenue by Entity: `computeRevenue` mengirim `byEntity` (dengan `id` lokasi) dan `entityUnassigned` (= total − Σ entitas); `computeSummary` meneruskannya. Pengelompokan segmen, persentase, dan baris tabel dihitung di `lib/finance/pnl/revenue-entity.ts`; persentase sisa-terbesar dan geometri cincin dipakai bersama dengan donut Composition lewat `lib/core/donut.ts`. Komponennya `components/neraca/EntityDonut.tsx`, dipanggil lewat `<DonutBreakdown variant="entity">`. Kartu disembunyikan di `components/summary/SummaryCharts.tsx` (`showEntityCard`, memakai `countEntitiesWithRevenue`).
 
 ---
 
@@ -332,3 +332,4 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 | 2026-10-30 | Fitur OCI dinonaktifkan sementara (D39): Net Profit dan margin menghitung semua akun menurut grupnya; tidak ada lagi baris OCI/Total Laba Komprehensif di P&L. Bagian 4 disesuaikan. |
 | 2026-10-30 | Struktur halaman dirapikan tanpa mengubah angka: tabel tagihan dan kartu mini dipisah ke komponen; margin, runway, dan rekonsiliasi memakai fungsi bersama. Bagian 8 diganti judulnya menjadi tabel tagihan dua tab dan ditambah cara pakai tabel. |
 | 2026-10-30 | Kartu baru Revenue by Entity (donut) di Summary, di sebelah Composition; Cash Flow menjadi selebar penuh saat kartu tampil. Bagian 1 (peta), 3, 7, dan 11 diperbarui. Tabel Revenue by Entity ditambahkan di halaman Revenue (D40). |
+| 2026-10-30 | Struktur halaman dirapikan tanpa mengubah angka atau tampilan: empat kartu atas dan grafik dipindah ke `SummaryKpiRow` dan `SummaryCharts` (bagian 11). |

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   OTHER_SEGMENT_ID,
+  countEntitiesWithRevenue,
   UNASSIGNED_ROW_ID,
   buildEntityShare,
   buildEntityTableRows,
@@ -125,5 +126,14 @@ describe('buildEntityTableRows', () => {
 
   it('returns no rows for no entities and no unassigned revenue', () => {
     expect(buildEntityTableRows([], '0.00', 'No entity')).toEqual([])
+  })
+})
+
+describe("countEntitiesWithRevenue", () => {
+  it("counts only entities above zero and agrees with the donut", () => {
+    const entities = [entity("a", "Entity A", "10.00"), entity("b", "Entity B", "0.00"), entity("c", "Entity C", "-3.00"), entity("d", "Entity D", "0.01")]
+    expect(countEntitiesWithRevenue(entities)).toBe(2)
+    expect(buildEntityShare(entities, "0.00", "Other").entityCount).toBe(2)
+    expect(countEntitiesWithRevenue([])).toBe(0)
   })
 })

@@ -26,6 +26,8 @@
     "language": "Language",
     "loading": "Loading...",
     "noData": "No data available",
+    "selectedOf": "{{count}} of {{total}} selected",
+    "inactive": "(inactive)",
     "dash": "—",
     "entitiesSelected": "{{count}} of {{total}}",
     "notFoundTitle": "Page not found",
@@ -287,6 +289,9 @@
       "totalBudget": "Total Budget",
       "totalActual": "Total Actual",
       "netVariance": "Net Variance",
+      "varianceShare": "Variance: {{pct}}%",
+      "budgetShort": "Budget",
+      "actualShort": "Actual",
       "budgetVsActualPerformance": "Budget vs Actual Performance"
     },
     "cashFlow": {

@@ -26,6 +26,8 @@
     "language": "Bahasa",
     "loading": "Memuat...",
     "noData": "Belum ada data",
+    "selectedOf": "{{count}} dari {{total}} dipilih",
+    "inactive": "(nonaktif)",
     "dash": "—",
     "entitiesSelected": "{{count}} dari {{total}}",
     "notFoundTitle": "Halaman tidak ditemukan",
@@ -287,6 +289,9 @@
       "totalBudget": "Total Anggaran",
       "totalActual": "Total Realisasi",
       "netVariance": "Selisih Bersih",
+      "varianceShare": "Selisih: {{pct}}%",
+      "budgetShort": "Anggaran",
+      "actualShort": "Aktual",
       "budgetVsActualPerformance": "Realisasi Anggaran vs Aktual"
     },
     "cashFlow": {
