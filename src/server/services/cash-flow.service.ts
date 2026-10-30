@@ -22,12 +22,14 @@ import {
 import { UNCLASSIFIED_SUBGROUP } from '~/lib/finance/cash/cashflow-labels'
 import {
   allocateCash,
+  settledJournals,
   makeIsOurCash,
   classifyBySetup,
   classifyByFallback,
   isSetupValid,
   type DrawerKey,
   type CfLine,
+  type SettledJournal,
   type CfSetupRow,
   type ClassifiedPortion,
 } from '~/lib/finance/cash/cashflow'
@@ -168,43 +170,6 @@ function emptyCashFlow(meta: MetricMeta, months: string[]): CashFlowResult {
     monthly: months.map((month) => ({ month, cashIn: '0.00', cashOut: '0.00', net: '0.00' })),
     erpComparison: DRAWERS.map((drawer) => ({ drawer, dashboard: '0.00', erpMethod: '0.00', diff: '0.00' })),
   }
-}
-
-type SettledJournal = {
-  /** Journal lines on our cash accounts */
-  ourCash: CfLine[]
-  /** Every other line (the counter side) */
-  counterLines: CfLine[]
-  /** Net movement on our cash accounts: debet − credit */
-  netCash: Decimal
-}
-
-/**
- * Journals that really move our cash: they touch our cash, the net is not zero, and they have a
- * counter side (a journal with only our own cash lines is an internal transfer).
- */
-function settledJournals(lines: CfLine[], isOurCash: (l: CfLine) => boolean): SettledJournal[] {
-  const byJournal = new Map<string, CfLine[]>()
-  for (const l of lines) {
-    const list = byJournal.get(l.glId) ?? []
-    list.push(l)
-    byJournal.set(l.glId, list)
-  }
-
-  const result: SettledJournal[] = []
-  for (const jLines of byJournal.values()) {
-    const ourCash = jLines.filter(isOurCash)
-    if (ourCash.length === 0) continue
-
-    const netCash = ourCash.reduce((acc, c) => acc.plus(D(c.debet).minus(D(c.credit))), D(0))
-    if (netCash.isZero()) continue
-
-    const counterLines = jLines.filter((l) => !isOurCash(l))
-    if (counterLines.length === 0) continue
-
-    result.push({ ourCash, counterLines, netCash })
-  }
-  return result
 }
 
 function summarizeDrawers(portions: ClassifiedCashPortion[]): {

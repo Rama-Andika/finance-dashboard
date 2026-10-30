@@ -7,7 +7,7 @@ import { addDays } from '~/lib/format/date'
 import { isFinalMonthEnd, monthEndsBefore, planHistBuilds, type HistBuilt } from '~/lib/finance/ap-ar/ap-ar-hist-plan'
 import type { IsoDate } from '~/lib/core/types'
 import { listPeriods } from '~/server/repo/periods.repo'
-import { DASH_TABLES, dashTable } from './tables'
+import { DASH_INSERT_BATCH_SIZE, DASH_TABLES, dashTable } from './tables'
 import { OPEN_COLUMNS, UNALLOC_COLUMNS, loadOpenInvoices, loadUnallocated, type Row } from './refresh-ap-ar'
 
 const LOCK_NAME = 'dash_refresh_ap_ar_hist'
@@ -118,10 +118,10 @@ async function buildMonth(conn: PoolConnection, asOfDate: IsoDate, isFinal: bool
   try {
     await conn.query('DELETE FROM ?? WHERE as_of_date = ?', [open, asOfDate])
     await conn.query('DELETE FROM ?? WHERE as_of_date = ?', [unallocated, asOfDate])
-    for (const batch of chunk(withDate(openRows), 1000)) {
+    for (const batch of chunk(withDate(openRows), DASH_INSERT_BATCH_SIZE)) {
       await conn.query('INSERT INTO ?? (??) VALUES ?', [open, ['as_of_date', ...OPEN_COLUMNS], batch])
     }
-    for (const batch of chunk(withDate(unallocRows), 1000)) {
+    for (const batch of chunk(withDate(unallocRows), DASH_INSERT_BATCH_SIZE)) {
       await conn.query('INSERT INTO ?? (??) VALUES ?', [unallocated, ['as_of_date', ...UNALLOC_COLUMNS], batch])
     }
     await conn.query(

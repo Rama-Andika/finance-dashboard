@@ -45,7 +45,7 @@ describe('globalSearchSchema', () => {
       preset: 'this-month',
       p13: true,
     })
-    expect(globalSearchSchema.parse({ p13: 'invalid' as any })).toEqual({
+    expect(globalSearchSchema.parse({ p13: 'invalid' })).toEqual({
       entity: 'all',
       preset: 'this-month',
       p13: false,

@@ -2,7 +2,7 @@ import '@tanstack/react-start/server-only'
 import { sql, type SQL } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
-import { chunk, chunkOrAll } from '~/server/db/chunk'
+import { chunk, chunkOrAll, sliceCombos } from '~/server/db/chunk'
 import { assertSegmentColumn } from '~/server/db/segment-column'
 import { BANK_PAYMENT_CHANNEL_TYPES, BANK_PAYMENT_GIRO_TYPES, BANK_PAYMENT_STATUS, intList } from '~/server/db/erp-codes'
 import { addDays } from '~/lib/format/date'
@@ -66,40 +66,38 @@ async function queryUnsettledByChannel(
 
   const result: UnsettledChannelRow[] = []
 
-  for (const cChunk of chunk(coaIds)) {
-    for (const sChunk of chunkOrAll(segIds)) {
-      const query = sql`
-        SELECT bp.coa_id AS coaId,
-               bp.${segIdent} AS segmentDetailId,
-               DATE(bp.transaction_date) AS txDate,
-               COUNT(*) AS n,
-               COALESCE(SUM(bp.amount), 0) AS amount
-        FROM bank_payment bp
-        WHERE bp.type IN (${intList(BANK_PAYMENT_CHANNEL_TYPES)})
-          ${unsettledAtClause(asOfPlusOne)}
-          AND bp.coa_id IN (${inList(cChunk)})
-          AND bp.transaction_date < ${asOfPlusOne}
-          ${sChunk ? sql`AND bp.${segIdent} IN (${inList(sChunk)})` : sql``}
-        GROUP BY bp.coa_id, bp.${segIdent}, DATE(bp.transaction_date)
-      `
+  for (const [cChunk, sChunk] of sliceCombos(chunk(coaIds), chunkOrAll(segIds))) {
+    const query = sql`
+      SELECT bp.coa_id AS coaId,
+             bp.${segIdent} AS segmentDetailId,
+             DATE(bp.transaction_date) AS txDate,
+             COUNT(*) AS n,
+             COALESCE(SUM(bp.amount), 0) AS amount
+      FROM bank_payment bp
+      WHERE bp.type IN (${intList(BANK_PAYMENT_CHANNEL_TYPES)})
+        ${unsettledAtClause(asOfPlusOne)}
+        AND bp.coa_id IN (${inList(cChunk)})
+        AND bp.transaction_date < ${asOfPlusOne}
+        ${sChunk ? sql`AND bp.${segIdent} IN (${inList(sChunk)})` : sql``}
+      GROUP BY bp.coa_id, bp.${segIdent}, DATE(bp.transaction_date)
+    `
 
-      const res = await rows<{
-        coaId: string
-        segmentDetailId: string | null
-        txDate: string
-        n: number | string
-        amount: number | string
-      }>(query)
+    const res = await rows<{
+      coaId: string
+      segmentDetailId: string | null
+      txDate: string
+      n: number | string
+      amount: number | string
+    }>(query)
 
-      for (const r of res) {
-        result.push({
-          coaId: String(r.coaId),
-          segmentDetailId: r.segmentDetailId ? String(r.segmentDetailId) : '',
-          txDate: String(r.txDate).slice(0, 10),
-          n: Number(r.n) || 0,
-          amount: D(r.amount || 0).toFixed(2),
-        })
-      }
+    for (const r of res) {
+      result.push({
+        coaId: String(r.coaId),
+        segmentDetailId: r.segmentDetailId ? String(r.segmentDetailId) : '',
+        txDate: String(r.txDate).slice(0, 10),
+        n: Number(r.n) || 0,
+        amount: D(r.amount || 0).toFixed(2),
+      })
     }
   }
 

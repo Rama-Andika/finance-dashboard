@@ -52,6 +52,48 @@ export function computeCashPosition(
   return memoMetric('cashPosition', { filter, opts }, () => computeCashPositionUncached(filter, opts))
 }
 
+const ZERO: Money = '0.00'
+
+/** Balance of each account in `ids` out of a balance map; an account without movement counts as zero. */
+const balancesOf = (ids: Id[], byCoa: Map<Id, Money>): Money[] => ids.map((id) => byCoa.get(id) ?? ZERO)
+
+function emptyCashPosition(meta: MetricMeta): CashPositionResult {
+  return {
+    meta,
+    cash: ZERO,
+    bank: ZERO,
+    cashPosition: ZERO,
+    deposit: ZERO,
+    inTransit: ZERO,
+    giroOutstanding: ZERO,
+    compare: { cashPosition: null },
+    byFolder: [],
+    byEntity: [],
+    inTransitDetail: [],
+    reconciliation: { glInTransit: ZERO, registerUnsettled: ZERO, diff: ZERO, inSync: true },
+  }
+}
+
+/** Cash + bank balance per entity out of one grouped query (not one balance run per entity). */
+async function entityCashBalances(
+  filter: AppContextFilter,
+  cashAndBankIds: Id[],
+  bySegment: Map<Id, Map<Id, Money>>,
+): Promise<CashPositionResult['byEntity']> {
+  const { entities } = await getCachedEntities()
+  const targetEntities =
+    filter.locationIds === 'all' ? entities : entities.filter((e) => filter.locationIds.includes(e.locationId))
+
+  return targetEntities.map((e) => {
+    const amounts = e.segmentDetailIds.flatMap((segId) => {
+      const segBalances = bySegment.get(segId)
+      return segBalances ? balancesOf(cashAndBankIds, segBalances) : []
+    })
+    const entSum = sum(amounts)
+    return { code: e.code, name: e.name, amount: entSum, isNegative: D(entSum).lt(0) }
+  })
+}
+
 async function computeCashPositionUncached(
   filter: AppContextFilter,
   opts: CashPositionOptions,
@@ -69,27 +111,7 @@ async function computeCashPositionUncached(
   const inTransitIds = resolved.inTransit
 
   // If both cash and bank are empty, return zeroes
-  if (cashIds.length === 0 && bankIds.length === 0) {
-    return {
-      meta,
-      cash: '0.00',
-      bank: '0.00',
-      cashPosition: '0.00',
-      deposit: '0.00',
-      inTransit: '0.00',
-      giroOutstanding: '0.00',
-      compare: { cashPosition: null },
-      byFolder: [],
-      byEntity: [],
-      inTransitDetail: [],
-      reconciliation: {
-        glInTransit: '0.00',
-        registerUnsettled: '0.00',
-        diff: '0.00',
-        inSync: true,
-      },
-    }
-  }
+  if (cashIds.length === 0 && bankIds.length === 0) return emptyCashPosition(meta)
 
   const allCoaIds = Array.from(
     new Set([...cashIds, ...bankIds, ...depositIds, ...inTransitIds]),
@@ -131,25 +153,16 @@ async function computeCashPositionUncached(
     giroPromise,
   ])
 
-  // 2. Compare cash position at compare.asOf
-  let compareCashPosition: Money | null = null
-  if (compareRes) {
-    const cmpCashSum = sum(cashIds.map((id) => compareRes.byCoa.get(id) ?? '0.00'))
-    const cmpBankSum = sum(bankIds.map((id) => compareRes.byCoa.get(id) ?? '0.00'))
-    compareCashPosition = D(cmpCashSum).plus(D(cmpBankSum)).toFixed(2)
-  }
-
-  // 3. Totals
-  const cashBalances = cashIds.map((id) => asOfBalances.byCoa.get(id) ?? '0.00')
-  const bankBalances = bankIds.map((id) => asOfBalances.byCoa.get(id) ?? '0.00')
-  const depositBalances = depositIds.map((id) => asOfBalances.byCoa.get(id) ?? '0.00')
-  const inTransitBalances = inTransitIds.map((id) => asOfBalances.byCoa.get(id) ?? '0.00')
+  // Cash position at compare.asOf
+  const compareCashPosition = compareRes
+    ? D(sum(balancesOf(cashIds, compareRes.byCoa))).plus(D(sum(balancesOf(bankIds, compareRes.byCoa)))).toFixed(2)
+    : null
 
   const totals = computeCashTotals(
-    cashBalances,
-    bankBalances,
-    depositBalances,
-    inTransitBalances,
+    balancesOf(cashIds, asOfBalances.byCoa),
+    balancesOf(bankIds, asOfBalances.byCoa),
+    balancesOf(depositIds, asOfBalances.byCoa),
+    balancesOf(inTransitIds, asOfBalances.byCoa),
   )
 
   // 4. Breakdown byFolder
@@ -173,33 +186,7 @@ async function computeCashPositionUncached(
   const registerUnsettledTotal = sum(unsettled.map((u) => u.amount))
   const reconciliation = reconcileInTransit(totals.inTransit, registerUnsettledTotal)
 
-  // 6. By Entity — one grouped query for all entities (not one balance run per entity)
-  let byEntityList: CashPositionResult['byEntity'] = []
-  if (byEntityBalances) {
-    const { entities } = await getCachedEntities()
-    const targetEntities =
-      filter.locationIds === 'all'
-        ? entities
-        : entities.filter((e) => filter.locationIds.includes(e.locationId))
-
-    const { bySegment } = byEntityBalances
-
-    byEntityList = targetEntities.map((e) => {
-      const amounts: Money[] = []
-      for (const segId of e.segmentDetailIds) {
-        const segBalances = bySegment.get(segId)
-        if (!segBalances) continue
-        for (const id of cashAndBankIds) amounts.push(segBalances.get(id) ?? '0.00')
-      }
-      const entSum = sum(amounts)
-      return {
-        code: e.code,
-        name: e.name,
-        amount: entSum,
-        isNegative: D(entSum).lt(0),
-      }
-    })
-  }
+  const byEntityList = byEntityBalances ? await entityCashBalances(filter, cashAndBankIds, byEntityBalances.bySegment) : []
 
   return {
     meta,

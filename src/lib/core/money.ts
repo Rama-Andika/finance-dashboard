@@ -17,3 +17,12 @@ export const safeDiv = (a: Money, b: Money): string | null =>
 
 /** Display only: a JS number for chart libraries that cannot take strings; never use it for arithmetic on money. Unparsable → 0. */
 export const toChartNumber = (v: Money | null | undefined): number => Number(v) || 0
+
+/** The item with the largest `amount` (the first one on a tie), compared as exact money. */
+export function largestByAmount<T extends { amount: Money }>(items: readonly T[]): T | undefined {
+  let best: T | undefined
+  for (const item of items) {
+    if (!best || D(item.amount).gt(D(best.amount))) best = item
+  }
+  return best
+}

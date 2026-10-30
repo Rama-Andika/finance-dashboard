@@ -8,6 +8,7 @@ import { Button } from '~/components/neraca/Button'
 import { Tabs } from '~/components/neraca/Tabs'
 import { CoaTreePicker } from '~/components/settings/CoaTreePicker'
 import { BasketPreview } from '~/components/settings/BasketPreview'
+import { MappingValidationNotices } from '~/components/settings/MappingValidationNotices'
 import { accountMappingQueryOptions, coaTreeQueryOptions } from '~/queries/settings.queries'
 import { saveAccountMappingFn } from '~/functions/settings.fn'
 import { buildCoaTree } from '~/lib/finance/coa/coa-tree'
@@ -174,52 +175,7 @@ function AccountMappingPage() {
         </div>
       </div>
 
-      {/* Validation Warnings & Blocking Conflicts */}
-      <div className="space-y-3 pt-2">
-        {liveValidation.blocking.length > 0 && (
-          <Notice
-            tone="danger"
-            title={t('settings.conflictError')}
-            body={liveValidation.blocking
-              .filter(
-                (b): b is Extract<typeof b, { kind: 'conflict' }> => b.kind === 'conflict',
-              )
-              .map((b) => {
-                const node = tree.byId.get(b.coaId)
-                const name = node ? `${node.code} - ${node.name}` : b.coaId
-                const baskets = b.baskets.map((k: BasketKey) => t(`settings.baskets.${k}`)).join(', ')
-                return `• ${name} (${baskets})`
-              })
-              .join('\n')}
-          />
-        )}
-
-        {liveValidation.warnings.map((w, idx) => {
-          if (w.kind === 'cashBankEmpty') {
-            return (
-              <Notice
-                key={idx}
-                tone="warning"
-                title={t('settings.cashBankEmptyWarning')}
-              />
-            )
-          }
-          if (w.kind === 'missing') {
-            return (
-              <Notice
-                key={idx}
-                tone="warning"
-                title={`${t('settings.missingAccountsWarning')} (${w.coaId})`}
-              />
-            )
-          }
-          return null
-        })}
-
-        {saveSuccess && (
-          <Notice tone="success" title={t('settings.saveSuccess')} />
-        )}
-      </div>
+      <MappingValidationNotices validation={liveValidation} tree={tree} saveSuccess={saveSuccess} />
 
       {/* Actions Footer */}
       <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">

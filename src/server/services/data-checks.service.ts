@@ -1,7 +1,6 @@
 import '@tanstack/react-start/server-only'
-import { D } from '~/lib/core/money'
 import { memoMetric } from '~/server/cache'
-import type { Money } from '~/lib/core/types'
+import { buildDataChecks, type DataCheckItem } from '~/lib/finance/checks/data-checks'
 import { type AppContextFilter, getCachedPeriods } from '~/server/context'
 import {
   checkQ1b,
@@ -16,13 +15,7 @@ import { computeCashFlow } from '~/server/services/cash-flow.service'
 import { computeApAging } from '~/server/services/ap-aging.service'
 import { computeArAging } from '~/server/services/ar-aging.service'
 
-export type DataCheckItem = {
-  code: string
-  level: 'warning' | 'danger'
-  count: number
-  amount: Money | null
-  link: string
-}
+export type { DataCheckItem }
 
 /** One failed sub-check must not hide the others, but it must not pass silently either. */
 export async function settle<T>(name: string, work: Promise<T>, failures: string[]): Promise<T | null> {
@@ -69,149 +62,17 @@ async function computeDataChecksUncached(filter: AppContextFilter): Promise<Data
     settle('arAging', computeArAging(filter), failures),
   ])
 
-  const checks: DataCheckItem[] = []
-
-  // 1. CF_IDENTITY (Danger - priority)
-  if (cfResult && !cfResult.identityOk) {
-    checks.push({
-      code: 'CF_IDENTITY',
-      level: 'danger',
-      count: 1,
-      amount: null,
-      link: '/cash-flow',
-    })
-  }
-
-  // 2. Q9 (In-transit overdue or future)
-  if (q9 && q9.count > 0) {
-    checks.push({
-      code: 'Q9',
-      level: 'warning',
-      count: q9.count,
-      amount: q9.amount,
-      link: '/cash-position',
-    })
-  }
-
-  // 3. CF_UNCLASSIFIED (Cash flow unclassified or fallback rules)
-  if (cfResult) {
-    let unclassifiedTotal = '0.00'
-    for (const drawer of cfResult.drawers) {
-      for (const row of drawer.rows) {
-        if (row.unclassified) {
-          unclassifiedTotal = D(unclassifiedTotal).plus(D(row.amount)).toFixed(2)
-        }
-      }
-    }
-    if (D(unclassifiedTotal).gt(0) || cfResult.source === 'fallback') {
-      checks.push({
-        code: 'CF_UNCLASSIFIED',
-        level: 'warning',
-        count: 1,
-        amount: D(unclassifiedTotal).gt(0) ? unclassifiedTotal : null,
-        link: '/cash-flow',
-      })
-    }
-  }
-
-  // 4. REC_TRANSIT (In-transit GL vs Register discrepancy)
-  if (cpResult && !cpResult.reconciliation.inSync) {
-    checks.push({
-      code: 'REC_TRANSIT',
-      level: 'warning',
-      count: 1,
-      amount: cpResult.reconciliation.diff,
-      link: '/cash-position',
-    })
-  }
-
-  // 5. REC_AP (AP GL control vs Subledger discrepancy)
-  if (apResult && !apResult.reconciliation.inSync) {
-    checks.push({
-      code: 'REC_AP',
-      level: 'warning',
-      count: 1,
-      amount: apResult.reconciliation.diff,
-      link: '/payables',
-    })
-  }
-
-  // 6. AR_UNALLOC (Customer unallocated returns/receipts)
-  if (arResult && D(arResult.unallocatedReturns).gt(0)) {
-    checks.push({
-      code: 'AR_UNALLOC',
-      level: 'warning',
-      count: 1,
-      amount: arResult.unallocatedReturns,
-      link: '/receivables',
-    })
-  }
-
-  // 7. Q1b (Non-trade AP marked paid without details)
-  if (q1b && q1b.count > 0) {
-    checks.push({
-      code: 'Q1b',
-      level: 'warning',
-      count: q1b.count,
-      amount: q1b.amount,
-      link: '/payables',
-    })
-  }
-
-  // 8. Q7 (Cards missing vendor/customer)
-  if (q7Count !== null && q7Count > 0) {
-    checks.push({
-      code: 'Q7',
-      level: 'warning',
-      count: q7Count,
-      amount: null,
-      link: '/payables',
-    })
-  }
-
-  // 9. Q8 (Cards with invalid location)
-  if (q8Count !== null && q8Count > 0) {
-    checks.push({
-      code: 'Q8',
-      level: 'warning',
-      count: q8Count,
-      amount: null,
-      link: '/payables',
-    })
-  }
-
-  // 10. UNPOSTED (Unposted journals in active periods)
-  if (unposted !== null && unposted > 0) {
-    checks.push({
-      code: 'UNPOSTED',
-      level: 'warning',
-      count: unposted,
-      amount: null,
-      link: '/summary',
-    })
-  }
-
-  // 11. SETTINGS (Default / missing mapping)
-  // A mapping read that failed is already reported as CHECK_FAILED; only report "missing" when the read worked.
-  if (!failures.includes('mapping') && (!mappingRow || !mappingRow.valueprop)) {
-    checks.push({
-      code: 'SETTINGS',
-      level: 'warning',
-      count: 1,
-      amount: null,
-      link: '/settings/account-mapping',
-    })
-  }
-
-  if (failures.length > 0) {
-    checks.push({
-      code: 'CHECK_FAILED',
-      level: 'warning',
-      count: failures.length,
-      amount: null,
-      link: '/summary',
-    })
-  }
-
-  return checks
+  return buildDataChecks({
+    cashFlow: cfResult,
+    transitRegister: q9,
+    cashPositionReconciliation: cpResult?.reconciliation ?? null,
+    apReconciliation: apResult?.reconciliation ?? null,
+    arUnallocatedReturns: arResult?.unallocatedReturns ?? null,
+    paidWithoutDetail: q1b,
+    cardsWithoutParty: q7Count,
+    cardsWithInvalidLocation: q8Count,
+    unpostedJournals: unposted,
+    mappingRow: failures.includes('mapping') ? undefined : mappingRow,
+    failedChecks: failures,
+  })
 }

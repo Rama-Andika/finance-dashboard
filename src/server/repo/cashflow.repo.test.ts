@@ -5,7 +5,7 @@ const rowsMock = vi.fn()
 vi.mock('~/server/db/query', () => ({ rows: (...args: unknown[]) => rowsMock(...args) }))
 vi.mock('~/server/db/gl-columns', async () => {
   const { sql } = await import('drizzle-orm')
-  return { glTableHasCanceledDate: async () => true, notCanceledClause: async () => sql`` }
+  return { glTableHasCanceledDate: async () => true, prefetchCanceledDateColumns: async () => {}, notCanceledClause: async () => sql`` }
 })
 
 const { linesOfCashJournals } = await import('./cashflow.repo')

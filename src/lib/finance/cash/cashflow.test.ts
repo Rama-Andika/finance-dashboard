@@ -5,6 +5,7 @@ import {
   classifyBySetup,
   classifyByFallback,
   isSetupValid,
+  settledJournals,
   type CfLine,
 } from './cashflow'
 import { D } from '../../core/money'
@@ -16,6 +17,19 @@ import {
 
 describe('cashflow pure logic and allocation', () => {
   const isOurCash = (l: CfLine) => mockCashCoaIds.includes(l.coaId)
+
+  it('settledJournals keeps only journals that move cash and have a counter side', () => {
+    const journals = settledJournals(mockCashLines, isOurCash)
+    const ids = journals.map((j) => j.glId)
+    // gl_2 is an internal transfer (no counter side), so it is dropped
+    expect(ids).not.toContain('gl_2')
+    expect(ids).toContain('gl_1')
+    for (const j of journals) {
+      expect(j.ourCash.length).toBeGreaterThan(0)
+      expect(j.counterLines.length).toBeGreaterThan(0)
+      expect(j.netCash.isZero()).toBe(false)
+    }
+  })
 
   it('ignores internal cash transfers where all lines touch cash accounts', () => {
     // Only the internal transfer journal gl_2

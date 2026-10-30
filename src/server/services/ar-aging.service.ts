@@ -1,9 +1,7 @@
 import '@tanstack/react-start/server-only'
-import { D, sum } from '~/lib/core/money'
 import { addDays } from '~/lib/format/date'
 import { memoMetric } from '~/server/cache'
-import { apArSnapshotCovers, apArSnapshotInfo, memoBySnapshot } from '~/server/dash/snapshot'
-import { apArHistCovers } from '~/server/dash/snapshot-hist'
+import { memoBySnapshot } from '~/server/dash/snapshot'
 import type { Id, MetricMeta, Money } from '~/lib/core/types'
 import {
   type AppContextFilter,
@@ -12,7 +10,8 @@ import {
 } from '~/server/context'
 import { arOpenInvoices, arUnallocatedReceipts } from '~/server/repo/aging.repo'
 import { listCustomers } from '~/server/repo/party.repo'
-import { balancesAt } from '~/server/services/balance.service'
+import { agingCompareIsAvailable, controlAccountsGlTotal, distinctIds } from '~/server/services/shared/aging.helper'
+import { reconcileAging, type AgingReconciliation } from '~/lib/finance/ap-ar/aging-reconciliation'
 import {
   computeArAging as calculateArAging,
   type CustomerAgingSummary,
@@ -32,7 +31,7 @@ export type ArAgingResult = {
   overdueSubtotal: Money
   byCustomer: CustomerAgingSummary[]
   controlAccounts: Array<{ coaId: Id; code: string; name: string }>
-  reconciliation: { gl: Money; subledger: Money; diff: Money; inSync: boolean }
+  reconciliation: AgingReconciliation
 }
 
 export function computeArAging(filter: AppContextFilter): Promise<ArAgingResult> {
@@ -45,9 +44,7 @@ async function compareAgingTotal(
   tree: CoaTree,
 ): Promise<Money | null> {
   if (!filter.compare || !filter.compare.asOf) return null
-  // A past date is answered from the month-end history when that month has been built; otherwise computing it from the ERP tables
-  // takes minutes, so the comparison is left out instead of blocking the page.
-  if ((await apArSnapshotInfo()) && !(await apArSnapshotCovers(filter.compare.asOf)) && !(await apArHistCovers(filter.compare.asOf))) return null
+  if (!(await agingCompareIsAvailable(filter.compare.asOf))) return null
   const cmpAsOfPlusOne = addDays(filter.compare.asOf, 1)
   const [cmpA, cmpB] = await Promise.all([
     arOpenInvoices(cmpAsOfPlusOne, filter.locationIds),
@@ -76,9 +73,7 @@ async function arAgingCore(filter: AppContextFilter) {
       arUnallocatedReceipts(asOfPlusOne, filter.locationIds),
     ])
 
-    const customerIds = Array.from(
-      new Set([...partA.map((a) => a.customerId), ...partB.map((b) => b.customerId)].filter(Boolean)),
-    )
+    const customerIds = distinctIds(partA.map((a) => a.customerId), partB.map((b) => b.customerId))
     const customers = await listCustomers(customerIds)
     const customerMap = new Map(customers.map((v) => [v.customerId, { code: v.code, name: v.name }]))
 
@@ -102,19 +97,12 @@ async function computeArAgingUncached(filter: AppContextFilter): Promise<ArAging
   const meta = buildMetricMeta(filter)
   const { computed, customerMap, tree } = await arAgingCore(filter)
 
-  // 4. Compare total and 5. GL reconciliation do not depend on each other
+  // The comparison total and the GL reconciliation do not depend on each other
   const controlCoaIds = computed.controlAccounts.map((a) => a.coaId)
   const [compareTotal, glTotal] = await Promise.all([
     compareAgingTotal(filter, customerMap, tree),
-    controlCoaIds.length > 0
-      ? balancesAt({ asOf: filter.asOf, coaIds: controlCoaIds, filter }).then((r) =>
-          sum(controlCoaIds.map((id) => r.byCoa.get(id) ?? '0.00')),
-        )
-      : Promise.resolve('0.00'),
+    controlAccountsGlTotal(filter, controlCoaIds),
   ])
-
-  const diff = D(glTotal).minus(D(computed.total)).toFixed(2)
-  const inSync = D(diff).abs().lt(1)
 
   return {
     meta,
@@ -128,11 +116,6 @@ async function computeArAgingUncached(filter: AppContextFilter): Promise<ArAging
     overdueSubtotal: computed.overdueSubtotal,
     byCustomer: computed.byCustomer,
     controlAccounts: computed.controlAccounts,
-    reconciliation: {
-      gl: glTotal,
-      subledger: computed.total,
-      diff,
-      inSync,
-    },
+    reconciliation: reconcileAging(glTotal, computed.total),
   }
 }

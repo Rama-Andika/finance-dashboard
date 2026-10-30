@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { pool } from '~/server/db/client'
 import { inList } from '~/server/db/in-list'
-import { chunk, chunkOrAll } from '~/server/db/chunk'
+import { chunk, chunkOrAll, sliceCombos } from '~/server/db/chunk'
 import { glTablesOf } from '~/server/db/gl-tables'
 import { glTableHasCanceledDate } from '~/server/db/gl-columns'
 import { memo } from '~/server/cache'
@@ -46,42 +46,38 @@ export async function snapshotMovements(periodIds: Id[], opts: SnapshotMovements
   const table = sql.identifier(DASH_TABLES.glMonthly)
   const out: CachedMovementRow[] = []
 
-  for (const pChunk of chunk(periodIds)) {
-    for (const cChunk of chunkOrAll(opts.coaIds)) {
-      for (const sChunk of chunkOrAll(opts.segIds)) {
-        const res = await rows<{
-          coaId: string
-          periodId: string
-          locationId?: string | null
-          debet: string
-          credit: string
-        }>(sql`
-          SELECT s.coa_id AS coaId, s.period_id AS periodId
-                 ${opts.byLocation ? sql`, sd.location_id AS locationId` : sql``}
-                 , SUM(s.debet) AS debet, SUM(s.credit) AS credit
-          FROM ${table} s
-          ${
-            opts.accountGroups && opts.accountGroups.length > 0
-              ? sql`JOIN coa c ON c.coa_id = s.coa_id AND c.account_group IN (${inList(opts.accountGroups)})`
-              : sql``
-          }
-          ${opts.byLocation ? sql`LEFT JOIN segment_detail sd ON sd.segment_detail_id = s.segment_id` : sql``}
-          WHERE s.period_id IN (${inList(pChunk)})
-            ${cChunk ? sql`AND s.coa_id IN (${inList(cChunk)})` : sql``}
-            ${sChunk ? sql`AND s.segment_id IN (${inList(sChunk)})` : sql``}
-          GROUP BY s.coa_id, s.period_id ${opts.byLocation ? sql`, sd.location_id` : sql``}
-        `)
-        for (const r of res) {
-          out.push({
-            coaId: String(r.coaId),
-            periodId: String(r.periodId),
-            locationId: r.locationId ? String(r.locationId) : undefined,
-            // DECIMAL(22,2) sums come back as 2-decimal strings
-            debet: r.debet,
-            credit: r.credit,
-          })
-        }
+  for (const [pChunk, cChunk, sChunk] of sliceCombos(chunk(periodIds), chunkOrAll(opts.coaIds), chunkOrAll(opts.segIds))) {
+    const res = await rows<{
+      coaId: string
+      periodId: string
+      locationId?: string | null
+      debet: string
+      credit: string
+    }>(sql`
+      SELECT s.coa_id AS coaId, s.period_id AS periodId
+             ${opts.byLocation ? sql`, sd.location_id AS locationId` : sql``}
+             , SUM(s.debet) AS debet, SUM(s.credit) AS credit
+      FROM ${table} s
+      ${
+        opts.accountGroups && opts.accountGroups.length > 0
+          ? sql`JOIN coa c ON c.coa_id = s.coa_id AND c.account_group IN (${inList(opts.accountGroups)})`
+          : sql``
       }
+      ${opts.byLocation ? sql`LEFT JOIN segment_detail sd ON sd.segment_detail_id = s.segment_id` : sql``}
+      WHERE s.period_id IN (${inList(pChunk)})
+        ${cChunk ? sql`AND s.coa_id IN (${inList(cChunk)})` : sql``}
+        ${sChunk ? sql`AND s.segment_id IN (${inList(sChunk)})` : sql``}
+      GROUP BY s.coa_id, s.period_id ${opts.byLocation ? sql`, sd.location_id` : sql``}
+    `)
+    for (const r of res) {
+      out.push({
+        coaId: String(r.coaId),
+        periodId: String(r.periodId),
+        locationId: r.locationId ? String(r.locationId) : undefined,
+        // DECIMAL(22,2) sums come back as 2-decimal strings
+        debet: r.debet,
+        credit: r.credit,
+      })
     }
   }
   return out

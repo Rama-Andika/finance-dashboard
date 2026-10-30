@@ -97,6 +97,7 @@
     "grossMargin": "Gross Margin",
     "operatingMargin": "Operating Margin",
     "netMargin": "Net Margin",
+    "margin": "Margin",
     "currentRatio": "Current Ratio",
     "runway": "Runway",
     "runwayPositive": "Cash flow positive",
@@ -310,6 +311,8 @@
       "balanceIdr": "Balance (IDR)",
       "txCount": "Tx Count",
       "oldestAge": "Oldest Age",
+      "channelCount": "{{count}} channel(s)",
+      "transactionsOldest": "{{count}} transactions · oldest {{days}} days",
       "days": "days",
       "amountIdr": "Amount (IDR)",
       "overAlertAge": "Past alert age",
@@ -339,6 +342,8 @@
     "paymentPlan": {
       "date": "Date",
       "openingIdr": "Opening (IDR)",
+      "inflowShort": "In",
+      "outflowShort": "Out",
       "inflowIdr": "Inflow (IDR)",
       "outflowIdr": "Outflow (IDR)",
       "closingIdr": "Closing (IDR)",
@@ -365,6 +370,9 @@
       "profitLossStatement": "Profit & Loss Statement",
       "fixedVsVariableCosts": "Fixed vs Variable Costs",
       "averageFixed": "Average fixed:",
+      "averageFixedShort": "Avg fixed",
+      "fixedLabel": "Fixed",
+      "variableLabel": "Variable",
       "fixedCostFolders": "Fixed Cost Folders"
     },
     "receivables": {

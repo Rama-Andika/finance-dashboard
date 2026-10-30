@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { safeDiv, sum, toChartNumber } from './money'
+import { safeDiv, sum, toChartNumber, largestByAmount } from './money'
 
 describe('money helpers', () => {
   it('sums float-like values accurately', () => {
@@ -26,5 +26,24 @@ describe('money helpers', () => {
     expect(toChartNumber('')).toBe(0)
     expect(toChartNumber(null)).toBe(0)
     expect(toChartNumber('abc')).toBe(0)
+  })
+})
+
+describe('largestByAmount', () => {
+  it('returns undefined for an empty list', () => {
+    expect(largestByAmount([])).toBeUndefined()
+  })
+
+  it('picks the largest amount, compared as exact money', () => {
+    const items = [
+      { id: 'a', amount: '1000.50' },
+      { id: 'b', amount: '99999999999999999.10' },
+      { id: 'c', amount: '99999999999999999.09' },
+    ]
+    expect(largestByAmount(items)?.id).toBe('b')
+  })
+
+  it('keeps the first item on a tie', () => {
+    expect(largestByAmount([{ id: 'a', amount: '5.00' }, { id: 'b', amount: '5.00' }])?.id).toBe('a')
   })
 })

@@ -137,11 +137,7 @@ export function DataTable<T extends object>({
       >
         {row.getVisibleCells().map((cell: LegacyCell<T, unknown>, cellIdx: number) => {
           const meta = cell.column.columnDef.meta as { align?: 'left' | 'right' | 'center' } | undefined
-          const isRight =
-            meta?.align === 'right' ||
-            cell.column.id.toLowerCase().includes('amount') ||
-            cell.column.id.toLowerCase().includes('sisa') ||
-            cell.column.id.toLowerCase().includes('saldo')
+          const isRight = meta?.align === 'right'
           const isFirst = cellIdx === 0
 
           return (
@@ -207,11 +203,7 @@ export function DataTable<T extends object>({
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header: LegacyHeader<T, unknown>) => {
                   const meta = header.column.columnDef.meta as TableColumnMeta | undefined
-                  const isRight =
-                    meta?.align === 'right' ||
-                    header.column.id.toLowerCase().includes('amount') ||
-                    header.column.id.toLowerCase().includes('sisa') ||
-                    header.column.id.toLowerCase().includes('saldo')
+                  const isRight = meta?.align === 'right'
                   const sortKey = onSortChange ? meta?.sortKey : undefined
                   const isSorted = sortKey !== undefined && sort?.by === sortKey
                   const content = header.isPlaceholder

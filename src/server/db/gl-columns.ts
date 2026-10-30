@@ -24,6 +24,14 @@ export function glTableHasCanceledDate(glTable: string): Promise<boolean> {
   })
 }
 
+/**
+ * Checks several GL tables at once, so the per-table `notCanceledClause` calls in a loop afterwards
+ * are answered from the cache instead of asking the database one table after the other.
+ */
+export async function prefetchCanceledDateColumns(glTables: Iterable<string>): Promise<void> {
+  await Promise.all(Array.from(new Set(glTables), glTableHasCanceledDate))
+}
+
 /** `AND <alias>.canceled_date IS NULL` when the table has the column, otherwise an empty fragment. */
 export async function notCanceledClause(glTable: string, alias: string): Promise<SQL> {
   return (await glTableHasCanceledDate(glTable)) ? sql`AND ${sql.identifier(alias)}.canceled_date IS NULL` : sql``

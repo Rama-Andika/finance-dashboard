@@ -5,7 +5,7 @@ const rowsMock = vi.fn()
 vi.mock('~/server/db/query', () => ({ rows: (...args: unknown[]) => rowsMock(...args) }))
 vi.mock('~/server/db/gl-columns', async () => {
   const { sql } = await import('drizzle-orm')
-  return { glTableHasCanceledDate: async () => true, notCanceledClause: async () => sql`` }
+  return { glTableHasCanceledDate: async () => true, prefetchCanceledDateColumns: async () => {}, notCanceledClause: async () => sql`` }
 })
 
 // The GL snapshot (dash_snap_gl_monthly) is mocked: `built` decides which closed periods it "contains".

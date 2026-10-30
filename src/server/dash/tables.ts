@@ -1,6 +1,12 @@
 /** Every table the dashboard writes starts with this prefix; ERP tables are only ever read. */
 export const DASH_PREFIX = 'dash_'
 
+/** Rows per multi-row INSERT when a snapshot is written. */
+export const DASH_INSERT_BATCH_SIZE = 1000
+
+/** Longest error text kept in `dash_snap_meta`. */
+export const DASH_MAX_ERROR_LENGTH = 1000
+
 export const DASH_TABLES = {
   meta: 'dash_snap_meta',
   apArOpen: 'dash_snap_ap_ar_open',

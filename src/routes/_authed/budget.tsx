@@ -11,7 +11,7 @@ import { KpiCard } from '~/components/neraca/KpiCard'
 import { DataTable, type ColumnDef } from '~/components/neraca/DataTable'
 import { DeltaPill } from '~/components/neraca/DeltaPill'
 import { Button } from '~/components/neraca/Button'
-import { ExportCsvButton, formatExportFilename } from '~/components/export/ExportCsvDialog'
+import { ExportCsvButton, exportFilename } from '~/components/export/ExportCsvDialog'
 import { PrintButton } from '~/components/export/PrintButton'
 import { PrintHeader } from '~/components/export/PrintHeader'
 import { useOpenDrill } from '~/components/drill/useOpenDrill'
@@ -180,7 +180,7 @@ function BudgetPage() {
                 { header: t('ui.col.variance'), value: (r) => r.variance, kind: 'money' },
                 { header: t('ui.col.variancePct'), value: (r) => (r.variancePercent ? `${r.variancePercent}%` : ''), kind: 'text' },
               ]}
-              filename={formatExportFilename('budget_vs_actual', deps.entity, deps.from && deps.to ? `${deps.from}_${deps.to}` : deps.preset)}
+              filename={exportFilename('budget_vs_actual', deps)}
             />
             <PrintButton />
           </div>

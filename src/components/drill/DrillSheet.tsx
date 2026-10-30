@@ -1,22 +1,23 @@
 import { searchUpdater } from '~/lib/filters/search-update'
 import { translateCfLabel } from '~/lib/finance/cash/cashflow-labels'
-import React, { useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, X, ChevronRight, Loader2 } from 'lucide-react'
+import { ArrowLeft, X, Loader2 } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle } from '~/components/ui/sheet'
 import { useDrillData, parseDrill, type DrillSearchParams } from './useDrillData'
 import { JournalList, type JournalItem } from './JournalList'
+import { DrillBreadcrumbs } from './DrillBreadcrumbs'
+import { DrillTable } from './DrillTable'
 import { Skeleton } from '~/components/neraca/Skeleton'
 import { MetricError } from '~/components/neraca/MetricError'
-import { PlanStatusPill } from '~/components/neraca/PlanStatusPill'
-import { formatMoneyFull } from '~/lib/format/number'
-import { formatDate } from '~/lib/format/date'
 import type { Lang } from '~/lib/core/types'
 import type { DrillStep, DrillStepKind } from '~/lib/filters/search-schema'
 
 type SearchUpdater = (prev: Record<string, unknown>) => Record<string, unknown>
 
+/** Rows requested per "load more" click. */
+const DRILL_PAGE_SIZE = 200
 
 export function DrillSheet() {
   const search = useSearch({ strict: false }) as DrillSearchParams
@@ -98,7 +99,7 @@ export function DrillSheet() {
     <div className="pt-4 pb-2 flex justify-center">
       <button
         type="button"
-        onClick={() => setOffset((prev) => prev + 200)}
+        onClick={() => setOffset((prev) => prev + DRILL_PAGE_SIZE)}
         disabled={isFetching}
         className="nr-btn text-sm flex items-center gap-2"
       >
@@ -143,37 +144,7 @@ export function DrillSheet() {
             </button>
           </div>
 
-          <nav aria-label={t('drill.breadcrumbs')} className="nr-sheet-breadcrumbs">
-            <button
-              type="button"
-              onClick={() => goToSteps([])}
-              className="hover:text-ink transition underline-offset-2 hover:underline"
-            >
-              {metricRootTitle}
-            </button>
-            {drill.steps.map((step, idx) => {
-              const isLast = idx === drill.steps.length - 1
-              return (
-                <React.Fragment key={`${step.kind}-${step.id}-${idx}`}>
-                  <ChevronRight className="w-3.5 h-3.5 text-muted shrink-0" />
-                  {isLast ? (
-                    <span className="active truncate max-w-[200px]" title={translateCfLabel(t, step.label)}>
-                      {translateCfLabel(t, step.label)}
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => goToSteps(drill.steps.slice(0, idx + 1))}
-                      className="hover:text-ink transition truncate max-w-[160px] underline-offset-2 hover:underline"
-                      title={translateCfLabel(t, step.label)}
-                    >
-                      {translateCfLabel(t, step.label)}
-                    </button>
-                  )}
-                </React.Fragment>
-              )
-            })}
-          </nav>
+          <DrillBreadcrumbs rootTitle={metricRootTitle} steps={drill.steps} onGoToSteps={goToSteps} />
         </div>
 
         <div className="nr-sheet-body">
@@ -193,93 +164,13 @@ export function DrillSheet() {
             </>
           ) : (
             <div className="space-y-4">
-              <div className="nr-table-wrap">
-                <table className="nr-table">
-                  <thead>
-                    <tr>
-                      {data?.columns.map((c) => (
-                        <th key={c.id} className={c.kind === 'money' || c.kind === 'number' ? 'nr-r' : undefined}>
-                          {t(c.labelKey)}
-                        </th>
-                      ))}
-                      {data?.nextKind && <th className="w-10"></th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allRows.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={(data?.columns.length || 0) + (data?.nextKind ? 1 : 0)}
-                          className="text-center py-10 text-muted text-sm"
-                        >
-                          {t('drill.empty')}
-                        </td>
-                      </tr>
-                    ) : (
-                      allRows.map((row, rowIdx) => (
-                        <tr
-                          key={row.id ?? rowIdx}
-                          onClick={() => handleRowDrill(row)}
-                          className={data?.nextKind ? 'cursor-pointer hover:bg-canvas/60 transition' : undefined}
-                        >
-                          {data?.columns.map((c) => {
-                            const val = row[c.id]
-                            if (c.kind === 'money') {
-                              return (
-                                <td key={c.id} className="nr-r nr-num text-sm">
-                                  {formatMoneyFull(val ?? '0', lang)}
-                                </td>
-                              )
-                            }
-                            if (c.kind === 'number') {
-                              return (
-                                <td key={c.id} className="nr-r nr-num text-sm">
-                                  {val ?? '—'}
-                                </td>
-                              )
-                            }
-                            if (c.kind === 'code') {
-                              return (
-                                <td key={c.id}>
-                                  <span className="nr-code">{val || '—'}</span>
-                                </td>
-                              )
-                            }
-                            if (c.kind === 'date') {
-                              return (
-                                <td key={c.id} className="text-sm">
-                                  {val ? formatDate(val, lang) : '—'}
-                                </td>
-                              )
-                            }
-                            if (c.kind === 'status') {
-                              return (
-                                <td key={c.id}>
-                                  {val ? (
-                                    <PlanStatusPill status={val} />
-                                  ) : (
-                                    '—'
-                                  )}
-                                </td>
-                              )
-                            }
-                            return (
-                              <td key={c.id} className="text-sm">
-                                {val ? translateCfLabel(t, val) : '—'}
-                              </td>
-                            )
-                          })}
-                          {data?.nextKind && (
-                            <td className="text-right text-muted pr-3">
-                              <ChevronRight className="w-4 h-4 inline" />
-                            </td>
-                          )}
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <DrillTable
+                columns={data?.columns ?? []}
+                rows={allRows}
+                hasNext={Boolean(data?.nextKind)}
+                lang={lang}
+                onRowClick={handleRowDrill}
+              />
               {loadMore}
             </div>
           )}

@@ -5,7 +5,7 @@ import type { SQL } from 'drizzle-orm'
 const rowsMock = vi.fn()
 vi.mock('~/server/db/query', () => ({ rows: (...args: unknown[]) => rowsMock(...args) }))
 
-const { glTableHasCanceledDate, notCanceledClause } = await import('./gl-columns')
+const { glTableHasCanceledDate, notCanceledClause, prefetchCanceledDateColumns } = await import('./gl-columns')
 const { clearCache } = await import('~/server/cache')
 
 const render = (clause: SQL): string => new MySqlDialect().sqlToQuery(clause).sql
@@ -52,5 +52,21 @@ describe('notCanceledClause', () => {
   it('is an empty fragment when the column is missing', async () => {
     rowsMock.mockResolvedValue([{ n: 0 }])
     expect(render(await notCanceledClause('gl', 'g')).trim()).toBe('')
+  })
+})
+
+describe('prefetchCanceledDateColumns', () => {
+  beforeEach(() => {
+    rowsMock.mockReset()
+    clearCache()
+  })
+
+  it('asks each distinct table once and lets later checks use the cache', async () => {
+    rowsMock.mockResolvedValue([{ n: 1 }])
+    await prefetchCanceledDateColumns(['gl', 'gl_2024', 'gl'])
+    expect(rowsMock).toHaveBeenCalledTimes(2)
+    await notCanceledClause('gl', 'g')
+    await notCanceledClause('gl_2024', 'g')
+    expect(rowsMock).toHaveBeenCalledTimes(2)
   })
 })

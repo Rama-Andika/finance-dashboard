@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chunk, chunkOrAll } from './chunk'
+import { chunk, chunkOrAll, sliceCombos } from './chunk'
 import { assertSegmentColumn, isSegmentColumn } from './segment-column'
 import { intList } from './erp-codes'
 
@@ -39,5 +39,28 @@ describe('intList', () => {
     expect(() => intList([])).toThrow()
     expect(() => intList([1.5])).toThrow()
     expect(() => intList([1, 2])).not.toThrow()
+  })
+})
+
+describe('sliceCombos', () => {
+  it('pairs every slice of the first list with every slice of the second', () => {
+    expect(sliceCombos([[1], [2]], [['a'], ['b']])).toEqual([
+      [[1], ['a']],
+      [[1], ['b']],
+      [[2], ['a']],
+      [[2], ['b']],
+    ])
+  })
+
+  it('works for three lists, with an unfiltered (undefined) slice', () => {
+    const combos = sliceCombos(chunk([1, 2], 1), chunkOrAll('all'), chunkOrAll(['x']))
+    expect(combos).toEqual([
+      [[1], undefined, ['x']],
+      [[2], undefined, ['x']],
+    ])
+  })
+
+  it('has no combinations when a list has no slices', () => {
+    expect(sliceCombos(chunk([]), chunkOrAll('all'))).toEqual([])
   })
 })

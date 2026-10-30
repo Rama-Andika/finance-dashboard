@@ -4,6 +4,7 @@ import { db } from './client'
 
 /** Run a parameterized query and return the SELECT result rows. */
 export async function rows<T>(query: SQL): Promise<T[]> {
+  // drizzle types `execute` loosely; with mysql2 it resolves to [rows, fields]
   const result = (await db.execute(query)) as unknown as [T[], unknown]
   return result[0] || []
 }

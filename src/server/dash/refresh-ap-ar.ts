@@ -5,7 +5,7 @@ import { AGING_SIDES, IN_OUT_VALUES, type AgingSide } from '~/server/db/erp-code
 import { openBalance } from '~/lib/finance/ap-ar/open-invoices'
 import { chunk } from '~/server/db/chunk'
 import { addDays } from '~/lib/format/date'
-import { DASH_TABLES, SNAPSHOT_AP_AR, dashTable, ints } from './tables'
+import { DASH_INSERT_BATCH_SIZE, DASH_MAX_ERROR_LENGTH, DASH_TABLES, SNAPSHOT_AP_AR, dashTable, ints } from './tables'
 
 export type Row = unknown[]
 
@@ -127,7 +127,7 @@ async function replaceTable(conn: PoolConnection, live: string, columns: string[
 
   await conn.query('DROP TABLE IF EXISTS ??', [fresh])
   await conn.query('CREATE TABLE ?? LIKE ??', [fresh, liveName])
-  for (const batch of chunk(rows, 1000)) {
+  for (const batch of chunk(rows, DASH_INSERT_BATCH_SIZE)) {
     await conn.query('INSERT INTO ?? (??) VALUES ?', [fresh, columns, batch])
   }
   await conn.query('DROP TABLE IF EXISTS ??', [old])
@@ -234,7 +234,7 @@ export async function refreshApArSnapshot(today: string, options: { force?: bool
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     console.error('AP/AR snapshot refresh failed:', message)
-    if (locked) await setMeta(conn, { status: 'failed', error: message.slice(0, 1000) }).catch(() => {})
+    if (locked) await setMeta(conn, { status: 'failed', error: message.slice(0, DASH_MAX_ERROR_LENGTH) }).catch(() => {})
     throw error
   } finally {
     if (locked) await conn.query("SELECT RELEASE_LOCK('dash_refresh_ap_ar')").catch(() => {})

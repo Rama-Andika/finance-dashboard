@@ -97,6 +97,7 @@
     "grossMargin": "Gross Margin",
     "operatingMargin": "Operating Margin",
     "netMargin": "Net Margin",
+    "margin": "Margin",
     "currentRatio": "Current Ratio",
     "runway": "Runway",
     "runwayPositive": "Arus kas positif",
@@ -310,6 +311,8 @@
       "balanceIdr": "Saldo (Rp)",
       "txCount": "Jml Transaksi",
       "oldestAge": "Umur Tertua",
+      "channelCount": "{{count}} channel",
+      "transactionsOldest": "{{count}} transaksi · tertua {{days}} hari",
       "days": "hari",
       "amountIdr": "Nilai (Rp)",
       "overAlertAge": "Melewati batas umur",
@@ -339,6 +342,8 @@
     "paymentPlan": {
       "date": "Tanggal",
       "openingIdr": "Saldo Awal (Rp)",
+      "inflowShort": "Masuk",
+      "outflowShort": "Keluar",
       "inflowIdr": "Masuk (Rp)",
       "outflowIdr": "Keluar (Rp)",
       "closingIdr": "Saldo Akhir (Rp)",
@@ -365,6 +370,9 @@
       "profitLossStatement": "Laporan Laba Rugi",
       "fixedVsVariableCosts": "Biaya Tetap vs Variabel",
       "averageFixed": "Rata-rata tetap:",
+      "averageFixedShort": "Rata-rata tetap",
+      "fixedLabel": "Tetap",
+      "variableLabel": "Variabel",
       "fixedCostFolders": "Folder Biaya Tetap"
     },
     "receivables": {

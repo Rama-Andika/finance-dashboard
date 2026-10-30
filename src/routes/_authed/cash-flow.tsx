@@ -1,20 +1,8 @@
-import { translateCfLabel } from '~/lib/finance/cash/cashflow-labels'
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useOpenDrill } from '~/components/drill/useOpenDrill'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Download, AlertTriangle, Info } from 'lucide-react'
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  Cell,
-} from 'recharts'
+import { Info } from 'lucide-react'
 import { drillSearchSchema } from '~/lib/filters/search-schema'
 import {
   cashFlowMetricOptions,
@@ -25,16 +13,14 @@ import { MetricError } from '~/components/neraca/MetricError'
 import { Notice } from '~/components/neraca/Notice'
 import { KpiCard } from '~/components/neraca/KpiCard'
 import { CashflowChart } from '~/components/neraca/CashflowChart'
-import { DataTable, type ColumnDef } from '~/components/neraca/DataTable'
 import { Tabs } from '~/components/neraca/Tabs'
-import { Button } from '~/components/neraca/Button'
-import { ExportCsvButton, formatExportFilename } from '~/components/export/ExportCsvDialog'
-import { PrintButton } from '~/components/export/PrintButton'
 import { PrintHeader } from '~/components/export/PrintHeader'
-import { formatAxisShort, formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
+import { CashFlowWaterfall } from '~/components/cash-flow/CashFlowWaterfall'
+import { ActivitiesTable } from '~/components/cash-flow/ActivitiesTable'
+import { ExpensePaidPanel } from '~/components/cash-flow/ExpensePaidPanel'
 import { formatMonthYear } from '~/lib/format/date'
-import type { Breakdown, Lang } from '~/lib/core/types'
-import { buildActivityRows, buildWaterfall, localizeExpense, type CashFlowActivityRow } from '~/lib/finance/cash/cashflow-view'
+import type { Lang } from '~/lib/core/types'
+import { buildActivityRows, buildWaterfall, localizeExpense } from '~/lib/finance/cash/cashflow-view'
 
 export const Route = createFileRoute('/_authed/cash-flow')({
   validateSearch: drillSearchSchema,
@@ -44,7 +30,6 @@ export const Route = createFileRoute('/_authed/cash-flow')({
     from: search.from,
     to: search.to,
     p13: search.p13,
-
   }),
   loader: ({ context, deps }) =>
     Promise.all([
@@ -64,64 +49,10 @@ function CashFlowPage() {
   const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
 
   const [activeTab, setActiveTab] = useState<'activities' | 'expensePaid'>('activities')
-  const openDrill = useOpenDrill()
 
   if (!cfData) return null
 
   const expData = expDataRaw ? { ...expDataRaw, byCategory: expDataRaw.byCategory.map((b) => localizeExpense(b, t)) } : undefined
-
-  const waterfallData = buildWaterfall(cfData, t)
-  const activityRows = buildActivityRows(cfData.drawers, t)
-
-  const activityColumns: ColumnDef<CashFlowActivityRow, unknown>[] = [
-    {
-      accessorKey: 'name',
-      header: t('ui.cashFlow.cashFlowActivity'),
-      cell: ({ row }) => {
-        const item = row.original
-        if (item.isDrawerHeader) {
-          return <span className="font-bold text-ink">{item.name}</span>
-        }
-        return (
-          <div className="flex items-center gap-2 pl-4">
-            {item.isUnclassified && (
-              <span title={t('metric.unallocated')}>
-                <AlertTriangle className="nr-icon nr-icon-sm text-warning" />
-              </span>
-            )}
-            <span className={item.isUnclassified ? 'text-warning font-medium' : undefined}>
-              {item.name}
-            </span>
-          </div>
-        )
-      },
-    },
-    {
-      accessorKey: 'amount',
-      header: t('ui.cashFlow.cashFlowIdr'),
-      meta: { align: 'right' },
-      cell: ({ getValue, row }) => (
-        <span className={row.original.isDrawerHeader ? 'font-bold' : undefined}>
-          {formatMoneyFull(getValue() as string, lang)}
-        </span>
-      ),
-    },
-  ]
-
-  // Expense Paid columns
-  const expenseColumns: ColumnDef<Breakdown, unknown>[] = [
-    {
-      accessorKey: 'label',
-      header: t('ui.cashFlow.expenseCategory'),
-      cell: ({ row }) => <span className="nr-name">{row.original.label}</span>,
-    },
-    {
-      accessorKey: 'amount',
-      header: t('ui.cashFlow.paidAmountIdr'),
-      meta: { align: 'right' },
-      cell: ({ getValue }) => formatMoneyFull(getValue() as string, lang),
-    },
-  ]
 
   return (
     <div className="space-y-6">
@@ -147,7 +78,6 @@ function CashFlowPage() {
         />
       )}
 
-      {/* Source Classification Notice */}
       <div className="text-xs text-muted flex items-center gap-1.5">
         <Info className="nr-icon nr-icon-sm" />
         <span>
@@ -160,99 +90,22 @@ function CashFlowPage() {
         </span>
       </div>
 
-      {/* KPI Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <KpiCard
-          label={t('metric.openingCash')}
-          value={cfData.openingCash}
-          higherIsBetter={true}
-        />
-        <KpiCard
-          label={t('metric.netCashFlow')}
-          value={cfData.netCashFlow}
-          higherIsBetter={true}
-        />
-        <KpiCard
-          label={t('metric.closingCash')}
-          value={cfData.closingCash}
-          higherIsBetter={true}
-        />
+        <KpiCard label={t('metric.openingCash')} value={cfData.openingCash} higherIsBetter={true} />
+        <KpiCard label={t('metric.netCashFlow')} value={cfData.netCashFlow} higherIsBetter={true} />
+        <KpiCard label={t('metric.closingCash')} value={cfData.closingCash} higherIsBetter={true} />
       </div>
 
-      {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Waterfall Chart */}
-        <div className="nr-card space-y-4">
-          <div className="nr-card-head" style={{ margin: 0 }}>
-            <h3 className="nr-card-title">
-              {t('ui.cashFlow.cashFlowWaterfall')}
-            </h3>
-            <span className="nr-muted nr-num" style={{ fontSize: 13 }}>
-              {formatMoneyShort(cfData.netCashFlow, lang)}
-            </span>
-          </div>
-
-          <div style={{ height: 260 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={waterfallData}
-                margin={{ top: 10, right: 10, left: 10, bottom: 20 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke="var(--chart-grid)"
-                />
-                <XAxis
-                  dataKey="name"
-                  axisLine={{ stroke: 'var(--chart-axis)' }}
-                  tickLine={false}
-                  tick={{ fill: 'var(--ink-muted)', fontSize: 12 }}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: 'var(--ink-muted)', fontSize: 11 }}
-                  tickFormatter={(val) => formatAxisShort(val, lang)}
-                />
-                <RechartsTooltip
-                  cursor={{ fill: 'var(--surface-hover)' }}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length > 0) {
-                      const item = payload[0]?.payload
-                      return (
-                        <div className="nr-tooltip">
-                          <div className="font-semibold">{item.name}</div>
-                          <div className="tabular-nums font-semibold mt-1">
-                            {formatMoneyFull(item.rawAmount, lang)}
-                          </div>
-                        </div>
-                      )
-                    }
-                    return null
-                  }}
-                />
-                <Bar dataKey="amountNum" radius={[4, 4, 0, 0]} maxBarSize={48}>
-                  {waterfallData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Dual Bar Inflow vs Outflow */}
+        <CashFlowWaterfall data={buildWaterfall(cfData, t)} netCashFlow={cfData.netCashFlow} lang={lang} />
         <CashflowChart
           title={t('ui.cashFlow.monthlyCashFlow')}
           data={cfData.monthly}
           net={cfData.netCashFlow}
-
           lang={lang}
         />
       </div>
 
-      {/* Tabs */}
       <div className="w-72">
         <Tabs
           tabs={[
@@ -264,109 +117,10 @@ function CashFlowPage() {
         />
       </div>
 
-      {/* Tab 1: Activities Table */}
       {activeTab === 'activities' && (
-        <DataTable
-          title={t('ui.cashFlow.activitiesBreakdown')}
-          columns={activityColumns}
-          data={activityRows}
-          getRowId={(r) => r.id}
-          onRowClick={(r) => {
-            if (!r.drawerKey) return
-            const drawerLabel = activityRows.find((a) => a.isDrawerHeader && a.drawerKey === r.drawerKey)?.name ?? r.drawerKey
-            const drawerStep = { kind: 'section' as const, id: r.drawerKey, label: drawerLabel }
-            openDrill(
-              'cashFlow',
-              r.isDrawerHeader ? [drawerStep] : [drawerStep, { kind: 'subrow' as const, id: r.subGroupId ?? r.name, label: r.name }],
-            )
-          }}
-          emptyMessage={t('common.noData')}
-          headerActions={
-            <div className="flex items-center gap-2">
-              <ExportCsvButton
-                rows={activityRows}
-                columns={[
-                  { header: t('ui.col.cashFlowActivity'), value: (r) => r.name, kind: 'text' },
-                  { header: t('ui.col.amount'), value: (r) => r.amount, kind: 'money' },
-                ]}
-                filename={formatExportFilename('cash_flow_activities', deps.entity, deps.from && deps.to ? `${deps.from}_${deps.to}` : deps.preset)}
-              />
-              <PrintButton />
-            </div>
-          }
-          mobileCard={(r) => (
-            <div className="flex justify-between items-center">
-              <span className={r.isDrawerHeader ? 'font-bold' : undefined}>{r.name}</span>
-              <span className="font-semibold tabular-nums">{formatMoneyFull(r.amount, lang)}</span>
-            </div>
-          )}
-        />
+        <ActivitiesTable rows={buildActivityRows(cfData.drawers, t)} lang={lang} scope={deps} />
       )}
-
-      {/* Tab 2: Expense Paid */}
-      {activeTab === 'expensePaid' && expData && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <KpiCard
-              label={t('ui.cashFlow.totalExpensePaid')}
-              value={expData.total}
-              higherIsBetter={false}
-            />
-            <KpiCard
-              label={t('ui.cashFlow.apPayments')}
-              value={expData.apPayments}
-              higherIsBetter={false}
-            />
-            <KpiCard
-              label={t('ui.cashFlow.directPayments')}
-              value={expData.directPayments}
-              higherIsBetter={false}
-            />
-          </div>
-
-          <DataTable
-            title={t('ui.cashFlow.expensePaidByCategory')}
-            columns={expenseColumns}
-            data={expData.byCategory}
-            getRowId={(r) => r.id}
-            getSubRows={(r) => r.children}
-            onRowClick={(r) => {
-              const isCategory = expData.byCategory.some((c) => c.id === r.id)
-              const parent = expData.byCategory.find((c) => (c.children ?? []).some((ch) => ch.id === r.id))
-              if (isCategory) {
-                openDrill('expensePaid', [{ kind: r.id === 'apBills' || r.id === 'unallocated' ? 'section' : 'folder', id: r.id, label: r.label }])
-              } else if (parent) {
-                const parentKind = parent.id === 'apBills' || parent.id === 'unallocated' ? 'section' : 'folder'
-                const childKind = parentKind === 'section' ? 'vendor' : 'account'
-                openDrill('expensePaid', [
-                  { kind: parentKind, id: parent.id, label: parent.label },
-                  { kind: childKind, id: r.id, label: r.label },
-                ])
-              }
-            }}
-            emptyMessage={t('common.noData')}
-            headerActions={
-              <div className="flex items-center gap-2">
-                <ExportCsvButton
-                  rows={expData.byCategory}
-                  columns={[
-                    { header: t('ui.col.expenseCategory'), value: (r) => r.label, kind: 'text' },
-                    { header: t('ui.col.amount'), value: (r) => r.amount, kind: 'money' },
-                  ]}
-                  filename={formatExportFilename('expense_paid', deps.entity, deps.from && deps.to ? `${deps.from}_${deps.to}` : deps.preset)}
-                />
-                <PrintButton />
-              </div>
-            }
-            mobileCard={(r) => (
-              <div className="flex justify-between items-center">
-                <span className="font-semibold">{r.label}</span>
-                <span className="font-semibold tabular-nums">{formatMoneyFull(r.amount, lang)}</span>
-              </div>
-            )}
-          />
-        </div>
-      )}
+      {activeTab === 'expensePaid' && expData && <ExpensePaidPanel data={expData} lang={lang} scope={deps} />}
     </div>
   )
 }

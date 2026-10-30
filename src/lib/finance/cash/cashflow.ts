@@ -59,14 +59,23 @@ export type ClassifiedPortion = {
   unclassified?: boolean
 }
 
+/** A journal that really moves our cash (see `settledJournals`). */
+export type SettledJournal = {
+  glId: Id
+  /** Journal lines on our cash accounts */
+  ourCash: CfLine[]
+  /** Every other line (the counter side) */
+  counterLines: CfLine[]
+  /** Net movement on our cash accounts: debet − credit (+ inflow, − outflow) */
+  netCash: Decimal
+}
+
 /**
- * Step 1 (data-model §6.3): Allocate cash proportionally per journal.
+ * Journals that really move our cash: they touch our cash, the net is not zero, and they have a
+ * counter side (a journal with only our own cash lines is an internal transfer and is ignored).
+ * Shared by the cash allocation and the ERP-method comparison so both pick the same journals.
  */
-export function allocateCash(
-  lines: CfLine[],
-  isOurCash: (l: CfLine) => boolean,
-): AllocatedCashPortion[] {
-  // Group lines by glId
+export function settledJournals(lines: readonly CfLine[], isOurCash: (l: CfLine) => boolean): SettledJournal[] {
   const byGl = new Map<Id, CfLine[]>()
   for (const l of lines) {
     const list = byGl.get(l.glId) ?? []
@@ -74,26 +83,32 @@ export function allocateCash(
     byGl.set(l.glId, list)
   }
 
-  const result: AllocatedCashPortion[] = []
-
+  const result: SettledJournal[] = []
   for (const [glId, journalLines] of byGl.entries()) {
-    const ourCashLines = journalLines.filter(isOurCash)
-    if (ourCashLines.length === 0) continue
+    const ourCash = journalLines.filter(isOurCash)
+    if (ourCash.length === 0) continue
 
-    // netCash = Σ (debet − credit) of ourCash lines (+ inflow, − outflow)
-    let netCash = D(0)
-    for (const cl of ourCashLines) {
-      netCash = netCash.plus(D(cl.debet).minus(D(cl.credit)))
-    }
-
+    const netCash = ourCash.reduce((acc, c) => acc.plus(D(c.debet).minus(D(c.credit))), D(0))
     if (netCash.isZero()) continue
 
     const counterLines = journalLines.filter((l) => !isOurCash(l))
-    if (counterLines.length === 0) {
-      // Internal transfer between our cash accounts -> ignored
-      continue
-    }
+    if (counterLines.length === 0) continue
 
+    result.push({ glId, ourCash, counterLines, netCash })
+  }
+  return result
+}
+
+/**
+ * Step 1 (data-model §6.3): Allocate cash proportionally per journal.
+ */
+export function allocateCash(
+  lines: CfLine[],
+  isOurCash: (l: CfLine) => boolean,
+): AllocatedCashPortion[] {
+  const result: AllocatedCashPortion[] = []
+
+  for (const { glId, counterLines, netCash } of settledJournals(lines, isOurCash)) {
     // Weight w_i = |debet − credit|
     const weights: Decimal[] = []
     let sumW = D(0)

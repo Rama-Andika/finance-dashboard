@@ -40,6 +40,14 @@ export function formatExportFilename(route: string, entity: string, preset: stri
   return `${route}_${safeEntity}_${preset}_${d}.csv`
 }
 
+/** The filters a page was opened with: enough to name an export file. */
+export type ExportScope = { entity: string; preset: string; from?: string | undefined; to?: string | undefined }
+
+/** Export file name for a page: a custom range wins over the preset. */
+export function exportFilename(route: string, scope: ExportScope, dateStr?: string) {
+  return formatExportFilename(route, scope.entity, scope.from && scope.to ? `${scope.from}_${scope.to}` : scope.preset, dateStr)
+}
+
 export interface ExportCsvDialogProps<T> {
   open: boolean
   onOpenChange: (open: boolean) => void
