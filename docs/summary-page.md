@@ -210,7 +210,7 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 - **Bagian A, tagihan:** tipe transaksi 0–6 dan 12. Sisa = nominal × arah (`in_out`) + jumlah detail pelunasan dari kartu bayar (tipe 7–11, 13, 14) bertanggal ≤ `asOf`. Hanya sisa ≠ 0 yang masuk.
 - **Bagian B, pembayaran belum dialokasikan:** kartu bayar tanpa baris detail. Nilainya negatif dan mengurangi utang.
 - **Angka besar = A + B (neto)**, mengikuti laporan AP Aging ERP.
-- **Overdue di kartu Summary** = jumlah saldo **positif** tagihan yang sudah jatuh tempo (D37). Halaman Payables menampilkan overdue **neto** per bucket (0–30, 31–60, 61–90, >90 hari), yaitu setelah kredit vendor dan pembayaran belum dialokasikan.
+- **Overdue di kartu Summary** = jumlah saldo **positif** tagihan yang sudah jatuh tempo (D37). Ditampilkan sebagai teks di bawah angka utama ("Overdue IDR …"), **tanpa** persentase perubahan: overdue bukan angka periode sebelumnya, jadi tidak dibandingkan dengan total utang. Halaman Payables menampilkan overdue **neto** per bucket (0–30, 31–60, 61–90, >90 hari), yaitu setelah kredit vendor dan pembayaran belum dialokasikan.
   - Umur = `asOf` − `due_date`. Jatuh tempo **hari ini** sudah masuk bucket 0–30.
   - `due_date` kosong → dipakai tanggal transaksi.
   - Pembayaran belum dialokasikan diumurkan berdasarkan tanggal transaksinya.
@@ -283,7 +283,7 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 
 **Perlu dikonfirmasi:**
 - Tagihan yang sudah lewat jatuh tempo dipisah ke tab sendiri. Apakah tagihan yang sangat lama (mis. > 180 hari) perlu ditandai atau ditinjau terpisah?
-- Hanya tagihan positif; kredit vendor tidak dinetto, jadi total tabel tidak akan sama dengan kartu Payables.
+- Hanya tagihan positif yang sudah lewat jatuh tempo atau jatuh tempo dalam 7 hari. Kredit vendor tidak dinetto dan tagihan yang jatuh temponya lebih jauh tidak tampil, jadi total tabel tidak akan sama dengan kartu Payables.
 
 ---
 
@@ -333,3 +333,4 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 | 2026-10-30 | Struktur halaman dirapikan tanpa mengubah angka: tabel tagihan dan kartu mini dipisah ke komponen; margin, runway, dan rekonsiliasi memakai fungsi bersama. Bagian 8 diganti judulnya menjadi tabel tagihan dua tab dan ditambah cara pakai tabel. |
 | 2026-10-30 | Kartu baru Revenue by Entity (donut) di Summary, di sebelah Composition; Cash Flow menjadi selebar penuh saat kartu tampil. Bagian 1 (peta), 3, 7, dan 11 diperbarui. Tabel Revenue by Entity ditambahkan di halaman Revenue (D40). |
 | 2026-10-30 | Struktur halaman dirapikan tanpa mengubah angka atau tampilan: empat kartu atas dan grafik dipindah ke `SummaryKpiRow` dan `SummaryCharts` (bagian 11). |
+| 2026-10-30 | Kartu Payables: Overdue tampil sebagai teks tanpa persentase perubahan (sebelumnya persentase dihitung terhadap total utang dan menyesatkan). Catatan tabel tagihan dilengkapi: total tabel juga berbeda dari kartu karena batas 7 hari. |

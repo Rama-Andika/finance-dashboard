@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { CashBalanceCard } from '~/components/neraca/CashBalanceCard'
 import { KpiCard } from '~/components/neraca/KpiCard'
-import { formatPercent } from '~/lib/format/number'
+import { formatMoneyShort, formatPercent } from '~/lib/format/number'
 import type { IsoDate, Lang, Money } from '~/lib/core/types'
 
 /** The pages a card of this row opens. */
@@ -74,8 +74,8 @@ export function SummaryKpiRow({
       <KpiCard
         label={t('nav.payables')}
         value={apAging.total}
-        compareValue={apAging.overdueBills}
-        compareLabel={t('ui.summary.overdue')}
+        // Overdue is a different figure, not a previous period: shown as a caption, without a change percentage.
+        compareLabel={`${t('ui.summary.overdue')} ${formatMoneyShort(apAging.overdueBills, lang)}`}
         higherIsBetter={false}
         onOpen={() => onOpen('/payables')}
       />
