@@ -9,7 +9,12 @@ export const prefsSchema = z.object({
 export type Prefs = z.infer<typeof prefsSchema>
 
 const ONE_YEAR = 60 * 60 * 24 * 365
-const cookieOpts = { path: '/', sameSite: 'lax', httpOnly: true, maxAge: ONE_YEAR } as const
+
+/** `secure` only in production, like the session cookie, so http://localhost keeps working in development. */
+async function cookieOptions() {
+  const { env } = await import('~/server/env')
+  return { path: '/', sameSite: 'lax', httpOnly: true, secure: env.NODE_ENV === 'production', maxAge: ONE_YEAR } as const
+}
 
 export const getPrefsFn = createServerFn({ method: 'GET' }).handler(async (): Promise<Prefs> => {
   const theme = getCookie('nr_theme') === 'dark' ? 'dark' : 'light'
@@ -20,7 +25,8 @@ export const getPrefsFn = createServerFn({ method: 'GET' }).handler(async (): Pr
 export const setPrefsFn = createServerFn({ method: 'POST' })
   .validator((d: unknown) => prefsSchema.partial().parse(d))
   .handler(async ({ data }) => {
-    if (data.theme) setCookie('nr_theme', data.theme, cookieOpts)
-    if (data.lang) setCookie('nr_lang', data.lang, cookieOpts)
+    const options = await cookieOptions()
+    if (data.theme) setCookie('nr_theme', data.theme, options)
+    if (data.lang) setCookie('nr_lang', data.lang, options)
     return { ok: true as const }
   })

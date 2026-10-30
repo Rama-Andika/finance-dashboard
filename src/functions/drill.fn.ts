@@ -17,5 +17,5 @@ export const getDrillFn = createServerFn({ method: 'GET' })
   .validator((d: unknown) => drillInputSchema.parse(d))
   .handler(async ({ data }): Promise<DrillResult> => {
     const filter = await resolveFilter(data)
-    return computeDrill(filter, data.drill, data.offset || 0)
+    return computeDrill(filter, data.drill, data.offset)
   })

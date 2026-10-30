@@ -3,7 +3,7 @@ import Decimal from 'decimal.js'
 import { D, safeDiv } from '../../core/money'
 import { formatPercent } from '~/lib/format/number'
 import type { AccountGroup, Id, Money } from '../../core/types'
-import { type CoaTree, type CoaNode, postableDescendants } from '../coa/coa-tree'
+import { type CoaTree, type CoaNode, ORPHAN_FOLDER_ID, postableDescendants } from '../coa/coa-tree'
 
 export type BudgetRow = {
   coaId: Id
@@ -93,7 +93,7 @@ export function buildBudgetTree(input: {
       if (
         node.status === 'POSTABLE' &&
         node.accountGroup === group &&
-        node.coaId !== '__orphans__'
+        node.coaId !== ORPHAN_FOLDER_ID
       ) {
         postables.push(node)
       }

@@ -1,5 +1,8 @@
 import type { AccountGroup, Id } from '../../core/types'
 
+/** Id of the virtual folder that holds accounts whose parent does not exist. Skip it when summing real accounts. */
+export const ORPHAN_FOLDER_ID = '__orphans__' as const
+
 export type CoaRow = {
   coaId: Id
   parentId: Id
@@ -22,7 +25,7 @@ export type CoaNode = Omit<CoaRow, 'parentId'> & {
 export type CoaTree = {
   roots: CoaNode[]
   byId: Map<Id, CoaNode>
-  orphanFolderId: '__orphans__'
+  orphanFolderId: typeof ORPHAN_FOLDER_ID
 }
 
 function compareCoaNodes(a: CoaNode, b: CoaNode): number {
@@ -102,7 +105,7 @@ export function buildCoaTree(rows: CoaRow[]): CoaTree {
   if (orphans.length > 0) {
     orphans.sort(compareCoaNodes)
     const orphanFolder: CoaNode = {
-      coaId: '__orphans__',
+      coaId: ORPHAN_FOLDER_ID,
       parentId: null,
       code: '',
       name: 'Akun tanpa induk',
@@ -114,14 +117,14 @@ export function buildCoaTree(rows: CoaRow[]): CoaTree {
       children: orphans,
       isOrphan: true,
     }
-    byId.set('__orphans__', orphanFolder)
+    byId.set(ORPHAN_FOLDER_ID, orphanFolder)
     roots.push(orphanFolder)
   }
 
   return {
     roots,
     byId,
-    orphanFolderId: '__orphans__',
+    orphanFolderId: ORPHAN_FOLDER_ID,
   }
 }
 

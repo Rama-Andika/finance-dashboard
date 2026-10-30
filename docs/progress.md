@@ -83,6 +83,7 @@
 | 2026-10-29 | 16.5 | Bersih-bersih & finalisasi | dev-ui.tsx dibersihkan, routeTree.gen.ts disinkronkan, aplikasi 100% siap produksi (Lulus) |
 | 2026-10-29 | 17 | Export CSV bills (Summary) dan aging (Payables/Receivables) diambil per potongan 5.000 baris lewat getPaymentBillsExportChunkFn dan getAgingPartiesExportChunkFn; helper fetchAllChunks + 5 unit test | typecheck lulus, 254 unit test lulus (Lulus) |
 | 2026-10-29 | 18 | Snapshot AP/AR akhir bulan: tabel dash_snap_ap_ar_hist_open/unallocated/dates, pembangun hist-ap-ar.ts (13 bulan, satu bulan per putaran scheduler, dua bulan terbaru sementara), pembaca snapshot-hist.ts, angka pembanding AP/AR kembali tampil, skrip dash:refresh-hist; 14 unit test untuk perencana | Typecheck lulus, 268 unit test lulus; migrasi, pembangunan snapshot, dan test integrasi belum dijalankan (butuh DB, dikerjakan user) |
+| 2026-10-30 | 19 | Review src/functions: logika settings/filters/snapshot dipindah ke service, cek user aktif diekstrak ke `server/auth/user-check.ts` (+4 test), helper `exportChunkShape` (+3 test), konstanta `ORPHAN_FOLDER_ID`, log error scheduler, cookie prefs `secure` di production; hak mengubah Account Mapping dipertegas di decisions.md (S9: semua user boleh) | Typecheck lulus, 290 unit test lulus, build lulus, bundle browser bersih; tidak ada query ke database |
 
 ## Ringkasan Proyek
 

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fetchAllChunks, MAX_EXPORT_CHUNKS } from './export-chunks'
+import { z } from 'zod'
+import { exportChunkShape, fetchAllChunks, MAX_EXPORT_CHUNKS } from './export-chunks'
 import type { Page } from './query'
 
 /** A fake server: `all` is cut into pages of `pageSize` rows, like `paginate` does. */
@@ -58,5 +59,29 @@ describe('fetchAllChunks', () => {
     )
     await expect(fetchAllChunks(server)).rejects.toThrow('Export too large')
     expect(server).toHaveBeenCalledTimes(1)
+  })
+})
+describe('exportChunkShape', () => {
+  const shape = exportChunkShape(['name', 'amount'] as const)
+  const schema = z.object(shape)
+
+  it('has only page, sortBy and sortDir', () => {
+    expect(Object.keys(shape).sort()).toEqual(['page', 'sortBy', 'sortDir'])
+  })
+
+  it('keeps valid input', () => {
+    expect(schema.parse({ page: '3', sortBy: 'amount', sortDir: 'desc' })).toEqual({
+      page: 3,
+      sortBy: 'amount',
+      sortDir: 'desc',
+    })
+  })
+
+  it('falls back to page 1, no sort column and ascending order for bad input', () => {
+    expect(schema.parse({ page: 'x', sortBy: 'other', sortDir: 'up' })).toEqual({
+      page: 1,
+      sortBy: undefined,
+      sortDir: 'asc',
+    })
   })
 })

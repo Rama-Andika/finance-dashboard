@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { authMiddleware } from '~/functions/middleware'
 import { metricInputSchema } from '~/lib/filters/search-schema'
 import { tableQuerySchema } from '~/lib/table/query'
-import { EXPORT_CHUNK_SIZE } from '~/lib/table/export-chunks'
+import { EXPORT_CHUNK_SIZE, exportChunkShape } from '~/lib/table/export-chunks'
 import { AGING_PARTY_SORT_KEYS, type AgingPartyRow } from '~/lib/finance/ap-ar/aging-parties'
 import type { Page } from '~/lib/table/query'
 import { resolveFilter } from '~/server/context'
@@ -29,12 +29,9 @@ export const getAgingPartiesFn = createServerFn({ method: 'GET' })
     })
   })
 
-const exportTableShape = tableQuerySchema(AGING_PARTY_SORT_KEYS).shape
 const exportChunkInput = metricInputSchema.extend({
   side: z.enum(['ap', 'ar']),
-  page: exportTableShape.page,
-  sortBy: exportTableShape.sortBy,
-  sortDir: exportTableShape.sortDir,
+  ...exportChunkShape(AGING_PARTY_SORT_KEYS),
 })
 export type AgingPartiesExportChunkInput = z.infer<typeof exportChunkInput>
 

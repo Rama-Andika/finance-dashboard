@@ -2,7 +2,7 @@ import Decimal from 'decimal.js'
 import { D, safeDiv } from '../../core/money'
 import { formatPercent } from '~/lib/format/number'
 import type { AccountGroup, Breakdown, Id, Money } from '../../core/types'
-import { type CoaTree, type CoaNode, postableDescendants } from '../coa/coa-tree'
+import { type CoaTree, type CoaNode, ORPHAN_FOLDER_ID, postableDescendants } from '../coa/coa-tree'
 import { groupFolders } from './revenue'
 import { accountSide } from '../coa/sign'
 
@@ -36,7 +36,7 @@ export type PnlMovement = {
 export function findOciCoaIds(tree: CoaTree, ociRootCodes: string[]): Set<Id> {
   const ociSet = new Set<Id>()
   for (const node of tree.byId.values()) {
-    if (node.coaId === '__orphans__') continue
+    if (node.coaId === ORPHAN_FOLDER_ID) continue
     const matchesRoot = ociRootCodes.includes(node.code)
     if (matchesRoot) {
       if (node.status === 'POSTABLE') {

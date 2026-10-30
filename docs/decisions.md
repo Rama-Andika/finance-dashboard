@@ -120,6 +120,7 @@ Kalau ada keputusan yang berubah, ubah baris di tabel dan tambahkan catatan di b
 | S6 | **Satu set settings** per instalasi (tanpa profil klien) | Sederhana |
 | S7 | Default klien baru: akun dengan **`sub_account_group = 'Cash'`** otomatis tercentang | Admin tinggal memisahkan ke Kas/Bank/Deposito |
 | S8 | Yang **tidak** bisa diatur (sementara): baris P&L, kolom segment entitas, ambang aging/runway | Mengikuti `account_group` & `segment1_id` |
+| S9 | **Semua pengguna yang bisa login** (akun `sysuser` aktif) boleh menyimpan Account Mapping; tidak ada pemeriksaan peran | Sesuai U6 (semua akun akses penuh, tanpa RBAC). Dikonfirmasi user 2026-10-30 |
 
 ---
 
@@ -190,3 +191,4 @@ Kalau ada keputusan yang berubah, ubah baris di tabel dan tambahkan catatan di b
 | 2026-10-28 | Revisi user: tabel `department` tidak dipakai (D9) → semua drill-down "departemen" diganti entitas/pohon CoA, master data dummy departemen dihapus |
 | 2026-10-28 | Studi `bank_payment` & `bank_payment_history`: register pencairan pembayaran non-tunai POS → D30 (rincian & umur Dana dalam pencairan, estimasi tanggal cair per channel untuk Payment Plan menggantikan asumsi H+1); temuan Q9 (9 baris janggal) |
 | 2026-10-28 | Design system **Neraca UI** dibuat dari gambar referensi user (U7): token warna 2 tema, skala tipografi, spacing, radius, bayangan, layout, brand book, 16 komponen + cover |
+| 2026-10-30 | Review `src/functions` (Fase 19): hak menyimpan Account Mapping dipertegas sebagai S9 (semua user boleh, mengikuti U6); tidak ada pemeriksaan peran |

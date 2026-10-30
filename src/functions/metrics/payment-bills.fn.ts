@@ -3,7 +3,7 @@ import type { z } from 'zod'
 import { authMiddleware } from '~/functions/middleware'
 import { metricInputSchema } from '~/lib/filters/search-schema'
 import { tableQuerySchema, type Page } from '~/lib/table/query'
-import { EXPORT_CHUNK_SIZE } from '~/lib/table/export-chunks'
+import { EXPORT_CHUNK_SIZE, exportChunkShape } from '~/lib/table/export-chunks'
 import { PAYMENT_BILL_SORT_KEYS } from '~/lib/finance/ap-ar/payment-plan-bills'
 import type { PaymentPlanBill } from '~/lib/finance/ap-ar/payment-plan'
 import { resolveFilter } from '~/server/context'
@@ -26,12 +26,7 @@ export const getPaymentBillsFn = createServerFn({ method: 'GET' })
     })
   })
 
-const exportTableShape = tableQuerySchema(PAYMENT_BILL_SORT_KEYS).shape
-const exportChunkInput = metricInputSchema.extend({
-  page: exportTableShape.page,
-  sortBy: exportTableShape.sortBy,
-  sortDir: exportTableShape.sortDir,
-})
+const exportChunkInput = metricInputSchema.extend(exportChunkShape(PAYMENT_BILL_SORT_KEYS))
 export type PaymentBillsExportChunkInput = z.infer<typeof exportChunkInput>
 
 /**
