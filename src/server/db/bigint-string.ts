@@ -23,6 +23,8 @@ export class MySqlBigIntStringBuilder<
     this.config.unsigned = unsigned
   }
   build<TTableName extends string>(table: AnyMySqlTable<{ name: TTableName }>) {
+    // drizzle's builder types cannot express this custom column type
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return new MySqlBigIntString(table, this.config) as any
   }
 }

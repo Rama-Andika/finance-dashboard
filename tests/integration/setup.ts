@@ -29,13 +29,13 @@ if (dbUrl) {
     if (!allowedHosts.includes(hostname)) {
       throw new Error('Integration tests may only run against a local database')
     }
-  } catch (err: any) {
-    if (err.message === 'Integration tests may only run against a local database') {
+  } catch (err) {
+    if (err instanceof Error && err.message === 'Integration tests may only run against a local database') {
       throw err
     }
     // URL parsing might fail if not full protocol, check simple regex
     if (!dbUrl.includes('localhost') && !dbUrl.includes('127.0.0.1') && !dbUrl.includes('::1')) {
-      throw new Error('Integration tests may only run against a local database')
+      throw new Error('Integration tests may only run against a local database', { cause: err })
     }
   }
 }

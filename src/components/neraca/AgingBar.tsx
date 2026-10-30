@@ -60,7 +60,7 @@ export function AgingBar({ title, asOf, total, segments, lang, onSelect }: Aging
     const remainders = rawPcts.map((p, idx) => ({ idx, rem: p - floorPcts[idx]! }))
     remainders.sort((a, b) => b.rem - a.rem)
 
-    let deficit = 100 - floorPcts.reduce((a, b) => a + b, 0)
+    const deficit = 100 - floorPcts.reduce((a, b) => a + b, 0)
     percentages = [...floorPcts]
     for (let i = 0; i < deficit && i < remainders.length; i++) {
       const idx = remainders[i]!.idx

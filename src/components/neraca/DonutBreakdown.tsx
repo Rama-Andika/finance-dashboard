@@ -73,7 +73,7 @@ function DefaultDonut({
     .sort((a, b) => b.decAmount.cmp(a.decAmount))
 
   // Max 5 segments: 4 largest + "Lainnya"
-  let displayItems: Array<{ id: string; name: string; amount: Money; decAmount: Decimal }> = []
+  let displayItems: Array<{ id: string; name: string; amount: Money; decAmount: Decimal }>
   if (sorted.length <= 5) {
     displayItems = sorted
   } else {

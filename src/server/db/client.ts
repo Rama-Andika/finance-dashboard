@@ -5,7 +5,6 @@ import { env } from '~/server/env'
 import { createLogger } from '~/server/log'
 
 declare global {
-  // eslint-disable-next-line no-var
   var __nrPool: mysql.Pool | undefined
 }
 

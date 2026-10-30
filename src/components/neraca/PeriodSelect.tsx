@@ -79,7 +79,7 @@ export function PeriodSelect({
   const monthLabel = (month: string) => formatMonthYear(`${month}-01`, lang)
 
   // Current trigger display text
-  const currentLabel = useMemo(() => {
+  const currentLabel = (() => {
     if (isForwardMode) {
       const match = forwardPresets.find((p) => p.id === horizon)
       return match ? match.label : t('period.next7')
@@ -91,7 +91,7 @@ export function PeriodSelect({
     const label = match ? match.label : t('period.thisMonth')
     const hint = hintsMap.get(preset)
     return hint ? `${label} · ${hint}` : label
-  }, [isForwardMode, horizon, preset, from, to, hintsMap, t, standardPresets, forwardPresets])
+  })()
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

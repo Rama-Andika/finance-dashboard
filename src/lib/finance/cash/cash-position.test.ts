@@ -97,9 +97,9 @@ describe('cash-position pure logic', () => {
     const cash = breakdown[0]!
     expect(cash.id).toBe('cash')
     expect(cash.amount).toBe('250.00')
-    const folder = cash.children?.[0]!
-    expect(folder.label).toBe('Kas & Setara Kas')
-    expect(folder.children?.[0]!.amount).toBe('250.00')
+    const folder = cash.children?.[0]
+    expect(folder?.label).toBe('Kas & Setara Kas')
+    expect(folder?.children?.[0]?.amount).toBe('250.00')
 
     const bank = breakdown[1]!
     expect(bank.id).toBe('bank')

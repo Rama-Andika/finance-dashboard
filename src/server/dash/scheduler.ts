@@ -12,9 +12,7 @@ import { apArSnapshotInfo, warmApArSnapshot } from './snapshot'
 
 // Module state lives on globalThis so a hot reload does not start a second scheduler (`var` is required to declare it).
 declare global {
-  // eslint-disable-next-line no-var
   var __dashScheduler: { started: true; running: boolean } | undefined
-  // eslint-disable-next-line no-var
   var __dashSchedulerRetryAt: number | undefined
 }
 

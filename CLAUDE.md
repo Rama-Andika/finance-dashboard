@@ -23,6 +23,9 @@ npm run dev            # Vite dev server on http://localhost:3000
 npm run build          # client + SSR build into dist/
 npm start              # production server (scripts/start-server.mjs, serves dist/)
 npm run typecheck      # tsc --noEmit
+npm run lint           # ESLint (also enforces the layering: no server/DB imports in routes, components, lib; no console in src/server)
+npm run lint:fix
+npx prettier --write <files>   # Prettier (setup matches the code style; the old code is NOT reformatted, only format files you change)
 npm test               # unit tests (Vitest project "unit": src/**/*.test.ts, scripts/**/*.test.ts)
 npm run test:db        # integration tests against the LOCAL DB (tests/integration/**/*.int.test.ts)
 ```
