@@ -6,7 +6,7 @@
 > - Setiap query punya ID (`Q1`, `Q2`, …) dan petunjuk file sumbernya. Query ditranskripsi dari kode; bila kode berubah, kodenya yang benar.
 > - `<SEG>` = kolom segmen entitas, dicari dari `segment` yang `count = 1` (klien ini `segment1_id`) dan divalidasi `assertSegmentColumn`.
 > - `<GL>` / `<GL_DETAIL>` = `gl` / `gl_detail` atau tabel arsip `gl_20XX` / `gl_detail_20XX`, ditentukan `periode.table_name` (`src/server/db/gl-tables.ts`, pola `^gl(_20\d{2})?$`).
-> - Daftar `IN (...)` dipecah per **1.000** id (`IN_LIST_LIMIT`); satu query logis bisa menjadi beberapa eksekusi.
+> - Daftar `IN (...)` dipecah per **1.000** id (`IN_LIST_LIMIT`); satu query logis bisa menjadi beberapa eksekusi. Bila ada dua atau tiga daftar (periode × akun × entitas), tiap kombinasi potongan menjadi satu eksekusi (`sliceCombos` di `src/server/db/chunk.ts`).
 > - Semua SQL harus kompatibel **MySQL 5.7** (tanpa CTE / window function). Dijaga oleh `src/server/repo/sql-guard.test.ts`.
 > - Kondisi `canceled_date IS NULL` pada `gl` **hanya ditambahkan bila tabel itu punya kolomnya** (`notCanceledClause`, lihat Q24). Pada ERP tanpa kolom itu, kondisinya tidak muncul di SQL.
 > - Drizzle membuat nilai parameter jadi `?`. Alias kolom camelCase memakai `AS`.
@@ -20,7 +20,7 @@
 1. [Query referensi (dipakai semua kartu)](#1-query-referensi)
 2. [Saldo akun per tanggal](#2-saldo-akun-per-tanggal)
 3. [Mutasi per periode (Revenue, P&L, Composition)](#3-mutasi-per-periode)
-4. [AP (Payables dan tabel 7 hari)](#4-ap-payables-dan-tabel-7-hari)
+4. [AP (Payables dan tabel tagihan)](#4-ap-payables-dan-tabel-tagihan)
 5. [Cash Flow dan Runway](#5-cash-flow-dan-runway)
 6. [Status Pengakuan Biaya](#6-status-pengakuan-biaya)
 7. [Query pembangun snapshot `dash_*`](#7-query-pembangun-snapshot-dash_)
@@ -279,7 +279,7 @@ Pembanding Revenue dan Net Profit: Q11/Q12 yang sama dengan `:periodIds = compar
 
 ---
 
-## 4. AP (Payables dan tabel 7 hari)
+## 4. AP (Payables dan tabel tagihan)
 
 Logika: `src/server/services/ap-aging.service.ts`, `src/lib/finance/ap-ar/apar.ts`. Pembacaan data: `src/server/repo/aging.repo.ts`.
 
@@ -387,12 +387,12 @@ Overdue (kartu Summary)      = Σ saldo POSITIF item yang bucket-nya overdue*   
 Sumber: `src/lib/finance/ap-ar/apar.ts`, `src/lib/finance/ap-ar/aging.ts`.
 
 ### Rekonsiliasi AP dengan GL (jalan di Summary, tidak ditampilkan)
-Akun kontrol = `ap_ar_card.coa_id` dari baris AP. Saldo GL-nya dihitung dengan Q7–Q9 (bagian 2) pada `:asOf`; selisih terhadap total AP disimpan di `reconciliation`.
+Akun kontrol = `ap_ar_card.coa_id` dari baris AP. Saldo GL-nya dihitung dengan Q7–Q9 (bagian 2) pada `:asOf` (`controlAccountsGlTotal`); `reconcileAging` menghitung selisih GL − subledger dan menganggap selisih di bawah Rp1 sebagai pembulatan. Hasilnya disimpan di `reconciliation`. Kode yang sama dipakai AP dan AR (`src/server/services/shared/aging.helper.ts`, `src/lib/finance/ap-ar/aging-reconciliation.ts`).
 
 ### Pembanding AP
-Sama dengan Q14–Q17 pada `compare.asOf` bila snapshot (atau riwayat bulan) mencakup tanggal itu; kalau tidak, pembanding dilewati agar halaman tidak menunggu.
+Sama dengan Q14–Q17 pada `compare.asOf` bila snapshot (atau riwayat bulan) mencakup tanggal itu (`agingCompareIsAvailable`); kalau tidak, pembanding dilewati agar halaman tidak menunggu. Tanpa snapshot sama sekali, query langsung ke ERP yang dipakai.
 
-### Tabel "Bills due in 7 days"
+### Tabel tagihan (dua tab)
 Memakai Q14/Q16 dengan `:asOfPlusOne = today + 1`, lalu di JavaScript:
 
 ```
@@ -403,7 +403,7 @@ tab "Lewat jatuh tempo"    = tagihan dengan COALESCE(due_date, tx_date) <  today
 vendor    = Q18
 ```
 
-Untuk "overdue" di rencana pembayaran: `due_date < today`. Penyortiran dan paging dilakukan di memori (`paginate`), bukan di SQL. Hasil rencana di-memo, jadi ganti halaman tidak memicu query baru.
+Untuk "overdue" di rencana pembayaran: `due_date < today`. Pemisahan per tab (`filterBillsByScope`), penyortiran, dan paging dilakukan di memori (`paginate`), bukan di SQL. Hasil rencana di-memo, jadi ganti tab atau halaman tidak memicu query baru. Jumlah baris dan total kedua tab (`summarizeBillScopes`) dihitung dari daftar yang sama. Kolom status disembunyikan bila Q19 tidak mengembalikan satu baris pun (`planStatusInUse`).
 
 ---
 
@@ -428,13 +428,13 @@ JOIN (
   FROM <GL> g2
   JOIN <GL_DETAIL> d2 ON d2.gl_id = g2.gl_id
   WHERE g2.posted_status = 1
-    AND g2.canceled_date IS NULL
+    -- AND g2.canceled_date IS NULL        (hanya bila kolomnya ada, Q24)
     AND g2.period_id IN (:periodIds)
     AND d2.coa_id IN (:cashCoaIds)
     -- AND d2.<SEG> IN (:segIds)
 ) k ON k.gl_id = g.gl_id
 WHERE g.posted_status = 1
-  AND g.canceled_date IS NULL
+  -- AND g.canceled_date IS NULL          (hanya bila kolomnya ada, Q24)
 GROUP BY d.gl_id, g.journal_type, g.period_id, d.coa_id, d.<SEG>;
 ```
 
@@ -466,7 +466,9 @@ Hanya dipakai klasifikasi Operating/Investing/Funding, yang tidak tampil di Summ
 - Kas awal = saldo Kas ∪ Bank ∪ Deposito pada `d1 − 1 hari` → bagian 2 (Q7–Q9).
 - Kas akhir (cek) = saldo yang sama pada `asOf`.
 
-### Rumus grafik bulanan (JavaScript, `cash-flow.service.ts`)
+### Rumus grafik bulanan (JavaScript, `cash-flow.service.ts` dan `lib/finance/cash/cashflow.ts`)
+
+Pemilihan jurnal yang benar-benar menggerakkan kas (`settledJournals`) satu fungsi yang sama dengan alokasi kas untuk Runway dan drill-down.
 
 ```
 per jurnal (kelompok baris Q20 per glId):
@@ -580,14 +582,14 @@ Hasil ditulis ke tabel bayangan `dash_snap_ap_ar_open_new` / `dash_snap_ap_ar_un
 
 | Komponen Summary | Query |
 |---|---|
-| Cash Position | Q1, Q2, Q3, Q4, Q5, Q7, Q8, Q9, Q10 (+ ulang Q7–Q9 untuk pembanding) |
+| Cash Position | Q1, Q2, Q3, Q4, Q5, Q7, Q8, Q9, Q10, Q22 untuk baris giro/cek beredar (+ ulang Q7–Q9 untuk pembanding) |
 | Revenue | Q1–Q5, Q11 atau Q12 (+ Q13), plus Q11/Q12 untuk pembanding |
 | Net Profit | Q1–Q5, Q11 atau Q12 (+ Q13), plus pembanding |
 | Payables | Q1, Q14–Q15 (atau Q16–Q17), Q18, rekonsiliasi GL (Q7–Q9) |
 | Cash Flow (grafik) | Q1–Q5, Q7–Q9 (kas awal/akhir), Q20, Q21 |
 | Composition — Revenue | sama dengan kartu Revenue |
 | Composition — Expense | Q11 / Q12 (akun keranjang Biaya Tetap termasuk di pembacaan bersama) |
-| Bills due in 7 days | Q14 (atau Q16), Q19, Q18, Cash Position hari ini (Q7–Q10) |
+| Tabel tagihan (dua tab) | Q14 (atau Q16), Q19, Q18, Cash Position hari ini (Q7–Q10) |
 | Runway | Q20 (3 bulan sebelumnya), Cash Position, P&L |
 | Gross / Net margin | hasil P&L (Q11 / Q12) |
 | Current Ratio | Q1, Q7–Q9 untuk akun Liquid Assets + Current Liabilities |
@@ -603,6 +605,8 @@ Hasil ditulis ke tabel bayangan `dash_snap_ap_ar_open_new` / `dash_snap_ap_ar_un
 | Saldo akun (Q7–Q9) | 60 detik | `balance.service.ts` |
 | Q10 dan Q20 | 60 detik | repo masing-masing |
 | Q19 | 5 menit | `payment-plan.repo.ts` |
+| Q22 (giro/cek beredar) | 60 detik | `bank-payment.repo.ts` |
+| Q24 (kolom `canceled_date`) | 1 jam per tabel GL | `db/gl-columns.ts` |
 | Hasil metrik (Revenue, P&L, …) | 60 detik (`memoMetric`) | `server/cache.ts` |
 | Hasil turunan snapshot AP | selama snapshot yang sama (maks 6 jam) | `dash/snapshot.ts` |
 | Mutasi periode `Closed` (Q11) | LRU permanen; periode `Open` / `Pre Closed` tidak pernah di-cache | `gl.repo.ts` |
@@ -650,3 +654,4 @@ WHERE table_schema = DATABASE()
 |---|---|
 | 2026-10-30 | Dokumen dibuat dari pembacaan kode (belum ada perubahan pada halaman Summary). |
 | 2026-10-30 | Rencana gelombang 2: Q10 memakai aturan belum cair pada asOf; Q22 dan Q24 ditambahkan (Q23 dibatalkan); istilah Pengakuan Biaya. |
+| 2026-10-30 | Disinkronkan dengan kode terbaru: tabel tagihan dua tab (`filterBillsByScope`, `planStatusInUse`), rekonsiliasi AP/AR (`reconcileAging`), `settledJournals`, `sliceCombos`, Q20 menandai kondisi `canceled_date` sebagai opsional, matriks dan tabel cache ditambah Q22 dan Q24. Tidak ada query yang berubah isinya. |

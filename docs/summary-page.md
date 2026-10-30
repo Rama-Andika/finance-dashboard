@@ -19,7 +19,7 @@
 5. [Payables](#5-payables)
 6. [Cash Flow (grafik bulanan)](#6-cash-flow-grafik-batang-bulanan)
 7. [Composition (donut)](#7-composition-donut)
-8. [Tabel Bills due in 7 days](#8-tabel-bills-due-in-7-days)
+8. [Tabel tagihan: jatuh tempo ≤ 7 hari dan lewat jatuh tempo](#8-tabel-tagihan-jatuh-tempo--7-hari-dan-lewat-jatuh-tempo)
 9. [Kartu mini: Runway, Margin, Current Ratio](#9-kartu-mini)
 10. [Lima hal terpenting untuk dikonfirmasi](#10-lima-hal-terpenting-untuk-dikonfirmasi)
 11. [Catatan developer](#11-catatan-developer-bukan-untuk-finance)
@@ -62,7 +62,7 @@ Berlaku untuk semua kartu di Summary.
 | Payables | `ap-aging.service.ts` | `ap_ar_card`, `ap_ar_card_detail`, `vendor` (via snapshot `dash_*`) |
 | Cash Flow | `cash-flow.service.ts` | `gl`, `gl_detail`, `cash_flow_setup`, `cash_flow_group` |
 | Composition | `revenue.service.ts`, `fixed-cost.service.ts` | `gl`, `gl_detail`, `coa`, `system_main` |
-| Bills due in 7 days | `payment-plan.service.ts` | AP open invoices, `bankpo_payment`, `bankpo_payment_detail`, `vendor` |
+| Tabel tagihan (dua tab) | `payment-plan.service.ts` | AP open invoices, `bankpo_payment`, `bankpo_payment_detail`, `vendor` |
 | Runway, Margin, Current Ratio | `runway.service.ts` | Cash Position + arus kas + P&L + saldo akun |
 
 Orkestrator: `src/server/services/summary.service.ts`. Halaman: `src/routes/_authed/summary.tsx`.
@@ -194,7 +194,7 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
   - Laba Usaha = Laba Kotor − Beban Operasional
   - **Net Profit = Laba Usaha + Other Revenue − Other Expense**
   - OCI dipisah; kartu menampilkan Net Profit, bukan Total Laba Komprehensif.
-- **Net margin** = Net Profit ÷ Revenue (Revenue = 0 → "—").
+- **Net margin** = Net Profit ÷ Revenue (Revenue = 0 → "—"). Tampil sebagai teks kecil di bawah angka Net Profit, dan juga di kartu mini.
 
 **Perlu dikonfirmasi:**
 - Akun OCI diidentifikasi sebagai akun di bawah kode "9" (konfigurasi di kode, item O4). Benar?
@@ -246,7 +246,7 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 
 ---
 
-## 8. Tabel "Bills due in 7 days"
+## 8. Tabel tagihan: jatuh tempo ≤ 7 hari dan lewat jatuh tempo
 
 - **Data:** tagihan AP bagian A dengan sisa > 0, dalam dua tab. Tanggal acuan = hari ini (bukan filter periode); filter entitas tetap berlaku.
   - **Jatuh tempo ≤ 7 hari:** jatuh tempo dari hari ini sampai hari ini + 6 hari.
@@ -260,6 +260,11 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
     - *Disetujui, menunggu bayar* = Posted atau Partialy Paid.
     - *Diseleksi, belum disetujui* = Not Posted.
     - *Belum diseleksi* = tidak ada dokumen Pengakuan Biaya aktif.
+- **Cara pakai tabel:**
+  - Dua tab di atas tabel menampilkan jumlah baris masing-masing; berpindah tab mengembalikan tabel ke halaman 1.
+  - Tabel bisa diurutkan (vendor, jatuh tempo, sisa, status) dan dibagi per halaman.
+  - Tombol ekspor CSV memuat **seluruh** baris pada tab yang sedang dipilih, dengan urutan yang sedang tampil. Kolom status ikut diekspor hanya bila kolomnya tampil.
+  - Mengklik baris membuka halaman Payment Plan.
 
 **Perlu dikonfirmasi:**
 - Tagihan yang sudah lewat jatuh tempo dipisah ke tab sendiri. Apakah tagihan yang sangat lama (mis. > 180 hari) perlu ditandai atau ditinjau terpisah?
@@ -283,7 +288,7 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 1. Isi keranjang akun Kas, Bank, Deposito, Transit.
 2. Apakah Deposito harus masuk Cash Position.
 3. Apakah total Payables dan angka Cash Position sama dengan laporan ERP pada tanggal yang sama.
-4. Definisi Overdue dan isi tabel 7 hari (apakah tagihan lama harus tampil).
+4. Definisi Overdue dan isi tabel tagihan (apakah tagihan lama perlu ditandai di tab "Lewat jatuh tempo").
 5. Isi tab Expense di donut, dan pembanding periode berjalan vs bulan lalu penuh.
 
 ---
@@ -291,6 +296,10 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 ## 11. Catatan developer (bukan untuk finance)
 
 - Margin (Gross, Operating, Net) dikirim server sebagai rasio desimal (mis. "0.4") dan diformat di klien dengan `formatPercent` (D33).
+- Struktur halaman: `summary.tsx` hanya merangkai kartu; tabel tagihan (tab, urut, halaman, ekspor) ada di `components/summary/BillsTable.tsx`, dan empat kartu mini di `components/summary/MiniMetricsBar.tsx`. Teks runway dibuat oleh `runwayLabel` (`lib/finance/cash/runway-label.ts`), dipakai juga oleh halaman Cash Position.
+- Rekonsiliasi GL terhadap AP/AR memakai `reconcileAging` (`lib/finance/ap-ar/aging-reconciliation.ts`): selisih di bawah Rp1 dianggap pembulatan. Pembanding AP hanya dihitung bila snapshot atau riwayat bulan mencakup tanggalnya (`agingCompareIsAvailable`).
+- Filter `canceled_date` diputuskan sekali per tabel GL dan di-cache 1 jam; semua tabel GL yang dipakai dicek paralel di awal (`prefetchCanceledDateColumns`).
+- Teks "terposting sampai" sempat dibuat lalu dibatalkan (D34), jadi tidak ada di halaman.
 - Dihitung di server tetapi tidak ditampilkan di Summary: pembanding Cash Position, saldo awal dan overdue Payment Plan 7 hari, pembanding AP, rekonsiliasi GL terhadap AP. Query-nya tetap berjalan.
 - Untuk tanggal acuan masa lalu yang bukan akhir bulan, AP memakai query langsung ke ERP yang lambat.
 
@@ -304,3 +313,4 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 | 2026-10-30 | Ditambah tautan ke `summary-queries.md` (katalog query SQL untuk developer). |
 | 2026-10-30 | Bagian Cash Position: contoh kasus lengkap cara hitung saldo akun pada `asOf` (dua variasi dan cara cadangan). |
 | 2026-10-30 | Rencana gelombang 2: filter canceled_date opsional; register dana pencairan untuk tanggal lampau; margin rasio desimal; giro beredar; tab tagihan jatuh tempo & terlambat; overdue kotor; ambang umur transit; istilah Pengakuan Biaya. Lihat D31–D38 di `decisions.md`. |
+| 2026-10-30 | Struktur halaman dirapikan tanpa mengubah angka: tabel tagihan dan kartu mini dipisah ke komponen; margin, runway, dan rekonsiliasi memakai fungsi bersama. Bagian 8 diganti judulnya menjadi tabel tagihan dua tab dan ditambah cara pakai tabel. |
