@@ -5,7 +5,7 @@ const tree = buildCoaTree([
   { coaId: '1', parentId: '0', code: '1-1000', name: 'Cash', status: 'POSTABLE', level: 1, accountGroup: 'Liquid Assets', subAccountGroup: 'Cash', saldoNormal: 'DEBET' },
 ])
 
-vi.mock('~/server/env', () => ({ env: { ociRootCodes: [], APP_TODAY: '2026-10-15', APP_TIMEZONE: 'Asia/Jakarta' } }))
+vi.mock('~/server/env', () => ({ env: { APP_TODAY: '2026-10-15', APP_TIMEZONE: 'Asia/Jakarta' } }))
 vi.mock('~/server/context', () => ({
   getCachedCoaTree: async () => tree,
   getCachedPeriods: async () => [],

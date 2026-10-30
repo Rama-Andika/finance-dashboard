@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js'
 import { D, safeDiv } from '../../core/money'
 import type { AccountGroup, Breakdown, Id, Money } from '../../core/types'
-import { type CoaTree, type CoaNode, ORPHAN_FOLDER_ID, postableDescendants } from '../coa/coa-tree'
+import { type CoaTree, ORPHAN_FOLDER_ID, postableDescendants } from '../coa/coa-tree'
 import { groupFolders } from './revenue'
 import { accountSide } from '../coa/sign'
 
@@ -14,8 +14,6 @@ export type PnlLineKey =
   | 'otherRevenue'
   | 'otherExpense'
   | 'netProfit'
-  | 'oci'
-  | 'comprehensiveIncome'
 
 export type PnlLine = {
   key: PnlLineKey
@@ -33,33 +31,13 @@ export type PnlMovement = {
   credit: Money
 }
 
-export function findOciCoaIds(tree: CoaTree, ociRootCodes: string[]): Set<Id> {
-  const ociSet = new Set<Id>()
-  for (const node of tree.byId.values()) {
-    if (node.coaId === ORPHAN_FOLDER_ID) continue
-    const matchesRoot = ociRootCodes.includes(node.code)
-    if (matchesRoot) {
-      if (node.status === 'POSTABLE') {
-        ociSet.add(node.coaId)
-      } else {
-        const descs = postableDescendants(tree, node.coaId)
-        for (const d of descs) {
-          ociSet.add(d)
-        }
-      }
-    }
-  }
-  return ociSet
-}
-
 export function buildPnl(input: {
   tree: CoaTree
   movements: PnlMovement[]
-  ociCoaIds: Set<Id>
 }): {
   lines: PnlLine[]
 } {
-  const { tree, movements, ociCoaIds } = input
+  const { tree, movements } = input
 
   // Identify all distinct periods in movements
   const allPeriodIds = Array.from(new Set(movements.map((m) => m.periodId)))
@@ -99,29 +77,21 @@ export function buildPnl(input: {
 
   // Helper to compute line data for a set of coaIds, signed by the account group's natural side (sign.ts)
   function computeLine(
-    accountGroup: AccountGroup | 'OCI',
+    accountGroup: AccountGroup,
     filterCoa?: (coaId: Id) => boolean,
   ): {
     total: Decimal
     byPeriod: Record<Id, Money>
     folders: Breakdown[]
   } {
-    const debitSide = accountGroup !== 'OCI' && accountSide(accountGroup) === 'debit'
+    const debitSide = accountSide(accountGroup) === 'debit'
     const signed = (debet: Decimal, credit: Decimal): Decimal => (debitSide ? debet.minus(credit) : credit.minus(debet))
     // 1. Determine target accounts
     const targetCoaIds: Id[] = []
     for (const node of tree.byId.values()) {
       if (node.status !== 'POSTABLE' || node.coaId === ORPHAN_FOLDER_ID) continue
-      if (accountGroup === 'OCI') {
-        if (ociCoaIds.has(node.coaId)) {
-          targetCoaIds.push(node.coaId)
-        }
-      } else {
-        if (node.accountGroup === accountGroup && !ociCoaIds.has(node.coaId)) {
-          if (!filterCoa || filterCoa(node.coaId)) {
-            targetCoaIds.push(node.coaId)
-          }
-        }
+      if (node.accountGroup === accountGroup && (!filterCoa || filterCoa(node.coaId))) {
+        targetCoaIds.push(node.coaId)
       }
     }
 
@@ -149,55 +119,35 @@ export function buildPnl(input: {
     }
 
     // Breakdown folders
-    let folders: Breakdown[] = []
-    if (accountGroup !== 'OCI') {
-      const rawFolders = groupFolders(tree, accountGroup)
-      folders = rawFolders.map((f) => {
-        const descs =
-          f.status === 'POSTABLE' ? [f.coaId] : postableDescendants(tree, f.coaId)
-        const validDescs = descs.filter(
-          (id) => !ociCoaIds.has(id) && (!filterCoa || filterCoa(id)),
-        )
+    const folders: Breakdown[] = groupFolders(tree, accountGroup).map((f) => {
+      const descs = f.status === 'POSTABLE' ? [f.coaId] : postableDescendants(tree, f.coaId)
+      const validDescs = descs.filter((id) => !filterCoa || filterCoa(id))
 
-        let folderSum = D(0)
-        const children: Breakdown[] = []
+      let folderSum = D(0)
+      const children: Breakdown[] = []
 
-        for (const coaId of validDescs) {
-          const node = tree.byId.get(coaId)
-          const cData = byCoa.get(coaId)
-          const net = cData ? signed(cData.totalDebet, cData.totalCredit) : D(0)
-
-          folderSum = folderSum.plus(net)
-          children.push({
-            id: coaId,
-            label: node?.name ?? `Account ${coaId}`,
-            code: node?.code,
-            amount: net.toFixed(2),
-          })
-        }
-
-        return {
-          id: f.coaId,
-          label: f.name,
-          code: f.code,
-          amount: folderSum.toFixed(2),
-          children,
-        }
-      })
-    } else {
-      // OCI folders
-      folders = targetCoaIds.map((coaId) => {
+      for (const coaId of validDescs) {
         const node = tree.byId.get(coaId)
         const cData = byCoa.get(coaId)
-        const net = cData ? cData.totalCredit.minus(cData.totalDebet) : D(0)
-        return {
+        const net = cData ? signed(cData.totalDebet, cData.totalCredit) : D(0)
+
+        folderSum = folderSum.plus(net)
+        children.push({
           id: coaId,
           label: node?.name ?? `Account ${coaId}`,
           code: node?.code,
           amount: net.toFixed(2),
-        }
-      })
-    }
+        })
+      }
+
+      return {
+        id: f.coaId,
+        label: f.name,
+        code: f.code,
+        amount: folderSum.toFixed(2),
+        children,
+      }
+    })
 
     const byPeriodFormatted: Record<Id, Money> = {}
     for (const [pId, dec] of Object.entries(lineByPeriod)) {
@@ -248,17 +198,6 @@ export function buildPnl(input: {
     const oRevP = D(otherRevComp.byPeriod[pId] ?? '0.00')
     const oExpP = D(otherExpComp.byPeriod[pId] ?? '0.00')
     netProfitByPeriod[pId] = opP.plus(oRevP).minus(oExpP).toFixed(2)
-  }
-
-  const ociComp = computeLine('OCI')
-
-  // Comprehensive income = Net profit + OCI
-  const compIncomeTotal = netProfitTotal.plus(ociComp.total)
-  const compIncomeByPeriod: Record<Id, Money> = {}
-  for (const pId of allPeriodIds) {
-    const npP = D(netProfitByPeriod[pId] ?? '0.00')
-    const ociP = D(ociComp.byPeriod[pId] ?? '0.00')
-    compIncomeByPeriod[pId] = npP.plus(ociP).toFixed(2)
   }
 
   // Margin helper
@@ -324,20 +263,6 @@ export function buildPnl(input: {
       amount: netProfitTotal.toFixed(2),
       margin: calcMargin(netProfitTotal),
       byPeriod: netProfitByPeriod,
-      folders: [],
-    },
-    {
-      key: 'oci',
-      amount: ociComp.total.toFixed(2),
-      margin: null,
-      byPeriod: ociComp.byPeriod,
-      folders: ociComp.folders,
-    },
-    {
-      key: 'comprehensiveIncome',
-      amount: compIncomeTotal.toFixed(2),
-      margin: null,
-      byPeriod: compIncomeByPeriod,
       folders: [],
     },
   ]

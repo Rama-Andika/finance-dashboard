@@ -554,9 +554,7 @@
     "operatingProfit": "Operating Profit",
     "otherRevenue": "Other Income",
     "otherExpense": "Other Expense",
-    "netProfit": "Net Profit",
-    "oci": "Other Comprehensive Income (OCI)",
-    "comprehensiveIncome": "Comprehensive Income"
+    "netProfit": "Net Profit"
   },
   "fixedCostRoot": "Fixed Cost",
   "agingBucket": {

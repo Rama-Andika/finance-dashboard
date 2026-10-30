@@ -67,6 +67,7 @@ Kalau ada keputusan yang berubah, ubah baris di tabel dan tambahkan catatan di b
 | D36 | Tabel tagihan Summary dipisah dua tab (jatuh tempo ≤ 7 hari / lewat jatuh tempo); kolom status Pengakuan Biaya disembunyikan bila tidak ada dokumen type 0 aktif; label status "Belum diseleksi" / "Diseleksi, belum disetujui" / "Disetujui, menunggu bayar" | Pada satu klien 240 dari 360 baris sudah lewat jatuh tempo; klien yang membayar langsung (type 3) tidak punya proses pengajuan. Istilah mengikuti nama menu ERP "Seleksi Invoice" (O16) |
 | D37 | Angka "Overdue" di kartu Payables Summary = tagihan **positif** yang lewat jatuh tempo (`overdueBills`); halaman Payables tetap menampilkan overdue **neto** per bucket (`overdueSubtotal`) | Overdue neto dikurangi kredit vendor dan pembayaran belum dialokasikan sehingga lebih kecil dari jumlah tagihan yang benar-benar lewat tempo |
 | D38 | Ambang umur dana transit lewat env `IN_TRANSIT_ALERT_DAYS` (bawaan 3) | Release pencairan di satu klien rutin ±10 hari, sehingga ambang 3 hari memerahkan hampir semua baris |
+| D39 | Fitur **OCI** (Penghasilan Komprehensif Lain) **dinonaktifkan sementara**: baris OCI dan Total Laba Komprehensif dihapus dari P&L, variabel `PNL_OCI_ROOT_CODES` dihapus, dan akun di subtree kode "9" dihitung menurut grup akunnya sendiri (Other Revenue/Expense), sama dengan laporan Laba Rugi ERP | Penanda OCI hanya tebakan dari kode induk "9" dan belum dikonfirmasi finance (O4). Net Profit bisa berubah bila ada transaksi di akun tersebut |
 | D29 | Saldo awal akun neraca dari `coa_opening_balance_location`; metode Neraca Saldo ERP (Σ GL posted sebelum periode, `tb_report.jsp`) dipakai sebagai **cek rekonsiliasi & cadangan** | Keduanya terbukti sama untuk akun neraca di DB `demo`; untuk akun P&L tabel saldo awal tidak cocok → tidak dipakai. Detail: data-model.md §4.5 |
 | D25 | AR Aging **mengikuti AR Aging ERP** (`web/fin/ar/ar_aging.jsp` → `SessApArCard.listAgingAr`): item = type 0,3,4,5; pelunasan = type 1 (bayar) & 2 (retur); retur tanpa detail masuk saldo; **pembayaran pelanggan tanpa alokasi tidak dihitung** (sama dengan ERP, ditampilkan di panel "Data perlu dicek" bila ada). Bucket & saldo neto sama dengan D24. Detail: data-model.md §6.7 | Total dashboard harus sama dengan AR Aging ERP |
 | D24 | Outstanding Liability & aging **mengikuti AP Aging ERP** (`ap_aging.jsp` → `SessApArCard.listAgingAp`): angka utama = saldo **neto** per vendor = item (type 0,1,2,3,4,5,6,12) ± pelunasan (type 7,8,9,10,11,13,14) **+ pembayaran belum dialokasikan**; bucket "Sudah jatuh tempo" 0–30/31–60/61–90/>90 (jatuh tempo hari ini = 0–30) & "Akan jatuh tempo" 1–30/31–60/61–90/>90. Dua bug ERP tidak ditiru (join detail berlipat, batas bucket berjam). Detail: data-model.md §6.6 | Total dashboard harus sama dengan laporan AP Aging ERP. DB `demo`: pembayaran belum dialokasikan ±Rp4,27 M — tanpa itu utang terlihat lebih besar |
@@ -105,7 +106,7 @@ Kalau ada keputusan yang berubah, ubah baris di tabel dan tambahkan catatan di b
 | Cash Position | ✅ | Kas + Bank. Deposito **baris terpisah** (tidak masuk angka utama) |
 | Dana dalam proses pencairan | ✅ (kartu terpisah) | EDC, QRIS, e-wallet, Cash Sales in Transit |
 | Cash Flow | ✅ | 3 laci: OPERATING / INVESTING / FUNDING (dari `cash_flow_group`) |
-| Profit & Loss | ✅ | OCI ditampilkan **terpisah di bawah Laba Bersih** |
+| Profit & Loss | ✅ | ~~OCI ditampilkan terpisah di bawah Laba Bersih~~ OCI dinonaktifkan sementara (D39) |
 | Expense Paid | ✅ | **Biaya operasional saja** (COGS + OPEX), tanpa cicilan pokok pinjaman, beli aset, dividen |
 | Outstanding Liability | ✅ | **Tagihan supplier (AP) saja** |
 | Monthly Fixed Cost | ✅ (dihidupkan kembali) | Lewat keranjang "Biaya Tetap" di Settings |
@@ -163,7 +164,7 @@ Kalau ada keputusan yang berubah, ubah baris di tabel dan tambahkan catatan di b
 | ~~O1~~ | ✅ **Terjawab:** `gl.posted_status` `1` = POSTED, `0` = NOT POSTED (`DbGl.java`) | — |
 | O2 | Apakah entitas benar-benar akan didaftarkan di `pos_location`? | Ya (sesuai info user, belum final) |
 | O3 | Segment Lokasi bertipe **NBAL** (non-balancing) → saldo kas/utang **per entitas** bisa terlihat janggal di data asli | Diabaikan di prototype; dibahas dengan tim finance sebelum produksi |
-| O4 | Penanda akun OCI untuk klien lain (di klien ini: subtree akun `9`) | Konfigurasi di kode, bukan di Settings |
+| O4 | Penanda akun OCI untuk klien lain (di klien ini: subtree akun `9`) | Ditunda: fitur OCI dinonaktifkan sementara (D39). Perlu daftar akun OCI dari finance sebelum diaktifkan lagi |
 | O5 | Arti `coa_budget.segment1_id` (diasumsikan = Lokasi, sama seperti `gl_detail`) | Diasumsikan Lokasi |
 | O6 | Pembayaran biaya langsung tanpa tagihan AP (petty cash, bank NONPO) — apakah semuanya dianggap Expense Paid? | Ya, bila akun lawannya akun Beban/HPP |
 | ~~O7~~ | ✅ **Terjawab (user):** baris Settings di `system_main` diisi `name='DASHBOARD_ACCOUNT_MAPPING'`, `groupprop='Application'`, `valtype='STRING'`, `distype=''`, `company_id=0` | — |
@@ -203,4 +204,5 @@ Kalau ada keputusan yang berubah, ubah baris di tabel dan tambahkan catatan di b
 | 2026-10-28 | Studi `bank_payment` & `bank_payment_history`: register pencairan pembayaran non-tunai POS → D30 (rincian & umur Dana dalam pencairan, estimasi tanggal cair per channel untuk Payment Plan menggantikan asumsi H+1); temuan Q9 (9 baris janggal) |
 | 2026-10-28 | Design system **Neraca UI** dibuat dari gambar referensi user (U7): token warna 2 tema, skala tipografi, spacing, radius, bayangan, layout, brand book, 16 komponen + cover |
 | 2026-10-30 | Studi data satu klien dan kode ERP legacy (rencana gelombang 2, folder `plans/`): keputusan D31–D38, item terbuka O15–O17; koreksi istilah "voucher" → Pengakuan Biaya di `data-model.md` |
+| 2026-10-30 | Fitur OCI dinonaktifkan sementara atas permintaan user (D39); O4 ditunda |
 | 2026-10-30 | Review `src/functions` (Fase 19): hak menyimpan Account Mapping dipertegas sebagai S9 (semua user boleh, mengikuti U6); tidak ada pemeriksaan peran |

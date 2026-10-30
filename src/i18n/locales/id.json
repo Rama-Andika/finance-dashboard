@@ -554,9 +554,7 @@
     "operatingProfit": "Laba Usaha",
     "otherRevenue": "Pendapatan Lain",
     "otherExpense": "Beban Lain",
-    "netProfit": "Laba Bersih",
-    "oci": "Pendapatan Komprehensif Lain (OCI)",
-    "comprehensiveIncome": "Total Laba Komprehensif"
+    "netProfit": "Laba Bersih"
   },
   "fixedCostRoot": "Biaya Tetap",
   "agingBucket": {

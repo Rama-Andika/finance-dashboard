@@ -11,7 +11,7 @@ const entities = [
   { locationId: 'locB', code: 'B', name: 'Store B', isActive: true, segmentDetailIds: ['sB'] },
 ]
 
-vi.mock('~/server/env', () => ({ env: { ociRootCodes: [], APP_TODAY: '2026-10-15', APP_TIMEZONE: 'Asia/Jakarta' } }))
+vi.mock('~/server/env', () => ({ env: { APP_TODAY: '2026-10-15', APP_TIMEZONE: 'Asia/Jakarta' } }))
 vi.mock('~/server/context', () => ({
   getCachedCoaTree: async () => tree,
   getCachedPeriods: async () => [

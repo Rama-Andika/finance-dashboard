@@ -188,16 +188,16 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 
 ## 4. Net Profit
 
-- **Data:** semua akun laba-rugi dari satu query GL per periode: Revenue, Cost Of Sales, Expense, Other Revenue, Other Expense, ditambah akun OCI.
+- **Data:** semua akun laba-rugi dari satu query GL per periode: Revenue, Cost Of Sales, Expense, Other Revenue, Other Expense.
 - **Rumus:**
   - Laba Kotor = Revenue − HPP
   - Laba Usaha = Laba Kotor − Beban Operasional
   - **Net Profit = Laba Usaha + Other Revenue − Other Expense**
-  - OCI dipisah; kartu menampilkan Net Profit, bukan Total Laba Komprehensif.
+  - OCI (penghasilan komprehensif lain) sedang **tidak dipisahkan**: akun apa pun, termasuk yang berkode "9", dihitung menurut grup akunnya (D39).
 - **Net margin** = Net Profit ÷ Revenue (Revenue = 0 → "—"). Tampil sebagai teks kecil di bawah angka Net Profit, dan juga di kartu mini.
 
 **Perlu dikonfirmasi:**
-- Akun OCI diidentifikasi sebagai akun di bawah kode "9" (konfigurasi di kode, item O4). Benar?
+- Apakah klien punya akun OCI (revaluasi aset, selisih kurs penjabaran, dan sejenisnya)? Bila ada, sebutkan akun atau kode induknya agar fitur OCI bisa diaktifkan lagi (item O4).
 - Acuan resmi = laporan Laba Rugi ERP versi "generate" (`profitloss_segmentgen.jsp`)? Menurut dokumen, ya.
 - Jurnal draft tidak ikut dihitung.
 
@@ -313,4 +313,5 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 | 2026-10-30 | Ditambah tautan ke `summary-queries.md` (katalog query SQL untuk developer). |
 | 2026-10-30 | Bagian Cash Position: contoh kasus lengkap cara hitung saldo akun pada `asOf` (dua variasi dan cara cadangan). |
 | 2026-10-30 | Rencana gelombang 2: filter canceled_date opsional; register dana pencairan untuk tanggal lampau; margin rasio desimal; giro beredar; tab tagihan jatuh tempo & terlambat; overdue kotor; ambang umur transit; istilah Pengakuan Biaya. Lihat D31–D38 di `decisions.md`. |
+| 2026-10-30 | Fitur OCI dinonaktifkan sementara (D39): Net Profit dan margin menghitung semua akun menurut grupnya; tidak ada lagi baris OCI/Total Laba Komprehensif di P&L. Bagian 4 disesuaikan. |
 | 2026-10-30 | Struktur halaman dirapikan tanpa mengubah angka: tabel tagihan dan kartu mini dipisah ke komponen; margin, runway, dan rekonsiliasi memakai fungsi bersama. Bagian 8 diganti judulnya menjadi tabel tagihan dua tab dan ditambah cara pakai tabel. |

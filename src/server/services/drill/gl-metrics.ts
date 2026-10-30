@@ -1,7 +1,5 @@
 import '@tanstack/react-start/server-only'
 import { type Id } from '~/lib/core/types'
-import { env } from '~/server/env'
-import { findOciCoaIds } from '~/lib/finance/pnl/pnl'
 import { postableAccountIds } from '~/lib/finance/coa/coa-tree'
 import type { AccountGroup } from '~/lib/core/types'
 import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
@@ -24,12 +22,8 @@ const PNL_LINE_GROUPS: Record<string, AccountGroup> = {
 /** Accounts behind a section of the P&L or Fixed Cost page. */
 async function sectionAccountIds(ctx: DrillContext, metric: string, sectionId: string): Promise<Id[]> {
   if (metric === 'pnl') {
-    const oci = findOciCoaIds(ctx.tree, env.ociRootCodes)
-    if (sectionId === 'oci') return Array.from(oci)
     const group = PNL_LINE_GROUPS[sectionId]
-    if (!group) return []
-    // OCI accounts are excluded from every other line (K10)
-    return postableAccountIds(ctx.tree, [group]).filter((id) => !oci.has(id))
+    return group ? postableAccountIds(ctx.tree, [group]) : []
   }
   if (metric === 'fixedCost') {
     const resolved = resolveBaskets(await loadAccountMapping(ctx.tree), ctx.tree)

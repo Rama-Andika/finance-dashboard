@@ -208,7 +208,7 @@ Query ekstra bila ada pembanding: seluruh Q7–Q9 diulang dengan `:asOf = compar
 
 ## 3. Mutasi per periode
 
-Dipakai **Revenue**, **Net Profit**, **Composition**, **Gross/Net margin**. Satu pembacaan dibagi bersama (`loadPlMovements`, `src/server/services/shared/pl-movements.ts`): akun yang diminta = semua POSTABLE grup Revenue / Cost Of Sales / Expense / Other Revenue / Other Expense + akun OCI + akun keranjang Biaya Tetap. Halaman lain menyaring baris di memori.
+Dipakai **Revenue**, **Net Profit**, **Composition**, **Gross/Net margin**. Satu pembacaan dibagi bersama (`loadPlMovements`, `src/server/services/shared/pl-movements.ts`): akun yang diminta = semua POSTABLE grup Revenue / Cost Of Sales / Expense / Other Revenue / Other Expense + akun keranjang Biaya Tetap. Halaman lain menyaring baris di memori.
 
 Mesin: `src/server/repo/gl.repo.ts` · `movementsByPeriods`. Periode dikelompokkan per tabel GL; periode `Closed` dilayani dari cache memori / snapshot, periode `Open` / `Pre Closed` **selalu** ke ERP.
 
@@ -273,7 +273,7 @@ Cache 30 detik. Bila tabel `dash_*` belum ada, error ditelan dan semua periode d
 | Margin | Laba ÷ Revenue; Revenue = 0 → `null` | idem |
 | Biaya Tetap | Σ (debet − credit) akun keranjang `fixedCost` | `src/lib/finance/pnl/fixed-cost.ts` |
 
-Akun OCI (subtree kode di `env.ociRootCodes`, klien ini `9`) dikeluarkan dari semua baris kecuali baris OCI sendiri.
+OCI tidak dipisahkan (D39): setiap akun dihitung menurut grup akunnya.
 
 Pembanding Revenue dan Net Profit: Q11/Q12 yang sama dengan `:periodIds = compare.periodIds`.
 
@@ -655,3 +655,4 @@ WHERE table_schema = DATABASE()
 | 2026-10-30 | Dokumen dibuat dari pembacaan kode (belum ada perubahan pada halaman Summary). |
 | 2026-10-30 | Rencana gelombang 2: Q10 memakai aturan belum cair pada asOf; Q22 dan Q24 ditambahkan (Q23 dibatalkan); istilah Pengakuan Biaya. |
 | 2026-10-30 | Disinkronkan dengan kode terbaru: tabel tagihan dua tab (`filterBillsByScope`, `planStatusInUse`), rekonsiliasi AP/AR (`reconcileAging`), `settledJournals`, `sliceCombos`, Q20 menandai kondisi `canceled_date` sebagai opsional, matriks dan tabel cache ditambah Q22 dan Q24. Tidak ada query yang berubah isinya. |
+| 2026-10-30 | Fitur OCI dinonaktifkan (D39): akun OCI tidak lagi dikeluarkan dari baris P&L dan tidak ikut dibaca sebagai kelompok tersendiri di Q11/Q12. |

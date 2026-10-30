@@ -36,7 +36,6 @@ export type SummaryResult = {
     operatingMargin: string | null
     netProfit: Money
     netMargin: string | null
-    comprehensiveIncome: Money
   }
   apAging: {
     total: Money
@@ -96,7 +95,6 @@ export async function computeSummary(
   const gpLine = pnlMap.get('grossProfit')
   const opLine = pnlMap.get('operatingProfit')
   const npLine = pnlMap.get('netProfit')
-  const compLine = pnlMap.get('comprehensiveIncome')
 
   return {
     meta,
@@ -124,7 +122,6 @@ export async function computeSummary(
       operatingMargin: opLine?.margin ?? null,
       netProfit: npLine?.amount ?? '0.00',
       netMargin: npLine?.margin ?? null,
-      comprehensiveIncome: compLine?.amount ?? '0.00',
     },
     apAging: {
       total: apAging.total,

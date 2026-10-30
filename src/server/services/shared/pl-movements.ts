@@ -3,15 +3,13 @@ import type { Id, Period } from '~/lib/core/types'
 import { postableAccountIds } from '~/lib/finance/coa/coa-tree'
 import { PNL_ACCOUNT_GROUPS } from '~/lib/finance/coa/account-groups'
 import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
-import { findOciCoaIds } from '~/lib/finance/pnl/pnl'
-import { env } from '~/server/env'
 import { memoMetric } from '~/server/cache'
 import { type AppContextFilter, getCachedCoaTree, getCachedPeriods } from '~/server/context'
 import { movementsByPeriods, type MovementRow } from '~/server/repo/gl.repo'
 import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
 
 /**
- * Movements of every account the P&L-family pages need (P&L, OCI, Fixed Cost, Budget actuals,
+ * Movements of every account the P&L-family pages need (P&L, Fixed Cost, Budget actuals,
  * Revenue comparison), read in ONE aggregation of `gl` ⨝ `gl_detail` per period set and shared.
  * Each page then filters the rows it wants in memory instead of scanning the GL again.
  */
@@ -28,7 +26,6 @@ export async function loadPlMovements(filter: AppContextFilter, periodIds: Id[])
       const coaIds = Array.from(
         new Set<Id>([
           ...postableAccountIds(tree, PNL_ACCOUNT_GROUPS),
-          ...findOciCoaIds(tree, env.ociRootCodes),
           ...resolved.fixedCost,
         ]),
       ).filter((id) => tree.byId.get(id)?.status === 'POSTABLE')

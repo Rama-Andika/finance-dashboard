@@ -54,7 +54,6 @@ describe('Metrics DB integration (demo data window)', () => {
   it('P&L: revenue line equals the Revenue metric and net profit follows the formula', { timeout: TEST_TIMEOUT }, async () => {
     const [pnl, revenue] = await Promise.all([computePnl(filter), computeRevenue(filter)])
     const line = (k: string) => pnl.lines.find((l) => l.key === k)?.amount ?? '0.00'
-    // OCI accounts are excluded from the P&L revenue line; on the demo CoA they are not Revenue accounts.
     expect(line('revenue')).toBe(revenue.total)
     const expectedNet = D(line('revenue'))
       .minus(D(line('cogs')))
@@ -63,7 +62,6 @@ describe('Metrics DB integration (demo data window)', () => {
       .minus(D(line('otherExpense')))
       .toFixed(2)
     expect(line('netProfit')).toBe(expectedNet)
-    expect(line('comprehensiveIncome')).toBe(D(line('netProfit')).plus(D(line('oci'))).toFixed(2))
   })
 
   it('Cash position: per-entity balances add up to the consolidated cash position', { timeout: TEST_TIMEOUT }, async () => {

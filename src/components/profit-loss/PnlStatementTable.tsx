@@ -9,7 +9,7 @@ import type { Lang } from '~/lib/core/types'
 import type { PnlLine, PnlLineKey } from '~/lib/finance/pnl/pnl'
 
 /** Lines that are computed from other lines: bold, and they have no journals of their own to drill into. */
-export const SUBTOTAL_KEYS = new Set<PnlLineKey>(['grossProfit', 'operatingProfit', 'netProfit', 'comprehensiveIncome'])
+export const SUBTOTAL_KEYS = new Set<PnlLineKey>(['grossProfit', 'operatingProfit', 'netProfit'])
 
 export function PnlStatementTable({ lines, lang, scope }: { lines: PnlLine[]; lang: Lang; scope: ExportScope }) {
   const { t } = useTranslation()

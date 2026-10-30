@@ -31,7 +31,6 @@ const envSchema = z.object({
   DASH_AP_AR_HIST_MONTHS: z.preprocess((v) => (v === '' ? undefined : v), z.coerce.number().int().min(0).max(36).default(13)),
   // 1 = apply pending dash_* migrations when the server starts (off by default in production)
   AUTO_MIGRATE: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['0', '1']).default('0')),
-  PNL_OCI_ROOT_CODES: z.string().default('9'),
   // Cash Position flags funds in settlement whose oldest transaction is older than this many days.
   // Raise it for a client that releases settlements late (the usual delay is the right order of magnitude).
   IN_TRANSIT_ALERT_DAYS: z.preprocess((v) => (v === '' ? undefined : v), z.coerce.number().int().min(0).max(120).default(3)),
@@ -45,7 +44,4 @@ if (!parsed.success) {
   throw new Error(`Invalid environment variables: ${parsed.error.issues.map((i) => i.path.join('.')).join(', ')}`)
 }
 
-export const env = {
-  ...parsed.data,
-  ociRootCodes: parsed.data.PNL_OCI_ROOT_CODES.split(',').map((s) => s.trim()).filter(Boolean),
-}
+export const env = parsed.data

@@ -19,7 +19,7 @@ const periods: Period[] = [
   { periodeId: 'p1', name: 'Oct', startDate: '2026-10-01', endDate: '2026-10-31', status: 'Open', type: 0, tableName: 'gl' },
 ]
 
-vi.mock('~/server/env', () => ({ env: { ociRootCodes: [], APP_TODAY: '2026-10-15', APP_TIMEZONE: 'Asia/Jakarta' } }))
+vi.mock('~/server/env', () => ({ env: { APP_TODAY: '2026-10-15', APP_TIMEZONE: 'Asia/Jakarta' } }))
 vi.mock('~/server/context', () => ({
   getCachedCoaTree: async () => tree,
   getCachedPeriods: async () => periods,

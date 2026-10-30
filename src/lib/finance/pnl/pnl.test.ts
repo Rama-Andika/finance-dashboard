@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildPnl, findOciCoaIds } from './pnl'
+import { buildPnl } from './pnl'
 import { buildCoaTree, type CoaRow } from '../coa/coa-tree'
 
 const mockPnlRows: CoaRow[] = [
@@ -63,51 +63,23 @@ const mockPnlRows: CoaRow[] = [
     subAccountGroup: '',
     saldoNormal: 'DEBET',
   },
-  // 9 OCI: the root HEADER has code '9'; OCI = its subtree (codes are not structural, §4.3)
-  {
-    coaId: '9000',
-    parentId: '0',
-    code: '9',
-    name: 'OCI',
-    status: 'HEADER',
-    level: 1,
-    accountGroup: 'Other Revenue',
-    subAccountGroup: '',
-    saldoNormal: 'CREDIT',
-  },
-  {
-    coaId: '9110',
-    parentId: '9000',
-    code: '9-1100',
-    name: 'Keuntungan Selisih Kurs Valas OCI',
-    status: 'POSTABLE',
-    level: 2,
-    accountGroup: 'Other Revenue',
-    subAccountGroup: '',
-    saldoNormal: 'CREDIT',
-  },
 ]
 
 describe('pnl calculations', () => {
-  it('correctly calculates comprehensive income and separates OCI from Net Profit', () => {
+  it('calculates the profit lines and margins', () => {
     const tree = buildCoaTree(mockPnlRows)
-    const ociCoaIds = findOciCoaIds(tree, ['9'])
-    expect(ociCoaIds.has('9110')).toBe(true)
-    // A code that merely starts with "9" outside the subtree is not OCI
-    expect(findOciCoaIds(buildCoaTree([...mockPnlRows, { ...mockPnlRows[0]!, coaId: '9990', code: '99-00', parentId: '0' }]), ['9']).has('9990')).toBe(false)
 
     // Complete fixture:
-    // Revenue 1000, COGS 600, OPEX 200, OtherRev 50, OtherExp 30, OCI 20
+    // Revenue 1000, COGS 600, OPEX 200, OtherRev 50, OtherExp 30
     const movements = [
       { coaId: '4110', periodId: 'p1', debet: '0.00', credit: '1000.00' },
       { coaId: '5110', periodId: 'p1', debet: '600.00', credit: '0.00' },
       { coaId: '6110', periodId: 'p1', debet: '200.00', credit: '0.00' },
       { coaId: '7110', periodId: 'p1', debet: '0.00', credit: '50.00' },
       { coaId: '8110', periodId: 'p1', debet: '30.00', credit: '0.00' },
-      { coaId: '9110', periodId: 'p1', debet: '0.00', credit: '20.00' },
     ]
 
-    const { lines } = buildPnl({ tree, movements, ociCoaIds })
+    const { lines } = buildPnl({ tree, movements })
     const lineMap = new Map(lines.map((l) => [l.key, l]))
 
     expect(lineMap.get('revenue')?.amount).toBe('1000.00')
@@ -121,19 +93,16 @@ describe('pnl calculations', () => {
     expect(lineMap.get('otherExpense')?.amount).toBe('30.00')
     expect(lineMap.get('netProfit')?.amount).toBe('220.00')
     expect(lineMap.get('netProfit')?.margin).toBe('0.22') // 220 / 1000
-    expect(lineMap.get('oci')?.amount).toBe('20.00')
-    expect(lineMap.get('comprehensiveIncome')?.amount).toBe('240.00')
   })
 
   it('handles zero revenue with null margins', () => {
     const tree = buildCoaTree(mockPnlRows)
-    const ociCoaIds = findOciCoaIds(tree, ['9'])
 
     const movements = [
       { coaId: '6110', periodId: 'p1', debet: '200.00', credit: '0.00' },
     ]
 
-    const { lines } = buildPnl({ tree, movements, ociCoaIds })
+    const { lines } = buildPnl({ tree, movements })
     const lineMap = new Map(lines.map((l) => [l.key, l]))
 
     expect(lineMap.get('revenue')?.amount).toBe('0.00')

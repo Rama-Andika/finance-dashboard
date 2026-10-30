@@ -106,7 +106,7 @@ Accounting
 - Sign comes from the `account_group` side (`src/lib/finance/coa/sign.ts`), not `coa.saldo_normal`.
 - Entity = `pos_location`; journals map via the entity segment column (`segment.count = 1`) → `segment_detail.location_id`. Consolidation is a plain sum, no intercompany elimination. No department dimension.
 - AP/AR outstanding only from `ap_ar_card` + `ap_ar_card_detail` (never `payment_status`, never add `bankpo_payment_detail`); ignore `in_out = 0`. `coa_budget.bgt_month` is 0-based.
-- Account baskets (cash, bank, deposit, in-transit, fixed cost) come from Settings in `system_main`, never hard-coded codes; sole exception `PNL_OCI_ROOT_CODES`. `acc_link` is not used for cash accounts.
+- Account baskets (cash, bank, deposit, in-transit, fixed cost) come from Settings in `system_main`, never hard-coded codes. `acc_link` is not used for cash accounts.
 
 Security / sensitive data
 - `sysuser.password` is selected in exactly one login function, compared with `timingSafeEqual`, never logged/returned/cached. Select columns explicitly.

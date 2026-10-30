@@ -736,22 +736,21 @@ COGS             =   mutasi(grup('Cost Of Sales'))
 Laba Kotor       = Revenue − COGS
 OPEX             =   mutasi(grup('Expense'))
 Laba Usaha       = Laba Kotor − OPEX                  ⓘ belum dikurangi depresiasi
-OtherRev         = − mutasi(grup('Other Revenue') − OCI)
+OtherRev         = − mutasi(grup('Other Revenue'))
 OtherExp         =   mutasi(grup('Other Expense'))     -- termasuk depresiasi, bunga, pajak
 Laba Bersih      = Laba Usaha + OtherRev − OtherExp
-OCI              = − mutasi(akun OCI)                  -- klien ini: subtree akun "9"
-Total Laba Kompr = Laba Bersih + OCI
 ```
 
+> **OCI dinonaktifkan sementara (D39).** Sebelumnya akun OCI (subtree kode "9") dipisah dari Other Revenue dan ditampilkan sebagai baris OCI serta Total Laba Komprehensif. Fitur itu dihapus dari kode; akun di bawah "9" kini dihitung menurut grup akunnya sendiri, seperti di laporan Laba Rugi ERP.
+
 - Margin % ditampilkan di samping Laba Kotor, Laba Usaha, Laba Bersih (`÷ Revenue`; Revenue = 0 → "—").
-- Penanda akun OCI = konfigurasi kode (`PNL_OCI_ROOT_CODES = ['9']`), lihat decisions.md O4.
 - **Drill-down:** baris P&L → folder akun → akun → entitas → jurnal.
 
 **Perbandingan dengan laporan Laba Rugi ERP** (ada ±10 versi di menu; dipelajari: `profitloss_segment.jsp`, `profitlosssegment_v02.jsp`, `profitlosssegmentmtd_v01/v02.jsp`, `profitloss_segmentgen.jsp`):
 
 | Aspek | ERP | Dashboard |
 |---|---|---|
-| Struktur | `Revenue − COGS − Expense + Other Revenue − Other Expense = Net Income` (tanpa subtotal Laba Kotor/Usaha; OCI ikut Other Revenue) | Sama, ditambah subtotal Laba Kotor & Laba Usaha, OCI dipisah (decisions.md) |
+| Struktur | `Revenue − COGS − Expense + Other Revenue − Other Expense = Net Income` (tanpa subtotal Laba Kotor/Usaha; OCI ikut Other Revenue) | Sama, ditambah subtotal Laba Kotor & Laba Usaha. OCI tidak dipisah (D39) |
 | Jurnal yang dihitung | Versi "generate" (`SessGeneratePNL`): **posted saja**. Versi lain (`DbCoa.getCoaBalancePNLMTD`): **semua status termasuk draft** | **Posted saja** (= versi generate) |
 | Bulanan | per `gl.period_id` | Sama |
 | YTD | Versi generate (`getAmountLTB`): **Σ bulan Jan s.d. bulan terpilih** ✔️. Versi lain (`getCoaBalancePNLYTD`): saldo awal `coa_opening_balance_location` + bulan berjalan — ⚠️ di DB `demo` saldo awal P&L di tabel itu **tidak cocok** dengan GL | **Σ bulan** (= versi generate) |
@@ -1057,7 +1056,7 @@ Pola musiman: penjualan naik di akhir pekan, Desember, dan masa liburan; satu–
 | Pohon CoA | Struktur dari `acc_ref_id`; orphan masuk folder khusus; siklus terdeteksi; urut per kode |
 | Resolver keranjang | HEADER → semua POSTABLE keturunan (incl. akun baru); deteksi bentrok; `coa_id` hilang diabaikan |
 | Cash Flow | **Kas awal + net = kas akhir = Cash Position**; transfer Kas→Bank tidak dihitung; akun tak terpetakan → "Belum terklasifikasi" |
-| P&L | Laba Bersih tidak memuat OCI; margin dengan Revenue 0 → "—" |
+| P&L | Margin dengan Revenue 0 → "—" |
 | Aging | Bucket tepat di batas hari (0, 30, 31, 60, 61, 90, 91); `asOf` lampau tidak memakai `payment_status` |
 | Sisa AP/AR | `Σ detail = kartu.amount × in_out`; tagihan + retur dibayar sekaligus → sisa 0; pembayaran setelah `asOf` tidak mengurangi sisa; `in_out=0` diabaikan; tagihan ber-`payment_status=2` di voucher yang belum dibayar **tetap** dihitung sebagai utang & berlabel "Disetujui, menunggu bayar"; pembayaran yang ada di `ap_ar_card_detail` dan `bankpo_payment_detail` **tidak** dihitung dua kali |
 | Payment Plan | Overdue di hari ke-0; toggle penerimaan; saldo negatif ditandai |
