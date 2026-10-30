@@ -1,0 +1,252 @@
+# Halaman Summary — Data, Query & Rumus
+
+> **Tujuan:** bahan konfirmasi ke tim finance. Menjelaskan untuk setiap kartu di halaman Summary: data apa yang diambil, query apa yang berjalan, bagaimana angka dihitung, dan hal yang perlu dipastikan.
+>
+> **Status dokumen:** disusun dari membaca kode dan `docs/data-model.md` / `docs/decisions.md`. **Belum diverifikasi** dengan menjalankan query ke database. Bila ada selisih dengan `decisions.md` / `data-model.md`, dokumen itu yang menang.
+>
+> **Aturan pemeliharaan:** dokumen ini **harus diperbarui setiap kali halaman Summary berubah** (kartu baru, rumus berubah, sumber data berubah, kartu dihapus). Tambahkan baris di [Riwayat Perubahan](#riwayat-perubahan) dan perbarui tanggal di bawah.
+>
+> **Query SQL lengkap untuk developer:** lihat [`summary-queries.md`](./summary-queries.md). Kedua dokumen harus diperbarui bersamaan.
+>
+> **Terakhir diperbarui:** 2026-10-30
+
+## Daftar isi
+
+1. [Aturan umum](#1-aturan-umum)
+2. [Cash Position](#2-cash-position-kartu-hijau)
+3. [Revenue](#3-revenue)
+4. [Net Profit](#4-net-profit)
+5. [Payables](#5-payables)
+6. [Cash Flow (grafik bulanan)](#6-cash-flow-grafik-batang-bulanan)
+7. [Composition (donut)](#7-composition-donut)
+8. [Tabel Bills due in 7 days](#8-tabel-bills-due-in-7-days)
+9. [Kartu mini: Runway, Margin, Current Ratio](#9-kartu-mini)
+10. [Lima hal terpenting untuk dikonfirmasi](#10-lima-hal-terpenting-untuk-dikonfirmasi)
+11. [Catatan developer](#11-catatan-developer-bukan-untuk-finance)
+12. [Riwayat Perubahan](#riwayat-perubahan)
+
+---
+
+## 1. Aturan umum
+
+Berlaku untuk semua kartu di Summary.
+
+**Tanggal acuan (`asOf`) ditentukan filter periode:**
+
+| Pilihan periode | Tanggal acuan |
+|---|---|
+| Bulan ini, Kuartal ini, YTD, 12 bulan | Hari ini |
+| Bulan lalu | Akhir bulan lalu |
+| Rentang kustom | Akhir bulan terakhir yang dipilih (maksimal hari ini) |
+
+**Filter entitas** menentukan lokasi (`pos_location`) mana yang dijumlahkan. Penjumlahan biasa, **tanpa eliminasi antar-entitas**.
+
+**Aturan akuntansi:**
+- Hanya jurnal `posted_status = 1` dan `canceled_date` kosong. Jurnal draft **tidak** dihitung.
+- Jurnal pembalik ikut dihitung bersama jurnal aslinya (saling meniadakan).
+- Tanda angka mengikuti sisi alami kelompok akun (`account_group`), bukan `coa.saldo_normal`:
+  - Harta, Harga Pokok Penjualan (HPP), Beban → debit − kredit.
+  - Utang, Modal, Pendapatan → kredit − debit.
+- Angka **bulanan** memakai `gl.period_id`; angka **per tanggal** (saldo kas) memakai `gl.trans_date`.
+- Daftar akun Kas, Bank, Deposito, Dana transit, Biaya Tetap **tidak ditulis mati di kode**. Diambil dari Settings › Account Mapping (`system_main`, baris `DASHBOARD_ACCOUNT_MAPPING`).
+- Periode berstatus **Closed** dibaca dari tabel salinan `dash_snap_gl_monthly` bila sudah dibangun. Periode Open / Pre Closed selalu dibaca langsung dari ERP.
+- Banner peringatan muncul bila rentang memuat periode Open / Pre Closed, atau ada bulan tanpa baris periode.
+
+**Peta isi halaman:**
+
+| Komponen | Layanan (service) | Sumber data utama |
+|---|---|---|
+| Cash Position | `cash-position.service.ts` | `coa`, `system_main`, `periode`, `coa_opening_balance_location`, `gl`, `gl_detail`, `bank_payment` |
+| Revenue | `revenue.service.ts` | `gl`, `gl_detail`, `coa` |
+| Net Profit | `pnl.service.ts` | `gl`, `gl_detail`, `coa` |
+| Payables | `ap-aging.service.ts` | `ap_ar_card`, `ap_ar_card_detail`, `vendor` (via snapshot `dash_*`) |
+| Cash Flow | `cash-flow.service.ts` | `gl`, `gl_detail`, `cash_flow_setup`, `cash_flow_group` |
+| Composition | `revenue.service.ts`, `fixed-cost.service.ts` | `gl`, `gl_detail`, `coa`, `system_main` |
+| Bills due in 7 days | `payment-plan.service.ts` | AP open invoices, `bankpo_payment`, `bankpo_payment_detail`, `vendor` |
+| Runway, Margin, Current Ratio | `runway.service.ts` | Cash Position + arus kas + P&L + saldo akun |
+
+Orkestrator: `src/server/services/summary.service.ts`. Halaman: `src/routes/_authed/summary.tsx`.
+
+---
+
+## 2. Cash Position (kartu hijau)
+
+**Yang ditampilkan:** angka besar = **Kas + Bank**. Di bawahnya: Kas, Bank, lalu (dipisah garis) Deposito dan Dana dalam pencairan. Dua baris terakhir **tidak** masuk angka besar.
+
+### Data yang diambil
+
+| Data | Tabel ERP | Dipakai untuk |
+|---|---|---|
+| Daftar akun | `coa` (kode, nama, HEADER/POSTABLE, `account_group`) | Membentuk pohon akun |
+| Pengaturan keranjang akun | `system_main` | Akun mana yang dihitung sebagai Kas, Bank, Deposito, Transit |
+| Periode | `periode` (tanggal, status, tabel GL) | Memilih saldo awal dan tabel GL arsip |
+| Entitas | `pos_location`, `segment`, `segment_detail` | Filter lokasi |
+| Saldo awal | `coa_opening_balance_location` | Titik awal saldo |
+| Mutasi | `gl` + `gl_detail` | Transaksi setelah saldo awal |
+| Dana belum cair | `bank_payment` | Hanya rekonsiliasi; tidak tampil di kartu Summary |
+
+### Query yang berjalan (bahasa biasa)
+
+1. Ambil seluruh daftar akun dan periode (cache 10 menit) dan pengaturan keranjang (cache 2 menit).
+2. **Saldo awal:** jumlah `opening_balance` per akun untuk satu periode, untuk akun di keranjang dan entitas terpilih.
+3. **Mutasi:** jumlah debet dan jumlah kredit per akun dari jurnal posted dengan `trans_date` antara hari setelah akhir periode Closed terakhir dan `asOf`.
+4. **Dana belum cair:** dari `bank_payment` (`type` 1 atau 2, `status` 0 = belum cair, akun transit, tanggal ≤ `asOf`), dikelompokkan per akun, entitas, tanggal.
+5. **Saldo pembanding** (periode sebelumnya). Query ini ikut berjalan tetapi kartu Summary tidak menampilkannya.
+
+### Cara hitung saldo satu akun pada `asOf`
+
+1. C = periode reguler berstatus Closed terakhir yang berakhir sebelum `asOf`.
+2. P\* = periode tepat setelah C.
+3. Saldo = saldo awal P\* + (debit − kredit) jurnal posted antara hari setelah akhir C dan `asOf`.
+4. Bila P\* tidak punya baris saldo awal → cara cadangan: jumlah semua jurnal posted sejak awal data.
+
+Contoh: saldo awal Bank X Rp1.000, debet Rp500, kredit Rp300 sesudahnya → saldo Rp1.200.
+
+### Penjumlahan per keranjang
+
+- Kas = Σ saldo akun di keranjang Kas.
+- Bank = Σ saldo akun di keranjang Bank.
+- **Cash Position = Kas + Bank.**
+- Deposito dan Dana dalam pencairan dijumlah dengan cara yang sama untuk keranjangnya masing-masing.
+
+Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 1122, Transit = 1132 + akun QRIS/e-wallet di 1138. **Perlu dicek langsung di Settings.**
+
+### Perlu dikonfirmasi ke finance
+
+1. Isi keranjang Kas, Bank, Deposito, Transit sudah benar?
+2. Cash Position memang **tanpa** Deposito? (Di Cash Flow dan Runway, Deposito dianggap setara kas.)
+3. "Dana dalam pencairan" di kartu = **saldo buku besar** akun transit, bukan daftar `bank_payment`. Perbandingan keduanya hanya ada di halaman Cash Position. Apakah sinkron?
+4. Dokumen kas yang belum diposting tidak dihitung, jadi saldo bisa lebih kecil dari kas riil. Bisa diterima?
+5. Apakah angka sama dengan Neraca / Buku Besar ERP pada tanggal yang sama?
+6. Kartu mengikuti filter periode (saldo akhir periode terpilih), bukan selalu hari ini. Sesuai harapan?
+7. Saldo kas per entitas bisa janggal karena segmen Lokasi bersifat *non-balancing* (NBAL), misalnya tagihan satu entitas dibayar dari rekening entitas lain.
+
+---
+
+## 3. Revenue
+
+- **Data:** akun grup *Revenue* yang POSTABLE (`coa`), periode terpilih (`periode`), jumlah debet/kredit dari `gl` + `gl_detail` per akun, per periode, per lokasi.
+- **Rumus:** Revenue = Σ (kredit − debet) akun Revenue pada `period_id` terpilih. *Other Revenue* **tidak** termasuk.
+- **Pembanding:** rumus yang sama untuk rentang sebelumnya dengan panjang yang sama.
+- **Dipakai juga di:** donut Composition (tab Revenue).
+
+**Perlu dikonfirmasi:**
+- Retur dan diskon sudah tercatat di akun Revenue sehingga angkanya neto?
+- Untuk "Bulan ini", pembandingnya bulan lalu **penuh**, sedangkan angka berjalan baru sampai hari ini (tidak sebanding). Hal yang sama untuk Kuartal dan YTD.
+
+---
+
+## 4. Net Profit
+
+- **Data:** semua akun laba-rugi dari satu query GL per periode: Revenue, Cost Of Sales, Expense, Other Revenue, Other Expense, ditambah akun OCI.
+- **Rumus:**
+  - Laba Kotor = Revenue − HPP
+  - Laba Usaha = Laba Kotor − Beban Operasional
+  - **Net Profit = Laba Usaha + Other Revenue − Other Expense**
+  - OCI dipisah; kartu menampilkan Net Profit, bukan Total Laba Komprehensif.
+- **Net margin** = Net Profit ÷ Revenue (Revenue = 0 → "—").
+
+**Perlu dikonfirmasi:**
+- Akun OCI diidentifikasi sebagai akun di bawah kode "9" (konfigurasi di kode, item O4). Benar?
+- Acuan resmi = laporan Laba Rugi ERP versi "generate" (`profitloss_segmentgen.jsp`)? Menurut dokumen, ya.
+- Jurnal draft tidak ikut dihitung.
+
+---
+
+## 5. Payables
+
+- **Data:** `ap_ar_card` (modul AP) dan `ap_ar_card_detail`, nama vendor dari `vendor` (hanya id, kode, nama). Dibaca dari tabel salinan `dash_*` yang dibangun ulang berkala (status "Data as of …" di sidebar).
+- **Bagian A, tagihan:** tipe transaksi 0–6 dan 12. Sisa = nominal × arah (`in_out`) + jumlah detail pelunasan dari kartu bayar (tipe 7–11, 13, 14) bertanggal ≤ `asOf`. Hanya sisa ≠ 0 yang masuk.
+- **Bagian B, pembayaran belum dialokasikan:** kartu bayar tanpa baris detail. Nilainya negatif dan mengurangi utang.
+- **Angka besar = A + B (neto)**, mengikuti laporan AP Aging ERP.
+- **Overdue** = jumlah bucket yang sudah jatuh tempo (0–30, 31–60, 61–90, >90 hari).
+  - Umur = `asOf` − `due_date`. Jatuh tempo **hari ini** sudah masuk bucket 0–30.
+  - `due_date` kosong → dipakai tanggal transaksi.
+  - Pembayaran belum dialokasikan diumurkan berdasarkan tanggal transaksinya.
+- `payment_status` sengaja **tidak** dipakai (sudah "lunas" begitu tagihan masuk voucher, padahal uang belum keluar).
+
+**Perlu dikonfirmasi:**
+1. Total sama dengan AP Aging ERP pada tanggal yang sama?
+2. Overdue sudah dikurangi kredit vendor dan pembayaran belum dialokasikan, sehingga bisa lebih kecil dari jumlah tagihan yang benar-benar lewat tempo. Diinginkan?
+3. Tagihan yang sudah masuk voucher tetapi belum diposting tetap dihitung sebagai utang.
+4. Cek apakah ada pembayaran vendor belum dialokasikan dalam jumlah besar.
+
+---
+
+## 6. Cash Flow (grafik batang bulanan)
+
+- **Data:** jurnal posted pada periode terpilih yang menyentuh akun Kas, Bank, atau Deposito; semua baris jurnal itu diambil, termasuk sisi lawannya.
+- **Cash In** per bulan = jumlah bersih kas dari jurnal yang bersih kasnya positif.
+- **Cash Out** per bulan = jumlah bersih kas dari jurnal yang bersih kasnya negatif.
+- **Net** = In − Out.
+- Jurnal yang hanya memindahkan antar akun kas/bank/deposito = transfer internal, diabaikan.
+- Bulan ditentukan dari periode jurnal (`period_id`), bukan tanggal transaksi.
+
+**Perlu dikonfirmasi:**
+- Pada jurnal campuran (sebagian tunai, sebagian piutang), hanya bagian kasnya yang dihitung.
+- Klasifikasi Operating / Investing / Funding tidak tampil di Summary. Ada celah pemetaan `cash_flow_setup` (item O13 di `decisions.md`).
+
+---
+
+## 7. Composition (donut)
+
+- **Tab Revenue:** Revenue per folder akun (data sama dengan kartu Revenue).
+- **Tab Expense:** hanya akun di keranjang **Biaya Tetap** (Fixed Cost), per folder, debit − kredit selama periode terpilih.
+- Judulnya "Total Expense" padahal HPP dan biaya variabel tidak ikut. **Perlu konfirmasi:** sesuai harapan, atau sebaiknya semua Beban?
+
+---
+
+## 8. Tabel "Bills due in 7 days"
+
+- **Data:** tagihan AP bagian A dengan sisa > 0 dan jatuh tempo ≤ hari ini + 6 hari. Tanggal acuan = hari ini (bukan filter periode); filter entitas tetap berlaku.
+- **Kolom:**
+  - Vendor (`vendor`: id, kode, nama).
+  - Nomor tagihan.
+  - Jatuh tempo.
+  - Sisa.
+  - **Status rencana bayar** dari voucher `bankpo_payment` tipe 0:
+    - *Disetujui* = Posted atau Partialy Paid.
+    - *Diajukan* = Not Posted.
+    - *Belum diajukan* = tidak ada voucher aktif.
+
+**Perlu dikonfirmasi:**
+- Semua tagihan yang sudah lewat jatuh tempo ikut tampil, seberapa pun lamanya, bukan hanya yang jatuh tempo dalam 7 hari. Sesuai?
+- Hanya tagihan positif; kredit vendor tidak dinetto, jadi total tabel tidak akan sama dengan kartu Payables.
+
+---
+
+## 9. Kartu mini
+
+| Kartu | Rumus | Catatan untuk finance |
+|---|---|---|
+| **Runway** | Cash Position ÷ \|rata-rata burn\| (bulan). Burn ≥ 0 → "arus kas positif". | Burn = rata-rata **arus kas bersih** 3 bulan penuh sebelum bulan `asOf` (semua laci: operasional, investasi, pendanaan, termasuk pinjaman masuk). Pembilang = Kas + Bank, sedangkan arus kas sudah termasuk Deposito. Wajar? |
+| **Gross margin** | Laba Kotor ÷ Revenue | Dari perhitungan P&L yang sama. |
+| **Net margin** | Net Profit ÷ Revenue | Dari perhitungan P&L yang sama. |
+| **Current ratio** | Saldo seluruh akun grup *Liquid Assets* ÷ saldo seluruh akun grup *Current Liabilities*, pada `asOf` | Pembilang bukan hanya kas, tetapi semua akun bergrup Liquid Assets. Folder Hutang Bank Jangka Panjang ikut masuk Current Liabilities sehingga rasio bisa tampak lebih buruk. |
+
+---
+
+## 10. Lima hal terpenting untuk dikonfirmasi
+
+1. Isi keranjang akun Kas, Bank, Deposito, Transit.
+2. Apakah Deposito harus masuk Cash Position.
+3. Apakah total Payables dan angka Cash Position sama dengan laporan ERP pada tanggal yang sama.
+4. Definisi Overdue dan isi tabel 7 hari (apakah tagihan lama harus tampil).
+5. Isi tab Expense di donut, dan pembanding periode berjalan vs bulan lalu penuh.
+
+---
+
+## 11. Catatan developer (bukan untuk finance)
+
+- Kartu margin dan label Net margin di Summary kemungkinan tampil **NaN%**: server mengirim teks seperti "12.3%" (`formatPercent` di `src/lib/finance/pnl/pnl.ts`), sedangkan halaman mengalikannya lagi dengan 100 setelah `Number(...)` (`src/routes/_authed/summary.tsx`). Berdasarkan pembacaan kode, belum dilihat di layar.
+- Dihitung di server tetapi tidak ditampilkan di Summary: pembanding Cash Position, saldo awal dan overdue Payment Plan 7 hari, pembanding AP, rekonsiliasi GL terhadap AP. Query-nya tetap berjalan.
+- Untuk tanggal acuan masa lalu yang bukan akhir bulan, AP memakai query langsung ke ERP yang lambat.
+
+---
+
+## Riwayat Perubahan
+
+| Tanggal | Perubahan |
+|---|---|
+| 2026-10-30 | Dokumen dibuat dari pembacaan kode Summary (belum ada perubahan pada halaman). |
+| 2026-10-30 | Ditambah tautan ke `summary-queries.md` (katalog query SQL untuk developer). |
