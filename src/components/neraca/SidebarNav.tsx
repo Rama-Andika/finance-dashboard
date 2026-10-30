@@ -1,5 +1,4 @@
 import { DataFreshness } from '~/components/layout/DataFreshness'
-import { APP_NAME } from '~/lib/brand'
 import { useTranslation } from 'react-i18next'
 import { Link, useRouterState } from '@tanstack/react-router'
 import {

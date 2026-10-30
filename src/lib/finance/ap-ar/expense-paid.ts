@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js'
-import { D, sum } from '../../core/money'
+import { D } from '../../core/money'
 import type { Breakdown, Id, Money } from '../../core/types'
-import { type CoaTree, type CoaNode, postableDescendants } from '../coa/coa-tree'
+import { type CoaTree, postableDescendants } from '../coa/coa-tree'
 import { groupFolders } from '../pnl/revenue'
 import { isDirectExpenseGroup } from '../coa/account-groups'
 

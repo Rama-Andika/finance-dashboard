@@ -1,15 +1,7 @@
-import { D, sum } from '../../core/money'
+import { D } from '../../core/money'
 import { signedAmount } from '../coa/sign'
 import type { AccountGroup, Breakdown, Id, Money } from '../../core/types'
 import { type CoaTree, type CoaNode, ORPHAN_FOLDER_ID, postableDescendants } from '../coa/coa-tree'
-
-export type RevenueMovement = {
-  coaId: Id
-  periodId?: Id
-  locationId?: Id
-  debet: Money
-  credit: Money
-}
 
 /**
  * Composition folders of an account group:

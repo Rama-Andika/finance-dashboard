@@ -3,7 +3,7 @@ import Decimal from 'decimal.js'
 import { D } from '../../core/money'
 import { signedAmount } from '../coa/sign'
 import type { Breakdown, Id, Money } from '../../core/types'
-import { type CoaTree, type CoaNode, postableDescendants } from '../coa/coa-tree'
+import { type CoaTree } from '../coa/coa-tree'
 
 export type MonthCost = {
   month: string

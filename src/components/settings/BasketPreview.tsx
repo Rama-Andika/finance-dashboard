@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next'
 import { ScrollArea } from '~/components/ui/scroll-area'
-import { formatMoneyShort } from '~/lib/format/number'
 import type { CoaTree } from '~/lib/finance/coa/coa-tree'
 import type { Id, Money } from '~/lib/core/types'
 

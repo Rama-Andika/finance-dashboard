@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { dashTable, ints } from './tables'
+import { DASH_PREFIX, dashTable, ints } from './tables'
 
 /**
  * The dashboard may write only to its own `dash_*` tables; the ERP tables are read only.
@@ -31,7 +31,7 @@ describe('dash tables only', () => {
     const files = filesIn(path.join(ROOT, 'drizzle-dash'), /\.sql$/)
     expect(files.length).toBeGreaterThan(0)
     for (const file of files) {
-      const bad = targets(fs.readFileSync(file, 'utf8')).filter((t) => !t.startsWith('dash_'))
+      const bad = targets(fs.readFileSync(file, 'utf8')).filter((t) => !t.startsWith(DASH_PREFIX))
       expect({ file: path.basename(file), bad }).toEqual({ file: path.basename(file), bad: [] })
     }
   })
@@ -45,7 +45,7 @@ describe('dash tables only', () => {
     for (const file of files) {
       const source = fs.readFileSync(file, 'utf8')
       const found = targets(source)
-      const bad = found.filter((t) => !t.startsWith('dash_') && !t.startsWith('?'))
+      const bad = found.filter((t) => !t.startsWith(DASH_PREFIX) && !t.startsWith('?'))
       expect({ file: path.basename(file), bad }).toEqual({ file: path.basename(file), bad: [] })
       // a `??` placeholder is only allowed when the name went through dashTable()
       if (found.some((t) => t.startsWith('?'))) expect(source).toContain('dashTable(')
@@ -55,7 +55,7 @@ describe('dash tables only', () => {
   it('no code outside the dash folder writes to dash tables by hand', () => {
     const files = filesIn(path.join(ROOT, 'src/server/repo'), /\.ts$/, [/\.test\.ts$/])
     for (const file of files) {
-      expect(targets(fs.readFileSync(file, 'utf8')).filter((t) => t.startsWith('dash_'))).toEqual([])
+      expect(targets(fs.readFileSync(file, 'utf8')).filter((t) => t.startsWith(DASH_PREFIX))).toEqual([])
     }
   })
 })

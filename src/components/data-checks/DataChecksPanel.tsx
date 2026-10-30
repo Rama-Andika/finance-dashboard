@@ -1,6 +1,5 @@
 import { searchUpdater } from '~/lib/filters/search-update'
-import React from 'react'
-import { useNavigate, useSearch } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle2, ArrowRight, X, AlertTriangle } from 'lucide-react'
@@ -19,7 +18,6 @@ export interface DataChecksPanelProps {
 }
 
 export function DataChecksPanel({ open, onOpenChange }: DataChecksPanelProps) {
-  const search = useSearch({ strict: false }) as { entity?: string; preset?: string; p13?: boolean }
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang

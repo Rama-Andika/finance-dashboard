@@ -4,9 +4,7 @@ import { rows } from '~/server/db/query'
 import { chunkOrAll } from '~/server/db/chunk'
 import {
   AGING_SIDES,
-  AR_UNALLOCATED_RECEIPT_TYPE,
   IN_OUT_VALUES,
-  MODULE_TYPE,
   intList,
 } from '~/server/db/erp-codes'
 import { D } from '~/lib/core/money'
@@ -245,40 +243,6 @@ export function arOpenInvoices(asOfPlusOne: IsoDate, locIds: Id[] | 'all'): Prom
 
 export function arUnallocatedReceipts(asOfPlusOne: IsoDate, locIds: Id[] | 'all'): Promise<ArUnallocatedReceiptRow[]> {
   return agingUnallocated('ar', asOfPlusOne, locIds, 'customerId')
-}
-
-export async function unallocatedCustomerPayments(
-  asOfPlusOne: IsoDate,
-  locIds: Id[] | 'all',
-): Promise<{ count: number; amount: Money }> {
-  if (locIds !== 'all' && locIds.length === 0) {
-    return { count: 0, amount: '0.00' }
-  }
-
-  let totalCount = 0
-  let totalAmount = D(0)
-
-  for (const lChunk of chunkOrAll(locIds)) {
-    const res = await rows<{ n: number | string; amount: number | string }>(sql`
-      SELECT COUNT(*) AS n, COALESCE(SUM(p.amount * p.in_out), 0) AS amount
-      FROM ap_ar_card p
-      WHERE p.module_type = ${MODULE_TYPE.AR}
-        AND p.transaction_type = ${AR_UNALLOCATED_RECEIPT_TYPE}
-        AND p.in_out IN (${intList(IN_OUT_VALUES)})
-        AND p.transaction_date < ${asOfPlusOne}
-        ${locationFilter('p', lChunk)}
-        AND NOT EXISTS (SELECT 1 FROM ap_ar_card_detail d WHERE d.ap_ar_card_id = p.ap_ar_card_id)
-    `)
-    for (const r of res) {
-      totalCount += Number(r.n) || 0
-      totalAmount = totalAmount.plus(D(r.amount || 0))
-    }
-  }
-
-  return {
-    count: totalCount,
-    amount: totalAmount.toFixed(2),
-  }
 }
 
 export type CardSettlementRow = {

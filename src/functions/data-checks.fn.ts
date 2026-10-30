@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { authMiddleware } from '~/functions/middleware'
-import { metricInputSchema, type MetricInput } from '~/lib/filters/search-schema'
+import { metricInputSchema } from '~/lib/filters/search-schema'
 import { resolveFilter } from '~/server/context'
 import { computeDataChecks, type DataCheckItem } from '~/server/services/data-checks.service'
 

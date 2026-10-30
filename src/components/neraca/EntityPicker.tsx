@@ -4,7 +4,6 @@ import { Search, Building2, ChevronDown } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/popover'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '~/components/ui/sheet'
 
-import { cn } from '~/lib/cn'
 
 export type EntityItem = {
   /** Location id (the value used in the URL) */
@@ -69,7 +68,6 @@ export function EntityPicker({
     )
   }, [entities, searchQuery])
 
-  const isAllSelected = tempSelected.size === entities.length
   const selectedCount = tempSelected.size
   const totalCount = entities.length
 

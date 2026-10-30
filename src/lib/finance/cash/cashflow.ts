@@ -1,7 +1,7 @@
 import { CF_FALLBACK, UNCLASSIFIED_SUBGROUP } from './cashflow-labels'
 import { FIXED_ASSET_JOURNAL_TYPES, LOAN_JOURNAL_TYPES } from '../journal/journal-type'
 import Decimal from 'decimal.js'
-import { D, sum } from '../../core/money'
+import { D } from '../../core/money'
 import type { Id, Money } from '../../core/types'
 
 export type DrawerKey = 'OPERATING' | 'INVESTING' | 'FUNDING'

@@ -1,9 +1,8 @@
 import { isIncomeGroup } from '../coa/account-groups'
-import Decimal from 'decimal.js'
 import { D, safeDiv } from '../../core/money'
 import { formatPercent } from '~/lib/format/number'
 import type { AccountGroup, Id, Money } from '../../core/types'
-import { type CoaTree, type CoaNode, ORPHAN_FOLDER_ID, postableDescendants } from '../coa/coa-tree'
+import { type CoaTree, type CoaNode, ORPHAN_FOLDER_ID } from '../coa/coa-tree'
 
 export type BudgetRow = {
   coaId: Id

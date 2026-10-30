@@ -3,7 +3,6 @@ import { useEffect, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Calendar } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/popover'
-import { Switch } from '~/components/ui/switch'
 import { cn } from '~/lib/cn'
 import type { Preset, Horizon } from '~/lib/filters/search-schema'
 import { formatMonthYear } from '~/lib/format/date'
@@ -82,7 +81,6 @@ export function PeriodSelect({
   ]
 
   const hasRange = Boolean(from && to)
-  const isP13Supported = hasRange || preset === 'ytd' || preset === 'last-12m'
 
   const [draftFrom, setDraftFrom] = useState(from ?? months[0]?.month ?? '')
   const [draftTo, setDraftTo] = useState(to ?? months[0]?.month ?? '')

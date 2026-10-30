@@ -56,7 +56,6 @@ describe('checkState & toggleNode', () => {
   const headerKasBank = '504404509311573861'
   const kasOperasional = '504404509311573862'
   const bankMandiri = '504404509311573863'
-  const bankBca = '504404509311573864'
 
   it('determines checkState accurately (checked, partial, unchecked)', () => {
     // Empty include

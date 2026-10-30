@@ -1,5 +1,4 @@
 import { APP_NAME } from '~/lib/brand'
-import React from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Lang } from '~/lib/core/types'
 import { formatDate } from '~/lib/format/date'

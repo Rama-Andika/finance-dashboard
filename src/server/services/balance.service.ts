@@ -1,5 +1,5 @@
 import '@tanstack/react-start/server-only'
-import type { Id, IsoDate, Money, ResolvedFilter, AccountGroup, Period } from '~/lib/core/types'
+import type { Id, IsoDate, Money, ResolvedFilter, AccountGroup } from '~/lib/core/types'
 import { getCachedCoaTree, getCachedPeriods } from '~/server/context'
 import {
   openingBalances,

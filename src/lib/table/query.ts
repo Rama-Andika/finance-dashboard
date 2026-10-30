@@ -48,7 +48,6 @@ export function tableSearchSchema<K extends readonly [string, ...string[]]>(sort
 export type Comparator<T> = (a: T, b: T) => number
 
 export const compareText = (a: string, b: string): number => a.localeCompare(b, undefined, { sensitivity: 'base' })
-export const compareNumber = (a: number, b: number): number => a - b
 /** Money strings are compared as decimals, never as floating point. */
 export const compareMoney = (a: string, b: string): number => new Decimal(a || 0).cmp(new Decimal(b || 0))
 

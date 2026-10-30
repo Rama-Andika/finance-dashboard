@@ -1,15 +1,5 @@
-import Decimal from 'decimal.js'
 import { D, safeDiv } from '../../core/money'
 import type { Money } from '../../core/types'
-
-export type RunwayRatioResult = {
-  runwayMonths: string | null
-  cashFlowPositive: boolean
-  avgBurn: Money
-  grossMargin: string | null
-  netMargin: string | null
-  currentRatio: string | null
-}
 
 /**
  * Computes average burn of the last 3 full months.
