@@ -6,16 +6,14 @@ import { drillSearchSchema } from '~/lib/filters/search-schema'
 import { revenueMetricOptions } from '~/queries/metrics.queries'
 import { MetricSkeleton } from '~/components/neraca/MetricSkeleton'
 import { MetricError } from '~/components/neraca/MetricError'
-import { Notice } from '~/components/neraca/Notice'
-import { KpiCard } from '~/components/neraca/KpiCard'
 import { DonutBreakdown } from '~/components/neraca/DonutBreakdown'
 import { exportFilename } from '~/components/export/ExportCsvDialog'
-import { PrintHeader } from '~/components/export/PrintHeader'
+import { MetricPageHeader } from '~/components/layout/MetricPageHeader'
+import { useLang } from '~/components/layout/use-lang'
 import { MonthlyTrendChart } from '~/components/revenue/MonthlyTrendChart'
 import { RevenueEntityTable, RevenueFolderTable } from '~/components/revenue/RevenueTables'
+import { RevenueKpiRow } from '~/components/revenue/RevenueKpiRow'
 import { formatMonthYear, getCompareLabel } from '~/lib/format/date'
-import { largestByAmount } from '~/lib/core/money'
-import type { Lang } from '~/lib/core/types'
 
 export const Route = createFileRoute('/_authed/revenue')({
   validateSearch: drillSearchSchema,
@@ -37,14 +35,12 @@ function RevenuePage() {
   const deps = Route.useLoaderDeps()
   const navigate = useNavigate()
   const { data } = useQuery(revenueMetricOptions(deps))
-  const { t, i18n } = useTranslation()
-  const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
+  const { t } = useTranslation()
+  const lang = useLang()
 
   if (!data) return null
 
   const compareLabel = getCompareLabel(deps.from && deps.to ? 'custom' : deps.preset, lang)
-  const topCategory = largestByAmount(data.byFolder)
-  const topEntity = largestByAmount(data.byEntity)
 
   const handleSelectFolder = (folderId: string, folderLabel?: string) => {
     const folder = data.byFolder.find((f) => f.id === folderId)
@@ -63,50 +59,16 @@ function RevenuePage() {
 
   return (
     <div className="space-y-6">
-      <PrintHeader
-        title={t('nav.revenue')}
-        entity={deps.entity}
-        preset={deps.from && deps.to ? `${deps.from} – ${deps.to}` : deps.preset}
-        asOf={data.meta.asOf}
-      />
-      {data.meta.hasOpenPeriod && (
-        <Notice
-          tone="warning"
-          title={t('metric.openPeriodWarning', {
-            month: formatMonthYear(data.meta.asOf, lang),
-          })}
-        />
-      )}
-      {data.meta.missingMonths.length > 0 && (
-        <Notice
-          tone="warning"
-          title={t('metric.missingMonthsWarning')}
-          body={data.meta.missingMonths.join(', ')}
-        />
-      )}
+      <MetricPageHeader titleKey="nav.revenue" filter={deps} meta={data.meta} lang={lang} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <KpiCard
-          label={t('nav.revenue')}
-          value={data.total}
-          compareValue={data.compareTotal}
-          compareLabel={compareLabel}
-          higherIsBetter={true}
-        />
-        <KpiCard
-          label={t('ui.revenue.topCategory')}
-          value={topCategory?.amount ?? '0'}
-          compareLabel={topCategory?.label || '—'}
-          higherIsBetter={true}
-          onOpen={topCategory ? () => handleSelectFolder(topCategory.id, topCategory.label) : undefined}
-        />
-        <KpiCard
-          label={t('ui.revenue.topEntity')}
-          value={topEntity?.amount ?? '0'}
-          compareLabel={topEntity?.name || '—'}
-          higherIsBetter={true}
-        />
-      </div>
+      <RevenueKpiRow
+        total={data.total}
+        compareTotal={data.compareTotal}
+        compareLabel={compareLabel}
+        byFolder={data.byFolder}
+        byEntity={data.byEntity}
+        onSelectFolder={handleSelectFolder}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <MonthlyTrendChart trend={data.trend} total={data.total} lang={lang} />

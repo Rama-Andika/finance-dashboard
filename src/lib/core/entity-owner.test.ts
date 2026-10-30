@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Entity } from './types'
-import { buildEntityOwners, countEntitiesInScope, ownerNameOfLocation, ownerNameOfSegment } from './entity-owner'
+import { buildEntityCaptions, buildEntityOwners, countEntitiesInScope, ownerNameOfLocation, ownerNameOfSegment } from './entity-owner'
 
 const entity = (
   locationId: string,
@@ -71,5 +71,25 @@ describe('countEntitiesInScope', () => {
   it('ignores unknown segment ids and an empty list', () => {
     expect(countEntitiesInScope(['sZ'], entities)).toBe(0)
     expect(countEntitiesInScope([], entities)).toBe(0)
+  })
+})
+
+describe('buildEntityCaptions', () => {
+  it('adds the owner name to a row only when more than one entity is in scope', () => {
+    const on = buildEntityCaptions(entities, 2)
+    expect(on.show).toBe(true)
+    expect(on.fieldsOfLocation('locA')).toEqual({ entityName: 'Store A' })
+    expect(on.fieldsOfSegment('sB')).toEqual({ entityName: 'Store B' })
+
+    const off = buildEntityCaptions(entities, 1)
+    expect(off.show).toBe(false)
+    expect(off.fieldsOfLocation('locA')).toEqual({})
+    expect(off.fieldsOfSegment('sB')).toEqual({})
+  })
+
+  it('gives a null name to a row without a known entity', () => {
+    const on = buildEntityCaptions(entities, 5)
+    expect(on.fieldsOfLocation('')).toEqual({ entityName: null })
+    expect(on.fieldsOfSegment('0')).toEqual({ entityName: null })
   })
 })

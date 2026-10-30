@@ -1,21 +1,19 @@
 import { searchUpdater } from '~/lib/filters/search-update'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
 import { drillSearchSchema } from '~/lib/filters/search-schema'
 import { summaryMetricOptions } from '~/queries/metrics.queries'
 import { tableSearchSchema } from '~/lib/table/query'
 import { PAYMENT_BILL_SORT_KEYS } from '~/lib/finance/ap-ar/payment-plan-bills'
 import { MetricSkeleton } from '~/components/neraca/MetricSkeleton'
 import { MetricError } from '~/components/neraca/MetricError'
-import { Notice } from '~/components/neraca/Notice'
-import { PrintHeader } from '~/components/export/PrintHeader'
+import { MetricPageHeader } from '~/components/layout/MetricPageHeader'
+import { useLang } from '~/components/layout/use-lang'
 import { BillsTable } from '~/components/summary/BillsTable'
 import { MiniMetricsBar } from '~/components/summary/MiniMetricsBar'
 import { SummaryCharts } from '~/components/summary/SummaryCharts'
 import { SummaryKpiRow } from '~/components/summary/SummaryKpiRow'
-import { formatMonthYear, getCompareLabel } from '~/lib/format/date'
-import type { Lang } from '~/lib/core/types'
+import { getCompareLabel } from '~/lib/format/date'
 
 export const Route = createFileRoute('/_authed/summary')({
   validateSearch: drillSearchSchema.extend(tableSearchSchema(PAYMENT_BILL_SORT_KEYS).shape),
@@ -37,8 +35,7 @@ function SummaryPage() {
   const deps = Route.useLoaderDeps()
   const navigate = useNavigate()
   const { data } = useQuery(summaryMetricOptions(deps))
-  const { t, i18n } = useTranslation()
-  const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
+  const lang = useLang()
 
   if (!data) return null
 
@@ -50,27 +47,7 @@ function SummaryPage() {
 
   return (
     <div className="space-y-6">
-      <PrintHeader
-        title={t('nav.summary')}
-        entity={deps.entity}
-        preset={deps.from && deps.to ? `${deps.from} – ${deps.to}` : deps.preset}
-        asOf={data.meta.asOf}
-      />
-      {data.meta.hasOpenPeriod && (
-        <Notice
-          tone="warning"
-          title={t('metric.openPeriodWarning', {
-            month: formatMonthYear(data.meta.asOf, lang),
-          })}
-        />
-      )}
-      {data.meta.missingMonths.length > 0 && (
-        <Notice
-          tone="warning"
-          title={t('metric.missingMonthsWarning')}
-          body={data.meta.missingMonths.join(', ')}
-        />
-      )}
+      <MetricPageHeader titleKey="nav.summary" filter={deps} meta={data.meta} lang={lang} />
 
       <SummaryKpiRow
         asOf={data.meta.asOf}

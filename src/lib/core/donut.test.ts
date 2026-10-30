@@ -1,6 +1,6 @@
 import Decimal from 'decimal.js'
 import { describe, expect, it } from 'vitest'
-import { buildDonutArcs, largestRemainderPercentages } from './donut'
+import { buildDonutArcs, buildDonutDisplayItems, buildDonutSegments, largestRemainderPercentages } from './donut'
 
 const decs = (values: number[]) => values.map((v) => new Decimal(v))
 
@@ -51,5 +51,48 @@ describe('buildDonutArcs', () => {
       { dashArray: '0 100.0', dashOffset: '0' },
       { dashArray: '0 100.0', dashOffset: '0' },
     ])
+  })
+})
+
+describe('buildDonutDisplayItems', () => {
+  const item = (id: string, amount: string) => ({ id, name: `Item ${id}`, amount })
+
+  it('puts the largest absolute amount first and keeps up to five slices as they are', () => {
+    const shown = buildDonutDisplayItems([item('a', '10'), item('b', '-50'), item('c', '30')], 'Other')
+    expect(shown.map((s) => s.id)).toEqual(['b', 'c', 'a'])
+    expect(shown.map((s) => s.decAmount.toString())).toEqual(['50', '30', '10'])
+  })
+
+  it('collapses the smallest slices into one "other" slice when there are more than five', () => {
+    const many = ['1', '2', '3', '4', '5', '6', '7'].map((n) => item(n, n))
+    const shown = buildDonutDisplayItems(many, 'Other')
+    expect(shown.map((s) => s.id)).toEqual(['7', '6', '5', '4', 'other'])
+    expect(shown[4]).toMatchObject({ name: 'Other', amount: '6' })
+    expect(shown[4]?.decAmount.toString()).toBe('6')
+  })
+
+  it('treats a missing amount as zero', () => {
+    expect(buildDonutDisplayItems([item('a', '')], 'Other')[0]?.decAmount.toString()).toBe('0')
+  })
+})
+
+describe('buildDonutSegments', () => {
+  it('gives every slice a percentage (adding up to 100) and its arc', () => {
+    const shown = buildDonutDisplayItems(
+      [
+        { id: 'a', name: 'A', amount: '50' },
+        { id: 'b', name: 'B', amount: '30' },
+        { id: 'c', name: 'C', amount: '20' },
+      ],
+      'Other',
+    )
+    const segments = buildDonutSegments(shown)
+    expect(segments.map((s) => s.pct)).toEqual([50, 30, 20])
+    expect(segments.every((s) => s.dashArray.includes(' '))).toBe(true)
+    expect(segments[0]?.id).toBe('a')
+  })
+
+  it('returns nothing for no slices', () => {
+    expect(buildDonutSegments([])).toEqual([])
   })
 })

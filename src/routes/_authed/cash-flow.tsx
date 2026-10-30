@@ -10,16 +10,14 @@ import {
 } from '~/queries/metrics.queries'
 import { MetricSkeleton } from '~/components/neraca/MetricSkeleton'
 import { MetricError } from '~/components/neraca/MetricError'
-import { Notice } from '~/components/neraca/Notice'
 import { KpiCard } from '~/components/neraca/KpiCard'
 import { CashflowChart } from '~/components/neraca/CashflowChart'
 import { Tabs } from '~/components/neraca/Tabs'
-import { PrintHeader } from '~/components/export/PrintHeader'
+import { MetricPageHeader } from '~/components/layout/MetricPageHeader'
+import { useLang } from '~/components/layout/use-lang'
 import { CashFlowWaterfall } from '~/components/cash-flow/CashFlowWaterfall'
 import { ActivitiesTable } from '~/components/cash-flow/ActivitiesTable'
 import { ExpensePaidPanel } from '~/components/cash-flow/ExpensePaidPanel'
-import { formatMonthYear } from '~/lib/format/date'
-import type { Lang } from '~/lib/core/types'
 import { buildActivityRows, buildWaterfall, localizeExpense } from '~/lib/finance/cash/cashflow-view'
 
 export const Route = createFileRoute('/_authed/cash-flow')({
@@ -45,8 +43,8 @@ function CashFlowPage() {
   const deps = Route.useLoaderDeps()
   const { data: cfData } = useQuery(cashFlowMetricOptions(deps))
   const { data: expDataRaw } = useQuery(expensePaidMetricOptions(deps))
-  const { t, i18n } = useTranslation()
-  const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
+  const { t } = useTranslation()
+  const lang = useLang()
 
   const [activeTab, setActiveTab] = useState<'activities' | 'expensePaid'>('activities')
 
@@ -56,27 +54,7 @@ function CashFlowPage() {
 
   return (
     <div className="space-y-6">
-      <PrintHeader
-        title={t('nav.cashFlow')}
-        entity={deps.entity}
-        preset={deps.from && deps.to ? `${deps.from} – ${deps.to}` : deps.preset}
-        asOf={cfData.meta.asOf}
-      />
-      {cfData.meta.hasOpenPeriod && (
-        <Notice
-          tone="warning"
-          title={t('metric.openPeriodWarning', {
-            month: formatMonthYear(cfData.meta.asOf, lang),
-          })}
-        />
-      )}
-      {cfData.meta.missingMonths.length > 0 && (
-        <Notice
-          tone="warning"
-          title={t('metric.missingMonthsWarning')}
-          body={cfData.meta.missingMonths.join(', ')}
-        />
-      )}
+      <MetricPageHeader titleKey="nav.cashFlow" filter={deps} meta={cfData.meta} lang={lang} />
 
       <div className="text-xs text-ink-muted flex items-center gap-1.5">
         <Info className="nr-icon nr-icon-sm" />

@@ -18,9 +18,24 @@ let memoWeight = 0
 /** Bumped by `clearCache`, so a load that started before the clear never stores its (stale) result. */
 let generation = 0
 
-/** Arrays weigh as many as they have rows; everything else weighs 1. */
+/** Rows held by a list, map or set; anything else holds none. */
+function rowsIn(value: unknown): number {
+  if (Array.isArray(value)) return value.length
+  if (value instanceof Map || value instanceof Set) return value.size
+  return 0
+}
+
+/**
+ * A list weighs as many as it has rows. A result object weighs 1 plus the rows of its top-level lists, maps and sets:
+ * a payment plan is an object holding 100k+ bills, and counting it as 1 let the memo grow far past its budget.
+ */
 function weightOf(value: unknown): number {
-  return Array.isArray(value) ? value.length + 1 : 1
+  if (value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Map) && !(value instanceof Set)) {
+    let weight = 1
+    for (const field of Object.values(value)) weight += rowsIn(field)
+    return weight
+  }
+  return rowsIn(value) + 1
 }
 
 function dropMemo(key: string) {

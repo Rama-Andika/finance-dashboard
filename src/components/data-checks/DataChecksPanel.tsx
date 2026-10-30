@@ -10,7 +10,7 @@ import { useGlobalMetricInput } from '~/components/layout/useGlobalMetricInput'
 import { dataChecksOptions } from '~/queries/data-checks.queries'
 import { formatMoneyFull } from '~/lib/format/number'
 import { errorMessageKey } from '~/lib/error-message'
-import type { Lang } from '~/lib/core/types'
+import { useLang } from '~/components/layout/use-lang'
 
 export interface DataChecksPanelProps {
   open: boolean
@@ -19,8 +19,8 @@ export interface DataChecksPanelProps {
 
 export function DataChecksPanel({ open, onOpenChange }: DataChecksPanelProps) {
   const navigate = useNavigate()
-  const { t, i18n } = useTranslation()
-  const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
+  const { t } = useTranslation()
+  const lang = useLang()
 
   const queryInput = useGlobalMetricInput()
 

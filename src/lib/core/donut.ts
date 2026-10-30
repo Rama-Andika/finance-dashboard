@@ -56,3 +56,40 @@ export function buildDonutArcs(values: readonly Decimal[], circumference: number
     return arc
   })
 }
+
+/** One slice before drawing. */
+export type DonutItem = { id: string; name: string; amount: string }
+
+/** A slice with its absolute amount as a decimal, ready for percentages and arcs. */
+export type DonutDisplayItem = DonutItem & { decAmount: Decimal }
+
+/**
+ * The slices to draw: largest absolute amount first; when there are more than `maxSegments`, the smallest ones
+ * collapse into one extra slice called `otherName` (so at most `maxSegments` slices remain).
+ */
+export function buildDonutDisplayItems(items: readonly DonutItem[], otherName: string, maxSegments = 5): DonutDisplayItem[] {
+  const sorted = items
+    .map((item) => ({ ...item, decAmount: new Decimal(item.amount || '0').abs() }))
+    .sort((a, b) => b.decAmount.cmp(a.decAmount))
+  if (sorted.length <= maxSegments) return sorted
+
+  const kept = sorted.slice(0, maxSegments - 1)
+  const otherSum = sorted.slice(maxSegments - 1).reduce((sum, item) => sum.add(item.decAmount), new Decimal(0))
+  return [...kept, { id: 'other', name: otherName, amount: otherSum.toFixed(0), decAmount: otherSum }]
+}
+
+/** A slice with the numbers its ring arc and legend row need. */
+export type DonutSegment = DonutDisplayItem & { pct: number; dashArray: string; dashOffset: string }
+
+/** Percentages that add up to 100 and the stroke settings of every arc of a ring. */
+export function buildDonutSegments(items: readonly DonutDisplayItem[]): DonutSegment[] {
+  const amounts = items.map((it) => it.decAmount)
+  const percentages = largestRemainderPercentages(amounts)
+  const arcs = buildDonutArcs(amounts, DONUT_CIRCUMFERENCE, DONUT_GAP)
+  return items.map((item, idx) => ({
+    ...item,
+    pct: percentages[idx] ?? 0,
+    dashArray: arcs[idx]?.dashArray ?? '0 0',
+    dashOffset: arcs[idx]?.dashOffset ?? '0',
+  }))
+}

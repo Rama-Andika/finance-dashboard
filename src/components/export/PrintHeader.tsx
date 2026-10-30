@@ -1,6 +1,6 @@
 import { APP_NAME } from '~/lib/brand'
 import { useTranslation } from 'react-i18next'
-import type { Lang } from '~/lib/core/types'
+import { useLang } from '~/components/layout/use-lang'
 import { formatDate } from '~/lib/format/date'
 import { useQuery } from '@tanstack/react-query'
 import { describeEntityToken } from '~/lib/filters/entity-token'
@@ -14,8 +14,8 @@ export interface PrintHeaderProps {
 }
 
 export function PrintHeader({ title, entity, preset, asOf }: PrintHeaderProps) {
-  const { t, i18n } = useTranslation()
-  const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
+  const { t } = useTranslation()
+  const lang = useLang()
   // The URL holds location ids; print the entity codes instead.
   const { data: filterOptions } = useQuery(filterOptionsQueryOptions())
   const entityInfo = describeEntityToken(entity ?? 'all', filterOptions?.entities ?? [])

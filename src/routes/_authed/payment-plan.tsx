@@ -12,13 +12,12 @@ import { MetricSkeleton } from '~/components/neraca/MetricSkeleton'
 import { MetricError } from '~/components/neraca/MetricError'
 import { Notice } from '~/components/neraca/Notice'
 import { KpiCard } from '~/components/neraca/KpiCard'
-import { PrintHeader } from '~/components/export/PrintHeader'
+import { MetricPageHeader } from '~/components/layout/MetricPageHeader'
+import { useLang } from '~/components/layout/use-lang'
 import { PaymentPlanControls } from '~/components/payment-plan/PaymentPlanControls'
 import { ProjectedBalanceChart } from '~/components/payment-plan/ProjectedBalanceChart'
 import { DailyScheduleTable } from '~/components/payment-plan/DailyScheduleTable'
 import { formatMoneyShort } from '~/lib/format/number'
-import { formatMonthYear } from '~/lib/format/date'
-import type { Lang } from '~/lib/core/types'
 
 export const Route = createFileRoute('/_authed/payment-plan')({
   validateSearch: paymentPlanSearchSchema.extend(drillSearchSchema.shape),
@@ -42,8 +41,8 @@ function PaymentPlanPage() {
   const deps = Route.useLoaderDeps()
   const navigate = useNavigate()
   const { data } = useQuery(paymentPlanMetricOptions(deps))
-  const { t, i18n } = useTranslation()
-  const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
+  const { t } = useTranslation()
+  const lang = useLang()
 
   if (!data) return null
 
@@ -59,20 +58,7 @@ function PaymentPlanPage() {
 
   return (
     <div className="space-y-6">
-      <PrintHeader
-        title={t('nav.paymentPlan')}
-        entity={deps.entity}
-        preset={deps.from && deps.to ? `${deps.from} – ${deps.to}` : deps.preset}
-        asOf={data.meta.asOf}
-      />
-      {data.meta.hasOpenPeriod && (
-        <Notice
-          tone="warning"
-          title={t('metric.openPeriodWarning', {
-            month: formatMonthYear(data.meta.asOf, lang),
-          })}
-        />
-      )}
+      <MetricPageHeader titleKey="nav.paymentPlan" filter={deps} meta={data.meta} lang={lang} showMissingMonths={false} />
 
       <PaymentPlanControls
         horizon={deps.horizon}

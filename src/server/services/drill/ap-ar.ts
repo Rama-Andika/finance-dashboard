@@ -1,7 +1,7 @@
 import '@tanstack/react-start/server-only'
 import Decimal from 'decimal.js'
 import { D } from '~/lib/core/money'
-import { buildEntityOwners, ownerNameOfLocation } from '~/lib/core/entity-owner'
+import { buildEntityCaptions } from '~/lib/core/entity-owner'
 import { addDays } from '~/lib/format/date'
 import { type Id } from '~/lib/core/types'
 import { apOpenInvoices, arOpenInvoices } from '~/server/repo/aging.repo'
@@ -33,12 +33,11 @@ export async function apArDrill(ctx: DrillContext, drill: DrillState, steps: Map
       .filter((a) => partyOf(a) === partyStep.id)
       .sort((a, b) => b.txDate.localeCompare(a.txDate) || b.invoiceId.localeCompare(a.invoiceId))
     const { page: shown, hasMore } = pageOf(partyItems, ctx.offset)
-    const showEntity = ctx.filter.entityCount > 1
-    const owners = buildEntityOwners(ctx.entities)
+    const captions = buildEntityCaptions(ctx.entities, ctx.filter.entityCount)
     const statuses = isAp ? await statusMapFor(shown.map((a) => a.invoiceId)) : null
     return {
       titleKey: isAp ? 'drill.title.bills' : 'drill.title.invoices',
-      showEntity,
+      showEntity: captions.show,
       titleLabel: partyStep.label,
       columns: [
         col('invoiceNumber', 'code'),
@@ -54,7 +53,7 @@ export async function apArDrill(ctx: DrillContext, drill: DrillState, steps: Map
         dueDate: a.dueDate || a.txDate,
         balance: a.balance,
         ...(statuses ? { status: statuses.get(a.invoiceId) ?? 'notSubmitted' } : {}),
-        ...(showEntity ? { entityName: ownerNameOfLocation(owners, a.locationId) } : {}),
+        ...captions.fieldsOfLocation(a.locationId),
       })),
       nextKind: 'card',
       hasMore,
@@ -97,11 +96,10 @@ export async function paymentPlanDrill(ctx: DrillContext, dayStep: DrillStep): P
   const { page: shownBills, hasMore } = pageOf(dayBills, ctx.offset)
   const vendorMap = new Map((await listVendors(Array.from(new Set(shownBills.map((b) => b.vendorId))))).map((v) => [v.vendorId, v.name]))
   const statuses = await statusMapFor(shownBills.map((b) => b.invoiceId))
-  const showEntity = ctx.filter.entityCount > 1
-  const owners = buildEntityOwners(ctx.entities)
+  const captions = buildEntityCaptions(ctx.entities, ctx.filter.entityCount)
   return {
     titleKey: 'drill.title.dueBills',
-    showEntity,
+    showEntity: captions.show,
     titleLabel: dayStep.label,
     columns: [col('vendor', 'text'), col('invoiceNumber', 'code'), col('dueDate', 'date'), col('balance', 'money'), col('status', 'status')],
     rows: shownBills.map((b) => ({
@@ -111,7 +109,7 @@ export async function paymentPlanDrill(ctx: DrillContext, dayStep: DrillStep): P
       dueDate: b.dueDate || b.txDate,
       balance: b.balance,
       status: statuses.get(b.invoiceId) ?? 'notSubmitted',
-      ...(showEntity ? { entityName: ownerNameOfLocation(owners, b.locationId) } : {}),
+      ...captions.fieldsOfLocation(b.locationId),
     })),
     nextKind: 'card',
     hasMore,

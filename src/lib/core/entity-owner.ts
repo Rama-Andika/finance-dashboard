@@ -40,3 +40,23 @@ export function countEntitiesInScope(segIds: readonly Id[] | 'all', entities: re
   const wanted = new Set(segIds)
   return entities.filter((entity) => entity.segmentDetailIds.some((id) => wanted.has(id))).length
 }
+
+/** What a table needs to caption its rows with the owning entity: whether to show it, and the row field to add. */
+export type EntityCaptions = {
+  /** True when more than one entity is in scope; only then do rows name their owner. */
+  show: boolean
+  /** `{ entityName }` for a row owned by a location ({} when captions are off); null name = no known entity. */
+  fieldsOfLocation(locationId: Id | null | undefined): { entityName?: string | null }
+  /** The same for a row owned by an entity segment detail. */
+  fieldsOfSegment(segmentDetailId: Id | null | undefined): { entityName?: string | null }
+}
+
+export function buildEntityCaptions(entities: readonly Entity[], entitiesInScope: number): EntityCaptions {
+  const show = entitiesInScope > 1
+  const owners = buildEntityOwners(entities)
+  return {
+    show,
+    fieldsOfLocation: (locationId) => (show ? { entityName: ownerNameOfLocation(owners, locationId) } : {}),
+    fieldsOfSegment: (segmentDetailId) => (show ? { entityName: ownerNameOfSegment(owners, segmentDetailId) } : {}),
+  }
+}

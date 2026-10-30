@@ -5,14 +5,12 @@ import { drillSearchSchema } from '~/lib/filters/search-schema'
 import { budgetMetricOptions } from '~/queries/metrics.queries'
 import { MetricSkeleton } from '~/components/neraca/MetricSkeleton'
 import { MetricError } from '~/components/neraca/MetricError'
-import { Notice } from '~/components/neraca/Notice'
 import { KpiCard } from '~/components/neraca/KpiCard'
 import { BudgetTable } from '~/components/budget/BudgetTable'
 import { exportFilename } from '~/components/export/ExportCsvDialog'
-import { PrintHeader } from '~/components/export/PrintHeader'
+import { MetricPageHeader } from '~/components/layout/MetricPageHeader'
+import { useLang } from '~/components/layout/use-lang'
 import { useOpenDrill } from '~/components/drill/useOpenDrill'
-import { formatMonthYear } from '~/lib/format/date'
-import type { Lang } from '~/lib/core/types'
 
 export const Route = createFileRoute('/_authed/budget')({
   validateSearch: drillSearchSchema,
@@ -33,35 +31,15 @@ export const Route = createFileRoute('/_authed/budget')({
 function BudgetPage() {
   const deps = Route.useLoaderDeps()
   const { data } = useQuery(budgetMetricOptions(deps))
-  const { t, i18n } = useTranslation()
-  const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
+  const { t } = useTranslation()
+  const lang = useLang()
   const openDrill = useOpenDrill()
 
   if (!data) return null
 
   return (
     <div className="space-y-6">
-      <PrintHeader
-        title={t('nav.budget')}
-        entity={deps.entity}
-        preset={deps.from && deps.to ? `${deps.from} – ${deps.to}` : deps.preset}
-        asOf={data.meta.asOf}
-      />
-      {data.meta.hasOpenPeriod && (
-        <Notice
-          tone="warning"
-          title={t('metric.openPeriodWarning', {
-            month: formatMonthYear(data.meta.asOf, lang),
-          })}
-        />
-      )}
-      {data.meta.missingMonths.length > 0 && (
-        <Notice
-          tone="warning"
-          title={t('metric.missingMonthsWarning')}
-          body={data.meta.missingMonths.join(', ')}
-        />
-      )}
+      <MetricPageHeader titleKey="nav.budget" filter={deps} meta={data.meta} lang={lang} />
 
       {/* KPI Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

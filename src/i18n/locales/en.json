@@ -86,7 +86,9 @@
     "previewTitle": "Resolved Accounts",
     "noAccounts": "No accounts selected in this basket.",
     "balanceAsOfToday": "Balance (as of today)",
-    "notAutoIncluded": "New accounts in this folder are not included automatically"
+    "notAutoIncluded": "New accounts in this folder are not included automatically",
+    "orphanBadge": "No parent",
+    "cycleBadge": "Cycle"
   },
   "metric": {
     "openPeriodWarning": "Period {{month}} is still open. Figures may change.",

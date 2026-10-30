@@ -665,3 +665,4 @@ WHERE table_schema = DATABASE()
 | 2026-10-30 | Kartu Payables tidak lagi menampilkan persentase terhadap Overdue; tidak ada query yang berubah. |
 | 2026-10-30 | Perbaikan warna teks keterangan di halaman; tidak ada query yang berubah. |
 | 2026-10-31 | Keterangan entitas pada tabel tagihan memakai kolom `location_id` yang sudah dibaca Q14/Q16 dan daftar entitas Q4; tidak ada query Summary yang berubah. (Di drill-down baris jurnal, query daftar jurnal mendapat satu kolom segmen tambahan di `SELECT`/`GROUP BY`/`ORDER BY` hanya saat lebih dari 1 entitas dipilih; query itu bukan bagian dari katalog Summary.) |
+| 2026-10-31 | Q18 (nama vendor) berjalan lebih jarang: nama diingat per id selama 10 menit dan potongan 1.000 id dibaca bersamaan; isi query tidak berubah. Urutan tabel tagihan di-cache per hasil rencana (tidak ada query baru). |

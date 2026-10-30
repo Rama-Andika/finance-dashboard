@@ -5,17 +5,18 @@ import {
   getCoreRowModel,
   getExpandedRowModel,
   type LegacyColumnDef as ColumnDef,
-  type LegacyRow,
-  type LegacyHeaderGroup,
-  type LegacyHeader,
-  type LegacyCell,
 } from '@tanstack/react-table/legacy'
-import { flexRender, type ExpandedState } from '@tanstack/react-table'
-import { useVirtualizer } from '@tanstack/react-virtual'
+import type { ExpandedState } from '@tanstack/react-table'
 import { cn } from '~/lib/cn'
-import { ChevronRight } from 'lucide-react'
 import type { SortDir } from '~/lib/table/query'
-import { SortHeader, TablePager } from '~/components/neraca/DataTableParts'
+import { TablePager } from '~/components/neraca/DataTableParts'
+import {
+  CardHeader,
+  DataTableBody,
+  DataTableHead,
+  MobileCards,
+  useRowVirtualizer,
+} from '~/components/neraca/DataTableRows'
 
 export type { ColumnDef }
 
@@ -71,9 +72,7 @@ export function DataTable<T extends object>({
 }: DataTableProps<T>) {
   const { t } = useTranslation()
   const emptyText = emptyMessage ?? t('ui.shell.tableEmpty')
-  const [expanded, setExpanded] = React.useState<ExpandedState>(
-    defaultExpanded ? true : {},
-  )
+  const [expanded, setExpanded] = React.useState<ExpandedState>(defaultExpanded ? true : {})
 
   const table = useLegacyTable<T>({
     data,
@@ -89,150 +88,32 @@ export function DataTable<T extends object>({
   })
 
   const rows = table.getRowModel().rows
-  const isVirtual = rows.length > 200
-
-  const tableContainerRef = React.useRef<HTMLDivElement>(null)
-
-  const rowVirtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => tableContainerRef.current,
-    estimateSize: () => 44,
-    overscan: 10,
-    enabled: isVirtual,
-  })
-
-  const virtualItems = isVirtual ? rowVirtualizer.getVirtualItems() : null
-  const totalVirtualSize = isVirtual ? rowVirtualizer.getTotalSize() : 0
-
-  const paddingTop =
-    isVirtual && virtualItems && virtualItems.length > 0
-      ? virtualItems[0]?.start ?? 0
-      : 0
-  const paddingBottom =
-    isVirtual && virtualItems && virtualItems.length > 0
-      ? totalVirtualSize - (virtualItems[virtualItems.length - 1]?.end ?? 0)
-      : 0
-
-  const renderRow = (row: LegacyRow<T>) => {
-    return (
-      <tr
-        key={row.id}
-        onClick={(e) => {
-          // If clicked directly on the expand button, don't trigger row click
-          if ((e.target as HTMLElement).closest('.nr-table-expand-btn')) return
-          onRowClick?.(row.original)
-        }}
-        style={{
-          cursor: onRowClick ? 'pointer' : 'default',
-        }}
-      >
-        {row.getVisibleCells().map((cell: LegacyCell<T, unknown>, cellIdx: number) => {
-          const meta = cell.column.columnDef.meta as { align?: 'left' | 'right' | 'center' } | undefined
-          const isRight = meta?.align === 'right'
-          const isFirst = cellIdx === 0
-
-          return (
-            <td
-              key={cell.id}
-              className={isRight ? 'nr-r' : undefined}
-              style={{
-                paddingLeft: isFirst && row.depth > 0 ? `${row.depth * 20 + 16}px` : undefined,
-              }}
-            >
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                {isFirst && row.getCanExpand() && (
-                  <button
-                    type="button"
-                    className="nr-table-expand-btn"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      row.toggleExpanded()
-                    }}
-                    aria-label={row.getIsExpanded() ? 'Collapse row' : 'Expand row'}
-                  >
-                    <ChevronRight
-                      className="nr-icon nr-icon-sm"
-                      style={{
-                        transform: row.getIsExpanded() ? 'rotate(90deg)' : 'none',
-                        transition: 'transform 0.15s ease',
-                      }}
-                    />
-                  </button>
-                )}
-                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </div>
-            </td>
-          )
-        })}
-      </tr>
-    )
-  }
+  const virtual = useRowVirtualizer(rows.length)
 
   return (
     <section className={cn('nr-card', mobileCard && 'nr-table-has-mobile', className)}>
-      {(title || headerActions) && (
-        <div className="nr-card-head">
-          {title && <h3 className="nr-card-title">{title}</h3>}
-          {headerActions && <div>{headerActions}</div>}
-        </div>
-      )}
+      <CardHeader title={title} actions={headerActions} />
 
       {/* Desktop / regular table view */}
       <div
-        ref={tableContainerRef}
+        ref={virtual.containerRef}
         className="nr-table-wrap"
         style={{
-          ...(isVirtual ? { maxHeight: '600px', overflowY: 'auto' as const } : {}),
+          ...(virtual.isVirtual ? { maxHeight: '600px', overflowY: 'auto' as const } : {}),
           opacity: isFetching ? 0.6 : 1,
           transition: 'opacity 120ms ease-out',
         }}
         aria-busy={isFetching}
       >
         <table className="nr-table">
-          <thead>
-            {table.getHeaderGroups().map((headerGroup: LegacyHeaderGroup<T>) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header: LegacyHeader<T, unknown>) => (
-                  <SortHeader key={header.id} header={header} sort={sort} onSortChange={onSortChange} />
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={columns.length}
-                  style={{
-                    textAlign: 'center',
-                    padding: '36px 16px',
-                    color: 'var(--ink-muted)',
-                  }}
-                >
-                  {emptyText}
-                </td>
-              </tr>
-            ) : isVirtual && virtualItems ? (
-              <>
-                {paddingTop > 0 && (
-                  <tr>
-                    <td style={{ height: `${paddingTop}px`, padding: 0, border: 0 }} colSpan={columns.length} />
-                  </tr>
-                )}
-                {virtualItems.map((virtualRow) => {
-                  const row = rows[virtualRow.index]!
-                  return renderRow(row)
-                })}
-                {paddingBottom > 0 && (
-                  <tr>
-                    <td style={{ height: `${paddingBottom}px`, padding: 0, border: 0 }} colSpan={columns.length} />
-                  </tr>
-                )}
-              </>
-            ) : (
-              rows.map((row: LegacyRow<T>) => renderRow(row))
-            )}
-          </tbody>
+          <DataTableHead headerGroups={table.getHeaderGroups()} sort={sort} onSortChange={onSortChange} />
+          <DataTableBody
+            rows={rows}
+            columnCount={columns.length}
+            emptyText={emptyText}
+            virtual={virtual}
+            onRowClick={onRowClick}
+          />
         </table>
       </div>
 
@@ -241,26 +122,7 @@ export function DataTable<T extends object>({
       )}
 
       {/* Mobile cards view (active on screens < 768px when mobileCard prop is provided) */}
-      {mobileCard && (
-        <div className="mobile-cards">
-          {rows.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '24px 16px', color: 'var(--ink-muted)' }}>
-              {emptyText}
-            </div>
-          ) : (
-            rows.map((row: LegacyRow<T>) => (
-              <div
-                key={row.id}
-                className="nr-mobile-card"
-                onClick={() => onRowClick?.(row.original)}
-                style={{ cursor: onRowClick ? 'pointer' : 'default' }}
-              >
-                {mobileCard(row.original)}
-              </div>
-            ))
-          )}
-        </div>
-      )}
+      {mobileCard && <MobileCards rows={rows} emptyText={emptyText} renderCard={mobileCard} onRowClick={onRowClick} />}
     </section>
   )
 }

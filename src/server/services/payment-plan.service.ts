@@ -1,5 +1,5 @@
 import { memoMetric } from '~/server/cache'
-import { paginate, type Page, type TableQuery } from '~/lib/table/query'
+import { createViewCache, pageOfSorted, sortRows, type Comparator, type Page, type TableQuery } from '~/lib/table/query'
 import {
   paymentBillComparators,
   filterBillsByScope,
@@ -183,6 +183,13 @@ export type BillsPage = Page<PaymentPlanBill> & {
   planStatusInUse: boolean
 }
 
+const billComparators: Record<string, Comparator<PaymentPlanBill>> = paymentBillComparators
+
+// A plan can hold 100k+ bills and the table asks for a page (or an export chunk) at a time. Sorting and summing the
+// whole list on every request is the expensive part, so each (tab, sort) view and the tab totals are built once per plan.
+const sortedBills = createViewCache<PaymentPlanBill>()
+const scopeTotals = createViewCache<PaymentPlanBill, BillScopeSummary>()
+
 /** One sorted page of the bills of one tab (the plan itself is memoized, so paging does not re-query). */
 export async function listPaymentPlanBills(
   filter: AppContextFilter,
@@ -191,10 +198,15 @@ export async function listPaymentPlanBills(
   scope: BillScope,
 ): Promise<BillsPage> {
   const plan = await computePaymentPlan(filter, opts)
-  const page = paginate(filterBillsByScope(plan.bills, scope), query, paymentBillComparators)
+  const compare = query.sortBy ? billComparators[query.sortBy] : undefined
+  const sortKey = compare ? `${query.sortBy}|${query.sortDir}` : ''
+  const sorted = sortedBills(plan.bills, `${scope}|${sortKey}`, () => {
+    const inScope = filterBillsByScope(plan.bills, scope)
+    return compare ? sortRows(inScope, compare, query.sortDir) : inScope
+  })
   return {
-    ...page,
-    scopes: summarizeBillScopes(plan.bills),
+    ...pageOfSorted(sorted, query),
+    scopes: scopeTotals(plan.bills, 'scopes', () => summarizeBillScopes(plan.bills)),
     planStatusInUse: plan.planStatusInUse,
     showEntity: filter.entityCount > 1,
   }

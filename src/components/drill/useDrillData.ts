@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { drillOptions } from '~/queries/drill.queries'
 import { drillSchema, MONTH_KEY_RE, PRESETS, type DrillState, type Preset } from '~/lib/filters/search-schema'
 
@@ -12,7 +12,6 @@ export type DrillSearchParams = {
   drill?: unknown
 }
 
-
 export function parseDrill(raw: unknown): DrillState | null {
   if (!raw) return null
   try {
@@ -24,23 +23,16 @@ export function parseDrill(raw: unknown): DrillState | null {
   }
 }
 
-/** Fetches the current drill page and accumulates the rows of "load more" pages. */
+/** One loaded page of a drill level (the server result: title, columns, rows, next level, caption flag). */
+export type DrillPage = NonNullable<ReturnType<typeof useDrillData>['data']>
+
+/** Fetches the current drill level page by page: `allRows` are the rows of every page loaded so far. */
 export function useDrillData(search: DrillSearchParams, drill: DrillState | null, isOpen: boolean) {
-  // Pagination offset & accumulated rows
-  const [offset, setOffset] = useState(0)
-  const [allRows, setAllRows] = useState<Array<Record<string, string | null>>>([])
-  const drillKey = drill ? `${drill.metric}:${drill.steps.map((s) => `${s.kind}-${s.id}`).join('/')}` : ''
-
-  useEffect(() => {
-    setOffset(0)
-    setAllRows([])
-  }, [drillKey])
-
   const preset: Preset = (PRESETS as readonly string[]).includes(search.preset ?? '')
     ? (search.preset as Preset)
     : 'this-month'
 
-  const { data, isLoading, isFetching, error, refetch } = useQuery({
+  const query = useInfiniteQuery({
     ...drillOptions({
       entity: search.entity ?? 'all',
       preset,
@@ -48,22 +40,22 @@ export function useDrillData(search: DrillSearchParams, drill: DrillState | null
       to: MONTH_KEY_RE.test(search.to ?? '') ? search.to : undefined,
       p13: Boolean(search.p13),
       drill: drill ?? { metric: '', steps: [] },
-      offset,
     }),
     enabled: isOpen,
   })
 
-  useEffect(() => {
-    if (!data?.rows) return
-    if (offset === 0) {
-      setAllRows(data.rows)
-    } else {
-      setAllRows((prev) => {
-        const seen = new Set(prev.map((r) => r.id))
-        return [...prev, ...data.rows.filter((r) => !seen.has(r.id))]
-      })
-    }
-  }, [data?.rows, offset])
+  const pages = query.data?.pages
+  const allRows = useMemo(() => (pages ?? []).flatMap((page) => page.rows), [pages])
 
-  return { offset, setOffset, allRows, data, isLoading, isFetching, error, refetch }
+  return {
+    /** The first page: title, columns, next level, caption flag. Rows come from `allRows`. */
+    data: pages?.[0],
+    allRows,
+    hasMore: Boolean(query.hasNextPage),
+    loadMore: () => void query.fetchNextPage(),
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    error: query.error,
+    refetch: query.refetch,
+  }
 }

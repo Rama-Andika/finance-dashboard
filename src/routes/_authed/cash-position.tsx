@@ -11,14 +11,13 @@ import { MetricError } from '~/components/neraca/MetricError'
 import { Notice } from '~/components/neraca/Notice'
 import { CashBalanceCard } from '~/components/neraca/CashBalanceCard'
 import { KpiCard } from '~/components/neraca/KpiCard'
-import { PrintHeader } from '~/components/export/PrintHeader'
+import { MetricPageHeader } from '~/components/layout/MetricPageHeader'
+import { useLang } from '~/components/layout/use-lang'
 import { CashBankTable } from '~/components/cash-position/CashBankTable'
 import { InTransitTable } from '~/components/cash-position/InTransitTable'
 import { EntityBalanceTable } from '~/components/cash-position/EntityBalanceTable'
 import { formatMoneyShort } from '~/lib/format/number'
-import { formatMonthYear } from '~/lib/format/date'
 import { runwayLabel } from '~/lib/finance/cash/runway-label'
-import type { Lang } from '~/lib/core/types'
 
 export const Route = createFileRoute('/_authed/cash-position')({
   validateSearch: drillSearchSchema,
@@ -43,34 +42,14 @@ function CashPositionPage() {
   const deps = Route.useLoaderDeps()
   const { data } = useQuery(cashPositionMetricOptions(deps))
   const { data: runwayData } = useQuery(runwayMetricOptions(deps))
-  const { t, i18n } = useTranslation()
-  const lang = (i18n.language?.startsWith('en') ? 'en' : 'id') as Lang
+  const { t } = useTranslation()
+  const lang = useLang()
 
   if (!data) return null
 
   return (
     <div className="space-y-6">
-      <PrintHeader
-        title={t('nav.cashPosition')}
-        entity={deps.entity}
-        preset={deps.from && deps.to ? `${deps.from} – ${deps.to}` : deps.preset}
-        asOf={data.meta.asOf}
-      />
-      {data.meta.hasOpenPeriod && (
-        <Notice
-          tone="warning"
-          title={t('metric.openPeriodWarning', {
-            month: formatMonthYear(data.meta.asOf, lang),
-          })}
-        />
-      )}
-      {data.meta.missingMonths.length > 0 && (
-        <Notice
-          tone="warning"
-          title={t('metric.missingMonthsWarning')}
-          body={data.meta.missingMonths.join(', ')}
-        />
-      )}
+      <MetricPageHeader titleKey="nav.cashPosition" filter={deps} meta={data.meta} lang={lang} />
 
       {!data.reconciliation.inSync && (
         <Notice

@@ -168,6 +168,26 @@ describe('memo bounds', () => {
     expect(loader).toHaveBeenCalledTimes(1) // big1 was evicted to make room for big2
   })
 
+  it('weighs a result object by the rows of its lists, so a plan holding many bills counts as many', async () => {
+    clearCache()
+    const plan = (n: number) => ({ summary: 'x', bills: Array.from({ length: n }, (_, i) => i), days: [1, 2, 3] })
+    await memo('plan1', 60_000, async () => plan(900_000))
+    await memo('plan2', 60_000, async () => plan(900_000)) // together above the row limit
+    const loader = vi.fn(async () => plan(1))
+    await memo('plan1', 60_000, loader)
+    expect(loader).toHaveBeenCalledTimes(1) // plan1 was evicted to make room for plan2
+  })
+
+  it('counts the entries of maps and sets inside a result too', async () => {
+    clearCache()
+    const withMap = (n: number) => ({ names: new Map(Array.from({ length: n }, (_, i) => [i, i] as const)) })
+    await memo('m1', 60_000, async () => withMap(900_000))
+    await memo('m2', 60_000, async () => withMap(900_000))
+    const loader = vi.fn(async () => withMap(1))
+    await memo('m1', 60_000, loader)
+    expect(loader).toHaveBeenCalledTimes(1)
+  })
+
   it('does not store a result that was loaded before clearCache()', async () => {
     clearCache()
     let release!: () => void

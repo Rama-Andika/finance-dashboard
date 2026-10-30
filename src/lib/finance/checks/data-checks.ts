@@ -46,51 +46,87 @@ function unclassifiedCashFlow(drawers: NonNullable<DataCheckInputs['cashFlow']>[
   return total.toFixed(2)
 }
 
-/** Turns the sub-check results into the list the Data Checks panel shows, most serious first. */
+type Check = (i: DataCheckInputs) => DataCheckItem | null
+
+/** A check that only reports when a plain count of problem rows is above zero. */
+function countCheck(code: string, link: string, pick: (i: DataCheckInputs) => number | null): Check {
+  return (i) => {
+    const count = pick(i)
+    return count !== null && count > 0 ? item(code, 'warning', link, count) : null
+  }
+}
+
+/** A check that reports a reconciliation that does not add up. */
+function reconciliationCheck(
+  code: string,
+  link: string,
+  pick: (i: DataCheckInputs) => { inSync: boolean; diff: Money } | null,
+): Check {
+  return (i) => {
+    const rec = pick(i)
+    return rec && !rec.inSync ? item(code, 'warning', link, 1, rec.diff) : null
+  }
+}
+
+/** A check on a register of rows with a total amount (count and amount both reported). */
+function registerCheck(
+  code: string,
+  link: string,
+  pick: (i: DataCheckInputs) => { count: number; amount: Money | null } | null,
+): Check {
+  return (i) => {
+    const register = pick(i)
+    return register && register.count > 0 ? item(code, 'warning', link, register.count, register.amount) : null
+  }
+}
+
+const cashFlowIdentity: Check = (i) =>
+  i.cashFlow && !i.cashFlow.identityOk ? item('CF_IDENTITY', 'danger', '/cash-flow') : null
+
+const cashFlowUnclassified: Check = (i) => {
+  if (!i.cashFlow) return null
+  const unclassified = unclassifiedCashFlow(i.cashFlow.drawers)
+  const hasUnclassified = D(unclassified).gt(0)
+  if (!hasUnclassified && i.cashFlow.source !== 'fallback') return null
+  return item('CF_UNCLASSIFIED', 'warning', '/cash-flow', 1, hasUnclassified ? unclassified : null)
+}
+
+const arUnallocatedReturns: Check = (i) =>
+  i.arUnallocatedReturns !== null && D(i.arUnallocatedReturns).gt(0)
+    ? item('AR_UNALLOC', 'warning', '/receivables', 1, i.arUnallocatedReturns)
+    : null
+
+// A mapping read that failed is already reported as CHECK_FAILED; only report "missing" when the read worked.
+const settingsMissing: Check = (i) =>
+  !i.failedChecks.includes('mapping') && (!i.mappingRow || !i.mappingRow.valueprop)
+    ? item('SETTINGS', 'warning', '/settings/account-mapping')
+    : null
+
+const failedChecks: Check = (i) =>
+  i.failedChecks.length > 0 ? item('CHECK_FAILED', 'warning', '/summary', i.failedChecks.length) : null
+
+/** The checks in the order the panel lists them. */
+const CHECKS: readonly Check[] = [
+  cashFlowIdentity,
+  registerCheck('Q9', '/cash-position', (i) => i.transitRegister),
+  cashFlowUnclassified,
+  reconciliationCheck('REC_TRANSIT', '/cash-position', (i) => i.cashPositionReconciliation),
+  reconciliationCheck('REC_AP', '/payables', (i) => i.apReconciliation),
+  arUnallocatedReturns,
+  registerCheck('Q1b', '/payables', (i) => i.paidWithoutDetail),
+  countCheck('Q7', '/payables', (i) => i.cardsWithoutParty),
+  countCheck('Q8', '/payables', (i) => i.cardsWithInvalidLocation),
+  countCheck('UNPOSTED', '/summary', (i) => i.unpostedJournals),
+  settingsMissing,
+  failedChecks,
+]
+
+/** Turns the sub-check results into the list the Data Checks panel shows, in the order of `CHECKS`. */
 export function buildDataChecks(i: DataCheckInputs): DataCheckItem[] {
-  const checks: DataCheckItem[] = []
-
-  if (i.cashFlow && !i.cashFlow.identityOk) checks.push(item('CF_IDENTITY', 'danger', '/cash-flow'))
-
-  if (i.transitRegister && i.transitRegister.count > 0) {
-    checks.push(item('Q9', 'warning', '/cash-position', i.transitRegister.count, i.transitRegister.amount))
+  const found: DataCheckItem[] = []
+  for (const check of CHECKS) {
+    const result = check(i)
+    if (result) found.push(result)
   }
-
-  if (i.cashFlow) {
-    const unclassified = unclassifiedCashFlow(i.cashFlow.drawers)
-    if (D(unclassified).gt(0) || i.cashFlow.source === 'fallback') {
-      checks.push(item('CF_UNCLASSIFIED', 'warning', '/cash-flow', 1, D(unclassified).gt(0) ? unclassified : null))
-    }
-  }
-
-  if (i.cashPositionReconciliation && !i.cashPositionReconciliation.inSync) {
-    checks.push(item('REC_TRANSIT', 'warning', '/cash-position', 1, i.cashPositionReconciliation.diff))
-  }
-
-  if (i.apReconciliation && !i.apReconciliation.inSync) {
-    checks.push(item('REC_AP', 'warning', '/payables', 1, i.apReconciliation.diff))
-  }
-
-  if (i.arUnallocatedReturns !== null && D(i.arUnallocatedReturns).gt(0)) {
-    checks.push(item('AR_UNALLOC', 'warning', '/receivables', 1, i.arUnallocatedReturns))
-  }
-
-  if (i.paidWithoutDetail && i.paidWithoutDetail.count > 0) {
-    checks.push(item('Q1b', 'warning', '/payables', i.paidWithoutDetail.count, i.paidWithoutDetail.amount))
-  }
-
-  if (i.cardsWithoutParty !== null && i.cardsWithoutParty > 0) checks.push(item('Q7', 'warning', '/payables', i.cardsWithoutParty))
-  if (i.cardsWithInvalidLocation !== null && i.cardsWithInvalidLocation > 0) {
-    checks.push(item('Q8', 'warning', '/payables', i.cardsWithInvalidLocation))
-  }
-  if (i.unpostedJournals !== null && i.unpostedJournals > 0) checks.push(item('UNPOSTED', 'warning', '/summary', i.unpostedJournals))
-
-  // A mapping read that failed is already reported as CHECK_FAILED; only report "missing" when the read worked.
-  if (!i.failedChecks.includes('mapping') && (!i.mappingRow || !i.mappingRow.valueprop)) {
-    checks.push(item('SETTINGS', 'warning', '/settings/account-mapping'))
-  }
-
-  if (i.failedChecks.length > 0) checks.push(item('CHECK_FAILED', 'warning', '/summary', i.failedChecks.length))
-
-  return checks
+  return found
 }

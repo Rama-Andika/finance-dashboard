@@ -1,7 +1,7 @@
 import '@tanstack/react-start/server-only'
 import Decimal from 'decimal.js'
 import { D } from '~/lib/core/money'
-import { buildEntityOwners, countEntitiesInScope, ownerNameOfSegment } from '~/lib/core/entity-owner'
+import { buildEntityCaptions, countEntitiesInScope } from '~/lib/core/entity-owner'
 import { type Entity, type Id, type IsoDate, type Period } from '~/lib/core/types'
 import { type AppContextFilter } from '~/server/context'
 import { journalHeaders, journalLines, movementsByPeriods } from '~/server/repo/gl.repo'
@@ -168,8 +168,8 @@ export async function journalRows(
   dateRange?: { from: IsoDate; to: IsoDate },
 ): Promise<DrillResult> {
   // Name the entity of each line only when several entities are in scope; the lines are then split per entity.
-  const showEntity = countEntitiesInScope(segIds, ctx.entities) > 1
-  const owners = buildEntityOwners(ctx.entities)
+  const captions = buildEntityCaptions(ctx.entities, countEntitiesInScope(segIds, ctx.entities))
+  const showEntity = captions.show
   const lines = await journalLines({
     periods: dateRange ? undefined : ctx.activePeriods,
     startDate: dateRange?.from,
@@ -195,7 +195,7 @@ export async function journalRows(
       memo: j.memo,
       debet: j.debet,
       credit: j.credit,
-      ...(showEntity ? { entityName: ownerNameOfSegment(owners, j.segmentDetailId) } : {}),
+      ...captions.fieldsOfSegment(j.segmentDetailId),
     })),
     nextKind: null,
     hasMore: lines.length === PAGE_SIZE,

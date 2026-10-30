@@ -86,7 +86,9 @@
     "previewTitle": "Akun Terpilih",
     "noAccounts": "Belum ada akun di keranjang ini.",
     "balanceAsOfToday": "Saldo per hari ini",
-    "notAutoIncluded": "Akun baru di folder ini tidak ikut otomatis"
+    "notAutoIncluded": "Akun baru di folder ini tidak ikut otomatis",
+    "orphanBadge": "Tanpa Induk",
+    "cycleBadge": "Siklus"
   },
   "metric": {
     "openPeriodWarning": "Periode {{month}} belum ditutup. Angka masih bisa berubah.",
