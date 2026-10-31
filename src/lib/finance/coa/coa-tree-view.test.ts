@@ -27,6 +27,11 @@ describe('matchingCoaIds', () => {
     expect(Array.from(matchingCoaIds(tree, '2-1000')!).sort()).toEqual(['2', '21'])
   })
 
+  it('when a folder matches, includes all its descendants so its contents can be viewed', () => {
+    // 'Cash' matches folder 11, so root 1 (ancestor) and children 111, 112 (descendants) are included
+    expect(Array.from(matchingCoaIds(tree, 'Cash')!).sort()).toEqual(['1', '11', '111', '112'])
+  })
+
   it('returns an empty set when nothing matches', () => {
     expect(matchingCoaIds(tree, 'zzz')?.size).toBe(0)
   })
@@ -50,8 +55,17 @@ describe('flattenVisible', () => {
     expect(items.map((i) => [i.node.coaId, i.hasChildren])).toEqual([['1', true], ['11', true], ['12', false], ['2', true]])
   })
 
-  it('while searching, lists only matching branches and opens all of them', () => {
+  it('while searching, lists only matching branches and opens all of them by default', () => {
     const matching = matchingCoaIds(tree, 'bank')
     expect(ids(flattenVisible(tree, new Set(), matching))).toEqual([['1', 0, true], ['11', 1, true], ['112', 2, true]])
+  })
+
+  it('while searching, respects collapsedIds if user manually collapses a branch', () => {
+    const matching = matchingCoaIds(tree, 'Cash')
+    // 11 is collapsed by user, so its children (111, 112) are hidden
+    expect(ids(flattenVisible(tree, new Set(), matching, new Set(['11'])))).toEqual([
+      ['1', 0, true],
+      ['11', 1, false],
+    ])
   })
 })

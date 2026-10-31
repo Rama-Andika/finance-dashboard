@@ -130,7 +130,13 @@ export function CoaTreeRow({
   return (
     <div
       style={style}
-      onClick={() => onToggle(node.coaId)}
+      onClick={() => {
+        if (item.hasChildren) {
+          onToggleExpand(node.coaId)
+        } else {
+          onToggle(node.coaId)
+        }
+      }}
       className={cn(
         'flex items-center gap-2 px-2 py-1 rounded text-sm hover:bg-canvas transition-colors select-none cursor-pointer',
         isChecked && 'bg-primary-subtle/50',

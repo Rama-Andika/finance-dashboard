@@ -21,31 +21,38 @@ function useCoaTreeView(tree: CoaTree) {
   const [searchQuery, setSearchQuery] = useState('')
   // Initially expand top-level roots
   const [expandedIds, setExpandedIds] = useState<Set<Id>>(() => new Set(tree.roots.map((r) => r.coaId)))
+  const [collapsedInSearch, setCollapsedInSearch] = useState<Set<Id>>(() => new Set())
 
-  const toggleExpand = (coaId: Id) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(coaId)) next.delete(coaId)
-      else next.add(coaId)
-      return next
-    })
-  }
+  // Reset collapsed set when search query changes
+  useEffect(() => {
+    setCollapsedInSearch(new Set())
+  }, [searchQuery])
 
-  // Ids to keep while searching (hits and their ancestors); null when there is no search
+  // Ids to keep while searching (hits, ancestors, and descendants); null when there is no search
   const matchingIds = useMemo(() => matchingCoaIds(tree, searchQuery), [tree, searchQuery])
 
-  // Automatically expand all ancestor nodes when searching
-  useEffect(() => {
+  const toggleExpand = (coaId: Id) => {
     if (matchingIds) {
+      setCollapsedInSearch((prev) => {
+        const next = new Set(prev)
+        if (next.has(coaId)) next.delete(coaId)
+        else next.add(coaId)
+        return next
+      })
+    } else {
       setExpandedIds((prev) => {
         const next = new Set(prev)
-        for (const id of matchingIds) next.add(id)
+        if (next.has(coaId)) next.delete(coaId)
+        else next.add(coaId)
         return next
       })
     }
-  }, [matchingIds])
+  }
 
-  const visibleItems = useMemo(() => flattenVisible(tree, expandedIds, matchingIds), [tree, expandedIds, matchingIds])
+  const visibleItems = useMemo(
+    () => flattenVisible(tree, expandedIds, matchingIds, collapsedInSearch),
+    [tree, expandedIds, matchingIds, collapsedInSearch],
+  )
 
   return { searchQuery, setSearchQuery, toggleExpand, visibleItems }
 }
