@@ -35,9 +35,13 @@ function LoginPage() {
   const [error, setError] = useState<'invalid' | 'tooMany' | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!loginId.trim() || !password) return
+    const form = e.currentTarget
+    const resolvedLoginId =
+      loginId.trim() || (form.elements.namedItem('loginId') as HTMLInputElement)?.value.trim() || ''
+    const resolvedPassword = password || (form.elements.namedItem('password') as HTMLInputElement)?.value || ''
+    if (!resolvedLoginId || !resolvedPassword) return
 
     setIsSubmitting(true)
     setError(null)
@@ -45,8 +49,8 @@ function LoginPage() {
     try {
       const res = await loginFn({
         data: {
-          loginId: loginId.trim(),
-          password,
+          loginId: resolvedLoginId,
+          password: resolvedPassword,
         },
       })
 
@@ -82,22 +86,15 @@ function LoginPage() {
         {/* Card */}
         <div className="nr-card w-full p-6 shadow-sm">
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <Notice
-                tone="danger"
-                title={error === 'tooMany' ? t('auth.tooMany') : t('auth.invalid')}
-              />
-            )}
+            {error && <Notice tone="danger" title={error === 'tooMany' ? t('auth.tooMany') : t('auth.invalid')} />}
 
             <div className="space-y-1">
-              <label
-                htmlFor="loginId"
-                className="block text-xs font-semibold text-ink-muted uppercase tracking-wider"
-              >
+              <label htmlFor="loginId" className="block text-xs font-semibold text-ink-muted uppercase tracking-wider">
                 {t('auth.loginId')}
               </label>
               <input
                 id="loginId"
+                name="loginId"
                 type="text"
                 autoComplete="username"
                 required
@@ -110,14 +107,12 @@ function LoginPage() {
             </div>
 
             <div className="space-y-1">
-              <label
-                htmlFor="password"
-                className="block text-xs font-semibold text-ink-muted uppercase tracking-wider"
-              >
+              <label htmlFor="password" className="block text-xs font-semibold text-ink-muted uppercase tracking-wider">
                 {t('auth.password')}
               </label>
               <input
                 id="password"
+                name="password"
                 type="password"
                 autoComplete="current-password"
                 required
@@ -129,12 +124,7 @@ function LoginPage() {
             </div>
 
             <div className="pt-2">
-              <Button
-                type="submit"
-                variant="primary"
-                className="w-full justify-center"
-                disabled={isSubmitting || !loginId.trim() || !password}
-              >
+              <Button type="submit" variant="primary" className="w-full justify-center" disabled={isSubmitting}>
                 {isSubmitting ? '...' : t('auth.submit')}
               </Button>
             </div>
