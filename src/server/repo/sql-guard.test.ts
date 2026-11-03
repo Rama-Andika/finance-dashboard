@@ -2,6 +2,15 @@ import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 
+/** Every non-test .ts file below `dir`, as a path relative to `dir` with forward slashes (the repo has one folder per big domain). */
+function listRepoFiles(dir: string, prefix = ''): string[] {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const relative = prefix ? `${prefix}/${entry.name}` : entry.name
+    if (entry.isDirectory()) return listRepoFiles(path.join(dir, entry.name), relative)
+    return entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts') ? [relative] : []
+  })
+}
+
 describe('SQL Guard - MySQL 5.7 static compatibility checker', () => {
   const repoDir = path.resolve(__dirname)
 
@@ -10,9 +19,9 @@ describe('SQL Guard - MySQL 5.7 static compatibility checker', () => {
       return
     }
 
-    const files = fs
-      .readdirSync(repoDir)
-      .filter((file) => file.endsWith('.ts') && !file.endsWith('.test.ts'))
+    const files = listRepoFiles(repoDir)
+    // The guard must reach the files inside the domain folders; a lower number means the scan stopped looking in sub folders.
+    expect(files.length).toBeGreaterThanOrEqual(21)
 
     const violations: { file: string; rule: string; match: string }[] = []
 

@@ -22,13 +22,13 @@ import {
 import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
 import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
 import { computeCashPosition } from '~/server/services/cash-position.service'
-import { apOpenInvoices, arOpenInvoices } from '~/server/repo/aging.repo'
-import { listActivePlanStatuses } from '~/server/repo/payment-plan.repo'
-import { listVendors } from '~/server/repo/party.repo'
+import { apOpenInvoices, arOpenInvoices } from '~/server/repo/ap-ar/aging.repo'
+import { listActivePlanStatuses } from '~/server/repo/ap-ar/payment-plan.repo'
+import { listVendors } from '~/server/repo/ap-ar/party.repo'
 import {
   unsettledByChannel,
   settlementLag,
-} from '~/server/repo/bank-payment.repo'
+} from '~/server/repo/cash/bank-payment.repo'
 import { planStatus } from '~/lib/finance/ap-ar/aging'
 import {
   buildPaymentPlan,

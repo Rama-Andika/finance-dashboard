@@ -8,7 +8,7 @@ import { groupPeriodsByTable } from '~/server/db/gl-tables'
 import { D } from '~/lib/core/money'
 import { glMovementsCache, hashIds, type CachedMovementRow } from '~/server/cache'
 import { GL_SNAPSHOT_SEGMENT_COLUMN, builtGlPeriods, snapshotMovements } from '~/server/dash/gl-snapshot'
-import { accumulate, glTableSql, type GlTableSql } from '~/server/repo/gl-shared'
+import { accumulate, glTableSql, type GlTableSql } from '~/server/repo/gl/shared'
 import type { AccountGroup, Id, Period } from '~/lib/core/types'
 
 export type MovementRow = CachedMovementRow
@@ -178,6 +178,6 @@ export async function movementsByPeriods(opts: MovementsByPeriodsOptions): Promi
 }
 
 
-export * from '~/server/repo/gl-by-date.repo'
-export * from '~/server/repo/gl-opening.repo'
-export * from '~/server/repo/gl-journal.repo'
+export * from '~/server/repo/gl/gl-by-date.repo'
+export * from '~/server/repo/gl/gl-opening.repo'
+export * from '~/server/repo/gl/gl-journal.repo'

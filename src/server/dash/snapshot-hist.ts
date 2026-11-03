@@ -4,13 +4,13 @@ import {
   toAgingUnallocated,
   type AgingInvoiceDbRow,
   type AgingUnallocatedDbRow,
-} from '~/server/repo/apar.rows'
+} from '~/server/repo/ap-ar/rows'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { AGING_SIDES, type AgingSide } from '~/server/db/erp-codes'
 import { memo } from '~/server/cache'
 import type { Id, IsoDate } from '~/lib/core/types'
-import type { AgingInvoice, AgingUnallocated } from '~/server/repo/apar.types'
+import type { AgingInvoice, AgingUnallocated } from '~/server/repo/ap-ar/types'
 import { byLocation } from './snapshot'
 import { DASH_TABLES } from './tables'
 

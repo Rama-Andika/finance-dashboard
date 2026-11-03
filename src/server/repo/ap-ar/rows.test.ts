@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toAgingInvoice, toAgingUnallocated } from './apar.rows'
+import { toAgingInvoice, toAgingUnallocated } from './rows'
 
 describe('toAgingInvoice', () => {
   const row = {

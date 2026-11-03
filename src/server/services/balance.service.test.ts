@@ -12,7 +12,7 @@ vi.mock('~/server/context', () => ({
 }))
 
 const movementsByDate = vi.fn()
-vi.mock('~/server/repo/gl.repo', () => ({
+vi.mock('~/server/repo/gl/gl.repo', () => ({
   openingBalances: async () => [],
   countOpeningRows: async () => 0,
   movementsByDate: (...a: unknown[]) => movementsByDate(...a),

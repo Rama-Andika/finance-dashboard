@@ -7,7 +7,7 @@ import {
   movementsByDate,
   type DateMovementRow,
   type OpeningBalanceRow,
-} from '~/server/repo/gl.repo'
+} from '~/server/repo/gl/gl.repo'
 import { pickOpeningPeriod, combineBalances } from '~/lib/finance/period/balance'
 import { addDays } from '~/lib/format/date'
 import { hashIds, memo } from '~/server/cache'

@@ -37,12 +37,12 @@ vi.mock('~/server/services/shared/mapping.helper', () => ({
 const expensePaidAllocated = vi.fn()
 const expensePaidUnallocated = vi.fn()
 const linesOfCashJournals = vi.fn()
-vi.mock('~/server/repo/expense-paid.repo', () => ({
+vi.mock('~/server/repo/ap-ar/expense-paid.repo', () => ({
   expensePaidAllocated: (...a: unknown[]) => expensePaidAllocated(...a),
   expensePaidUnallocated: (...a: unknown[]) => expensePaidUnallocated(...a),
 }))
-vi.mock('~/server/repo/party.repo', () => ({ listVendors: async () => [] }))
-vi.mock('~/server/repo/cashflow.repo', () => ({ linesOfCashJournals: (...a: unknown[]) => linesOfCashJournals(...a) }))
+vi.mock('~/server/repo/ap-ar/party.repo', () => ({ listVendors: async () => [] }))
+vi.mock('~/server/repo/cash/cashflow.repo', () => ({ linesOfCashJournals: (...a: unknown[]) => linesOfCashJournals(...a) }))
 
 const { computeExpensePaid } = await import('./expense-paid.service')
 const { clearCache } = await import('~/server/cache')

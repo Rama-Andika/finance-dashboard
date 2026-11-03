@@ -3,7 +3,7 @@ import type {
   ApUnallocatedPaymentRow,
   ArOpenInvoiceRow,
   ArUnallocatedReceiptRow,
-} from '~/server/repo/aging.repo'
+} from '~/server/repo/ap-ar/aging.repo'
 
 export const mockApPartA: ApOpenInvoiceRow[] = [
   // Invoice 1: 1000.00, due in past (overdue0_30), balance 800.00

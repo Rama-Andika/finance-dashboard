@@ -36,7 +36,7 @@
 Dibaca setiap request, tetapi di-cache di memori (`src/server/context.ts`, TTL 10 menit; pengaturan keranjang 2 menit).
 
 ### Q1 — Daftar akun (CoA)
-`src/server/repo/coa.repo.ts` · `listCoa`
+`src/server/repo/master-data/coa.repo.ts` · `listCoa`
 
 ```sql
 SELECT coa_id AS coaId, acc_ref_id AS parentId, code, name, status, level,
@@ -46,7 +46,7 @@ ORDER BY code, coa_id;
 ```
 
 ### Q2 — Daftar periode
-`src/server/repo/periods.repo.ts` · `listPeriods`
+`src/server/repo/master-data/periods.repo.ts` · `listPeriods`
 
 ```sql
 SELECT periode_id AS periodeId, name AS name, start_date AS startDate, end_date AS endDate,
@@ -58,7 +58,7 @@ ORDER BY start_date, type;
 `type`: 0 = reguler, 1 = periode 13. `status`: `Open` / `Pre Closed` / `Closed`.
 
 ### Q3 — Kolom segmen entitas
-`src/server/repo/entities.repo.ts` · `getEntitySegment`
+`src/server/repo/master-data/entities.repo.ts` · `getEntitySegment`
 
 ```sql
 SELECT segment_id AS segmentId, column_name AS columnName
@@ -69,7 +69,7 @@ WHERE `count` = 1;
 Harus tepat 1 baris, kalau tidak aplikasi melempar error.
 
 ### Q4 — Daftar entitas
-`src/server/repo/entities.repo.ts` · `listEntities`
+`src/server/repo/master-data/entities.repo.ts` · `listEntities`
 
 ```sql
 SELECT pl.location_id AS locationId, pl.code AS code, pl.name AS name, pl.is_active AS isActive,
@@ -170,7 +170,7 @@ signed: grup sisi debit  → debet − credit
 Grup sisi debit: Liquid Assets, Fixed Assets, Other Assets, Cost Of Sales, Expense, Other Expense (`src/lib/finance/coa/sign.ts`).
 
 ### Q10 — Dana belum cair (register `bank_payment`)
-`src/server/repo/bank-payment.repo.ts` · `unsettledByChannel`. Dijalankan di Summary walau hasilnya tidak ditampilkan di kartu (dipakai rekonsiliasi di halaman Cash Position).
+`src/server/repo/cash/bank-payment.repo.ts` · `unsettledByChannel`. Dijalankan di Summary walau hasilnya tidak ditampilkan di kartu (dipakai rekonsiliasi di halaman Cash Position).
 
 ```sql
 SELECT bp.coa_id AS coaId,
@@ -210,7 +210,7 @@ Query ekstra bila ada pembanding: seluruh Q7–Q9 diulang dengan `:asOf = compar
 
 Dipakai **Revenue**, **Net Profit**, **Composition**, **Gross/Net margin**. Satu pembacaan dibagi bersama (`loadPlMovements`, `src/server/services/shared/pl-movements.ts`): akun yang diminta = semua POSTABLE grup Revenue / Cost Of Sales / Expense / Other Revenue / Other Expense + akun keranjang Biaya Tetap. Halaman lain menyaring baris di memori.
 
-Mesin: `src/server/repo/gl.repo.ts` · `movementsByPeriods`. Periode dikelompokkan per tabel GL; periode `Closed` dilayani dari cache memori / snapshot, periode `Open` / `Pre Closed` **selalu** ke ERP.
+Mesin: `src/server/repo/gl/gl.repo.ts` · `movementsByPeriods`. Periode dikelompokkan per tabel GL; periode `Closed` dilayani dari cache memori / snapshot, periode `Open` / `Pre Closed` **selalu** ke ERP.
 
 ### Q11 — Mutasi per periode (ERP langsung)
 
@@ -283,7 +283,7 @@ Pembanding Revenue dan Net Profit: Q11/Q12 yang sama dengan `:periodIds = compar
 
 ## 4. AP (Payables dan tabel tagihan)
 
-Logika: `src/server/services/ap-aging.service.ts` (pemuatan dan total pembanding bersama dengan AR di `shared/aging-reader.ts`), `src/lib/finance/ap-ar/apar.ts`. Pembacaan data: `src/server/repo/aging.repo.ts`.
+Logika: `src/server/services/ap-aging.service.ts` (pemuatan dan total pembanding bersama dengan AR di `shared/aging-reader.ts`), `src/lib/finance/ap-ar/apar.ts`. Pembacaan data: `src/server/repo/ap-ar/aging.repo.ts`.
 
 Urutan sumber data (`agingInvoices` / `agingUnallocated`):
 1. `asOf` ≥ tanggal snapshot hari ini → **snapshot** (Q14, Q15).
@@ -363,7 +363,7 @@ WHERE p.module_type = 0
 ```
 
 ### Q18 — Nama vendor
-`src/server/repo/party.repo.ts` · `listVendors`. Hanya id, kode, nama.
+`src/server/repo/ap-ar/party.repo.ts` · `listVendors`. Hanya id, kode, nama.
 
 ```sql
 SELECT t.vendor_id AS id, t.code AS code, t.name AS name
@@ -414,7 +414,7 @@ Keterangan entitas: **tidak ada query baru.** Nama entitas tiap tagihan diambil 
 ## 5. Cash Flow dan Runway
 
 ### Q20 — Baris jurnal yang menyentuh akun kas
-`src/server/repo/cashflow.repo.ts` · `linesOfCashJournals`. Per tabel GL, per potongan `:periodIds` / `:cashCoaIds` / `:segIds` (masing-masing ≤ 1.000). Cache 60 detik.
+`src/server/repo/cash/cashflow.repo.ts` · `linesOfCashJournals`. Per tabel GL, per potongan `:periodIds` / `:cashCoaIds` / `:segIds` (masing-masing ≤ 1.000). Cache 60 detik.
 
 ```sql
 SELECT d.gl_id AS glId,
@@ -505,7 +505,7 @@ Gross dan Net margin memakai hasil P&L di bagian 3.
 ## 6. Status Pengakuan Biaya
 
 ### Q19 — Dokumen Pengakuan Biaya aktif per tagihan
-`src/server/repo/payment-plan.repo.ts` · `listActivePlanStatuses`. Satu query untuk semua tagihan, cache 5 menit.
+`src/server/repo/ap-ar/payment-plan.repo.ts` · `listActivePlanStatuses`. Satu query untuk semua tagihan, cache 5 menit.
 
 ```sql
 SELECT bd.invoice_id AS invoiceId, b.status AS status
@@ -626,7 +626,7 @@ Semua metrik dijalankan paralel (`Promise.all` di `summary.service.ts`), dan beb
 Query yang ditambahkan pada gelombang 2 (keputusan D31 dan D35 di `decisions.md`).
 
 ### Q22 — Giro/cek beredar
-`src/server/repo/bank-payment.repo.ts` · `outstandingGiro`. Cache 60 detik. Dipakai kartu Cash Position (informasi, bukan bagian angka utama).
+`src/server/repo/cash/bank-payment.repo.ts` · `outstandingGiro`. Cache 60 detik. Dipakai kartu Cash Position (informasi, bukan bagian angka utama).
 
 ```sql
 SELECT COALESCE(SUM(bp.amount), 0) AS amount
@@ -670,3 +670,4 @@ WHERE table_schema = DATABASE()
 | 2026-10-31 | Q18 (nama vendor) berjalan lebih jarang: nama diingat per id selama 10 menit dan potongan 1.000 id dibaca bersamaan; isi query tidak berubah. Urutan tabel tagihan di-cache per hasil rencana (tidak ada query baru). |
 | 2026-11-03 | Donut Composition: tab Expense memakai baris P&L (HPP + Beban Operasional) dan tab Fixed Cost memakai pembacaan Biaya Tetap yang sudah ada; tidak ada query yang berubah atau ditambahkan. |
 | 2026-11-03 | Penataan struktur folder src (tahap 4): hanya lokasi berkas yang berubah dan rujukan jalur di dokumen ini disesuaikan (entity-owner pindah ke lib/finance/entity); tidak ada query yang berubah. |
+| 2026-11-03 | Penataan struktur folder src (tahap 5): file repo dipindah ke subfolder per domain (ap-ar, cash, gl, master-data, pnl) dan jalur di dokumen ini disesuaikan; tidak ada query yang berubah. |

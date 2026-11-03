@@ -14,9 +14,9 @@ import {
 import { memoMetric } from '~/server/cache'
 import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
 import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
-import { expensePaidAllocated, expensePaidUnallocated } from '~/server/repo/expense-paid.repo'
-import { listVendors } from '~/server/repo/party.repo'
-import { linesOfCashJournals } from '~/server/repo/cashflow.repo'
+import { expensePaidAllocated, expensePaidUnallocated } from '~/server/repo/ap-ar/expense-paid.repo'
+import { listVendors } from '~/server/repo/ap-ar/party.repo'
+import { linesOfCashJournals } from '~/server/repo/cash/cashflow.repo'
 import { allocateCash, makeIsOurCash } from '~/lib/finance/cash/cashflow'
 import { isDirectExpenseGroup } from '~/lib/finance/coa/account-groups'
 import {

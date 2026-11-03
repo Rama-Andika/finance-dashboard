@@ -4,13 +4,13 @@ import type { AppContextFilter } from '~/server/context'
 import type { DrillContext } from './shared'
 
 const journalLines = vi.fn()
-vi.mock('~/server/repo/gl.repo', () => ({
+vi.mock('~/server/repo/gl/gl.repo', () => ({
   journalLines: (...a: unknown[]) => journalLines(...a),
   journalHeaders: async () => [],
   movementsByPeriods: async () => [],
 }))
 vi.mock('~/server/db/gl-tables', () => ({ tablesBetween: () => ['gl'] }))
-vi.mock('~/server/repo/payment-plan.repo', () => ({ listPlanStatuses: async () => [] }))
+vi.mock('~/server/repo/ap-ar/payment-plan.repo', () => ({ listPlanStatuses: async () => [] }))
 vi.mock('~/server/services/cash-flow.service', () => ({}))
 vi.mock('~/server/context', () => ({}))
 

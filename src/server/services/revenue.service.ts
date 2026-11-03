@@ -9,7 +9,7 @@ import {
   getCachedEntities,
   getCachedPeriods,
 } from '~/server/context'
-import { movementsByPeriods } from '~/server/repo/gl.repo'
+import { movementsByPeriods } from '~/server/repo/gl/gl.repo'
 import { memoMetric } from '~/server/cache'
 import { loadPlMovements, onlyAccounts } from '~/server/services/shared/pl-movements'
 import {

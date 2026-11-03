@@ -6,7 +6,7 @@ import { chunkOrAll } from '~/server/db/chunk'
 import { memo } from '~/server/cache'
 import { EXPENSE_PAID_TYPES, IN_OUT_VALUES, MODULE_TYPE, intList } from '~/server/db/erp-codes'
 import { D } from '~/lib/core/money'
-import { idOrEmpty, locKeyOf, locationFilter, toDay } from '~/server/repo/apar.shared'
+import { idOrEmpty, locKeyOf, locationFilter, toDay } from '~/server/repo/ap-ar/shared'
 
 /** The Expense Paid metric and its drill-down read the same cards: they share one read for a minute. */
 const EXPENSE_PAID_CACHE_MS = 60 * 1000

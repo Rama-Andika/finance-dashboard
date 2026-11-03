@@ -7,7 +7,7 @@ import { assertSegmentColumn } from '~/server/db/segment-column'
 import { prefetchCanceledDateColumns } from '~/server/db/gl-columns'
 import { D } from '~/lib/core/money'
 import { diffDays } from '~/lib/format/date'
-import { accumulate, glTableSql, type GlTableSql } from '~/server/repo/gl-shared'
+import { accumulate, glTableSql, type GlTableSql } from '~/server/repo/gl/shared'
 import type { Id, IsoDate, Money } from '~/lib/core/types'
 
 export type MovementsByDateOptions = {

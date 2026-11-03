@@ -1,7 +1,7 @@
 import { describe, expect, it, afterAll } from 'vitest'
 import { getMappingRow, upsertMapping, MAPPING_KEY } from '~/server/repo/settings.repo'
 import { parseMapping, defaultMapping } from '~/lib/settings/mapping-schema'
-import { listCoa } from '~/server/repo/coa.repo'
+import { listCoa } from '~/server/repo/master-data/coa.repo'
 import { buildCoaTree } from '~/lib/finance/coa/coa-tree'
 import type { AccountMapping } from '~/lib/finance/coa/basket-resolver'
 

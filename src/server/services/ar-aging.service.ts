@@ -1,8 +1,8 @@
 import '@tanstack/react-start/server-only'
 import type { Id, MetricMeta, Money } from '~/lib/core/types'
 import type { AppContextFilter } from '~/server/context'
-import { arOpenInvoices, arUnallocatedReceipts } from '~/server/repo/aging.repo'
-import { listCustomers } from '~/server/repo/party.repo'
+import { arOpenInvoices, arUnallocatedReceipts } from '~/server/repo/ap-ar/aging.repo'
+import { listCustomers } from '~/server/repo/ap-ar/party.repo'
 import { createAgingMetric } from '~/server/services/shared/aging-metric'
 import type { AgingReconciliation } from '~/lib/finance/ap-ar/aging-reconciliation'
 import {

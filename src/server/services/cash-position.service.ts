@@ -13,7 +13,7 @@ import { env } from '~/server/env'
 import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
 import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
 import { balancesAt, balancesBySegmentAt } from '~/server/services/balance.service'
-import { outstandingGiro, unsettledByChannel } from '~/server/repo/bank-payment.repo'
+import { outstandingGiro, unsettledByChannel } from '~/server/repo/cash/bank-payment.repo'
 import {
   buildCashPositionBreakdown,
   computeCashTotals,

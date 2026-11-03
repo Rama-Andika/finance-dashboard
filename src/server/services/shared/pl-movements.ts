@@ -5,7 +5,7 @@ import { PNL_ACCOUNT_GROUPS } from '~/lib/finance/coa/account-groups'
 import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
 import { memoMetric } from '~/server/cache'
 import { type AppContextFilter, getCachedCoaTree, getCachedPeriods } from '~/server/context'
-import { movementsByPeriods, type MovementRow } from '~/server/repo/gl.repo'
+import { movementsByPeriods, type MovementRow } from '~/server/repo/gl/gl.repo'
 import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
 
 /**

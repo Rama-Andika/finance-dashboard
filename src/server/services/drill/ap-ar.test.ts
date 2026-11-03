@@ -5,21 +5,21 @@ import type { DrillState, DrillStep, DrillStepKind } from '~/lib/filters/search-
 import type { DrillContext, DrillResult } from './shared'
 
 const apOpenInvoices = vi.fn()
-vi.mock('~/server/repo/aging.repo', () => ({
+vi.mock('~/server/repo/ap-ar/aging.repo', () => ({
   apOpenInvoices: (...a: unknown[]) => apOpenInvoices(...a),
   arOpenInvoices: async () => [],
 }))
-vi.mock('~/server/repo/party.repo', () => ({
+vi.mock('~/server/repo/ap-ar/party.repo', () => ({
   listVendors: async () => [{ vendorId: 'v1', code: 'V1', name: 'Vendor 1' }],
   listCustomers: async () => [],
 }))
-vi.mock('~/server/repo/gl.repo', () => ({
+vi.mock('~/server/repo/gl/gl.repo', () => ({
   journalLines: async () => [],
   journalHeaders: async () => [],
   movementsByPeriods: async () => [],
 }))
 vi.mock('~/server/db/gl-tables', () => ({ tablesBetween: () => ['gl'] }))
-vi.mock('~/server/repo/payment-plan.repo', () => ({ listPlanStatuses: async () => [] }))
+vi.mock('~/server/repo/ap-ar/payment-plan.repo', () => ({ listPlanStatuses: async () => [] }))
 vi.mock('~/server/services/cash-flow.service', () => ({}))
 vi.mock('~/server/context', () => ({}))
 

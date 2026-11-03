@@ -9,7 +9,7 @@ import {
 import type { Id, IsoDate, Money } from '../../core/types'
 import type { CoaTree } from '../coa/coa-tree'
 
-// Row shapes produced by src/server/repo/aging.repo.ts. Declared here so pure logic never imports server code.
+// Row shapes produced by src/server/repo/ap-ar/aging.repo.ts. Declared here so pure logic never imports server code.
 type AgingItemBase = {
   invoiceId: Id
   locationId: Id

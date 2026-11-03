@@ -1,6 +1,6 @@
 import '@tanstack/react-start/server-only'
 import { activePeriodsOf } from '~/lib/filters/filter-scope'
-import { cardSettlementHistory } from '~/server/repo/aging.repo'
+import { cardSettlementHistory } from '~/server/repo/ap-ar/aging.repo'
 import { getCachedCoaTree, getCachedEntities, getCachedPeriods, type AppContextFilter } from '~/server/context'
 import { D } from '~/lib/core/money'
 import type { DrillState, DrillStep, DrillStepKind } from '~/lib/filters/search-schema'

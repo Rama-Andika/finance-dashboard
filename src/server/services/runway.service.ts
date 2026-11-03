@@ -16,7 +16,7 @@ import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
 import { balancesAt } from '~/server/services/balance.service'
 import { computeCashPosition } from '~/server/services/cash-position.service'
 import { computePnl } from '~/server/services/pnl.service'
-import { linesOfCashJournals } from '~/server/repo/cashflow.repo'
+import { linesOfCashJournals } from '~/server/repo/cash/cashflow.repo'
 import { allocateCash, makeIsOurCash } from '~/lib/finance/cash/cashflow'
 import {
   computeAvgBurn,

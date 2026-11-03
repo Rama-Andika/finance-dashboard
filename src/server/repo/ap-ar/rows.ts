@@ -1,8 +1,8 @@
 import '@tanstack/react-start/server-only'
 import { D } from '~/lib/core/money'
 import { toInt } from '~/server/db/convert'
-import { idOrEmpty, toDay } from '~/server/repo/apar.shared'
-import type { AgingInvoice, AgingUnallocated } from '~/server/repo/apar.types'
+import { idOrEmpty, toDay } from '~/server/repo/ap-ar/shared'
+import type { AgingInvoice, AgingUnallocated } from '~/server/repo/ap-ar/types'
 import type { Id, Money } from '~/lib/core/types'
 
 /** The party column is called `vendorId` on the AP side and `customerId` on the AR side. */

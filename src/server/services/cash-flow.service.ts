@@ -18,7 +18,7 @@ import { balancesAt } from '~/server/services/balance.service'
 import {
   linesOfCashJournals,
   getCashFlowSetup,
-} from '~/server/repo/cashflow.repo'
+} from '~/server/repo/cash/cashflow.repo'
 import { UNCLASSIFIED_SUBGROUP } from '~/lib/finance/cash/cashflow-labels'
 import {
   allocateCash,

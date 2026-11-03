@@ -1,5 +1,5 @@
 import '@tanstack/react-start/server-only'
-import { toAgingInvoice, toAgingUnallocated, type AgingInvoiceDbRow, type AgingInvoiceOf, type AgingUnallocatedDbRow, type AgingUnallocatedOf } from '~/server/repo/apar.rows'
+import { toAgingInvoice, toAgingUnallocated, type AgingInvoiceDbRow, type AgingInvoiceOf, type AgingUnallocatedDbRow, type AgingUnallocatedOf } from '~/server/repo/ap-ar/rows'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { chunkOrAll } from '~/server/db/chunk'
@@ -12,8 +12,8 @@ import { memo } from '~/server/cache'
 import { addDays } from '~/lib/format/date'
 import { apArSnapshotCovers, snapshotOpenInvoices, snapshotUnallocated } from '~/server/dash/snapshot'
 import { apArHistCovers, histOpenInvoices, histUnallocated } from '~/server/dash/snapshot-hist'
-import { locKeyOf, locationFilter } from '~/server/repo/apar.shared'
-import type { AgingInvoice, AgingSide, AgingUnallocated } from '~/server/repo/apar.types'
+import { locKeyOf, locationFilter } from '~/server/repo/ap-ar/shared'
+import type { AgingInvoice, AgingSide, AgingUnallocated } from '~/server/repo/ap-ar/types'
 import type { Id, IsoDate, Money } from '~/lib/core/types'
 
 const AGING_CACHE_MS = 5 * 60 * 1000

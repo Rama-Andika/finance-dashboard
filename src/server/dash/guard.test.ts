@@ -26,6 +26,16 @@ function filesIn(dir: string, ext: RegExp, skip: RegExp[] = []): string[] {
     .map((f) => path.join(dir, f))
 }
 
+/** Like filesIn, but also looks inside sub folders (src/server/repo has one folder per big domain). */
+function filesUnder(dir: string, ext: RegExp, skip: RegExp[] = []): string[] {
+  if (!fs.existsSync(dir)) return []
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) return filesUnder(full, ext, skip)
+    return ext.test(entry.name) && !skip.some((s) => s.test(entry.name)) ? [full] : []
+  })
+}
+
 describe('dash tables only', () => {
   it('every migration statement touches a dash_ table', () => {
     const files = filesIn(path.join(ROOT, 'drizzle-dash'), /\.sql$/)
@@ -53,7 +63,8 @@ describe('dash tables only', () => {
   })
 
   it('no code outside the dash folder writes to dash tables by hand', () => {
-    const files = filesIn(path.join(ROOT, 'src/server/repo'), /\.ts$/, [/\.test\.ts$/])
+    const files = filesUnder(path.join(ROOT, 'src/server/repo'), /\.ts$/, [/\.test\.ts$/])
+    expect(files.length).toBeGreaterThanOrEqual(21)
     for (const file of files) {
       expect(targets(fs.readFileSync(file, 'utf8')).filter((t) => t.startsWith(DASH_PREFIX))).toEqual([])
     }

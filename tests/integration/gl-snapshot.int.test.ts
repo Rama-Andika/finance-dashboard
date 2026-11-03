@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { getCachedEntities, getCachedPeriods } from '~/server/context'
 import { builtGlPeriods } from '~/server/dash/gl-snapshot'
-import { movementsByPeriods, type MovementRow } from '~/server/repo/gl.repo'
+import { movementsByPeriods, type MovementRow } from '~/server/repo/gl/gl.repo'
 import { clearCache } from '~/server/cache'
 import type { Period } from '~/lib/core/types'
 

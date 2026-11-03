@@ -9,7 +9,7 @@ import {
 import { memoMetric } from '~/server/cache'
 import { loadPlMovements, onlyAccounts } from '~/server/services/shared/pl-movements'
 import { PNL_ACCOUNT_GROUPS as BUDGET_ACCOUNT_GROUPS } from '~/lib/finance/coa/account-groups'
-import { budgetAmounts } from '~/server/repo/budget.repo'
+import { budgetAmounts } from '~/server/repo/pnl/budget.repo'
 import {
   actualByCoaOf,
   budgetByCoaOf,
