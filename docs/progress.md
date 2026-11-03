@@ -99,6 +99,7 @@
 | 2026-11-03 | 26.5 | Penataan src tahap 5: 24 berkas server/repo dikelompokkan per domain (ap-ar, cash, gl, master-data, pnl); sql-guard dan dash guard kini memindai subfolder (terbukti dengan berkas percobaan); tidak ada SQL yang berubah | typecheck, lint, unit test lulus; tidak ada query ke database |
 | 2026-11-03 | 26.6 | Penataan src tahap 6: 23 berkas server/services dikelompokkan per domain (ap-ar, cash, pnl, drill); helper shared/ yang hanya dipakai satu domain dipindah ke domainnya; aging.helper menjadi aging-helpers dan mapping.helper menjadi account-mapping; nama export tidak berubah | typecheck, lint, unit test lulus; tidak ada query ke database |
 | 2026-11-03 | 26.7 | Penataan src tahap 7: functions/metrics dibubarkan; 14 server function dikelompokkan ke functions/ap-ar, functions/cash, functions/pnl, dan summary.fn.ts ke functions/; metrics.queries.ts tidak berubah selain impor | typecheck, lint, unit test lulus; tidak ada query ke database |
+| 2026-11-03 | 26.8 | Penataan src tahap 8: panduan docs/project-structure.md, aturan ESLint agar components/ui bebas domain (terbukti dengan berkas percobaan), dan audit struktur akhir terhadap semua peta phase | typecheck, lint, unit test lulus; audit-structure OK; tidak ada query ke database |
 
 ## Ringkasan Proyek
 

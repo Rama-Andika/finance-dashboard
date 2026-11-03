@@ -58,6 +58,44 @@ export default defineConfig(
     },
   },
 
+  // src/components/ui is the domain-free base: it never reaches into a page, layout or chart folder, nor into finance logic.
+  {
+    files: ['src/components/ui/**'],
+    ignores: ['src/components/ui/shadcn/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            ...DATABASE_AND_SERVER,
+            {
+              group: [
+                '~/components/aging/**',
+                '~/components/budget/**',
+                '~/components/cash-flow/**',
+                '~/components/cash-position/**',
+                '~/components/charts/**',
+                '~/components/data-checks/**',
+                '~/components/drill/**',
+                '~/components/export/**',
+                '~/components/layout/**',
+                '~/components/payment-plan/**',
+                '~/components/profit-loss/**',
+                '~/components/revenue/**',
+                '~/components/settings/**',
+                '~/components/summary/**',
+                '~/lib/finance/**',
+                '~/functions/**',
+                '~/queries/**',
+              ],
+              message: 'src/components/ui is domain-free: do not import pages, layout, charts or finance logic here.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   // Server logs go through src/server/log.ts.
   {
     files: ['src/server/**', 'src/functions/**'],
