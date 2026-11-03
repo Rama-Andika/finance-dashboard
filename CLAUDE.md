@@ -10,7 +10,6 @@ Source-of-truth documents (Indonesian), read the relevant part before touching f
 - `docs/decisions.md` — numbered decisions (D#, F#, S#, U#, T#, open items O#)
 - `docs/data-model.md` — ERP tables, formulas per metric (§x.y), data-quality findings
 - `plans/README.md` — golden rules G1–G38 (§2), conventions (§5), open-item defaults (§7, §9 "K#")
-- `docs/revision-plan.md` — the later revision work, incl. the `dash_*` snapshot tables
 - `docs/progress.md` — work log; append a line when finishing a planned step
 - `docs/design/neraca-ui/` — "Neraca UI" design system (tokens, components, brand rules)
 
