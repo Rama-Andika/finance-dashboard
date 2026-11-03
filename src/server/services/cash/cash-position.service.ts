@@ -10,8 +10,7 @@ import {
 } from '~/server/context'
 import { memoMetric } from '~/server/cache'
 import { env } from '~/server/env'
-import { loadAccountMapping } from '~/server/services/shared/account-mapping'
-import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
+import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
 import { balancesAt, balancesBySegmentAt } from '~/server/services/cash/balance.service'
 import { outstandingGiro, unsettledByChannel } from '~/server/repo/cash/bank-payment.repo'
 import {
@@ -135,8 +134,7 @@ async function computeCashPositionUncached(
   const includeCompare = opts.includeCompare ?? true
   const meta = buildMetricMeta(filter)
   const tree = await getCachedCoaTree()
-  const mapping = await loadAccountMapping(tree)
-  const resolved = resolveBaskets(mapping, tree)
+  const resolved = await loadResolvedBaskets(tree)
 
   const cashIds = resolved.cash
   const bankIds = resolved.bank

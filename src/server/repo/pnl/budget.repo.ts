@@ -3,7 +3,7 @@ import { toInt } from '~/server/db/convert'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
-import { chunkOrAll } from '~/server/db/chunk'
+import { SLICE_CONCURRENCY, chunkOrAll, mapLimit } from '~/server/db/chunk'
 import { assertSegmentColumn } from '~/server/db/segment-column'
 import { D } from '~/lib/core/money'
 import type { Id, Money } from '~/lib/core/types'
@@ -46,9 +46,8 @@ export async function budgetAmounts(
     combinedYm = sql`${combinedYm} OR ${ymClauses[i]!}`
   }
 
-  const results: BudgetAmountRow[] = []
-
-  for (const sChunk of chunkOrAll(params.segIds)) {
+  // The slices of 1,000 segments do not depend on each other: read them together.
+  const slices = await mapLimit(chunkOrAll(params.segIds), SLICE_CONCURRENCY, async (sChunk) => {
     const query = sql`
       SELECT b.coa_id AS coaId,
              b.bgt_year AS bgtYear,
@@ -69,15 +68,15 @@ export async function budgetAmounts(
       amount: number | string
     }>(query)
 
-    for (const r of res) {
-      results.push({
+    return res.map(
+      (r): BudgetAmountRow => ({
         coaId: String(r.coaId),
         bgtYear: toInt(r.bgtYear, 1900),
         bgtMonth: toInt(r.bgtMonth),
         amount: D(r.amount || 0).toFixed(2),
-      })
-    }
-  }
+      }),
+    )
+  })
 
-  return results
+  return slices.flat()
 }

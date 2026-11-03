@@ -12,8 +12,8 @@ import {
   getCachedPeriods,
 } from '~/server/context'
 import { memoMetric } from '~/server/cache'
-import { loadAccountMapping } from '~/server/services/shared/account-mapping'
-import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
+import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
+import type { ResolvedBaskets } from '~/lib/finance/coa/basket-resolver'
 import { balancesAt } from '~/server/services/cash/balance.service'
 import {
   linesOfCashJournals,
@@ -24,14 +24,13 @@ import {
   allocateCash,
   settledJournals,
   makeIsOurCash,
-  classifyBySetup,
-  classifyByFallback,
+  classifyCounterAmount,
+  counterAccountOf,
   isSetupValid,
   type DrawerKey,
   type CfLine,
   type SettledJournal,
   type CfSetupRow,
-  type ClassifiedPortion,
 } from '~/lib/finance/cash/cashflow'
 
 export type CashFlowResult = {
@@ -101,7 +100,7 @@ type LoadPortionsContext = {
 }
 
 /** Cash ∪ bank ∪ deposit: the widest cash list. Every metric reads journal lines for THIS list so the read is shared. */
-export function allCashAccountIds(resolved: ReturnType<typeof resolveBaskets>): Id[] {
+export function allCashAccountIds(resolved: ResolvedBaskets): Id[] {
   return Array.from(new Set([...resolved.cash, ...resolved.bank, ...resolved.deposit]))
 }
 
@@ -113,7 +112,7 @@ async function loadClassifiedPortionsUncached(
   const periods = ctx?.periods ?? (await getCachedPeriods())
   // Lines are always read for the widest cash list (shared with Cash Flow, Expense Paid, Runway);
   // `cashEquivIds` only decides which of those lines count as our cash.
-  const resolved = resolveBaskets(await loadAccountMapping(tree), tree)
+  const resolved = await loadResolvedBaskets(tree)
   const fetchIds = allCashAccountIds(resolved)
   const cashEquivIds = ctx?.cashEquivIds ?? fetchIds
   const isOurCash = makeIsOurCash(cashEquivIds, filter.segmentDetailIds)
@@ -133,24 +132,10 @@ async function loadClassifiedPortionsUncached(
     cashCoaIds: fetchIds,
   })
 
-  const portions: ClassifiedCashPortion[] = allocateCash(lines, isOurCash).map((p) => {
-    const counterNode = tree.byId.get(p.counterCoaId)
-    const counter = {
-      accountGroup: counterNode?.accountGroup ?? '',
-      subAccountGroup: counterNode?.subAccountGroup ?? '',
-    }
-    let classified: ClassifiedPortion
-    if (setupValid) {
-      const res = classifyBySetup(p.portion, counter, setup)
-      classified =
-        res === 'UNCLASSIFIED'
-          ? { drawer: 'OPERATING', subGroup: UNCLASSIFIED_SUBGROUP, unclassified: true }
-          : res
-    } else {
-      classified = classifyByFallback(p.portion, counter, p.journalType)
-    }
-    return { ...p, ...classified }
-  })
+  const portions: ClassifiedCashPortion[] = allocateCash(lines, isOurCash).map((p) => ({
+    ...p,
+    ...classifyCounterAmount(p.portion, counterAccountOf(tree, p.counterCoaId), p.journalType, setupValid, setup),
+  }))
 
   return { lines, portions, setupValid, setup, cashEquivIds, isOurCash }
 }
@@ -251,24 +236,17 @@ function erpMethodTotals(
 
   for (const j of journals) {
     for (const cl of j.counterLines) {
-      const counterNode = tree.byId.get(cl.coaId)
-      const counter = {
-        accountGroup: counterNode?.accountGroup ?? '',
-        subAccountGroup: counterNode?.subAccountGroup ?? '',
-      }
       // Counter line net movement
       const clNet = D(cl.credit).minus(D(cl.debet))
-
-      let drawer: DrawerKey | null = null
-      if (setupValid) {
-        const res = classifyBySetup(clNet.toFixed(2), counter, setup)
-        if (res !== 'UNCLASSIFIED') drawer = res.drawer
-      } else {
-        const res = classifyByFallback(clNet.toFixed(2), counter, cl.journalType)
-        if (!res.unclassified) drawer = res.drawer
-      }
-
-      if (drawer) totals[drawer] = totals[drawer].plus(clNet)
+      const classified = classifyCounterAmount(
+        clNet.toFixed(2),
+        counterAccountOf(tree, cl.coaId),
+        cl.journalType,
+        setupValid,
+        setup,
+      )
+      // Amounts the ERP method cannot place are left out of its totals.
+      if (!classified.unclassified) totals[classified.drawer] = totals[classified.drawer].plus(clNet)
     }
   }
   return totals
@@ -282,7 +260,7 @@ async function computeCashFlowUncached(filter: AppContextFilter): Promise<CashFl
   const meta = buildMetricMeta(filter)
   const tree = await getCachedCoaTree()
   const periods = await getCachedPeriods()
-  const resolved = resolveBaskets(await loadAccountMapping(tree), tree)
+  const resolved = await loadResolvedBaskets(tree)
 
   // Cash and cash equivalents = cash ∪ bank ∪ deposit (D27)
   const cashEquivIds = allCashAccountIds(resolved)

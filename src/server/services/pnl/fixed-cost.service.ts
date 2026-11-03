@@ -8,8 +8,7 @@ import {
   getCachedCoaTree,
   getCachedPeriods,
 } from '~/server/context'
-import { loadAccountMapping } from '~/server/services/shared/account-mapping'
-import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
+import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
 import { memoMetric } from '~/server/cache'
 import { loadPlMovements, onlyAccounts } from '~/server/services/pnl/pl-movements'
 import {
@@ -35,8 +34,7 @@ async function computeFixedCostUncached(filter: AppContextFilter): Promise<Fixed
   const tree = await getCachedCoaTree()
   const periods = await getCachedPeriods()
 
-  const mapping = await loadAccountMapping(tree)
-  const resolved = resolveBaskets(mapping, tree)
+  const resolved = await loadResolvedBaskets(tree)
 
   const fixedCoaIds = new Set(resolved.fixedCost)
   const expenseCoaIds = new Set<Id>(postableAccountIds(tree, ['Expense']))

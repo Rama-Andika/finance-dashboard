@@ -2,8 +2,7 @@ import '@tanstack/react-start/server-only'
 import { type Id } from '~/lib/core/types'
 import { postableAccountIds } from '~/lib/finance/coa/coa-tree'
 import type { AccountGroup } from '~/lib/core/types'
-import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
-import { loadAccountMapping } from '~/server/services/shared/account-mapping'
+import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
 import { type DrillState, type DrillStep, type DrillStepKind } from '~/lib/filters/search-schema'
 import { empty, accountIdsOf, segIdsFor, hasSingleEntity, accountRows, entityRows, journalRows, type DrillContext, type DrillResult } from '~/server/services/drill/shared'
 
@@ -26,7 +25,7 @@ async function sectionAccountIds(ctx: DrillContext, metric: string, sectionId: s
     return group ? postableAccountIds(ctx.tree, [group]) : []
   }
   if (metric === 'fixedCost') {
-    const resolved = resolveBaskets(await loadAccountMapping(ctx.tree), ctx.tree)
+    const resolved = await loadResolvedBaskets(ctx.tree)
     const fixed = new Set(resolved.fixedCost)
     if (sectionId === 'fixed') return resolved.fixedCost
     if (sectionId === 'variable') return postableAccountIds(ctx.tree, ['Expense']).filter((id) => !fixed.has(id))

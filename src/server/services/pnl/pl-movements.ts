@@ -2,11 +2,10 @@ import '@tanstack/react-start/server-only'
 import type { Id, Period } from '~/lib/core/types'
 import { postableAccountIds } from '~/lib/finance/coa/coa-tree'
 import { PNL_ACCOUNT_GROUPS } from '~/lib/finance/coa/account-groups'
-import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
 import { memoMetric } from '~/server/cache'
 import { type AppContextFilter, getCachedCoaTree, getCachedPeriods } from '~/server/context'
 import { movementsByPeriods, type MovementRow } from '~/server/repo/gl/gl.repo'
-import { loadAccountMapping } from '~/server/services/shared/account-mapping'
+import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
 
 /**
  * Movements of every account the P&L-family pages need (P&L, Fixed Cost, Budget actuals,
@@ -20,8 +19,7 @@ export async function loadPlMovements(filter: AppContextFilter, periodIds: Id[])
     { periodIds, segCol: filter.entitySegmentColumn, segIds: filter.segmentDetailIds },
     async () => {
       const [tree, periods] = await Promise.all([getCachedCoaTree(), getCachedPeriods()])
-      const mapping = await loadAccountMapping(tree)
-      const resolved = resolveBaskets(mapping, tree)
+      const resolved = await loadResolvedBaskets(tree)
 
       const coaIds = Array.from(
         new Set<Id>([

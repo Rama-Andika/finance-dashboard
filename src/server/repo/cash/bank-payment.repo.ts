@@ -119,9 +119,8 @@ export async function settlementLag(
   const windowStart = addDays(today, -SETTLEMENT_LAG_WINDOW_DAYS)
   const todayPlusOne = addDays(today, 1)
 
-  const result: SettlementLagRow[] = []
-
-  for (const cChunk of chunk(coaIds)) {
+  // The slices of 1,000 accounts do not depend on each other: read them together.
+  const slices = await mapLimit(chunk(coaIds), SLICE_CONCURRENCY, async (cChunk) => {
     const query = sql`
       SELECT bp.coa_id AS coaId,
              AVG(DATEDIFF(bp.payment_date, DATE(bp.transaction_date))) AS avgLag,
@@ -142,16 +141,16 @@ export async function settlementLag(
       n: number | string
     }>(query)
 
-    for (const r of res) {
-      result.push({
+    return res.map(
+      (r): SettlementLagRow => ({
         coaId: String(r.coaId),
         avgLag: r.avgLag !== null ? Number(r.avgLag) : 1,
         n: toInt(r.n),
-      })
-    }
-  }
+      }),
+    )
+  })
 
-  return result
+  return slices.flat()
 }
 
 /**
@@ -174,9 +173,9 @@ export function outstandingGiro(
 async function queryOutstandingGiro(asOf: IsoDate, segIds: Id[] | 'all', segCol: string): Promise<Money> {
   const asOfPlusOne = addDays(asOf, 1)
   const segIdent = sql.identifier(segCol)
-  let total = D(0)
 
-  for (const sChunk of chunkOrAll(segIds)) {
+  // One total per slice of 1,000 segments; the slices do not depend on each other.
+  const totals = await mapLimit(chunkOrAll(segIds), SLICE_CONCURRENCY, async (sChunk) => {
     const res = await rows<{ amount: number | string | null }>(sql`
       SELECT COALESCE(SUM(bp.amount), 0) AS amount
       FROM bank_payment bp
@@ -185,10 +184,10 @@ async function queryOutstandingGiro(asOf: IsoDate, segIds: Id[] | 'all', segCol:
         ${unsettledAtClause(asOfPlusOne)}
         ${sChunk ? sql`AND bp.${segIdent} IN (${inList(sChunk)})` : sql``}
     `)
-    total = total.plus(D(res[0]?.amount ?? 0))
-  }
+    return D(res[0]?.amount ?? 0)
+  })
 
-  return total.toFixed(2)
+  return totals.reduce((total, amount) => total.plus(amount), D(0)).toFixed(2)
 }
 
 export type UnsettledTransactionRow = {

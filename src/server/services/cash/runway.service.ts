@@ -11,8 +11,7 @@ import {
   getCachedPeriods,
 } from '~/server/context'
 import { memoMetric } from '~/server/cache'
-import { loadAccountMapping } from '~/server/services/shared/account-mapping'
-import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
+import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
 import { balancesAt } from '~/server/services/cash/balance.service'
 import { computeCashPosition } from '~/server/services/cash/cash-position.service'
 import { computePnl } from '~/server/services/pnl/pnl.service'
@@ -75,7 +74,7 @@ async function computeRunwayMetricsUncached(filter: AppContextFilter): Promise<R
   const meta = buildMetricMeta(filter)
   const [tree, periods] = await Promise.all([getCachedCoaTree(), getCachedPeriods()])
 
-  const resolved = resolveBaskets(await loadAccountMapping(tree), tree)
+  const resolved = await loadResolvedBaskets(tree)
   const cashEquivIds = Array.from(new Set([...resolved.cash, ...resolved.bank, ...resolved.deposit]))
   const liquidCoaIds: Id[] = postableAccountIds(tree, ['Liquid Assets'])
   const liabCoaIds: Id[] = postableAccountIds(tree, ['Current Liabilities'])

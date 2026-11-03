@@ -20,6 +20,17 @@ export function formatDate(iso: IsoDate, lang: Lang): string {
   return `${day} ${monthName} ${year}`
 }
 
+/**
+ * A moment in the viewer's own time zone as "03 Nov 2026, 23:08", with the month name of the interface language.
+ * Returns an empty string for a text that is not a date.
+ */
+export function formatDateTime(timestamp: string, lang: Lang): string {
+  const d = new Date(timestamp)
+  if (Number.isNaN(d.getTime())) return ''
+  const two = (n: number) => String(n).padStart(2, '0')
+  return `${two(d.getDate())} ${MONTHS[lang][d.getMonth()]} ${d.getFullYear()}, ${two(d.getHours())}:${two(d.getMinutes())}`
+}
+
 export function formatMonth(iso: IsoDate, lang: Lang): string {
   const { month } = parseIsoParts(iso)
   return MONTHS[lang][month - 1] || ''

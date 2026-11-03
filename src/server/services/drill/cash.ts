@@ -4,8 +4,7 @@ import { D } from '~/lib/core/money'
 import { diffDays } from '~/lib/format/date'
 import { type Entity, type Id, type IsoDate } from '~/lib/core/types'
 import { unsettledByChannel, unsettledTransactions } from '~/server/repo/cash/bank-payment.repo'
-import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
-import { loadAccountMapping } from '~/server/services/shared/account-mapping'
+import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
 import { balancesAt } from '~/server/services/cash/balance.service'
 import { type DrillStep, type DrillStepKind } from '~/lib/filters/search-schema'
 import { PAGE_SIZE, col, empty, accountIdsOf, segIdsFor, journalRows, type DrillContext, type DrillResult } from '~/server/services/drill/shared'
@@ -18,7 +17,7 @@ export async function cashPositionDrill(ctx: DrillContext, steps: Map<DrillStepK
   const sectionStep = steps.get('section')
   const folderStep = steps.get('folder')
   const accountStep = steps.get('account')
-  const resolved = resolveBaskets(await loadAccountMapping(ctx.tree), ctx.tree)
+  const resolved = await loadResolvedBaskets(ctx.tree)
   const sectionIds: Record<string, Id[]> = {
     cash: resolved.cash,
     bank: resolved.bank,

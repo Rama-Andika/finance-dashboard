@@ -2,7 +2,7 @@ import '@tanstack/react-start/server-only'
 import { toInt } from '~/server/db/convert'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
-import { chunkOrAll } from '~/server/db/chunk'
+import { SLICE_CONCURRENCY, chunkOrAll, mapLimit } from '~/server/db/chunk'
 import { memo } from '~/server/cache'
 import { EXPENSE_PAID_TYPES, IN_OUT_VALUES, MODULE_TYPE, intList } from '~/server/db/erp-codes'
 import { D } from '~/lib/core/money'
@@ -38,9 +38,8 @@ async function readAllocated(
 ): Promise<ExpensePaidAllocatedRow[]> {
   if (locIds !== 'all' && locIds.length === 0) return []
 
-  const results: ExpensePaidAllocatedRow[] = []
-
-  for (const lChunk of chunkOrAll(locIds)) {
+  // The slices of 1,000 locations do not depend on each other: read them together.
+  const slices = await mapLimit(chunkOrAll(locIds), SLICE_CONCURRENCY, async (lChunk) => {
     const res = await rows<{
       cardId: string
       cardNumber: string
@@ -69,8 +68,8 @@ async function readAllocated(
       GROUP BY p.ap_ar_card_id, p.transaction_number, DATE(p.transaction_date), p.location_id, i.owner_id, i.transaction_type
     `)
 
-    for (const r of res) {
-      results.push({
+    return res.map(
+      (r): ExpensePaidAllocatedRow => ({
         cardId: String(r.cardId),
         cardNumber: r.cardNumber ?? '',
         txDate: toDay(r.txDate),
@@ -78,11 +77,11 @@ async function readAllocated(
         vendorId: idOrEmpty(r.vendorId),
         itemType: toInt(r.itemType),
         detailSum: D(r.detailSum || 0).toFixed(2),
-      })
-    }
-  }
+      }),
+    )
+  })
 
-  return results
+  return slices.flat()
 }
 
 async function readUnallocated(
@@ -92,9 +91,8 @@ async function readUnallocated(
 ): Promise<ExpensePaidUnallocatedRow[]> {
   if (locIds !== 'all' && locIds.length === 0) return []
 
-  const results: ExpensePaidUnallocatedRow[] = []
-
-  for (const lChunk of chunkOrAll(locIds)) {
+  // The slices of 1,000 locations do not depend on each other: read them together.
+  const slices = await mapLimit(chunkOrAll(locIds), SLICE_CONCURRENCY, async (lChunk) => {
     const res = await rows<{
       cardId: string
       cardNumber: string
@@ -119,19 +117,19 @@ async function readUnallocated(
         AND NOT EXISTS (SELECT 1 FROM ap_ar_card_detail d WHERE d.ap_ar_card_id = p.ap_ar_card_id)
     `)
 
-    for (const r of res) {
-      results.push({
+    return res.map(
+      (r): ExpensePaidUnallocatedRow => ({
         cardId: String(r.cardId),
         cardNumber: r.cardNumber ?? '',
         txDate: toDay(r.txDate),
         locationId: idOrEmpty(r.locationId),
         vendorId: idOrEmpty(r.vendorId),
         signedAmount: D(r.signedAmount || 0).toFixed(2),
-      })
-    }
-  }
+      }),
+    )
+  })
 
-  return results
+  return slices.flat()
 }
 
 /** AP payment cards with allocations. The cached array is shared: callers must only read it. */

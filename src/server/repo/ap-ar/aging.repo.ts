@@ -2,7 +2,7 @@ import '@tanstack/react-start/server-only'
 import { toAgingInvoice, toAgingUnallocated, type AgingInvoiceDbRow, type AgingInvoiceOf, type AgingUnallocatedDbRow, type AgingUnallocatedOf } from '~/server/repo/ap-ar/rows'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
-import { chunkOrAll } from '~/server/db/chunk'
+import { SLICE_CONCURRENCY, chunkOrAll, mapLimit } from '~/server/db/chunk'
 import {
   AGING_SIDES,
   IN_OUT_VALUES,
@@ -50,9 +50,8 @@ export function liveAgingInvoices<K extends 'vendorId' | 'customerId'>(
   const cfg = AGING_SIDES[side]
 
   return memo(`${side}AgingInvoices:${asOfPlusOne}:${locKeyOf(locIds)}`, AGING_CACHE_MS, async () => {
-    const results: Array<AgingInvoiceOf<K>> = []
-
-    for (const lChunk of chunkOrAll(locIds)) {
+    // The slices of 1,000 locations do not depend on each other: read them together.
+    const slices = await mapLimit(chunkOrAll(locIds), SLICE_CONCURRENCY, async (lChunk) => {
       const res = await rows<AgingInvoiceDbRow>(sql`
         SELECT i.ap_ar_card_id AS invoiceId,
                COALESCE(NULLIF(i.invoice_number, ''), i.transaction_number, '') AS invoiceNumber,
@@ -80,10 +79,10 @@ export function liveAgingInvoices<K extends 'vendorId' | 'customerId'>(
         HAVING balance <> 0
       `)
 
-      for (const r of res) results.push(toAgingInvoice(r, partyKey))
-    }
+      return res.map((r): AgingInvoiceOf<K> => toAgingInvoice(r, partyKey))
+    })
 
-    return results
+    return slices.flat()
   })
 }
 
@@ -111,9 +110,8 @@ export function liveAgingUnallocated<K extends 'vendorId' | 'customerId'>(
   const cfg = AGING_SIDES[side]
 
   return memo(`${side}AgingUnallocated:${asOfPlusOne}:${locKeyOf(locIds)}`, AGING_CACHE_MS, async () => {
-    const results: Array<AgingUnallocatedOf<K>> = []
-
-    for (const lChunk of chunkOrAll(locIds)) {
+    // The slices of 1,000 locations do not depend on each other: read them together.
+    const slices = await mapLimit(chunkOrAll(locIds), SLICE_CONCURRENCY, async (lChunk) => {
       const res = await rows<AgingUnallocatedDbRow>(sql`
         SELECT p.ap_ar_card_id AS cardId,
                p.owner_id AS partyId,
@@ -130,10 +128,10 @@ export function liveAgingUnallocated<K extends 'vendorId' | 'customerId'>(
           AND NOT EXISTS (SELECT 1 FROM ap_ar_card_detail d WHERE d.ap_ar_card_id = p.ap_ar_card_id)
       `)
 
-      for (const r of res) results.push(toAgingUnallocated(r, partyKey))
-    }
+      return res.map((r): AgingUnallocatedOf<K> => toAgingUnallocated(r, partyKey))
+    })
 
-    return results
+    return slices.flat()
   })
 }
 

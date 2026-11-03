@@ -4,10 +4,14 @@ import {
   makeIsOurCash,
   classifyBySetup,
   classifyByFallback,
+  classifyCounterAmount,
+  counterAccountOf,
   isSetupValid,
   settledJournals,
   type CfLine,
 } from './cashflow'
+import { CF_FALLBACK, UNCLASSIFIED_SUBGROUP } from './cashflow-labels'
+import { buildCoaTree } from '../coa/coa-tree'
 import { D } from '../../core/money'
 import {
   mockCashLines,
@@ -147,5 +151,63 @@ describe('makeIsOurCash', () => {
     )
     expect(portions).toHaveLength(1)
     expect(portions[0]).toMatchObject({ counterCoaId: '6100', counterSegmentId: 's2', portion: '-100.00' })
+  })
+})
+
+describe('classifyCounterAmount', () => {
+  const revenue = { accountGroup: 'Revenue', subAccountGroup: '' }
+  const otherExpense = { accountGroup: 'Other Expense', subAccountGroup: '' }
+  const unknownGroup = { accountGroup: 'No Such Group', subAccountGroup: '' }
+
+  it('uses the setup table when it is valid', () => {
+    expect(classifyCounterAmount('100.00', revenue, 1, true, mockCfSetup)).toEqual({
+      drawer: 'OPERATING',
+      subGroup: 'Penerimaan dari pelanggan',
+    })
+  })
+
+  it('puts an amount the valid setup has no row for under Operating, flagged as unclassified', () => {
+    expect(classifyCounterAmount('100.00', unknownGroup, 1, true, mockCfSetup)).toEqual({
+      drawer: 'OPERATING',
+      subGroup: UNCLASSIFIED_SUBGROUP,
+      unclassified: true,
+    })
+  })
+
+  it('uses the fallback rules, and ignores the setup rows, when the setup is not valid', () => {
+    expect(classifyCounterAmount('-5.00', otherExpense, 1, false, mockCfSetup)).toEqual(
+      classifyByFallback('-5.00', otherExpense, 1),
+    )
+    expect(classifyCounterAmount('-5.00', otherExpense, 1, false, [])).toMatchObject({
+      drawer: 'OPERATING',
+      subGroup: CF_FALLBACK.interestAndFees,
+    })
+    expect(classifyCounterAmount('-5.00', unknownGroup, 1, false, [])).toEqual(
+      classifyByFallback('-5.00', unknownGroup, 1),
+    )
+  })
+})
+
+describe('counterAccountOf', () => {
+  const tree = buildCoaTree([
+    {
+      coaId: '1',
+      parentId: '0',
+      code: '4-1000',
+      name: 'Sales',
+      status: 'POSTABLE',
+      level: 1,
+      accountGroup: 'Revenue',
+      subAccountGroup: 'Sales',
+      saldoNormal: 'CREDIT',
+    },
+  ])
+
+  it('returns the account group and sub group of an account in the chart', () => {
+    expect(counterAccountOf(tree, '1')).toEqual({ accountGroup: 'Revenue', subAccountGroup: 'Sales' })
+  })
+
+  it('returns empty groups for an account that is not in the chart', () => {
+    expect(counterAccountOf(tree, '999')).toEqual({ accountGroup: '', subAccountGroup: '' })
   })
 })

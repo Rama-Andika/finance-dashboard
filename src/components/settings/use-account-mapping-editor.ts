@@ -91,8 +91,8 @@ export function useAccountMappingEditor(search: Parameters<typeof coaTreeQueryOp
         // Metrics and data checks depend on the mapping. Mark them stale WITHOUT refetching now:
         // awaiting a refetch of a slow metric (AP aging takes minutes) kept the button on "Saving..."
         // long after the mapping was saved. They reload the next time their page is opened.
-        void queryClient.invalidateQueries({ queryKey: ['metric'], refetchType: 'none' })
-        void queryClient.invalidateQueries({ queryKey: ['data-checks'], refetchType: 'none' })
+        void queryClient.invalidateQueries({ queryKey: qk.allMetrics(), refetchType: 'none' })
+        void queryClient.invalidateQueries({ queryKey: qk.allDataChecks(), refetchType: 'none' })
         // Only the mapping changed (not the chart of accounts); refresh it in the background
         void queryClient.invalidateQueries({ queryKey: qk.accountMapping() })
       }

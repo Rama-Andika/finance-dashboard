@@ -94,8 +94,12 @@ export async function paymentPlanDrill(ctx: DrillContext, dayStep: DrillStep): P
   })
   dayBills.sort((a, b) => (a.dueDate || a.txDate).localeCompare(b.dueDate || b.txDate) || a.invoiceId.localeCompare(b.invoiceId))
   const { page: shownBills, hasMore } = pageOf(dayBills, ctx.offset)
-  const vendorMap = new Map((await listVendors(Array.from(new Set(shownBills.map((b) => b.vendorId))))).map((v) => [v.vendorId, v.name]))
-  const statuses = await statusMapFor(shownBills.map((b) => b.invoiceId))
+  // The vendor names and the plan statuses do not depend on each other: read them together.
+  const [vendors, statuses] = await Promise.all([
+    listVendors(Array.from(new Set(shownBills.map((b) => b.vendorId)))),
+    statusMapFor(shownBills.map((b) => b.invoiceId)),
+  ])
+  const vendorMap = new Map(vendors.map((v) => [v.vendorId, v.name]))
   const captions = buildEntityCaptions(ctx.entities, ctx.filter.entityCount)
   return {
     titleKey: 'drill.title.dueBills',

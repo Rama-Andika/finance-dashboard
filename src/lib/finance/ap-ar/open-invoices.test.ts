@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isZeroMoney, openInvoices } from './open-invoices'
+import { isZeroMoney, openBalance } from './open-invoices'
 
 describe('isZeroMoney', () => {
   it('recognises zero in every spelling', () => {
@@ -8,34 +8,26 @@ describe('isZeroMoney', () => {
   })
 })
 
-describe('openInvoices', () => {
-  it('keeps invoices with a remaining balance and drops the fully paid ones', () => {
-    const payments = new Map([
-      ['paid', '-100.00'], // fully paid
-      ['partial', '-40.25'],
-      ['overpaid', '-120.00'],
-    ])
-    const result = openInvoices(
-      [
-        { id: 'unpaid', original: '50.00' },
-        { id: 'paid', original: '100.00' },
-        { id: 'partial', original: '100.00' },
-        { id: 'overpaid', original: '100.00' },
-        { id: 'credit-note', original: '-30.00' },
-        { id: 'zero', original: '0.00' },
-      ],
-      payments,
-    )
-    expect(result).toEqual([
-      { id: 'unpaid', original: '50.00', balance: '50.00' },
-      { id: 'partial', original: '100.00', balance: '59.75' },
-      { id: 'overpaid', original: '100.00', balance: '-20.00' },
-      { id: 'credit-note', original: '-30.00', balance: '-30.00' },
-    ])
+describe('openBalance', () => {
+  it('keeps the original amount as the balance when nothing was paid', () => {
+    expect(openBalance('50.00', undefined)).toEqual({ original: '50.00', balance: '50.00' })
+    expect(openBalance('-30.00', undefined)).toEqual({ original: '-30.00', balance: '-30.00' }) // credit note
+  })
+
+  it('returns null for an invoice that is zero or fully paid', () => {
+    expect(openBalance('0.00', undefined)).toBeNull()
+    expect(openBalance('100.00', '-100.00')).toBeNull()
+  })
+
+  it('subtracts the payments that were allocated to the invoice', () => {
+    expect(openBalance('100.00', '-40.25')).toEqual({ original: '100.00', balance: '59.75' })
+  })
+
+  it('keeps an overpaid invoice open with a negative balance', () => {
+    expect(openBalance('100.00', '-120.00')).toEqual({ original: '100.00', balance: '-20.00' })
   })
 
   it('does not lose cents to floating point', () => {
-    const result = openInvoices([{ id: 'a', original: '0.30' }], new Map([['a', '-0.10']]))
-    expect(result[0]!.balance).toBe('0.20')
+    expect(openBalance('0.30', '-0.10')?.balance).toBe('0.20')
   })
 })

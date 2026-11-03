@@ -27,17 +27,6 @@ export function monthToMonth0(month1: number): number {
 }
 
 /**
- * YTD 0-indexed months from 0 to current month0 (e.g. Oct 9 -> [0, 1, ..., 9]).
- */
-export function ytdMonths0(month0: number): number[] {
-  const result: number[] = []
-  for (let m = 0; m <= month0; m++) {
-    result.push(m)
-  }
-  return result
-}
-
-/**
  * Higher is better: true for Revenue & Other Revenue; false for costs/expenses.
  */
 export function isHigherBetter(group: AccountGroup): boolean {

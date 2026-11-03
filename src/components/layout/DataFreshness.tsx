@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { useLang } from '~/hooks/use-lang'
 import { cn } from '~/lib/cn'
+import { formatDateTime } from '~/lib/format/date'
 import { isSnapshotRefreshing } from '~/lib/finance/ap-ar/snapshot-state'
 import { SnapshotRefreshButton } from '~/components/layout/SnapshotRefreshButton'
 import { snapshotInfoOptions } from '~/queries/snapshot.queries'
@@ -8,6 +10,7 @@ import { snapshotInfoOptions } from '~/queries/snapshot.queries'
 /** "Data as of <time>" for the numbers served from the snapshot tables, with the state of the latest refresh. */
 export function DataFreshness({ className }: { className?: string }) {
   const { t } = useTranslation()
+  const lang = useLang()
   const { data } = useQuery(snapshotInfoOptions())
   if (!data) return null
 
@@ -25,13 +28,7 @@ export function DataFreshness({ className }: { className?: string }) {
     )
   }
 
-  const when = new Date(data.info.checkedAt).toLocaleString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  const when = formatDateTime(data.info.checkedAt, lang)
   const failed = !refreshing && (data.info.status === 'failed' || data.job.lastOk === false)
 
   return (

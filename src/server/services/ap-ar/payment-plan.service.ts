@@ -19,8 +19,7 @@ import {
   getCachedCoaTree,
   getCachedEntities,
 } from '~/server/context'
-import { loadAccountMapping } from '~/server/services/shared/account-mapping'
-import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
+import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
 import { computeCashPosition } from '~/server/services/cash/cash-position.service'
 import { apOpenInvoices, arOpenInvoices } from '~/server/repo/ap-ar/aging.repo'
 import { listActivePlanStatuses } from '~/server/repo/ap-ar/payment-plan.repo'
@@ -68,7 +67,7 @@ type Inflows = { arItems: ArItemForPlan[]; unsettled: UnsettledBankForPlan[]; se
 async function loadInflows(filter: AppContextFilter, asOfPlusOne: string): Promise<Inflows> {
   const today = filter.today
   const tree = await getCachedCoaTree()
-  const resolved = resolveBaskets(await loadAccountMapping(tree), tree)
+  const resolved = await loadResolvedBaskets(tree)
   const inTransitIds = resolved.inTransit
 
   const [rawAr, unsettledRows, lagRows] = await Promise.all([

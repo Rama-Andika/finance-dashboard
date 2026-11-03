@@ -6,8 +6,7 @@ import { type Id, type IsoDate } from '~/lib/core/types'
 import { expensePaidAllocated, expensePaidUnallocated } from '~/server/repo/ap-ar/expense-paid.repo'
 import { listVendors } from '~/server/repo/ap-ar/party.repo'
 import { isDirectExpenseGroup } from '~/lib/finance/coa/account-groups'
-import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
-import { loadAccountMapping } from '~/server/services/shared/account-mapping'
+import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
 import { loadClassifiedPortions } from '~/server/services/cash/cash-flow.service'
 import { type DrillStep, type DrillStepKind } from '~/lib/filters/search-schema'
 import { AP_BILL_ITEM_TYPES, col, ACCOUNT_COLUMNS, NAMED_TOTAL_COLUMNS, empty, accountIdsOf, portionJournalRows, type DrillContext, type DrillResult } from '~/server/services/drill/shared'
@@ -128,7 +127,7 @@ async function directExpenseDrill(ctx: DrillContext, steps: Map<DrillStepKind, D
   const scopeStep = steps.get('folder') ?? sectionStep
   if (!scopeStep) return empty('drill.title.accounts', '')
 
-  const resolved = resolveBaskets(await loadAccountMapping(ctx.tree), ctx.tree)
+  const resolved = await loadResolvedBaskets(ctx.tree)
   const { portions } = await loadClassifiedPortions(ctx.filter, {
     cashEquivIds: Array.from(new Set([...resolved.cash, ...resolved.bank])),
   })

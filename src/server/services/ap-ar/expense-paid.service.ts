@@ -12,8 +12,7 @@ import {
   getCachedPeriods,
 } from '~/server/context'
 import { memoMetric } from '~/server/cache'
-import { loadAccountMapping } from '~/server/services/shared/account-mapping'
-import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
+import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
 import { expensePaidAllocated, expensePaidUnallocated } from '~/server/repo/ap-ar/expense-paid.repo'
 import { listVendors } from '~/server/repo/ap-ar/party.repo'
 import { linesOfCashJournals } from '~/server/repo/cash/cashflow.repo'
@@ -48,7 +47,7 @@ async function computeExpensePaidUncached(filter: AppContextFilter): Promise<Exp
     getCachedEntities(),
   ])
 
-  const resolved = resolveBaskets(await loadAccountMapping(tree), tree)
+  const resolved = await loadResolvedBaskets(tree)
   const d1 = filter.d1
   const d2PlusOne = addDays(filter.asOf, 1)
 

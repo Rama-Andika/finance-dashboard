@@ -3,6 +3,7 @@ import {
   addDays,
   diffDays,
   formatDate,
+  formatDateTime,
   formatMonth,
   formatMonthYear,
   todayIn,
@@ -13,6 +14,20 @@ describe('date formatting and math', () => {
     expect(formatDate('2026-10-28', 'id')).toBe('28 Okt 2026')
     expect(formatDate('2026-10-28', 'en')).toBe('28 Oct 2026')
     expect(formatDate('2026-08-01', 'id')).toBe('1 Agu 2026')
+  })
+
+  it('formats a moment with the month name of the language, padded day and time', () => {
+    // built from local parts, so the result does not depend on the time zone of the machine running the test
+    const octoberMorning = new Date(2026, 9, 3, 8, 5).toISOString()
+    const mayEvening = new Date(2026, 4, 21, 23, 8).toISOString()
+    expect(formatDateTime(octoberMorning, 'en')).toBe('03 Oct 2026, 08:05')
+    expect(formatDateTime(octoberMorning, 'id')).toBe('03 Okt 2026, 08:05')
+    expect(formatDateTime(mayEvening, 'en')).toBe('21 May 2026, 23:08')
+    expect(formatDateTime(mayEvening, 'id')).toBe('21 Mei 2026, 23:08')
+  })
+
+  it('formats a text that is not a date as an empty string', () => {
+    expect(formatDateTime('not a date', 'en')).toBe('')
   })
 
   it('formats month and month-year', () => {

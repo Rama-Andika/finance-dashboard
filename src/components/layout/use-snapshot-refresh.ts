@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { startSnapshotRefreshFn } from '~/functions/snapshot.fn'
 import { isSnapshotRefreshing } from '~/lib/finance/ap-ar/snapshot-state'
+import { qk } from '~/queries/keys'
 import { snapshotInfoOptions } from '~/queries/snapshot.queries'
 
 /** Why a press of the button did not start a refresh; shown under the button. */
 export type RefreshNotice = { kind: 'cooldown'; seconds: number } | { kind: 'unavailable' } | { kind: 'error' }
 
 /** Queries that show numbers built from the snapshot tables; reloaded (when on screen) once a refresh is over. */
-const DATA_QUERY_KEYS = [['metric'], ['drill'], ['data-checks']] as const
+const DATA_QUERY_KEYS = [qk.allMetrics(), qk.allDrills(), qk.allDataChecks()] as const
 
 /**
  * State of the "Refresh now" button: whether it is shown, whether a refresh is in progress, the message after a refused

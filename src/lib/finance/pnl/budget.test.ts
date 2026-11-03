@@ -4,7 +4,6 @@ import {
   budgetByCoaOf,
   budgetYearMonths,
   monthToMonth0,
-  ytdMonths0,
   isHigherBetter,
   computeVariance,
   buildBudgetTree,
@@ -39,14 +38,9 @@ const mockCoa: CoaRow[] = [
 ]
 
 describe('budget vs actual pure logic', () => {
-  it('converts month to 0-indexed month and generates YTD sequence', () => {
+  it('converts month to 0-indexed month', () => {
     // October = month 10 -> 0-indexed 9
     expect(monthToMonth0(10)).toBe(9)
-
-    // YTD October -> [0, 1, ..., 9] (10 months)
-    const ytd = ytdMonths0(9)
-    expect(ytd).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
-    expect(ytd).toHaveLength(10)
   })
 
   it('determines higherIsBetter direction for Revenue vs Expense', () => {

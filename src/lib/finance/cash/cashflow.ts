@@ -3,6 +3,7 @@ import { FIXED_ASSET_JOURNAL_TYPES, LOAN_JOURNAL_TYPES } from '../journal/journa
 import Decimal from 'decimal.js'
 import { D } from '../../core/money'
 import type { Id, Money } from '../../core/types'
+import type { CoaTree } from '../coa/coa-tree'
 
 export type DrawerKey = 'OPERATING' | 'INVESTING' | 'FUNDING'
 
@@ -311,4 +312,27 @@ export function classifyByFallback(portion: Money, counter: CounterAccount, jour
     if (classified) return classified
   }
   return { drawer: 'OPERATING', subGroup: UNCLASSIFIED_SUBGROUP, unclassified: true }
+}
+
+/**
+ * Where an amount against one counter account goes: by the cash flow setup table when it is valid, otherwise by the
+ * fallback rules. An amount the setup has no row for goes under Operating, flagged as unclassified.
+ */
+export function classifyCounterAmount(
+  amount: Money,
+  counter: CounterAccount,
+  journalType: number,
+  setupValid: boolean,
+  setup: CfSetupRow[],
+): ClassifiedPortion {
+  if (!setupValid) return classifyByFallback(amount, counter, journalType)
+  const classified = classifyBySetup(amount, counter, setup)
+  if (classified === 'UNCLASSIFIED') return { drawer: 'OPERATING', subGroup: UNCLASSIFIED_SUBGROUP, unclassified: true }
+  return classified
+}
+
+/** The account group and sub group of a counter account; both empty when the account is not in the chart of accounts. */
+export function counterAccountOf(tree: CoaTree, coaId: Id): CounterAccount {
+  const node = tree.byId.get(coaId)
+  return { accountGroup: node?.accountGroup ?? '', subAccountGroup: node?.subAccountGroup ?? '' }
 }
