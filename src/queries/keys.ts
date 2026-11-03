@@ -5,4 +5,5 @@ export const qk = {
   metric: (name: string, input: unknown) => ['metric', name, input] as const,
   drill: (input: unknown) => ['drill', input] as const,
   dataChecks: (input: unknown) => ['data-checks', input] as const,
+  snapshotInfo: () => ['snapshot-info'] as const,
 }

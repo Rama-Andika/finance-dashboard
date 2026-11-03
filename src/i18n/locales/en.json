@@ -533,6 +533,11 @@
       "dataAsOf": "Data as of {{when}}",
       "refreshing": "Refreshing in the background…",
       "refreshFailed": "The latest refresh failed; showing the previous numbers.",
+      "refreshNow": "Refresh now",
+      "refreshingNow": "Refreshing…",
+      "refreshCooldown": "The data was rebuilt moments ago. Try again in {{seconds}} s.",
+      "refreshUnavailable": "The snapshot refresh is not available right now.",
+      "refreshRequestFailed": "Could not start the refresh. Try again.",
       "noSnapshot": "Live data (slow)",
       "snapshotStale": "The numbers are out of date: the background refresh is delayed.",
       "snapshotProblem": {

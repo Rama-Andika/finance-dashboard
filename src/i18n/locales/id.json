@@ -533,6 +533,11 @@
       "dataAsOf": "Data per {{when}}",
       "refreshing": "Sedang diperbarui di latar belakang…",
       "refreshFailed": "Pembaruan terakhir gagal; angka sebelumnya masih ditampilkan.",
+      "refreshNow": "Perbarui sekarang",
+      "refreshingNow": "Memperbarui…",
+      "refreshCooldown": "Data baru saja dibangun ulang. Coba lagi dalam {{seconds}} dtk.",
+      "refreshUnavailable": "Pembaruan snapshot sedang tidak tersedia.",
+      "refreshRequestFailed": "Pembaruan tidak dapat dimulai. Coba lagi.",
       "noSnapshot": "Data langsung (lambat)",
       "snapshotStale": "Angka sudah lama: pembaruan di latar belakang tertunda.",
       "snapshotProblem": {

@@ -55,15 +55,15 @@ export function SidebarNav({
 
   return (
     <nav
-      className={cn('nr-sidebar min-h-full', isTabletCollapsed && 'md:w-16 lg:w-(--sidebar-width)', className)}
+      className={cn('nr-sidebar h-full min-h-0 flex flex-col', isTabletCollapsed && 'md:w-16 lg:w-(--sidebar-width)', className)}
       aria-label={t('ui.shell.mainMenu')}
     >
-      <div className="nr-brand">
+      <div className="nr-brand flex-none">
         <Asterisk className="nr-icon" size={18} strokeWidth={1.75} aria-hidden="true" />
         <span className={cn(isTabletCollapsed && 'md:hidden lg:inline')}>Dashboard</span>
       </div>
 
-      <div className="nr-nav flex-1">
+      <div className="nr-nav flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
         {MAIN_NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const isActive = currentPath === item.to || currentPath.startsWith(`${item.to}/`)
@@ -115,7 +115,7 @@ export function SidebarNav({
         })}
       </div>
 
-      <DataFreshness className={cn(isTabletCollapsed && 'md:hidden lg:flex')} />
+      <DataFreshness className={cn('flex-none', isTabletCollapsed && 'md:hidden lg:flex')} />
     </nav>
   )
 }

@@ -88,6 +88,8 @@ body { margin: 0; font-family: var(--font-sans); font-size: 14px; line-height: 2
 .nr-freshness { margin-top: auto; background: var(--forest); color: var(--on-forest); border-radius: var(--radius-md); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); font-size: 12px; line-height: 16px; }
 .nr-freshness strong { font-size: 13px; line-height: 18px; }
 .nr-freshness span { color: var(--on-forest-muted); }
+.nr-freshness .nr-btn { width: 100%; justify-content: center; }
+.nr-freshness .nr-btn[disabled]:hover { background: var(--lime); }
 
 /* top bar */
 .nr-topbar { display: flex; align-items: center; gap: var(--space-3); min-height: var(--topbar-height); padding: 0 var(--space-5); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); flex-wrap: wrap; }
