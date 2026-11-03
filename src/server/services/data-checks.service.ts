@@ -5,10 +5,10 @@ import { createLogger, errorText } from '~/server/log'
 import { buildDataChecks, type DataCheckItem } from '~/lib/finance/checks/data-checks'
 import { type AppContextFilter, getCachedPeriods } from '~/server/context'
 import {
-  checkQ1b,
-  checkQ7,
-  checkQ8,
-  checkQ9,
+  checkApPaidWithoutPayment,
+  checkCardsWithInvalidLocation,
+  checkCardsWithoutParty,
+  checkTransitOverdue,
   checkUnpostedJournals,
 } from '~/server/repo/data-checks.repo'
 import { getMappingRow } from '~/server/repo/settings.repo'
@@ -43,10 +43,10 @@ async function computeDataChecksUncached(filter: AppContextFilter): Promise<Data
 
   // Run checks concurrently
   const [
-    q1b,
-    q7Count,
-    q8Count,
-    q9,
+    apPaidWithoutPayment,
+    cardsWithoutParty,
+    cardsWithInvalidLocation,
+    transitOverdue,
     unposted,
     mappingRow,
     cpResult,
@@ -54,10 +54,14 @@ async function computeDataChecksUncached(filter: AppContextFilter): Promise<Data
     apResult,
     arResult,
   ] = await Promise.all([
-    settle('Q1b', checkQ1b(filter.locationIds), failures),
-    settle('Q7', checkQ7(filter.locationIds), failures),
-    settle('Q8', checkQ8(), failures),
-    settle('Q9', checkQ9(filter.entitySegmentColumn, filter.segmentDetailIds, filter.asOf), failures),
+    settle('apPaidWithoutPayment', checkApPaidWithoutPayment(filter.locationIds), failures),
+    settle('cardsWithoutParty', checkCardsWithoutParty(filter.locationIds), failures),
+    settle('cardsWithInvalidLocation', checkCardsWithInvalidLocation(), failures),
+    settle(
+      'transitOverdue',
+      checkTransitOverdue(filter.entitySegmentColumn, filter.segmentDetailIds, filter.asOf),
+      failures,
+    ),
     settle('unposted', checkUnpostedJournals(activePeriods), failures),
     settle('mapping', getMappingRow(), failures),
     settle('cashPosition', computeCashPosition(filter, { includeByEntity: false, includeCompare: false }), failures),
@@ -68,13 +72,13 @@ async function computeDataChecksUncached(filter: AppContextFilter): Promise<Data
 
   return buildDataChecks({
     cashFlow: cfResult,
-    transitRegister: q9,
+    transitRegister: transitOverdue,
     cashPositionReconciliation: cpResult?.reconciliation ?? null,
     apReconciliation: apResult?.reconciliation ?? null,
     arUnallocatedReturns: arResult?.unallocatedReturns ?? null,
-    paidWithoutDetail: q1b,
-    cardsWithoutParty: q7Count,
-    cardsWithInvalidLocation: q8Count,
+    paidWithoutDetail: apPaidWithoutPayment,
+    cardsWithoutParty,
+    cardsWithInvalidLocation,
     unpostedJournals: unposted,
     mappingRow: failures.includes('mapping') ? undefined : mappingRow,
     failedChecks: failures,

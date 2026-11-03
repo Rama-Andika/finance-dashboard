@@ -3,18 +3,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('~/server/env', () => ({ env: { APP_TODAY: '2026-10-15', APP_TIMEZONE: 'Asia/Jakarta' } }))
 vi.mock('~/server/context', () => ({ getCachedPeriods: async () => [] }))
 
-const checkQ1b = vi.fn()
-const checkQ7 = vi.fn()
-const checkQ8 = vi.fn()
-const checkQ9 = vi.fn()
+const checkApPaidWithoutPayment = vi.fn()
+const checkCardsWithoutParty = vi.fn()
+const checkCardsWithInvalidLocation = vi.fn()
+const checkTransitOverdue = vi.fn()
 const checkUnpostedJournals = vi.fn()
 const getMappingRow = vi.fn()
 
 vi.mock('~/server/repo/data-checks.repo', () => ({
-  checkQ1b: (...a: unknown[]) => checkQ1b(...a),
-  checkQ7: (...a: unknown[]) => checkQ7(...a),
-  checkQ8: (...a: unknown[]) => checkQ8(...a),
-  checkQ9: (...a: unknown[]) => checkQ9(...a),
+  checkApPaidWithoutPayment: (...a: unknown[]) => checkApPaidWithoutPayment(...a),
+  checkCardsWithoutParty: (...a: unknown[]) => checkCardsWithoutParty(...a),
+  checkCardsWithInvalidLocation: (...a: unknown[]) => checkCardsWithInvalidLocation(...a),
+  checkTransitOverdue: (...a: unknown[]) => checkTransitOverdue(...a),
   checkUnpostedJournals: (...a: unknown[]) => checkUnpostedJournals(...a),
 }))
 vi.mock('~/server/repo/settings.repo', () => ({ getMappingRow: (...a: unknown[]) => getMappingRow(...a) }))
@@ -53,10 +53,10 @@ describe('computeDataChecks', () => {
   beforeEach(() => {
     clearCache()
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    checkQ1b.mockResolvedValue({ count: 0, amount: '0.00' })
-    checkQ7.mockResolvedValue(0)
-    checkQ8.mockResolvedValue(0)
-    checkQ9.mockResolvedValue({ count: 0, amount: '0.00' })
+    checkApPaidWithoutPayment.mockResolvedValue({ count: 0, amount: '0.00' })
+    checkCardsWithoutParty.mockResolvedValue(0)
+    checkCardsWithInvalidLocation.mockResolvedValue(0)
+    checkTransitOverdue.mockResolvedValue({ count: 0, amount: '0.00' })
     checkUnpostedJournals.mockResolvedValue(0)
     getMappingRow.mockResolvedValue({ sysmainId: '1', valueprop: '{}' })
   })
@@ -66,12 +66,12 @@ describe('computeDataChecks', () => {
   })
 
   it('a slow or failing query check does not hide the other checks', async () => {
-    checkQ7.mockRejectedValue(new Error('Query execution was interrupted'))
+    checkCardsWithoutParty.mockRejectedValue(new Error('Query execution was interrupted'))
     checkUnpostedJournals.mockResolvedValue(3)
     const codes = (await computeDataChecks({ ...filter, asOf: '2026-10-16' })).map((c) => c.code)
     expect(codes).toContain('UNPOSTED')
     expect(codes).toContain('CHECK_FAILED')
-    expect(codes).not.toContain('Q7')
+    expect(codes).not.toContain('CARD_PARTY_MISSING')
   })
 
   it('a failed mapping read is reported as a failed check, not as a missing mapping', async () => {

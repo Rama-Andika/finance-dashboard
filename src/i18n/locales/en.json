@@ -220,19 +220,19 @@
     "title": "Data Verification Required",
     "empty": "All data is consistent and no check findings were detected.",
     "viewDetail": "View details",
-    "Q1b": {
+    "AP_PAID_NO_PAYMENT": {
       "title": "Non-trade AP marked paid without payment records",
       "body": "{{count}} bills (IDR {{amount}}) marked as paid without any settlement card history."
     },
-    "Q7": {
+    "CARD_PARTY_MISSING": {
       "title": "Vendor or customer on card not found in master list",
       "body": "{{count}} card records reference contacts missing from master records."
     },
-    "Q8": {
+    "CARD_LOCATION_INVALID": {
       "title": "Invalid location on card records",
       "body": "{{count}} card records have location codes that do not exist in location master."
     },
-    "Q9": {
+    "TRANSIT_OVERDUE": {
       "title": "In-transit funds delayed > 7 days or dated in future",
       "body": "{{count}} records (IDR {{amount}}) unreleased over 7 days or dated in the future."
     },

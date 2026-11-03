@@ -111,7 +111,7 @@ ALTER TABLE ap_ar_card
 --
 -- Pemeriksaan lain yang perlu dilihat lewat EXPLAIN (mungkin sudah ada di ERP):
 --   bankpo_payment_detail(invoice_id)  → daftar status voucher Payment Plan
---   bank_payment(type, status, coa_id, transaction_date) → In Transit / Data Check Q9
+--   bank_payment(type, status, coa_id, transaction_date) → In Transit / Data Check TRANSIT_OVERDUE
 
 
 -- ---------------------------------------------------------------------

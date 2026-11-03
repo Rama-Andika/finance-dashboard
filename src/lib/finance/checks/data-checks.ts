@@ -108,14 +108,14 @@ const failedChecks: Check = (i) =>
 /** The checks in the order the panel lists them. */
 const CHECKS: readonly Check[] = [
   cashFlowIdentity,
-  registerCheck('Q9', '/cash-position', (i) => i.transitRegister),
+  registerCheck('TRANSIT_OVERDUE', '/cash-position', (i) => i.transitRegister),
   cashFlowUnclassified,
   reconciliationCheck('REC_TRANSIT', '/cash-position', (i) => i.cashPositionReconciliation),
   reconciliationCheck('REC_AP', '/payables', (i) => i.apReconciliation),
   arUnallocatedReturns,
-  registerCheck('Q1b', '/payables', (i) => i.paidWithoutDetail),
-  countCheck('Q7', '/payables', (i) => i.cardsWithoutParty),
-  countCheck('Q8', '/payables', (i) => i.cardsWithInvalidLocation),
+  registerCheck('AP_PAID_NO_PAYMENT', '/payables', (i) => i.paidWithoutDetail),
+  countCheck('CARD_PARTY_MISSING', '/payables', (i) => i.cardsWithoutParty),
+  countCheck('CARD_LOCATION_INVALID', '/payables', (i) => i.cardsWithInvalidLocation),
   countCheck('UNPOSTED', '/summary', (i) => i.unpostedJournals),
   settingsMissing,
   failedChecks,

@@ -18,12 +18,13 @@ import { D } from '~/lib/core/money'
 import { addDays } from '~/lib/format/date'
 import type { Id, IsoDate, Money, Period } from '~/lib/core/types'
 
-export type QCheckSummary = {
+export type CheckSummary = {
   count: number
   amount: Money | null
 }
 
-export async function checkQ1b(locIds: Id[] | 'all'): Promise<QCheckSummary> {
+/** AP_PAID_NO_PAYMENT: non-trade AP bills marked paid without any settlement record. */
+export async function checkApPaidWithoutPayment(locIds: Id[] | 'all'): Promise<CheckSummary> {
   if (locIds !== 'all' && locIds.length === 0) {
     return { count: 0, amount: '0.00' }
   }
@@ -47,7 +48,8 @@ export async function checkQ1b(locIds: Id[] | 'all'): Promise<QCheckSummary> {
   return { count: n, amount }
 }
 
-export async function checkQ7(locIds: Id[] | 'all'): Promise<number> {
+/** CARD_PARTY_MISSING: AP/AR cards whose vendor or customer is not in the master list. */
+export async function checkCardsWithoutParty(locIds: Id[] | 'all'): Promise<number> {
   if (locIds !== 'all' && locIds.length === 0) return 0
 
   const locClause =
@@ -91,7 +93,8 @@ async function apCardsWithUnknownVendor(locIds: Id[] | 'all'): Promise<number> {
   return toInt(res.find((r) => toInt(r.moduleType) === MODULE_TYPE.AP)?.n)
 }
 
-export async function checkQ8(): Promise<number> {
+/** CARD_LOCATION_INVALID: AP/AR cards whose location is not in the location master. */
+export async function checkCardsWithInvalidLocation(): Promise<number> {
   const query = sql`
     SELECT COUNT(*) AS n
     FROM ap_ar_card c
@@ -103,11 +106,12 @@ export async function checkQ8(): Promise<number> {
   return toInt(res[0]?.n)
 }
 
-export async function checkQ9(
+/** TRANSIT_OVERDUE: unsettled non-cash payments older than 7 days or dated in the future. */
+export async function checkTransitOverdue(
   segCol: string,
   segIds: Id[] | 'all',
   asOfDate: IsoDate,
-): Promise<QCheckSummary> {
+): Promise<CheckSummary> {
   if (segIds !== 'all' && segIds.length === 0) {
     return { count: 0, amount: '0.00' }
   }

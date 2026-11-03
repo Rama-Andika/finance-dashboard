@@ -201,7 +201,7 @@ export function computeApAging(input: {
       return {
         vendorId,
         code: v?.code || '',
-        name: v?.name || '', // empty = unknown vendor (Q7); the page shows a translated label
+        name: v?.name || '', // empty = unknown vendor (CARD_PARTY_MISSING); the page shows a translated label
         total: acc.total.toFixed(2),
         buckets: formatBuckets(acc.buckets),
       }
@@ -247,7 +247,7 @@ export function computeArAging(input: {
       return {
         customerId,
         code: c?.code || '',
-        name: c?.name || '', // empty = unknown customer (Q7)
+        name: c?.name || '', // empty = unknown customer (CARD_PARTY_MISSING)
         total: acc.total.toFixed(2),
         buckets: formatBuckets(acc.buckets),
       }

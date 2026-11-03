@@ -220,19 +220,19 @@
     "title": "Data Perlu Dicek",
     "empty": "Semua data konsisten dan tidak ada temuan pemeriksaan.",
     "viewDetail": "Lihat rincian",
-    "Q1b": {
+    "AP_PAID_NO_PAYMENT": {
       "title": "Tagihan AP non-dagang lunas tanpa rincian transaksi",
       "body": "{{count}} tagihan (IDR {{amount}}) berstatus lunas namun tidak memiliki riwayat kartu pelunasan."
     },
-    "Q7": {
+    "CARD_PARTY_MISSING": {
       "title": "Vendor atau pelanggan di kartu tidak ditemukan di master",
       "body": "{{count}} kartu transaksi mengacu pada kontak yang tidak terdaftar di data master."
     },
-    "Q8": {
+    "CARD_LOCATION_INVALID": {
       "title": "Lokasi kartu transaksi tidak valid",
       "body": "{{count}} kartu transaksi memiliki kode lokasi yang tidak ditemukan di master lokasi."
     },
-    "Q9": {
+    "TRANSIT_OVERDUE": {
       "title": "Dana belum cair tertahan > 7 hari atau di masa depan",
       "body": "{{count}} transaksi (IDR {{amount}}) berstatus belum cair dengan umur lebih dari 7 hari atau tanggal di masa depan."
     },

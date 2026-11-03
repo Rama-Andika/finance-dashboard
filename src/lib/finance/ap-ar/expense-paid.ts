@@ -49,7 +49,7 @@ function vendorCategory(
     const vendor = vendorNames.get(vendorId)
     return {
       id: vendorId,
-      label: vendor?.name || '', // empty = unknown vendor (Q7)
+      label: vendor?.name || '', // empty = unknown vendor (CARD_PARTY_MISSING)
       code: vendor?.code,
       amount: amount.toFixed(2),
     }

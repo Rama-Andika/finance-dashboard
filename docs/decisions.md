@@ -183,7 +183,7 @@ Kalau ada keputusan yang berubah, ubah baris di tabel dan tambahkan catatan di b
 | O19 | Isi grup **Other Expense** di CoA klien (bunga, selisih kurs, pajak penghasilan, penyusutan?) dan apakah perlu masuk donut Expense | Ditunda atas keputusan pemilik produk (D42): Other Expense tidak masuk donut Expense. Bila diaktifkan, pasangkan dengan Other Revenue di tab pendapatan agar selisihnya sama dengan Net Profit |
 | O13 | **Celah `cash_flow_setup` klien** untuk tim finance: (a) grup tanpa pemetaan — Inventory, Long Term Liabilities (leasing/hutang investasi), Other Assets, Cost Of Sales, debit Equity (dividen/prive); (b) pinjaman bank (2161/2162) masuk "Pembayaran Kewajiban" (OPERATING) bukan FUNDING; (c) grup akun wakil `504404772253463511` (Biaya Dibayar Dimuka) perlu dipastikan | Dashboard mengikuti setup apa adanya; yang tak terpetakan → "Belum terklasifikasi" (D27) |
 | ~~O14~~ | ✅ **Terjawab (user):** acuan Laba Rugi = versi **generate** `profitloss_segmentgen.jsp` (D26) | — |
-| ~~O12~~ | ✅ **Terjawab:** 40.011 item AP "lunas tanpa pembayaran" = tagihan yang sudah masuk **voucher pembayaran** (`bankpo_payment` type 0, status `Not Posted`/`Posted`) tetapi **belum dibayar**; ERP mengisi `payment_status=2` terlalu awal. Tetap dihitung sebagai utang (D16) + diberi status rencana bayar (D22). 77 item non-dagang lama (2021–2024) masuk panel "Data perlu dicek" (data-model.md §4.7 Q1b) | — |
+| ~~O12~~ | ✅ **Terjawab:** 40.011 item AP "lunas tanpa pembayaran" = tagihan yang sudah masuk **voucher pembayaran** (`bankpo_payment` type 0, status `Not Posted`/`Posted`) tetapi **belum dibayar**; ERP mengisi `payment_status=2` terlalu awal. Tetap dihitung sebagai utang (D16) + diberi status rencana bayar (D22). 77 item non-dagang lama (2021–2024) masuk panel "Data perlu dicek" (data-model.md §4.7 Q1b, kode `AP_PAID_NO_PAYMENT`) | — |
 
 ---
 
@@ -207,7 +207,7 @@ Kalau ada keputusan yang berubah, ubah baris di tabel dan tambahkan catatan di b
 | 2026-10-28 | O14 terjawab: acuan Laba Rugi = versi generate (`profitloss_segmentgen.jsp`) |
 | 2026-10-28 | User mengirim contoh `cash_flow_setup` klien (valid) → D27 direvisi: setup klien jadi sumber utama + alokasi proporsional ke kas + baris "Belum terklasifikasi" (keduanya dipilih user); aturan bawaan jadi cadangan; O13 diganti menjadi daftar celah setup untuk tim finance |
 | 2026-10-28 | Revisi user: tabel `department` tidak dipakai (D9) → semua drill-down "departemen" diganti entitas/pohon CoA, master data dummy departemen dihapus |
-| 2026-10-28 | Studi `bank_payment` & `bank_payment_history`: register pencairan pembayaran non-tunai POS → D30 (rincian & umur Dana dalam pencairan, estimasi tanggal cair per channel untuk Payment Plan menggantikan asumsi H+1); temuan Q9 (9 baris janggal) |
+| 2026-10-28 | Studi `bank_payment` & `bank_payment_history`: register pencairan pembayaran non-tunai POS → D30 (rincian & umur Dana dalam pencairan, estimasi tanggal cair per channel untuk Payment Plan menggantikan asumsi H+1); temuan Q9 / kode `TRANSIT_OVERDUE` (9 baris janggal) |
 | 2026-10-28 | Design system **Neraca UI** dibuat dari gambar referensi user (U7): token warna 2 tema, skala tipografi, spacing, radius, bayangan, layout, brand book, 16 komponen + cover |
 | 2026-10-30 | Studi data satu klien dan kode ERP legacy (rencana gelombang 2, folder `plans/`): keputusan D31–D38, item terbuka O15–O17; koreksi istilah "voucher" → Pengakuan Biaya di `data-model.md` |
 | 2026-10-30 | Fitur OCI dinonaktifkan sementara atas permintaan user (D39); O4 ditunda |

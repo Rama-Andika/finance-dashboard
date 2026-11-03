@@ -9,7 +9,7 @@ export type AgingSide = 'ap' | 'ar'
 export type AgingPartyRow = {
   id: Id
   code: string
-  /** Empty = party missing from the master list (data check Q7); the page shows a translated label */
+  /** Empty = party missing from the master list (data check CARD_PARTY_MISSING); the page shows a translated label */
   name: string
   total: Money
   /** Sum of the four overdue buckets */

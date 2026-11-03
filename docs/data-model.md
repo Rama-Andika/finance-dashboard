@@ -528,15 +528,17 @@ mutasi     = Σ debit / Σ kredit posted dengan gl.period_id = periode
 | # | Temuan | Jumlah | Penanganan |
 |---|---|---|---|
 | Q1 | Item AP berstatus **lunas** (`payment_status=2`) **tanpa** baris pelunasan di `ap_ar_card_detail` | 40.011 item, sisa hitungan ±Rp13,9 M; **22.902 dari Sep 2025**. Mayoritas hutang konsinyasi `…/SLS/…` (±26 ribu), sisanya `IN…`, `APM/…`, `RT…` | ✅ **Terjawab:** item ini berada di **voucher pembayaran** (`bankpo_payment` type 0) yang masih `Not Posted`/`Posted` → uangnya **belum keluar**; ERP sudah mengisi `payment_status = 2` saat voucher dibuat. **Tetap dihitung sebagai utang** (rumus §6.6), diberi label status voucher. Daftar: `schema/ap_lunas_tanpa_pembayaran.csv` |
-| Q1b | Tagihan AP **non-dagang** (type 1) lunas tanpa catatan pelunasan di mana pun | 77 item, 2021–2024, tanpa `gl_id` | Kemungkinan dibersihkan lewat jurnal GL *non-trade clearance* (journal_type 39/40). Dihitung sesuai rumus §6.6 (muncul sebagai utang lama) + tampil di panel "Data perlu dicek" |
+| Q1b `AP_PAID_NO_PAYMENT` | Tagihan AP **non-dagang** (type 1) lunas tanpa catatan pelunasan di mana pun | 77 item, 2021–2024, tanpa `gl_id` | Kemungkinan dibersihkan lewat jurnal GL *non-trade clearance* (journal_type 39/40). Dihitung sesuai rumus §6.6 (muncul sebagai utang lama) + tampil di panel "Data perlu dicek" |
 | Q2 | Tagihan dagang tanpa jurnal (`gl_id = 0`) | ±1,59 juta dari 1,89 juta | `ap_ar_card` diperlakukan sebagai sumber **mandiri** untuk AP; jangan wajibkan join ke `gl` |
 | Q3 | `due_date` **sebelum** `transaction_date` | ±5 ribu tagihan dagang | Aging tetap pakai `due_date` apa adanya (langsung terhitung lewat jatuh tempo) |
 | Q4 | `in_out = 0` bernilai 0 | 5.724 | Diabaikan |
 | Q5 | Nominal negatif | ±24 baris | Dihitung apa adanya (`amount × in_out`) |
 | Q6 | Baris rusak (`in_out`/tanggal NULL, `location_id = 0`) | 1 | Dibuang (`WHERE in_out IS NOT NULL AND transaction_date IS NOT NULL`) |
-| Q7 | `owner_id` tidak ada di master | 2 vendor, 1 customer | Tampil sebagai "(Vendor tidak dikenal)" |
-| Q8 | 87 `location_id` berbeda di AP (1 tidak ada di `pos_location`) | — | **1 lokasi = 1 entitas**; lokasi tak dikenal tampil sebagai "(Lokasi tidak dikenal)" |
-| Q9 | `bank_payment` type 1 belum cair yang janggal: 2 baris 2023–2024 (tak pernah cair), 3 baris Jul–Sep 2025, 4 baris bertanggal **di masa depan** (2026) | 9 baris, nilai ±0 | Tetap dihitung; tampil di panel "Data perlu dicek" (dana belum cair > 7 hari / tanggal di masa depan) |
+| Q7 `CARD_PARTY_MISSING` | `owner_id` tidak ada di master | 2 vendor, 1 customer | Tampil sebagai "(Vendor tidak dikenal)" |
+| Q8 `CARD_LOCATION_INVALID` | 87 `location_id` berbeda di AP (1 tidak ada di `pos_location`) | — | **1 lokasi = 1 entitas**; lokasi tak dikenal tampil sebagai "(Lokasi tidak dikenal)" |
+| Q9 `TRANSIT_OVERDUE` | `bank_payment` type 1 belum cair yang janggal: 2 baris 2023–2024 (tak pernah cair), 3 baris Jul–Sep 2025, 4 baris bertanggal **di masa depan** (2026) | 9 baris, nilai ±0 | Tetap dihitung; tampil di panel "Data perlu dicek" (dana belum cair > 7 hari / tanggal di masa depan) |
+
+> Nomor Q di kolom pertama adalah nomor **temuan** saat studi data. Temuan yang punya pemeriksaan otomatis di panel "Data perlu dicek" memakai kode deskriptif (huruf besar, di samping nomor) yang sama dengan kode di aplikasi dan kunci i18n `dataChecks.*`. Di kode, nomor Q tidak dipakai lagi. Nomor Q7/Q8/Q9 di `summary-queries.md` dan `sql/transit-reconciliation-checks.sql` adalah penomoran query yang berbeda dan tidak berhubungan dengan tabel ini.
 
 ### 4.8 Uang, pembulatan & ID
 

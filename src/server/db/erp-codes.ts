@@ -11,7 +11,7 @@ export const AP_INVOICE_TYPES = [0, 1, 2, 3, 4, 5, 6, 12] as const
 export const AP_PAYMENT_TYPES = [7, 8, 9, 10, 11, 13, 14] as const
 /** AP cards that count as "expense paid" (payment voucher, cash/bank out, etc.). */
 export const EXPENSE_PAID_TYPES = [9, 10, 14] as const
-/** Ordinary vendor bill; Data Check Q1b looks for such bills marked paid without any allocation. */
+/** Ordinary vendor bill; Data Check AP_PAID_NO_PAYMENT looks for such bills marked paid without any allocation. */
 export const AP_BILL_TYPE = 1
 /** ap_ar_card.payment_status of a fully paid card. */
 export const PAYMENT_STATUS_PAID = 2
