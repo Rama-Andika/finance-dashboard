@@ -2,18 +2,18 @@ import { keepPreviousData, queryOptions } from '@tanstack/react-query'
 import { qk } from '~/queries/keys'
 import type { MetricInput, PaymentPlanSearch } from '~/lib/filters/search-schema'
 
-import { getSummaryFn } from '~/functions/metrics/summary.fn'
-import { getRevenueFn } from '~/functions/metrics/revenue.fn'
-import { getCashPositionFn } from '~/functions/metrics/cash-position.fn'
-import { getCashFlowFn } from '~/functions/metrics/cash-flow.fn'
-import { getPnlFn } from '~/functions/metrics/pnl.fn'
-import { getExpensePaidFn } from '~/functions/metrics/expense-paid.fn'
-import { getApAgingFn } from '~/functions/metrics/ap-aging.fn'
-import { getArAgingFn } from '~/functions/metrics/ar-aging.fn'
-import { getFixedCostFn } from '~/functions/metrics/fixed-cost.fn'
-import { getPaymentPlanFn } from '~/functions/metrics/payment-plan.fn'
-import { getBudgetFn } from '~/functions/metrics/budget.fn'
-import { getRunwayFn } from '~/functions/metrics/runway.fn'
+import { getSummaryFn } from '~/functions/summary.fn'
+import { getRevenueFn } from '~/functions/pnl/revenue.fn'
+import { getCashPositionFn } from '~/functions/cash/cash-position.fn'
+import { getCashFlowFn } from '~/functions/cash/cash-flow.fn'
+import { getPnlFn } from '~/functions/pnl/pnl.fn'
+import { getExpensePaidFn } from '~/functions/ap-ar/expense-paid.fn'
+import { getApAgingFn } from '~/functions/ap-ar/ap-aging.fn'
+import { getArAgingFn } from '~/functions/ap-ar/ar-aging.fn'
+import { getFixedCostFn } from '~/functions/pnl/fixed-cost.fn'
+import { getPaymentPlanFn } from '~/functions/ap-ar/payment-plan.fn'
+import { getBudgetFn } from '~/functions/pnl/budget.fn'
+import { getRunwayFn } from '~/functions/cash/runway.fn'
 
 export function summaryMetricOptions(input: MetricInput) {
   return queryOptions({
@@ -76,7 +76,7 @@ import {
   getAgingPartiesExportChunkFn,
   type AgingPartiesInput,
   type AgingPartiesExportChunkInput,
-} from '~/functions/metrics/aging-parties.fn'
+} from '~/functions/ap-ar/aging-parties.fn'
 
 /** One page of the vendor / customer aging table; the previous page stays visible while the next one loads. */
 export function agingPartiesOptions(input: AgingPartiesInput) {
@@ -87,7 +87,7 @@ export function agingPartiesOptions(input: AgingPartiesInput) {
   })
 }
 
-import { getPaymentBillsFn, type PaymentBillsInput } from '~/functions/metrics/payment-bills.fn'
+import { getPaymentBillsFn, type PaymentBillsInput } from '~/functions/ap-ar/payment-bills.fn'
 
 export function paymentBillsOptions(input: PaymentBillsInput) {
   return queryOptions({
@@ -98,7 +98,7 @@ export function paymentBillsOptions(input: PaymentBillsInput) {
 }
 
 import { fetchAllChunks } from '~/lib/table/export-chunks'
-import { getPaymentBillsExportChunkFn, type PaymentBillsExportChunkInput } from '~/functions/metrics/payment-bills.fn'
+import { getPaymentBillsExportChunkFn, type PaymentBillsExportChunkInput } from '~/functions/ap-ar/payment-bills.fn'
 
 export type PaymentBillsExportInput = Omit<PaymentBillsExportChunkInput, 'page'>
 
