@@ -6,7 +6,7 @@ import { tableQuerySchema } from '~/lib/table/query'
 import { EXPORT_CHUNK_SIZE, exportChunkShape } from '~/lib/table/export-chunks'
 import { BILL_SCOPES, PAYMENT_BILL_SORT_KEYS } from '~/lib/finance/ap-ar/payment-plan-bills'
 import { resolveFilter } from '~/server/context'
-import { listPaymentPlanBills, type BillsPage } from '~/server/services/payment-plan.service'
+import { listPaymentPlanBills, type BillsPage } from '~/server/services/ap-ar/payment-plan.service'
 
 /** Which tab of the bills table: due within 7 days, or already past due. */
 const scopeShape = { scope: z.enum(BILL_SCOPES).catch('due') }

@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { authMiddleware } from '~/functions/middleware'
 import { metricInputSchema } from '~/lib/filters/search-schema'
 import { resolveFilter } from '~/server/context'
-import { computeApAging, type ApAgingResult } from '~/server/services/ap-aging.service'
+import { computeApAging, type ApAgingResult } from '~/server/services/ap-ar/ap-aging.service'
 
 /** The vendor/customer rows are served page by page (`getAgingPartiesFn`), not inside the metric. */
 export type ApAgingMetric = Omit<ApAgingResult, 'byVendor'>

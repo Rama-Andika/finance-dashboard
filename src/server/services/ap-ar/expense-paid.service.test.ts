@@ -20,7 +20,7 @@ vi.mock('~/server/context', () => ({
   getCachedEntities: async () => ({ segment: { segmentId: 's', columnName: 'segment1_id' }, entities }),
   buildMetricMeta: () => ({}),
 }))
-vi.mock('~/server/services/shared/mapping.helper', () => ({
+vi.mock('~/server/services/shared/account-mapping', () => ({
   loadAccountMapping: async () => ({
     version: 1,
     updatedAt: 'now',

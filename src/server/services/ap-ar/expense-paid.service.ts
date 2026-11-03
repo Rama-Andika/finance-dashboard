@@ -12,7 +12,7 @@ import {
   getCachedPeriods,
 } from '~/server/context'
 import { memoMetric } from '~/server/cache'
-import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
+import { loadAccountMapping } from '~/server/services/shared/account-mapping'
 import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
 import { expensePaidAllocated, expensePaidUnallocated } from '~/server/repo/ap-ar/expense-paid.repo'
 import { listVendors } from '~/server/repo/ap-ar/party.repo'
@@ -24,7 +24,7 @@ import {
   computeExpensePaidBreakdown,
   type DirectExpensePortion,
 } from '~/lib/finance/ap-ar/expense-paid'
-import { allCashAccountIds } from '~/server/services/cash-flow.service'
+import { allCashAccountIds } from '~/server/services/cash/cash-flow.service'
 
 export type ExpensePaidResult = {
   meta: MetricMeta

@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { authMiddleware } from '~/functions/middleware'
 import { metricInputSchema } from '~/lib/filters/search-schema'
 import { resolveFilter } from '~/server/context'
-import { computeFixedCost, type FixedCostResult } from '~/server/services/fixed-cost.service'
+import { computeFixedCost, type FixedCostResult } from '~/server/services/pnl/fixed-cost.service'
 
 export const getFixedCostFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])

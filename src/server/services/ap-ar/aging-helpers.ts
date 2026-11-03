@@ -4,7 +4,7 @@ import type { Id, IsoDate, Money } from '~/lib/core/types'
 import type { AppContextFilter } from '~/server/context'
 import { apArSnapshotCovers, apArSnapshotInfo } from '~/server/dash/snapshot'
 import { apArHistCovers } from '~/server/dash/snapshot-hist'
-import { balancesAt } from '~/server/services/balance.service'
+import { balancesAt } from '~/server/services/cash/balance.service'
 
 /**
  * Whether the comparison date can be answered without a slow ERP read. A past date is answered from the

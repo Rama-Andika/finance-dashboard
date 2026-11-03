@@ -5,7 +5,7 @@ import { resolveFilter } from '~/server/context'
 import {
   computeRunwayMetrics,
   type RunwayResult,
-} from '~/server/services/runway.service'
+} from '~/server/services/cash/runway.service'
 
 export const getRunwayFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])

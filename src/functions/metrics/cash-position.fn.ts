@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { authMiddleware } from '~/functions/middleware'
 import { metricInputSchema } from '~/lib/filters/search-schema'
 import { resolveFilter } from '~/server/context'
-import { computeCashPosition, type CashPositionResult } from '~/server/services/cash-position.service'
+import { computeCashPosition, type CashPositionResult } from '~/server/services/cash/cash-position.service'
 
 export const getCashPositionFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])

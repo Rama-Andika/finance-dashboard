@@ -6,7 +6,7 @@ vi.mock('~/server/dash/snapshot', () => ({
   memoBySnapshot: (_name: string, _params: unknown, loader: () => Promise<unknown>) => loader(),
 }))
 let compareAvailable = true
-vi.mock('~/server/services/shared/aging.helper', () => ({
+vi.mock('~/server/services/ap-ar/aging-helpers', () => ({
   agingCompareIsAvailable: async () => compareAvailable,
   distinctIds: (...lists: Array<Array<string | null | undefined>>) =>
     Array.from(new Set(lists.flat().filter((id): id is string => Boolean(id)))),

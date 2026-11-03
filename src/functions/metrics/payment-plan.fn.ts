@@ -8,7 +8,7 @@ import { resolveFilter } from '~/server/context'
 import {
   computePaymentPlan,
   type PaymentPlanResult,
-} from '~/server/services/payment-plan.service'
+} from '~/server/services/ap-ar/payment-plan.service'
 
 const inputSchema = metricInputSchema.extend(paymentPlanSearchSchema.shape)
 

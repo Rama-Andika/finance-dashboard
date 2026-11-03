@@ -10,9 +10,9 @@ import {
 } from '~/server/context'
 import { memoMetric } from '~/server/cache'
 import { env } from '~/server/env'
-import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
+import { loadAccountMapping } from '~/server/services/shared/account-mapping'
 import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
-import { balancesAt, balancesBySegmentAt } from '~/server/services/balance.service'
+import { balancesAt, balancesBySegmentAt } from '~/server/services/cash/balance.service'
 import { outstandingGiro, unsettledByChannel } from '~/server/repo/cash/bank-payment.repo'
 import {
   buildCashPositionBreakdown,

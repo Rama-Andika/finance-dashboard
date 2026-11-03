@@ -3,7 +3,7 @@ import type { Id, MetricMeta, Money } from '~/lib/core/types'
 import type { AppContextFilter } from '~/server/context'
 import { apOpenInvoices, apUnallocatedPayments } from '~/server/repo/ap-ar/aging.repo'
 import { listVendors } from '~/server/repo/ap-ar/party.repo'
-import { createAgingMetric } from '~/server/services/shared/aging-metric'
+import { createAgingMetric } from '~/server/services/ap-ar/aging-metric'
 import type { AgingReconciliation } from '~/lib/finance/ap-ar/aging-reconciliation'
 import {
   computeApAging as calculateApAging,

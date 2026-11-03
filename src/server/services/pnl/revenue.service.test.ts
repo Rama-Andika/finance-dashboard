@@ -23,7 +23,7 @@ const movementsByPeriods = vi.fn()
 vi.mock('~/server/repo/gl/gl.repo', () => ({
   movementsByPeriods: (...a: unknown[]) => movementsByPeriods(...a),
 }))
-vi.mock('~/server/services/shared/pl-movements', () => ({
+vi.mock('~/server/services/pnl/pl-movements', () => ({
   loadPlMovements: async () => [],
   onlyAccounts: (rows: unknown[]) => rows,
 }))

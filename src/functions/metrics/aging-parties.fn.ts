@@ -7,7 +7,7 @@ import { EXPORT_CHUNK_SIZE, exportChunkShape } from '~/lib/table/export-chunks'
 import { AGING_PARTY_SORT_KEYS, type AgingPartyRow } from '~/lib/finance/ap-ar/aging-parties'
 import type { Page } from '~/lib/table/query'
 import { resolveFilter } from '~/server/context'
-import { listAgingParties } from '~/server/services/aging-parties.service'
+import { listAgingParties } from '~/server/services/ap-ar/aging-parties.service'
 
 const pagedInput = metricInputSchema
   .extend({ side: z.enum(['ap', 'ar']) })

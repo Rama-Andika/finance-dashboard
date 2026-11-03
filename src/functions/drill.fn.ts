@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { authMiddleware } from '~/functions/middleware'
 import { metricInputSchema, drillSchema } from '~/lib/filters/search-schema'
 import { resolveFilter } from '~/server/context'
-import { computeDrill, type DrillResult } from '~/server/services/drill.service'
+import { computeDrill, type DrillResult } from '~/server/services/drill/drill.service'
 
 const drillInputSchema = metricInputSchema.extend({
   drill: drillSchema,

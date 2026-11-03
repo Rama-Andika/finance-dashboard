@@ -18,16 +18,16 @@ vi.mock('~/server/repo/data-checks.repo', () => ({
   checkUnpostedJournals: (...a: unknown[]) => checkUnpostedJournals(...a),
 }))
 vi.mock('~/server/repo/settings.repo', () => ({ getMappingRow: (...a: unknown[]) => getMappingRow(...a) }))
-vi.mock('~/server/services/cash-position.service', () => ({
+vi.mock('~/server/services/cash/cash-position.service', () => ({
   computeCashPosition: async () => ({ reconciliation: { inSync: true, diff: '0.00' } }),
 }))
-vi.mock('~/server/services/cash-flow.service', () => ({
+vi.mock('~/server/services/cash/cash-flow.service', () => ({
   computeCashFlow: async () => ({ identityOk: true, drawers: [], source: 'setup' }),
 }))
-vi.mock('~/server/services/ap-aging.service', () => ({
+vi.mock('~/server/services/ap-ar/ap-aging.service', () => ({
   computeApAging: async () => ({ reconciliation: { inSync: true, diff: '0.00' } }),
 }))
-vi.mock('~/server/services/ar-aging.service', () => ({
+vi.mock('~/server/services/ap-ar/ar-aging.service', () => ({
   computeArAging: async () => ({ unallocatedReturns: '0.00' }),
 }))
 

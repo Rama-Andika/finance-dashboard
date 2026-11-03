@@ -97,6 +97,7 @@
 | 2026-11-03 | 26.3 | Penataan src tahap 3: hook diseragamkan menjadi use-*.ts; empat hook bersama dikumpulkan di src/hooks/, hook milik fitur tetap di folder fitur; nama export tidak berubah | typecheck, lint, unit test lulus; tidak ada query ke database |
 | 2026-11-03 | 26.4 | Penataan src tahap 4: lib/core dirapikan; period, entity-owner, filter-scope, dan donut (beserta test) dipindah ke lib/finance/period, lib/finance/entity, lib/filters, dan lib/format; nama export tidak berubah | typecheck, lint, unit test lulus; tidak ada query ke database |
 | 2026-11-03 | 26.5 | Penataan src tahap 5: 24 berkas server/repo dikelompokkan per domain (ap-ar, cash, gl, master-data, pnl); sql-guard dan dash guard kini memindai subfolder (terbukti dengan berkas percobaan); tidak ada SQL yang berubah | typecheck, lint, unit test lulus; tidak ada query ke database |
+| 2026-11-03 | 26.6 | Penataan src tahap 6: 23 berkas server/services dikelompokkan per domain (ap-ar, cash, pnl, drill); helper shared/ yang hanya dipakai satu domain dipindah ke domainnya; aging.helper menjadi aging-helpers dan mapping.helper menjadi account-mapping; nama export tidak berubah | typecheck, lint, unit test lulus; tidak ada query ke database |
 
 ## Ringkasan Proyek
 

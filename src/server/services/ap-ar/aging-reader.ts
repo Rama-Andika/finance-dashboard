@@ -4,7 +4,7 @@ import type { Id, IsoDate, Money } from '~/lib/core/types'
 import type { CoaTree } from '~/lib/finance/coa/coa-tree'
 import { type AppContextFilter, getCachedCoaTree } from '~/server/context'
 import { memoBySnapshot } from '~/server/dash/snapshot'
-import { agingCompareIsAvailable, distinctIds } from '~/server/services/shared/aging.helper'
+import { agingCompareIsAvailable, distinctIds } from '~/server/services/ap-ar/aging-helpers'
 
 export type PartyNames = Map<Id, { code: string; name: string }>
 

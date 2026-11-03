@@ -100,7 +100,7 @@ Tidak ada query: token `entity` di URL (id lokasi) dicocokkan ke hasil Q4, lalu 
 
 ## 2. Saldo akun per tanggal
 
-Dipakai **Cash Position**, Cash Flow (kas awal dan akhir), Runway (Current Ratio), dan rekonsiliasi AP. Logika: `src/server/services/balance.service.ts` + `src/lib/finance/period/balance.ts`.
+Dipakai **Cash Position**, Cash Flow (kas awal dan akhir), Runway (Current Ratio), dan rekonsiliasi AP. Logika: `src/server/services/cash/balance.service.ts` + `src/lib/finance/period/balance.ts`.
 
 ### Menentukan periode saldo awal (di JavaScript, tanpa SQL)
 
@@ -200,7 +200,7 @@ Transit  = Σ saldo(akun ∈ keranjang.inTransit)
 CashPosition = Kas + Bank
 ```
 
-Sumber: `src/server/services/cash-position.service.ts`, `src/lib/finance/cash/cash-position.ts`.
+Sumber: `src/server/services/cash/cash-position.service.ts`, `src/lib/finance/cash/cash-position.ts`.
 
 Query ekstra bila ada pembanding: seluruh Q7–Q9 diulang dengan `:asOf = compare.asOf`, `:coaIds = cash ∪ bank` (hasilnya tidak ditampilkan di Summary).
 
@@ -208,7 +208,7 @@ Query ekstra bila ada pembanding: seluruh Q7–Q9 diulang dengan `:asOf = compar
 
 ## 3. Mutasi per periode
 
-Dipakai **Revenue**, **Net Profit**, **Composition**, **Gross/Net margin**. Satu pembacaan dibagi bersama (`loadPlMovements`, `src/server/services/shared/pl-movements.ts`): akun yang diminta = semua POSTABLE grup Revenue / Cost Of Sales / Expense / Other Revenue / Other Expense + akun keranjang Biaya Tetap. Halaman lain menyaring baris di memori.
+Dipakai **Revenue**, **Net Profit**, **Composition**, **Gross/Net margin**. Satu pembacaan dibagi bersama (`loadPlMovements`, `src/server/services/pnl/pl-movements.ts`): akun yang diminta = semua POSTABLE grup Revenue / Cost Of Sales / Expense / Other Revenue / Other Expense + akun keranjang Biaya Tetap. Halaman lain menyaring baris di memori.
 
 Mesin: `src/server/repo/gl/gl.repo.ts` · `movementsByPeriods`. Periode dikelompokkan per tabel GL; periode `Closed` dilayani dari cache memori / snapshot, periode `Open` / `Pre Closed` **selalu** ke ERP.
 
@@ -267,7 +267,7 @@ Cache 30 detik. Bila tabel `dash_*` belum ada, error ditelan dan semua periode d
 | Kartu | Rumus | File |
 |---|---|---|
 | Revenue | Σ (credit − debet) akun grup Revenue | `src/lib/finance/pnl/revenue.ts` |
-| Revenue per entitas (donut dan tabel) | Σ (credit − debet) akun Revenue per `locationId`; **Tanpa entitas = total − Σ entitas** (dihitung di JavaScript, tanpa query) | `src/server/services/revenue.service.ts`, `src/lib/finance/pnl/revenue-entity.ts` |
+| Revenue per entitas (donut dan tabel) | Σ (credit − debet) akun Revenue per `locationId`; **Tanpa entitas = total − Σ entitas** (dihitung di JavaScript, tanpa query) | `src/server/services/pnl/revenue.service.ts`, `src/lib/finance/pnl/revenue-entity.ts` |
 | Laba Kotor | Revenue − Σ (debet − credit) Cost Of Sales | `src/lib/finance/pnl/pnl.ts` |
 | Laba Usaha | Laba Kotor − Σ (debet − credit) Expense | idem |
 | **Net Profit** | Laba Usaha + Other Revenue − Other Expense | idem |
@@ -283,7 +283,7 @@ Pembanding Revenue dan Net Profit: Q11/Q12 yang sama dengan `:periodIds = compar
 
 ## 4. AP (Payables dan tabel tagihan)
 
-Logika: `src/server/services/ap-aging.service.ts` (pemuatan dan total pembanding bersama dengan AR di `shared/aging-reader.ts`), `src/lib/finance/ap-ar/apar.ts`. Pembacaan data: `src/server/repo/ap-ar/aging.repo.ts`.
+Logika: `src/server/services/ap-ar/ap-aging.service.ts` (pemuatan dan total pembanding bersama dengan AR di `ap-ar/aging-reader.ts`), `src/lib/finance/ap-ar/apar.ts`. Pembacaan data: `src/server/repo/ap-ar/aging.repo.ts`.
 
 Urutan sumber data (`agingInvoices` / `agingUnallocated`):
 1. `asOf` ≥ tanggal snapshot hari ini → **snapshot** (Q14, Q15).
@@ -389,7 +389,7 @@ Overdue (kartu Summary)      = Σ saldo POSITIF item yang bucket-nya overdue*   
 Sumber: `src/lib/finance/ap-ar/apar.ts`, `src/lib/finance/ap-ar/aging.ts`.
 
 ### Rekonsiliasi AP dengan GL (jalan di Summary, tidak ditampilkan)
-Akun kontrol = `ap_ar_card.coa_id` dari baris AP. Saldo GL-nya dihitung dengan Q7–Q9 (bagian 2) pada `:asOf` (`controlAccountsGlTotal`); `reconcileAging` menghitung selisih GL − subledger dan menganggap selisih di bawah Rp1 sebagai pembulatan. Hasilnya disimpan di `reconciliation`. Kode yang sama dipakai AP dan AR (`src/server/services/shared/aging.helper.ts`, `src/lib/finance/ap-ar/aging-reconciliation.ts`).
+Akun kontrol = `ap_ar_card.coa_id` dari baris AP. Saldo GL-nya dihitung dengan Q7–Q9 (bagian 2) pada `:asOf` (`controlAccountsGlTotal`); `reconcileAging` menghitung selisih GL − subledger dan menganggap selisih di bawah Rp1 sebagai pembulatan. Hasilnya disimpan di `reconciliation`. Kode yang sama dipakai AP dan AR (`src/server/services/ap-ar/aging-helpers.ts`, `src/lib/finance/ap-ar/aging-reconciliation.ts`).
 
 ### Pembanding AP
 Sama dengan Q14–Q17 pada `compare.asOf` bila snapshot (atau riwayat bulan) mencakup tanggal itu (`agingCompareIsAvailable`); kalau tidak, pembanding dilewati agar halaman tidak menunggu. Tanpa snapshot sama sekali, query langsung ke ERP yang dipakai.
@@ -485,7 +485,7 @@ per jurnal (kelompok baris Q20 per glId):
 Net = Cash In − Cash Out
 ```
 
-### Runway (`src/server/services/runway.service.ts`)
+### Runway (`src/server/services/cash/runway.service.ts`)
 
 1. **3 bulan penuh sebelum bulan `asOf`**: dari Q2, ambil bulan reguler dengan `end_date < asOf` dan bulan mulai < bulan `asOf`, 3 terbaru.
 2. Q20 untuk periode-periode itu, lalu alokasi kas per jurnal (`allocateCash`); jumlahkan `portion` per bulan.
@@ -607,7 +607,7 @@ Hasil ditulis ke tabel bayangan `dash_snap_ap_ar_open_new` / `dash_snap_ap_ar_un
 | Cache | TTL | Lokasi |
 |---|---|---|
 | Q1–Q4 | 10 menit | `context.ts` |
-| Q5 | 2 menit | `shared/mapping.helper.ts` |
+| Q5 | 2 menit | `shared/account-mapping.ts` |
 | Saldo akun (Q7–Q9) | 60 detik | `balance.service.ts` |
 | Q10 dan Q20 | 60 detik | repo masing-masing |
 | Q19 | 5 menit | `payment-plan.repo.ts` |
@@ -663,7 +663,7 @@ WHERE table_schema = DATABASE()
 | 2026-10-30 | Disinkronkan dengan kode terbaru: tabel tagihan dua tab (`filterBillsByScope`, `planStatusInUse`), rekonsiliasi AP/AR (`reconcileAging`), `settledJournals`, `sliceCombos`, Q20 menandai kondisi `canceled_date` sebagai opsional, matriks dan tabel cache ditambah Q22 dan Q24. Tidak ada query yang berubah isinya. |
 | 2026-10-30 | Fitur OCI dinonaktifkan (D39): akun OCI tidak lagi dikeluarkan dari baris P&L dan tidak ikut dibaca sebagai kelompok tersendiri di Q11/Q12. |
 | 2026-10-30 | Kartu Revenue by Entity memakai Q11 / Q12 yang sama (`byLocation`); tidak ada query baru. Ditambah baris rumus "Revenue per entitas" dan baris matriks. |
-| 2026-10-30 | Tidak ada query yang berubah isinya: pembacaan Q9 / Q20 / daftar jurnal per tabel GL kini paralel (hasil sama, urutan tabel dijaga), dan pemuatan AP/AR memakai satu pembaca bersama (`shared/aging-reader.ts`). |
+| 2026-10-30 | Tidak ada query yang berubah isinya: pembacaan Q9 / Q20 / daftar jurnal per tabel GL kini paralel (hasil sama, urutan tabel dijaga), dan pemuatan AP/AR memakai satu pembaca bersama (`ap-ar/aging-reader.ts`). |
 | 2026-10-30 | Kartu Payables tidak lagi menampilkan persentase terhadap Overdue; tidak ada query yang berubah. |
 | 2026-10-30 | Perbaikan warna teks keterangan di halaman; tidak ada query yang berubah. |
 | 2026-10-31 | Keterangan entitas pada tabel tagihan memakai kolom `location_id` yang sudah dibaca Q14/Q16 dan daftar entitas Q4; tidak ada query Summary yang berubah. (Di drill-down baris jurnal, query daftar jurnal mendapat satu kolom segmen tambahan di `SELECT`/`GROUP BY`/`ORDER BY` hanya saat lebih dari 1 entitas dipilih; query itu bukan bagian dari katalog Summary.) |
@@ -671,3 +671,4 @@ WHERE table_schema = DATABASE()
 | 2026-11-03 | Donut Composition: tab Expense memakai baris P&L (HPP + Beban Operasional) dan tab Fixed Cost memakai pembacaan Biaya Tetap yang sudah ada; tidak ada query yang berubah atau ditambahkan. |
 | 2026-11-03 | Penataan struktur folder src (tahap 4): hanya lokasi berkas yang berubah dan rujukan jalur di dokumen ini disesuaikan (entity-owner pindah ke lib/finance/entity); tidak ada query yang berubah. |
 | 2026-11-03 | Penataan struktur folder src (tahap 5): file repo dipindah ke subfolder per domain (ap-ar, cash, gl, master-data, pnl) dan jalur di dokumen ini disesuaikan; tidak ada query yang berubah. |
+| 2026-11-03 | Penataan struktur folder src (tahap 6): file service dipindah ke subfolder per domain (ap-ar, cash, pnl, drill) dan jalur di dokumen ini disesuaikan; dua file helper berganti nama tanpa akhiran .helper; tidak ada query yang berubah. |

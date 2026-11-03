@@ -20,7 +20,7 @@ vi.mock('~/server/repo/gl/gl.repo', () => ({
 }))
 vi.mock('~/server/db/gl-tables', () => ({ tablesBetween: () => ['gl'] }))
 vi.mock('~/server/repo/ap-ar/payment-plan.repo', () => ({ listPlanStatuses: async () => [] }))
-vi.mock('~/server/services/cash-flow.service', () => ({}))
+vi.mock('~/server/services/cash/cash-flow.service', () => ({}))
 vi.mock('~/server/context', () => ({}))
 
 const { apArDrill, paymentPlanDrill } = await import('./ap-ar')

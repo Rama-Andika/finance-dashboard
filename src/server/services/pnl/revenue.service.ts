@@ -11,7 +11,7 @@ import {
 } from '~/server/context'
 import { movementsByPeriods } from '~/server/repo/gl/gl.repo'
 import { memoMetric } from '~/server/cache'
-import { loadPlMovements, onlyAccounts } from '~/server/services/shared/pl-movements'
+import { loadPlMovements, onlyAccounts } from '~/server/services/pnl/pl-movements'
 import {
   aggregateRevenue,
   buildRevenueBreakdown,

@@ -2,8 +2,8 @@ import '@tanstack/react-start/server-only'
 import { memoMetric } from '~/server/cache'
 import type { Id, MetricMeta, Money } from '~/lib/core/types'
 import { type AppContextFilter, buildMetricMeta } from '~/server/context'
-import { controlAccountsGlTotal } from '~/server/services/shared/aging.helper'
-import { createAgingReader, type AgingSource } from '~/server/services/shared/aging-reader'
+import { controlAccountsGlTotal } from '~/server/services/ap-ar/aging-helpers'
+import { createAgingReader, type AgingSource } from '~/server/services/ap-ar/aging-reader'
 import { reconcileAging, type AgingReconciliation } from '~/lib/finance/ap-ar/aging-reconciliation'
 
 /** The parts every aging result is built from; each side only decides how to name them. */

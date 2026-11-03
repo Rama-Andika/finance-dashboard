@@ -52,9 +52,9 @@ vi.mock('~/server/repo/ap-ar/payment-plan.repo', () => ({
 }))
 vi.mock('~/server/repo/pnl/budget.repo', () => ({ budgetAmounts: (...a: unknown[]) => budgetAmounts(...a) }))
 vi.mock('~/server/repo/cash/bank-payment.repo', () => ({ unsettledByChannel: async () => [], settlementLag: async () => [] }))
-vi.mock('~/server/services/balance.service', () => ({ balancesAt: (...a: unknown[]) => balancesAt(...a) }))
-vi.mock('~/server/services/cash-position.service', () => ({ computeCashPosition: (...a: unknown[]) => computeCashPosition(...a) }))
-vi.mock('~/server/services/shared/mapping.helper', () => ({
+vi.mock('~/server/services/cash/balance.service', () => ({ balancesAt: (...a: unknown[]) => balancesAt(...a) }))
+vi.mock('~/server/services/cash/cash-position.service', () => ({ computeCashPosition: (...a: unknown[]) => computeCashPosition(...a) }))
+vi.mock('~/server/services/shared/account-mapping', () => ({
   loadAccountMapping: async () => ({
     version: 1,
     updatedAt: 'now',
@@ -68,13 +68,13 @@ vi.mock('~/server/services/shared/mapping.helper', () => ({
   }),
 }))
 
-const { computePnl } = await import('./pnl.service')
-const { computeFixedCost } = await import('./fixed-cost.service')
-const { computeBudget } = await import('./budget.service')
-const { computeRevenue } = await import('./revenue.service')
-const { computePaymentPlan } = await import('./payment-plan.service')
-const { computeApAging } = await import('./ap-aging.service')
-const { listAgingParties } = await import('./aging-parties.service')
+const { computePnl } = await import('./pnl/pnl.service')
+const { computeFixedCost } = await import('./pnl/fixed-cost.service')
+const { computeBudget } = await import('./pnl/budget.service')
+const { computeRevenue } = await import('./pnl/revenue.service')
+const { computePaymentPlan } = await import('./ap-ar/payment-plan.service')
+const { computeApAging } = await import('./ap-ar/ap-aging.service')
+const { listAgingParties } = await import('./ap-ar/aging-parties.service')
 const { clearCache } = await import('~/server/cache')
 
 function filterFor(id: string) {

@@ -12,10 +12,10 @@ import {
   checkUnpostedJournals,
 } from '~/server/repo/data-checks.repo'
 import { getMappingRow } from '~/server/repo/settings.repo'
-import { computeCashPosition } from '~/server/services/cash-position.service'
-import { computeCashFlow } from '~/server/services/cash-flow.service'
-import { computeApAging } from '~/server/services/ap-aging.service'
-import { computeArAging } from '~/server/services/ar-aging.service'
+import { computeCashPosition } from '~/server/services/cash/cash-position.service'
+import { computeCashFlow } from '~/server/services/cash/cash-flow.service'
+import { computeApAging } from '~/server/services/ap-ar/ap-aging.service'
+import { computeArAging } from '~/server/services/ap-ar/ar-aging.service'
 
 export type { DataCheckItem }
 

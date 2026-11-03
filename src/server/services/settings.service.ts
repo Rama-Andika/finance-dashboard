@@ -9,8 +9,8 @@ import { clearCache } from '~/server/cache'
 import { getCachedCoaTree, type AppContextFilter } from '~/server/context'
 import { listCoa } from '~/server/repo/master-data/coa.repo'
 import { upsertMapping } from '~/server/repo/settings.repo'
-import { balancesAt } from '~/server/services/balance.service'
-import { loadMappingState } from '~/server/services/shared/mapping.helper'
+import { balancesAt } from '~/server/services/cash/balance.service'
+import { loadMappingState } from '~/server/services/shared/account-mapping'
 
 export type GetAccountMappingResult = {
   mapping: AccountMapping

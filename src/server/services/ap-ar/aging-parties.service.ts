@@ -1,7 +1,7 @@
 import '@tanstack/react-start/server-only'
 import type { AppContextFilter } from '~/server/context'
-import { computeApAgingParties } from '~/server/services/ap-aging.service'
-import { computeArAgingParties } from '~/server/services/ar-aging.service'
+import { computeApAgingParties } from '~/server/services/ap-ar/ap-aging.service'
+import { computeArAgingParties } from '~/server/services/ap-ar/ar-aging.service'
 import {
   agingPartyComparators,
   toPartyRow,

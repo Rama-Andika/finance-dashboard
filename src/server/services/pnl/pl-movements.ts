@@ -6,7 +6,7 @@ import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
 import { memoMetric } from '~/server/cache'
 import { type AppContextFilter, getCachedCoaTree, getCachedPeriods } from '~/server/context'
 import { movementsByPeriods, type MovementRow } from '~/server/repo/gl/gl.repo'
-import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
+import { loadAccountMapping } from '~/server/services/shared/account-mapping'
 
 /**
  * Movements of every account the P&L-family pages need (P&L, Fixed Cost, Budget actuals,

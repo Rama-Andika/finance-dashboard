@@ -11,7 +11,7 @@ import { postableDescendants, type CoaTree } from '~/lib/finance/coa/coa-tree'
 import { signedAmount } from '~/lib/finance/coa/sign'
 import { getJournalGroupKey } from '~/lib/finance/journal/journal-type'
 import { bucketOf, planStatus } from '~/lib/finance/ap-ar/aging'
-import { type ClassifiedCashPortion } from '~/server/services/cash-flow.service'
+import { type ClassifiedCashPortion } from '~/server/services/cash/cash-flow.service'
 import { type DrillStep, type DrillStepKind } from '~/lib/filters/search-schema'
 
 export type DrillColumnKind = 'text' | 'code' | 'money' | 'date' | 'status' | 'number'

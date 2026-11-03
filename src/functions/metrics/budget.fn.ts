@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { authMiddleware } from '~/functions/middleware'
 import { metricInputSchema } from '~/lib/filters/search-schema'
 import { resolveFilter } from '~/server/context'
-import { computeBudget, type BudgetResult } from '~/server/services/budget.service'
+import { computeBudget, type BudgetResult } from '~/server/services/pnl/budget.service'
 
 export const getBudgetFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])

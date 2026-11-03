@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { authMiddleware } from '~/functions/middleware'
 import { metricInputSchema } from '~/lib/filters/search-schema'
 import { resolveFilter } from '~/server/context'
-import { computePnl, type PnlResult } from '~/server/services/pnl.service'
+import { computePnl, type PnlResult } from '~/server/services/pnl/pnl.service'
 
 export const getPnlFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])

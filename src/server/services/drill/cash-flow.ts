@@ -7,8 +7,8 @@ import { expensePaidAllocated, expensePaidUnallocated } from '~/server/repo/ap-a
 import { listVendors } from '~/server/repo/ap-ar/party.repo'
 import { isDirectExpenseGroup } from '~/lib/finance/coa/account-groups'
 import { resolveBaskets } from '~/lib/finance/coa/basket-resolver'
-import { loadAccountMapping } from '~/server/services/shared/mapping.helper'
-import { loadClassifiedPortions } from '~/server/services/cash-flow.service'
+import { loadAccountMapping } from '~/server/services/shared/account-mapping'
+import { loadClassifiedPortions } from '~/server/services/cash/cash-flow.service'
 import { type DrillStep, type DrillStepKind } from '~/lib/filters/search-schema'
 import { AP_BILL_ITEM_TYPES, col, ACCOUNT_COLUMNS, NAMED_TOTAL_COLUMNS, empty, accountIdsOf, portionJournalRows, type DrillContext, type DrillResult } from '~/server/services/drill/shared'
 
