@@ -7,7 +7,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '~/components/ui/dropdown-menu'
+} from '~/components/ui/shadcn/dropdown-menu'
 
 const PAGE_TITLE_KEYS: Record<string, string> = {
   '/summary': 'nav.summary',

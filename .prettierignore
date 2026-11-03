@@ -7,4 +7,4 @@ drizzle-dash
 package-lock.json
 src/routeTree.gen.ts
 src/server/db/schema.ts
-src/components/ui
+src/components/ui/shadcn

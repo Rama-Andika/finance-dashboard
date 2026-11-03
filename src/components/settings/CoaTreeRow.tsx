@@ -6,7 +6,7 @@ import type { CoaTree } from '~/lib/finance/coa/coa-tree'
 import type { flattenVisible } from '~/lib/finance/coa/coa-tree-view'
 import type { Id } from '~/lib/core/types'
 import { checkState } from '~/lib/finance/coa/basket-resolver'
-import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/shadcn/tooltip'
 
 export type CoaTreeItem = ReturnType<typeof flattenVisible>[number]
 

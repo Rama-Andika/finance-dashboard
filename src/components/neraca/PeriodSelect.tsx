@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Calendar } from 'lucide-react'
-import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/shadcn/popover'
 import type { Preset, Horizon } from '~/lib/filters/search-schema'
 import { formatMonthYear } from '~/lib/format/date'
 import { CustomRangeForm, PeriodOption, type PeriodMonthOption } from '~/components/neraca/PeriodSelectParts'

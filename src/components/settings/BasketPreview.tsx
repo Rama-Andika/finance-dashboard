@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { ScrollArea } from '~/components/ui/scroll-area'
+import { ScrollArea } from '~/components/ui/shadcn/scroll-area'
 import type { CoaTree } from '~/lib/finance/coa/coa-tree'
 import type { Id } from '~/lib/core/types'
 

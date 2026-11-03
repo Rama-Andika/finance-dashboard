@@ -4,7 +4,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '~/components/ui/tooltip'
+} from '~/components/ui/shadcn/tooltip'
 import { cn } from '~/lib/cn'
 
 export interface FigureTooltipProps {

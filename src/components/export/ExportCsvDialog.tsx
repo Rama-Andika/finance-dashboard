@@ -8,7 +8,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '~/components/ui/dialog'
+} from '~/components/ui/shadcn/dialog'
 import { Button } from '~/components/neraca/Button'
 import { buildCsv, type CsvColumn, type CsvFormat } from '~/lib/format/csv'
 

@@ -6,7 +6,7 @@ import { cn } from '~/lib/cn'
 import type { CoaTree } from '~/lib/finance/coa/coa-tree'
 import { flattenVisible, matchingCoaIds } from '~/lib/finance/coa/coa-tree-view'
 import type { Id } from '~/lib/core/types'
-import { TooltipProvider } from '~/components/ui/tooltip'
+import { TooltipProvider } from '~/components/ui/shadcn/tooltip'
 import { CoaTreeRow } from './CoaTreeRow'
 
 export interface CoaTreePickerProps {

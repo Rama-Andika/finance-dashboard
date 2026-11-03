@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Sheet, SheetContent, SheetTitle } from '~/components/ui/sheet'
+import { Sheet, SheetContent, SheetTitle } from '~/components/ui/shadcn/sheet'
 import { SidebarNav } from '~/components/neraca/SidebarNav'
 
 export interface MobileDrawerProps {
