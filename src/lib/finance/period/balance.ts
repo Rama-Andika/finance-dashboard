@@ -1,4 +1,4 @@
-import { isRegularPeriod } from '../../core/period'
+import { isRegularPeriod } from './period-type'
 import type { AccountGroup, Id, IsoDate, Money, Period } from '../../core/types'
 import { signedAmount } from '../coa/sign'
 import { D } from '../../core/money'

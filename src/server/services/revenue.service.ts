@@ -1,5 +1,5 @@
 import '@tanstack/react-start/server-only'
-import { activePeriodsOf, entitiesOfFilter } from '~/lib/core/filter-scope'
+import { activePeriodsOf, entitiesOfFilter } from '~/lib/filters/filter-scope'
 import { postableAccountIds } from '~/lib/finance/coa/coa-tree'
 import type { Money, Id, MetricMeta, Breakdown } from '~/lib/core/types'
 import {

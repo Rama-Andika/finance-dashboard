@@ -10,7 +10,7 @@ import {
 import type { PaymentPlanBill } from '~/lib/finance/ap-ar/payment-plan'
 import '@tanstack/react-start/server-only'
 import { D } from '~/lib/core/money'
-import { buildEntityOwners, ownerNameOfLocation } from '~/lib/core/entity-owner'
+import { buildEntityOwners, ownerNameOfLocation } from '~/lib/finance/entity/entity-owner'
 import { addDays } from '~/lib/format/date'
 import type { Id, MetricMeta, Money } from '~/lib/core/types'
 import {

@@ -1,5 +1,5 @@
 import '@tanstack/react-start/server-only'
-import { isRegularPeriod } from '~/lib/core/period'
+import { isRegularPeriod } from '~/lib/finance/period/period-type'
 import { PRESETS, type Preset } from '~/lib/filters/search-schema'
 import type { IsoDate, PeriodStatus } from '~/lib/core/types'
 import { resolvePeriod } from '~/lib/finance/period/periods'

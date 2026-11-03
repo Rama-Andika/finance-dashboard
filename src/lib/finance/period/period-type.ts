@@ -1,4 +1,4 @@
-import type { Period } from './types'
+import type { Period } from '../../core/types'
 
 /** `periode.type`: what kind of accounting period a row is. */
 export const PERIOD_TYPE = { REGULAR: 0, PERIOD_13: 1, PRE_CLOSED: 2, UNKNOWN: 3 } as const

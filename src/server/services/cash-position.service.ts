@@ -1,5 +1,5 @@
 import '@tanstack/react-start/server-only'
-import { entitiesOfFilter } from '~/lib/core/filter-scope'
+import { entitiesOfFilter } from '~/lib/filters/filter-scope'
 import { D, sum } from '~/lib/core/money'
 import type { Money, Id, MetricMeta, Breakdown } from '~/lib/core/types'
 import {

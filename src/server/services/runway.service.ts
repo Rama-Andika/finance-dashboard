@@ -1,5 +1,5 @@
 import '@tanstack/react-start/server-only'
-import { isRegularPeriod } from '~/lib/core/period'
+import { isRegularPeriod } from '~/lib/finance/period/period-type'
 import Decimal from 'decimal.js'
 import { postableAccountIds } from '~/lib/finance/coa/coa-tree'
 import { D, sum } from '~/lib/core/money'

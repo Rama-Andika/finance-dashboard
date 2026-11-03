@@ -1,7 +1,7 @@
 import '@tanstack/react-start/server-only'
 import Decimal from 'decimal.js'
 import { D } from '~/lib/core/money'
-import { buildEntityCaptions } from '~/lib/core/entity-owner'
+import { buildEntityCaptions } from '~/lib/finance/entity/entity-owner'
 import { addDays } from '~/lib/format/date'
 import { type Id } from '~/lib/core/types'
 import { apOpenInvoices, arOpenInvoices } from '~/server/repo/aging.repo'

@@ -5,7 +5,7 @@ import {
   DONUT_CIRCUMFERENCE,
   DONUT_GAP,
   buildDonutArcs,
-} from '~/lib/core/donut'
+} from '~/lib/format/donut'
 import { buildEntityShare, type EntityShareSegment } from '~/lib/finance/pnl/revenue-entity'
 import { formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
 import { FigureTooltip } from '~/components/ui/FigureTooltip'

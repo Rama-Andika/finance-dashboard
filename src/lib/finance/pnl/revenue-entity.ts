@@ -1,6 +1,6 @@
 import Decimal from 'decimal.js'
 import { D, sum } from '../../core/money'
-import { largestRemainderPercentages } from '../../core/donut'
+import { largestRemainderPercentages } from '../../format/donut'
 import { compareAsc } from '../../core/compare'
 import type { Id, Money } from '../../core/types'
 

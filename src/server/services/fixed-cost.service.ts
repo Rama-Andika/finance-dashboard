@@ -1,4 +1,4 @@
-import { activePeriodsOf } from '~/lib/core/filter-scope'
+import { activePeriodsOf } from '~/lib/filters/filter-scope'
 import { postableAccountIds } from '~/lib/finance/coa/coa-tree'
 import '@tanstack/react-start/server-only'
 import type { Breakdown, Id, MetricMeta, Money } from '~/lib/core/types'

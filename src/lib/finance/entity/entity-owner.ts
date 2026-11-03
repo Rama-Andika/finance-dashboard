@@ -1,4 +1,4 @@
-import type { Entity, Id } from './types'
+import type { Entity, Id } from '../../core/types'
 
 /** Name lookups from a location id or a segment detail id to the entity that owns it. */
 export type EntityOwners = {

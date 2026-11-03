@@ -1,5 +1,5 @@
 import '@tanstack/react-start/server-only'
-import { isRegularPeriod } from '~/lib/core/period'
+import { isRegularPeriod } from '~/lib/finance/period/period-type'
 import type { PoolConnection } from 'mysql2/promise'
 import { pool } from '~/server/db/client'
 import { env } from '~/server/env'

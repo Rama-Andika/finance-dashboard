@@ -73,7 +73,7 @@ src/routes/**            file-based routes; loader → queryClient.ensureQueryDa
            └ src/lib/**             pure logic (no DB, no React, no src/server imports) — unit tested
 ```
 
-`src/lib/` layout: `core/` (types, money, i18n labels — depends on nothing), `finance/{coa,period,journal,pnl,cash,ap-ar}/` (metric logic per domain), plus `format/`, `filters/` (URL search schema), `table/`, `settings/`. Dependencies point toward `core/`; `format/` and `table/` do not import `finance/`.
+`src/lib/` layout: `core/` (types, money, compare, i18n labels — depends on nothing), `finance/{coa,period,journal,pnl,cash,ap-ar,entity,checks}/` (metric logic per domain), plus `format/` (number, date, CSV, KPI and donut helpers), `filters/` (URL search schema and filter scope), `table/`, `settings/`. Dependencies point toward `core/`; `format/` and `table/` do not import `finance/`.
 
 - Routes/components never import Drizzle, `mysql2`, or `src/server/**`. Server modules start with `import '@tanstack/react-start/server-only'`; Vitest aliases it to `tests/empty-module.ts`, so they stay unit-testable. Exceptions without the marker are pure helpers that scripts or drizzle-kit also load (`db/in-list|chunk|segment-column|erp-codes|bigint-string`, `dash/schema|tables`, `auth/rate-limit`, `log`, `dash/log`). Auth helpers live in `src/server/auth/`; helpers shared by several services (not called from `functions/`) in `src/server/services/shared/`.
 - Repos are SQL-only, with one allowed exception: they may use `~/server/cache` (`memo`) for shared ERP reads. They do not read `env` or compute "today"; the service passes dates in. Row types shared with `dash/` live in `repo/apar.types.ts`; AP/AR repos are split by topic (`aging`, `expense-paid`, `party`, `payment-plan`).

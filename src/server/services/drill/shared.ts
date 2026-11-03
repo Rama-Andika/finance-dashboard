@@ -1,7 +1,7 @@
 import '@tanstack/react-start/server-only'
 import Decimal from 'decimal.js'
 import { D } from '~/lib/core/money'
-import { buildEntityCaptions, countEntitiesInScope } from '~/lib/core/entity-owner'
+import { buildEntityCaptions, countEntitiesInScope } from '~/lib/finance/entity/entity-owner'
 import { type Entity, type Id, type IsoDate, type Period } from '~/lib/core/types'
 import { type AppContextFilter } from '~/server/context'
 import { journalHeaders, journalLines, movementsByPeriods } from '~/server/repo/gl.repo'

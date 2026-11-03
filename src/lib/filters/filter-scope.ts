@@ -1,4 +1,4 @@
-import type { Id } from './types'
+import type { Id } from '../core/types'
 
 /** The periods of the global filter, in the order they were given. */
 export function activePeriodsOf<P extends { periodeId: Id }>(periods: readonly P[], periodIds: readonly Id[]): P[] {

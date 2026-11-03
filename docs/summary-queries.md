@@ -407,7 +407,7 @@ vendor    = Q18
 
 Untuk "overdue" di rencana pembayaran: `due_date < today`. Pemisahan per tab (`filterBillsByScope`), penyortiran, dan paging dilakukan di memori (`paginate`), bukan di SQL. Hasil rencana di-memo, jadi ganti tab atau halaman tidak memicu query baru. Jumlah baris dan total kedua tab (`summarizeBillScopes`) dihitung dari daftar yang sama. Kolom status disembunyikan bila Q19 tidak mengembalikan satu baris pun (`planStatusInUse`).
 
-Keterangan entitas: **tidak ada query baru.** Nama entitas tiap tagihan diambil dari kolom `location_id` hasil Q14/Q16 dan daftar entitas yang sudah di-cache (Q4), lewat `ownerNameOfLocation` (`lib/core/entity-owner.ts`). Lokasi kosong atau tidak ada di daftar menjadi "Tanpa entitas". Penanda `showEntity` = jumlah entitas dalam filter > 1.
+Keterangan entitas: **tidak ada query baru.** Nama entitas tiap tagihan diambil dari kolom `location_id` hasil Q14/Q16 dan daftar entitas yang sudah di-cache (Q4), lewat `ownerNameOfLocation` (`lib/finance/entity/entity-owner.ts`). Lokasi kosong atau tidak ada di daftar menjadi "Tanpa entitas". Penanda `showEntity` = jumlah entitas dalam filter > 1.
 
 ---
 
@@ -669,3 +669,4 @@ WHERE table_schema = DATABASE()
 | 2026-10-31 | Keterangan entitas pada tabel tagihan memakai kolom `location_id` yang sudah dibaca Q14/Q16 dan daftar entitas Q4; tidak ada query Summary yang berubah. (Di drill-down baris jurnal, query daftar jurnal mendapat satu kolom segmen tambahan di `SELECT`/`GROUP BY`/`ORDER BY` hanya saat lebih dari 1 entitas dipilih; query itu bukan bagian dari katalog Summary.) |
 | 2026-10-31 | Q18 (nama vendor) berjalan lebih jarang: nama diingat per id selama 10 menit dan potongan 1.000 id dibaca bersamaan; isi query tidak berubah. Urutan tabel tagihan di-cache per hasil rencana (tidak ada query baru). |
 | 2026-11-03 | Donut Composition: tab Expense memakai baris P&L (HPP + Beban Operasional) dan tab Fixed Cost memakai pembacaan Biaya Tetap yang sudah ada; tidak ada query yang berubah atau ditambahkan. |
+| 2026-11-03 | Penataan struktur folder src (tahap 4): hanya lokasi berkas yang berubah dan rujukan jalur di dokumen ini disesuaikan (entity-owner pindah ke lib/finance/entity); tidak ada query yang berubah. |

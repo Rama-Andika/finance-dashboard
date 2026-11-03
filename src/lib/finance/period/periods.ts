@@ -1,4 +1,4 @@
-import { PERIOD_TYPE, isPeriodOpen } from '../../core/period'
+import { PERIOD_TYPE, isPeriodOpen } from './period-type'
 import type { Preset } from './presets'
 import type { IsoDate, Period, ResolvedFilter } from '../../core/types'
 

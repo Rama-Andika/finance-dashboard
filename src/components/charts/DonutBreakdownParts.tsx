@@ -1,7 +1,7 @@
 import { Fragment } from 'react'
 import type { Lang } from '~/lib/core/types'
 import { FigureTooltip } from '~/components/ui/FigureTooltip'
-import { DONUT_RADIUS, type DonutSegment } from '~/lib/core/donut'
+import { DONUT_RADIUS, type DonutSegment } from '~/lib/format/donut'
 import { formatMoneyShort } from '~/lib/format/number'
 
 export type DonutTab = { id: 'revenue' | 'expense' | string; label: string }

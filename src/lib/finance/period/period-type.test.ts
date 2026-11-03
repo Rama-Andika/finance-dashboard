@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PERIOD_TYPE, isPeriodOpen, isRegularPeriod } from './period'
+import { PERIOD_TYPE, isPeriodOpen, isRegularPeriod } from './period-type'
 
 describe('period helpers', () => {
   it('recognises regular periods by type', () => {

@@ -1,5 +1,5 @@
 import '@tanstack/react-start/server-only'
-import { activePeriodsOf } from '~/lib/core/filter-scope'
+import { activePeriodsOf } from '~/lib/filters/filter-scope'
 import { memoMetric } from '~/server/cache'
 import { createLogger, errorText } from '~/server/log'
 import { buildDataChecks, type DataCheckItem } from '~/lib/finance/checks/data-checks'

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Entity } from './types'
+import type { Entity } from '../../core/types'
 import { buildEntityCaptions, buildEntityOwners, countEntitiesInScope, ownerNameOfLocation, ownerNameOfSegment } from './entity-owner'
 
 const entity = (

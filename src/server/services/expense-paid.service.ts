@@ -1,5 +1,5 @@
 import '@tanstack/react-start/server-only'
-import { activePeriodsOf, entitiesOfFilter } from '~/lib/core/filter-scope'
+import { activePeriodsOf, entitiesOfFilter } from '~/lib/filters/filter-scope'
 import Decimal from 'decimal.js'
 import { D } from '~/lib/core/money'
 import { addDays } from '~/lib/format/date'
