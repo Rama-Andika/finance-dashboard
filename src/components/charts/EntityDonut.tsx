@@ -8,8 +8,8 @@ import {
 } from '~/lib/core/donut'
 import { buildEntityShare, type EntityShareSegment } from '~/lib/finance/pnl/revenue-entity'
 import { formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
-import { FigureTooltip } from '~/components/neraca/FigureTooltip'
-import { DonutRing, type RingSegment } from '~/components/neraca/DonutBreakdownParts'
+import { FigureTooltip } from '~/components/ui/FigureTooltip'
+import { DonutRing, type RingSegment } from '~/components/charts/DonutBreakdownParts'
 
 export interface EntityDonutProps {
   title?: string | undefined

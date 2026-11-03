@@ -6,11 +6,11 @@ import {
   cashPositionMetricOptions,
   runwayMetricOptions,
 } from '~/queries/metrics.queries'
-import { MetricSkeleton } from '~/components/neraca/MetricSkeleton'
-import { MetricError } from '~/components/neraca/MetricError'
-import { Notice } from '~/components/neraca/Notice'
-import { CashBalanceCard } from '~/components/neraca/CashBalanceCard'
-import { KpiCard } from '~/components/neraca/KpiCard'
+import { MetricSkeleton } from '~/components/layout/MetricSkeleton'
+import { MetricError } from '~/components/layout/MetricError'
+import { Notice } from '~/components/ui/Notice'
+import { CashBalanceCard } from '~/components/cash-position/CashBalanceCard'
+import { KpiCard } from '~/components/ui/KpiCard'
 import { MetricPageHeader } from '~/components/layout/MetricPageHeader'
 import { useLang } from '~/components/layout/use-lang'
 import { CashBankTable } from '~/components/cash-position/CashBankTable'

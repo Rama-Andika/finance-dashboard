@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { AlertCircle } from 'lucide-react'
-import { DataTable, type ColumnDef } from '~/components/neraca/DataTable'
+import { DataTable, type ColumnDef } from '~/components/ui/data-table/DataTable'
 import { formatMoneyFull } from '~/lib/format/number'
 import type { Lang, Money } from '~/lib/core/types'
 

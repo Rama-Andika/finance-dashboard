@@ -4,7 +4,7 @@ import { Building2, ChevronDown } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/shadcn/popover'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '~/components/ui/shadcn/sheet'
 import { useIsDesktop } from '~/components/layout/useIsDesktop'
-import { EntityPickerPanel, type EntityItem } from '~/components/neraca/EntityPickerPanel'
+import { EntityPickerPanel, type EntityItem } from '~/components/layout/top-bar/EntityPickerPanel'
 
 export type { EntityItem }
 

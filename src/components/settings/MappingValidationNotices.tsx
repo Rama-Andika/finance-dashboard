@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Notice } from '~/components/neraca/Notice'
+import { Notice } from '~/components/ui/Notice'
 import type { CoaTree } from '~/lib/finance/coa/coa-tree'
 import type { validateMapping } from '~/lib/settings/mapping-validate'
 import type { BasketKey } from '~/lib/core/types'

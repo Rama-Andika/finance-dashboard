@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { KpiCard } from '~/components/neraca/KpiCard'
+import { KpiCard } from '~/components/ui/KpiCard'
 import { formatPercent } from '~/lib/format/number'
 import type { Lang } from '~/lib/core/types'
 

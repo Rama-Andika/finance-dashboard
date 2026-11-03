@@ -1,4 +1,4 @@
-import { categoryAxisProps, valueAxisProps } from '~/components/neraca/chart-axis'
+import { categoryAxisProps, valueAxisProps } from '~/components/charts/chart-axis'
 import { useTranslation } from 'react-i18next'
 import {
   ResponsiveContainer,
@@ -11,7 +11,7 @@ import {
   ReferenceLine,
 } from 'recharts'
 import { translateLabel } from '~/lib/core/i18n-label'
-import { DataTable, type ColumnDef } from '~/components/neraca/DataTable'
+import { DataTable, type ColumnDef } from '~/components/ui/data-table/DataTable'
 import { ExportCsvButton, exportFilename, type ExportScope } from '~/components/export/ExportCsvDialog'
 import { PrintButton } from '~/components/export/PrintButton'
 import { useOpenDrill } from '~/components/drill/useOpenDrill'

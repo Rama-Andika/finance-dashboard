@@ -9,7 +9,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '~/components/ui/shadcn/dialog'
-import { Button } from '~/components/neraca/Button'
+import { Button } from '~/components/ui/Button'
 import { buildCsv, type CsvColumn, type CsvFormat } from '~/lib/format/csv'
 
 const STORAGE_KEY = 'nr-csv-format'

@@ -2,7 +2,7 @@ import type { Lang } from '~/lib/core/types'
 import { formatDate } from '~/lib/format/date'
 import { formatMoneyFull } from '~/lib/format/number'
 import { useTranslation } from 'react-i18next'
-import { EntityCaption } from '~/components/neraca/EntityCaption'
+import { EntityCaption } from '~/components/ui/EntityCaption'
 
 export type JournalItem = {
   id: string

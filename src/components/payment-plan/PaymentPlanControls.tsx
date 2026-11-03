@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Button } from '~/components/neraca/Button'
+import { Button } from '~/components/ui/Button'
 import { HORIZONS, type Horizon } from '~/lib/filters/search-schema'
 
 /** Horizon tabs (7 / 14 / 30 days) and the "include inflows" toggle. */

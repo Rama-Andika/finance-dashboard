@@ -116,7 +116,7 @@ Security / sensitive data
 - From `vendor`/`customer` select only id, `code`, `name` — never bank account/NPWP/ID columns. Do not write account numbers, loan numbers, shareholder or client company names anywhere (code, tests, logs, docs, commits).
 
 UI
-- Neraca UI tokens/classes only (`src/styles/tokens.css`, `neraca.css`, `nr-*` components in `src/components/neraca/`); no hex colors in components, one `forest` card per screen, `lime` only as fill, no gradients/emoji. Cards show abbreviated figures + full-value tooltip; tables show full numbers, right-aligned, `tabular-nums`, negatives in parentheses. `src/components/ui/shadcn/` is shadcn-generated (`components.json` makes `npx shadcn add` write there); do not edit those files by hand.
+- Neraca UI tokens/classes only (`src/styles/tokens.css`, `neraca.css`, `nr-*` components in `src/components/ui/`, `charts/` and `layout/`); no hex colors in components, one `forest` card per screen, `lime` only as fill, no gradients/emoji. Cards show abbreviated figures + full-value tooltip; tables show full numbers, right-aligned, `tabular-nums`, negatives in parentheses. `src/components/ui/shadcn/` is shadcn-generated (`components.json` makes `npx shadcn add` write there); do not edit those files by hand. `src/components/ui/` itself holds the project's own domain-free base components (buttons, notices, KPI card, data table, ...).
 - Every UI string goes through i18n (`src/i18n/locales/en.json` default + `id.json`); `src/i18n/keys.test.ts` requires identical keys in both. Use finance terms in labels, not table names.
 
 Language

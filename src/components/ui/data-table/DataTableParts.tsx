@@ -3,7 +3,7 @@ import type { LegacyHeader } from '@tanstack/react-table/legacy'
 import { flexRender } from '@tanstack/react-table'
 import { ChevronRight, ChevronLeft, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import { PAGE_SIZES, type SortDir } from '~/lib/table/query'
-import type { TableColumnMeta } from '~/components/neraca/DataTable'
+import type { TableColumnMeta } from '~/components/ui/data-table/DataTable'
 
 /** The `aria-sort` of a header: nothing when the column cannot be sorted, 'none' when it is not the sorted one. */
 function ariaSortOf(sortable: boolean, isSorted: boolean, dir: SortDir | undefined) {

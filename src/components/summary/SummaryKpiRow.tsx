@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
-import { CashBalanceCard } from '~/components/neraca/CashBalanceCard'
-import { KpiCard } from '~/components/neraca/KpiCard'
+import { CashBalanceCard } from '~/components/cash-position/CashBalanceCard'
+import { KpiCard } from '~/components/ui/KpiCard'
 import { formatMoneyShort, formatPercent } from '~/lib/format/number'
 import type { IsoDate, Lang, Money } from '~/lib/core/types'
 

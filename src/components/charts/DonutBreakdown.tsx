@@ -2,8 +2,8 @@ import type { Lang, Money } from '~/lib/core/types'
 import { formatMoneyShort } from '~/lib/format/number'
 import { useTranslation } from 'react-i18next'
 import { buildDonutDisplayItems, buildDonutSegments, splitDrawableItems } from '~/lib/core/donut'
-import { EntityDonut } from '~/components/neraca/EntityDonut'
-import { DonutLegend, DonutRing, DonutTabs } from '~/components/neraca/DonutBreakdownParts'
+import { EntityDonut } from '~/components/charts/EntityDonut'
+import { DonutLegend, DonutRing, DonutTabs } from '~/components/charts/DonutBreakdownParts'
 
 export interface DonutBreakdownItem {
   id: string

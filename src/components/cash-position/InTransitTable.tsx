@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
-import { DataTable, type ColumnDef } from '~/components/neraca/DataTable'
-import { StatusPill } from '~/components/neraca/StatusPill'
+import { DataTable, type ColumnDef } from '~/components/ui/data-table/DataTable'
+import { StatusPill } from '~/components/ui/StatusPill'
 import { useOpenDrill } from '~/components/drill/useOpenDrill'
 import { formatMoneyFull } from '~/lib/format/number'
 import type { Lang } from '~/lib/core/types'

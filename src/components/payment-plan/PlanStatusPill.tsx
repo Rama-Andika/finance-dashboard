@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { StatusPill, type StatusTone } from '~/components/neraca/StatusPill'
+import { StatusPill, type StatusTone } from '~/components/ui/StatusPill'
 import type { PlanStatus } from '~/lib/finance/ap-ar/aging'
 
 const STATUS_TONE: Record<PlanStatus, StatusTone> = {

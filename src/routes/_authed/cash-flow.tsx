@@ -8,11 +8,11 @@ import {
   cashFlowMetricOptions,
   expensePaidMetricOptions,
 } from '~/queries/metrics.queries'
-import { MetricSkeleton } from '~/components/neraca/MetricSkeleton'
-import { MetricError } from '~/components/neraca/MetricError'
-import { KpiCard } from '~/components/neraca/KpiCard'
-import { CashflowChart } from '~/components/neraca/CashflowChart'
-import { Tabs } from '~/components/neraca/Tabs'
+import { MetricSkeleton } from '~/components/layout/MetricSkeleton'
+import { MetricError } from '~/components/layout/MetricError'
+import { KpiCard } from '~/components/ui/KpiCard'
+import { CashflowChart } from '~/components/charts/CashflowChart'
+import { Tabs } from '~/components/ui/Tabs'
 import { MetricPageHeader } from '~/components/layout/MetricPageHeader'
 import { useLang } from '~/components/layout/use-lang'
 import { CashFlowWaterfall } from '~/components/cash-flow/CashFlowWaterfall'

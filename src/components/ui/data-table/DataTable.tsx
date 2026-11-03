@@ -9,14 +9,14 @@ import {
 import type { ExpandedState } from '@tanstack/react-table'
 import { cn } from '~/lib/cn'
 import type { SortDir } from '~/lib/table/query'
-import { TablePager } from '~/components/neraca/DataTableParts'
+import { TablePager } from '~/components/ui/data-table/DataTableParts'
 import {
   CardHeader,
   DataTableBody,
   DataTableHead,
   MobileCards,
   useRowVirtualizer,
-} from '~/components/neraca/DataTableRows'
+} from '~/components/ui/data-table/DataTableRows'
 
 export type { ColumnDef }
 

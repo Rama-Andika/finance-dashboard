@@ -6,9 +6,9 @@ import { createFileRoute, useRouter, redirect } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 import { getCurrentUserFn, loginFn } from '~/functions/auth.fn'
-import { Button } from '~/components/neraca/Button'
-import { Notice } from '~/components/neraca/Notice'
-import { ThemeToggle, LangToggle } from '~/components/neraca/PrefsToggles'
+import { Button } from '~/components/ui/Button'
+import { Notice } from '~/components/ui/Notice'
+import { ThemeToggle, LangToggle } from '~/components/layout/top-bar/PrefsToggles'
 
 const searchSchema = z.object({
   redirect: safeRedirectSchema,

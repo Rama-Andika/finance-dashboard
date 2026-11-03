@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { Menu } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { ThemeToggle, LangToggle } from '~/components/neraca/PrefsToggles'
+import { ThemeToggle, LangToggle } from '~/components/layout/top-bar/PrefsToggles'
 import { filterOptionsQueryOptions } from '~/queries/filters.queries'
-import { EntityPicker } from '~/components/neraca/EntityPicker'
-import { PeriodSelect } from '~/components/neraca/PeriodSelect'
-import { useTopBarFilters } from '~/components/neraca/useTopBarFilters'
-import { DataChecksBell, UserMenu, initialsOf, useLogout, usePageTitle } from '~/components/neraca/TopBarParts'
+import { EntityPicker } from '~/components/layout/top-bar/EntityPicker'
+import { PeriodSelect } from '~/components/layout/top-bar/PeriodSelect'
+import { useTopBarFilters } from '~/components/layout/top-bar/use-top-bar-filters'
+import { DataChecksBell, UserMenu, initialsOf, useLogout, usePageTitle } from '~/components/layout/top-bar/TopBarParts'
 import { cn } from '~/lib/cn'
 
 export interface TopBarProps {

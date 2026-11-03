@@ -1,4 +1,4 @@
-import { categoryAxisProps, valueAxisProps } from '~/components/neraca/chart-axis'
+import { categoryAxisProps, valueAxisProps } from '~/components/charts/chart-axis'
 import { useTranslation } from 'react-i18next'
 import {
   ResponsiveContainer,

@@ -4,7 +4,7 @@ import type { LegacyRow, LegacyCell, LegacyHeaderGroup, LegacyHeader } from '@ta
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ChevronRight } from 'lucide-react'
 import type { SortDir } from '~/lib/table/query'
-import { SortHeader } from '~/components/neraca/DataTableParts'
+import { SortHeader } from '~/components/ui/data-table/DataTableParts'
 
 /** Above this many rows the table draws only the rows in view. */
 const VIRTUALIZE_ABOVE_ROWS = 200

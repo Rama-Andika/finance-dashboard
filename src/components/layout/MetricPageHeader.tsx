@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Notice } from '~/components/neraca/Notice'
+import { Notice } from '~/components/ui/Notice'
 import { PrintHeader } from '~/components/export/PrintHeader'
 import { formatMonthYear } from '~/lib/format/date'
 import type { Lang, MetricMeta } from '~/lib/core/types'

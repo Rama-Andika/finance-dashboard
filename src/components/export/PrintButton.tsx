@@ -1,7 +1,7 @@
 import React from 'react'
 import { Printer } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Button } from '~/components/neraca/Button'
+import { Button } from '~/components/ui/Button'
 
 export interface PrintButtonProps {
   className?: string

@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next'
 import { tableSearchSchema } from '~/lib/table/query'
 import { AGING_PARTY_SORT_KEYS } from '~/lib/finance/ap-ar/aging-parties'
 import { apAgingMetricOptions } from '~/queries/metrics.queries'
-import { MetricSkeleton } from '~/components/neraca/MetricSkeleton'
-import { MetricError } from '~/components/neraca/MetricError'
+import { MetricSkeleton } from '~/components/layout/MetricSkeleton'
+import { MetricError } from '~/components/layout/MetricError'
 import { AgingPage } from '~/components/aging/AgingPage'
 
 export const Route = createFileRoute('/_authed/payables')({

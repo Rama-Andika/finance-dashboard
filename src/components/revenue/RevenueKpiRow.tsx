@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { KpiCard } from '~/components/neraca/KpiCard'
+import { KpiCard } from '~/components/ui/KpiCard'
 import { largestByAmount } from '~/lib/core/money'
 import type { Money } from '~/lib/core/types'
 

@@ -1,4 +1,4 @@
-import { Skeleton } from '~/components/neraca/Skeleton'
+import { Skeleton } from '~/components/ui/Skeleton'
 
 export function MetricSkeleton() {
   return (

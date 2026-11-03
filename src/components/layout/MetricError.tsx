@@ -1,6 +1,6 @@
 import { useRouter, type ErrorComponentProps } from '@tanstack/react-router'
-import { Notice } from '~/components/neraca/Notice'
-import { Button } from '~/components/neraca/Button'
+import { Notice } from '~/components/ui/Notice'
+import { Button } from '~/components/ui/Button'
 import { useTranslation } from 'react-i18next'
 import { errorMessageKey } from '~/lib/error-message'
 

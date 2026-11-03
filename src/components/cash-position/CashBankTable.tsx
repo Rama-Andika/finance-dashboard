@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { DataTable, type ColumnDef } from '~/components/neraca/DataTable'
+import { DataTable, type ColumnDef } from '~/components/ui/data-table/DataTable'
 import { ExportCsvButton, exportFilename, type ExportScope } from '~/components/export/ExportCsvDialog'
 import { PrintButton } from '~/components/export/PrintButton'
 import { useOpenDrill } from '~/components/drill/useOpenDrill'

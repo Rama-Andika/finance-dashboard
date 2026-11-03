@@ -93,6 +93,7 @@
 | 2026-11-03 | 24 | Donut Composition › Expense = HPP + Beban Operasional (D42, O19): `lib/finance/pnl/operating-expense.ts` (+7 test), `splitDrawableItems` di `lib/core/donut.ts` (+4 test; irisan negatif tidak digambar), tab Fixed Cost di `SummaryCharts`, kunci i18n baru, satu test integrasi baru; dokumen Summary disinkronkan | typecheck, lint, 437 unit test lulus; tidak ada query ke database; test integrasi dan QA manual di UI belum dilakukan (butuh izin user) |
 | 2026-11-03 | 25 | Perbaikan temuan audit kode v3 (H-01…H-14; H-15 ditunda): query Runway tak terpakai di P&L dihapus, bacaan Expense Paid di-memo, `mapLimit`, `toInt`, pemetaan aging satu tempat, logika murni Revenue/Budget dipindah ke lib, `gl.repo` dipecah, aturan klasifikasi arus kas jadi tabel (diuji banding), helper filter dan grafik; lihat `docs/code-smell-report-v3.md` | typecheck, lint, 494 unit test, build lulus; `test:db` belum dijalankan (butuh izin user) |
 | 2026-11-03 | 26.1 | Penataan src tahap 1: 9 berkas shadcn dipindah ke components/ui/shadcn/; components.json, ESLint, dan Prettier disesuaikan; tidak ada logika yang berubah | typecheck, lint, unit test lulus; tidak ada query ke database |
+| 2026-11-03 | 26.2 | Penataan src tahap 2: folder components/neraca dihapus; 33 berkasnya disebar ke ui/, ui/data-table/, charts/, layout/, layout/top-bar/, hooks/, dan folder halaman; tidak ada logika yang berubah | typecheck, lint, unit test lulus; tidak ada query ke database |
 
 ## Ringkasan Proyek
 

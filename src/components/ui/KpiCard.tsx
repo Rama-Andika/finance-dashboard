@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { Lang, Money } from '~/lib/core/types'
-import { DeltaPill } from '~/components/neraca/DeltaPill'
-import { FigureTooltip } from '~/components/neraca/FigureTooltip'
+import { DeltaPill } from '~/components/ui/DeltaPill'
+import { FigureTooltip } from '~/components/ui/FigureTooltip'
 import { kpiFigures } from '~/lib/format/kpi'
 import { cn } from '~/lib/cn'
 
