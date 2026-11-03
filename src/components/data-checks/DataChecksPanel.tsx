@@ -6,11 +6,11 @@ import { CheckCircle2, ArrowRight, X, AlertTriangle } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle } from '~/components/ui/shadcn/sheet'
 import { Notice } from '~/components/ui/Notice'
 import { Skeleton } from '~/components/ui/Skeleton'
-import { useGlobalMetricInput } from '~/components/layout/useGlobalMetricInput'
+import { useGlobalMetricInput } from '~/hooks/use-global-metric-input'
 import { dataChecksOptions } from '~/queries/data-checks.queries'
 import { formatMoneyFull } from '~/lib/format/number'
 import { errorMessageKey } from '~/lib/error-message'
-import { useLang } from '~/components/layout/use-lang'
+import { useLang } from '~/hooks/use-lang'
 
 export interface DataChecksPanelProps {
   open: boolean

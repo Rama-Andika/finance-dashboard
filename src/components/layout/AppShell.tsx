@@ -6,7 +6,7 @@ import { MobileDrawer } from '~/components/layout/MobileDrawer'
 import { DrillSheet } from '~/components/drill/DrillSheet'
 import { AppFooter } from '~/components/layout/AppFooter'
 import { DataChecksPanel } from '~/components/data-checks/DataChecksPanel'
-import { useGlobalMetricInput } from '~/components/layout/useGlobalMetricInput'
+import { useGlobalMetricInput } from '~/hooks/use-global-metric-input'
 import { dataChecksOptions } from '~/queries/data-checks.queries'
 
 export interface AppShellProps {

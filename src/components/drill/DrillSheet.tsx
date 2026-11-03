@@ -2,10 +2,10 @@ import { translateCfLabel } from '~/lib/finance/cash/cashflow-labels'
 import { useSearch } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { Sheet, SheetContent, SheetTitle } from '~/components/ui/shadcn/sheet'
-import { useDrillData, parseDrill, type DrillSearchParams } from './useDrillData'
-import { useDrillNavigation } from './useDrillNavigation'
+import { useDrillData, parseDrill, type DrillSearchParams } from './use-drill-data'
+import { useDrillNavigation } from './use-drill-navigation'
 import { DrillBody, DrillSheetHeader, useRestoreFocus } from './DrillSheetParts'
-import { useLang } from '~/components/layout/use-lang'
+import { useLang } from '~/hooks/use-lang'
 
 export function DrillSheet() {
   const search = useSearch({ strict: false }) as DrillSearchParams

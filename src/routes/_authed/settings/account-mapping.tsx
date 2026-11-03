@@ -6,7 +6,7 @@ import { Tabs } from '~/components/ui/Tabs'
 import { CoaTreePicker } from '~/components/settings/CoaTreePicker'
 import { BasketPreview } from '~/components/settings/BasketPreview'
 import { MappingValidationNotices } from '~/components/settings/MappingValidationNotices'
-import { useAccountMappingEditor } from '~/components/settings/useAccountMappingEditor'
+import { useAccountMappingEditor } from '~/components/settings/use-account-mapping-editor'
 import type { BasketKey } from '~/lib/core/types'
 
 export const Route = createFileRoute('/_authed/settings/account-mapping')({

@@ -11,7 +11,7 @@ import { Notice } from '~/components/ui/Notice'
 import { KpiCard } from '~/components/ui/KpiCard'
 import { AgingBar } from '~/components/aging/AgingBar'
 import { MetricPageHeader } from '~/components/layout/MetricPageHeader'
-import { useLang } from '~/components/layout/use-lang'
+import { useLang } from '~/hooks/use-lang'
 import { AgingPartiesTable } from './AgingPartiesTable'
 import { SIDES, type SideConfig } from './aging-sides'
 

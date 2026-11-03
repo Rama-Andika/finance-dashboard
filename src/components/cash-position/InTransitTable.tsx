@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { DataTable, type ColumnDef } from '~/components/ui/data-table/DataTable'
 import { StatusPill } from '~/components/ui/StatusPill'
-import { useOpenDrill } from '~/components/drill/useOpenDrill'
+import { useOpenDrill } from '~/components/drill/use-open-drill'
 import { formatMoneyFull } from '~/lib/format/number'
 import type { Lang } from '~/lib/core/types'
 import type { InTransitDetailItem } from '~/lib/finance/cash/cash-position'

@@ -1,6 +1,6 @@
 import { APP_NAME } from '~/lib/brand'
 import { useTranslation } from 'react-i18next'
-import { useLang } from '~/components/layout/use-lang'
+import { useLang } from '~/hooks/use-lang'
 import { formatDate } from '~/lib/format/date'
 import { useQuery } from '@tanstack/react-query'
 import { describeEntityToken } from '~/lib/filters/entity-token'

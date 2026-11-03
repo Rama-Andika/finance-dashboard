@@ -9,7 +9,7 @@ import { Skeleton } from '~/components/ui/Skeleton'
 import { MetricError } from '~/components/layout/MetricError'
 import type { Lang } from '~/lib/core/types'
 import type { DrillStep } from '~/lib/filters/search-schema'
-import type { DrillPage } from './useDrillData'
+import type { DrillPage } from './use-drill-data'
 
 type DrillRow = Record<string, string | null>
 

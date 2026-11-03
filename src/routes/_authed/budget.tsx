@@ -9,8 +9,8 @@ import { KpiCard } from '~/components/ui/KpiCard'
 import { BudgetTable } from '~/components/budget/BudgetTable'
 import { exportFilename } from '~/components/export/ExportCsvDialog'
 import { MetricPageHeader } from '~/components/layout/MetricPageHeader'
-import { useLang } from '~/components/layout/use-lang'
-import { useOpenDrill } from '~/components/drill/useOpenDrill'
+import { useLang } from '~/hooks/use-lang'
+import { useOpenDrill } from '~/components/drill/use-open-drill'
 
 export const Route = createFileRoute('/_authed/budget')({
   validateSearch: drillSearchSchema,
