@@ -13,7 +13,7 @@
 >
 > **Belum dijalankan.** Dokumen ini tidak dibuat dengan mengeksekusi query ke database.
 >
-> **Terakhir diperbarui:** 2026-10-31
+> **Terakhir diperbarui:** 2026-11-03
 
 ## Daftar isi
 
@@ -273,6 +273,7 @@ Cache 30 detik. Bila tabel `dash_*` belum ada, error ditelan dan semua periode d
 | **Net Profit** | Laba Usaha + Other Revenue − Other Expense | idem |
 | Margin | Laba ÷ Revenue; Revenue = 0 → `null` | idem |
 | Biaya Tetap | Σ (debet − credit) akun keranjang `fixedCost` | `src/lib/finance/pnl/fixed-cost.ts` |
+| Beban usaha (donut Expense) | Σ folder Cost Of Sales + Σ folder Expense dari baris P&L yang sama; Revenue − nilai ini = Laba Usaha. Tanpa query baru | `src/lib/finance/pnl/operating-expense.ts` |
 
 OCI tidak dipisahkan (D39): setiap akun dihitung menurut grup akunnya.
 
@@ -591,7 +592,8 @@ Hasil ditulis ke tabel bayangan `dash_snap_ap_ar_open_new` / `dash_snap_ap_ar_un
 | Payables | Q1, Q14–Q15 (atau Q16–Q17), Q18, rekonsiliasi GL (Q7–Q9) |
 | Cash Flow (grafik) | Q1–Q5, Q7–Q9 (kas awal/akhir), Q20, Q21 |
 | Composition — Revenue | sama dengan kartu Revenue |
-| Composition — Expense | Q11 / Q12 (akun keranjang Biaya Tetap termasuk di pembacaan bersama) |
+| Composition — Expense | sama dengan kartu Net Profit (Q11 / Q12); folder HPP dan Beban Operasional diambil dari baris P&L, tanpa query tambahan |
+| Composition — Fixed Cost | Q11 / Q12 (akun keranjang Biaya Tetap termasuk di pembacaan bersama) |
 | Revenue by Entity (donut) | sama dengan kartu Revenue (Q11 / Q12 dengan `byLocation`); selisih "Tanpa entitas" dihitung di JavaScript, **tanpa query tambahan** |
 | Tabel tagihan (dua tab) | Q14 (atau Q16), Q19, Q18, Cash Position hari ini (Q7–Q10) |
 | Runway | Q20 (3 bulan sebelumnya), Cash Position, P&L |
@@ -666,3 +668,4 @@ WHERE table_schema = DATABASE()
 | 2026-10-30 | Perbaikan warna teks keterangan di halaman; tidak ada query yang berubah. |
 | 2026-10-31 | Keterangan entitas pada tabel tagihan memakai kolom `location_id` yang sudah dibaca Q14/Q16 dan daftar entitas Q4; tidak ada query Summary yang berubah. (Di drill-down baris jurnal, query daftar jurnal mendapat satu kolom segmen tambahan di `SELECT`/`GROUP BY`/`ORDER BY` hanya saat lebih dari 1 entitas dipilih; query itu bukan bagian dari katalog Summary.) |
 | 2026-10-31 | Q18 (nama vendor) berjalan lebih jarang: nama diingat per id selama 10 menit dan potongan 1.000 id dibaca bersamaan; isi query tidak berubah. Urutan tabel tagihan di-cache per hasil rencana (tidak ada query baru). |
+| 2026-11-03 | Donut Composition: tab Expense memakai baris P&L (HPP + Beban Operasional) dan tab Fixed Cost memakai pembacaan Biaya Tetap yang sudah ada; tidak ada query yang berubah atau ditambahkan. |

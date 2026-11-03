@@ -3,12 +3,16 @@ import { useTranslation } from 'react-i18next'
 import { CashflowChart } from '~/components/neraca/CashflowChart'
 import { DonutBreakdown } from '~/components/neraca/DonutBreakdown'
 import { translateLabel } from '~/lib/core/i18n-label'
+import { nameOperatingExpenseFolders, type OperatingExpenseFolder } from '~/lib/finance/pnl/operating-expense'
 import { countEntitiesWithRevenue } from '~/lib/finance/pnl/revenue-entity'
 import { formatMonthYear } from '~/lib/format/date'
 import type { Breakdown, IsoDate, Lang, Money } from '~/lib/core/types'
 
 /** The pages a chart of this section opens. */
 export type SummaryChartTarget = '/cash-flow' | '/revenue' | '/profit-loss'
+
+/** The tabs of the Composition donut. */
+type CompositionTab = 'revenue' | 'expense' | 'fixedCost'
 
 export interface SummaryChartsProps {
   asOf: IsoDate
@@ -17,7 +21,12 @@ export interface SummaryChartsProps {
   entityCount: number
   cashFlow: { monthly: Array<{ month: string; cashIn: Money; cashOut: Money }>; netCashFlow: Money }
   revenueByFolder: Breakdown[]
-  expenseFolders: Breakdown[]
+  /** Cost Of Sales and Expense folders: the slices of the Expense tab (Other Expense is not included). */
+  expenseFolders: OperatingExpenseFolder[]
+  /** Folders of the Fixed Cost basket: the slices of the Fixed Cost tab. */
+  fixedCostFolders: Breakdown[]
+  /** The Fixed Cost basket is empty in Settings: the Fixed Cost tab is not shown. */
+  fixedCostBasketEmpty: boolean
   revenueByEntity: Array<{ id: string; name: string; amount: Money }>
   /** Revenue that belongs to no entity. */
   entityUnassigned: Money
@@ -25,9 +34,9 @@ export interface SummaryChartsProps {
 }
 
 /**
- * Cash flow, the Composition donut (revenue / expense by folder) and, when it says something, the
- * Revenue by Entity donut. With the entity donut the cash flow chart is full width and the two donuts
- * share the row below; without it the original layout (cash flow 2/3, Composition 1/3) is used.
+ * Cash flow, the Composition donut (revenue / operating expense / fixed cost by folder) and, when it says
+ * something, the Revenue by Entity donut. With the entity donut the cash flow chart is full width and the two
+ * donuts share the row below; without it the original layout (cash flow 2/3, Composition 1/3) is used.
  */
 export function SummaryCharts({
   asOf,
@@ -36,17 +45,38 @@ export function SummaryCharts({
   cashFlow,
   revenueByFolder,
   expenseFolders,
+  fixedCostFolders,
+  fixedCostBasketEmpty,
   revenueByEntity,
   entityUnassigned,
   onOpen,
 }: SummaryChartsProps) {
   const { t } = useTranslation()
-  const [donutTab, setDonutTab] = useState<'revenue' | 'expense'>('revenue')
+  const [donutTab, setDonutTab] = useState<CompositionTab>('revenue')
+  // The Fixed Cost tab only exists when the basket is filled in Settings; if it disappears while selected, show Revenue.
+  const activeTab: CompositionTab = donutTab === 'fixedCost' && fixedCostBasketEmpty ? 'revenue' : donutTab
 
-  const donutItems =
-    donutTab === 'revenue'
-      ? revenueByFolder.map((f) => ({ id: f.id, name: f.label, amount: f.amount }))
-      : expenseFolders.map((f) => ({ id: f.id, name: translateLabel(t, f.label), amount: f.amount }))
+  const tabs = [
+    { id: 'revenue', label: t('metric.tabs.revenue') },
+    { id: 'expense', label: t('metric.tabs.expense') },
+    ...(fixedCostBasketEmpty ? [] : [{ id: 'fixedCost', label: t('metric.tabs.fixedCost') }]),
+  ]
+
+  const composition =
+    activeTab === 'revenue'
+      ? {
+          items: revenueByFolder.map((f) => ({ id: f.id, name: f.label, amount: f.amount })),
+          totalLabel: t('ui.summary.totalRevenue'),
+        }
+      : activeTab === 'expense'
+        ? {
+            items: nameOperatingExpenseFolders(expenseFolders, { cogs: t('pnlLine.cogs'), opex: t('pnlLine.opex') }),
+            totalLabel: t('ui.summary.totalOperatingExpense'),
+          }
+        : {
+            items: fixedCostFolders.map((f) => ({ id: f.id, name: translateLabel(t, f.label), amount: f.amount })),
+            totalLabel: t('ui.summary.totalFixedCost'),
+          }
 
   // A ring with a single entity is one full circle and says nothing: the card needs at least two
   // selected entities and at least two of them with revenue above zero.
@@ -66,16 +96,13 @@ export function SummaryCharts({
   const compositionDonut = (
     <DonutBreakdown
       title={t('ui.summary.composition')}
-      tabs={[
-        { id: 'revenue', label: t('metric.tabs.revenue') },
-        { id: 'expense', label: t('metric.tabs.expense') },
-      ]}
-      activeTab={donutTab}
-      onTabChange={(tab) => setDonutTab(tab as 'revenue' | 'expense')}
-      items={donutItems}
-      totalLabel={donutTab === 'revenue' ? t('ui.summary.totalRevenue') : t('ui.summary.totalExpense')}
+      tabs={tabs}
+      activeTab={activeTab}
+      onTabChange={(tab) => setDonutTab(tab as CompositionTab)}
+      items={composition.items}
+      totalLabel={composition.totalLabel}
       lang={lang}
-      onSelect={() => onOpen(donutTab === 'revenue' ? '/revenue' : '/profit-loss')}
+      onSelect={() => onOpen(activeTab === 'revenue' ? '/revenue' : '/profit-loss')}
     />
   )
 

@@ -1,6 +1,12 @@
 import Decimal from 'decimal.js'
 import { describe, expect, it } from 'vitest'
-import { buildDonutArcs, buildDonutDisplayItems, buildDonutSegments, largestRemainderPercentages } from './donut'
+import {
+  buildDonutArcs,
+  buildDonutDisplayItems,
+  buildDonutSegments,
+  largestRemainderPercentages,
+  splitDrawableItems,
+} from './donut'
 
 const decs = (values: number[]) => values.map((v) => new Decimal(v))
 
@@ -94,5 +100,34 @@ describe('buildDonutSegments', () => {
 
   it('returns nothing for no slices', () => {
     expect(buildDonutSegments([])).toEqual([])
+  })
+})
+
+describe('splitDrawableItems', () => {
+  const item = (id: string, amount: string) => ({ id, name: `Item ${id}`, amount })
+  const mixed = [item('a', '600.00'), item('b', '-50.00'), item('c', '0.00'), item('d', '100.00')]
+
+  it('keeps only the slices above zero, in the order they were given', () => {
+    expect(splitDrawableItems(mixed).items.map((i) => i.id)).toEqual(['a', 'd'])
+  })
+
+  it('counts negative slices as left out but not zero ones', () => {
+    expect(splitDrawableItems(mixed).negativeCount).toBe(1)
+  })
+
+  it('sums every slice, negative ones included, so the total is net', () => {
+    expect(splitDrawableItems(mixed).total.toFixed(2)).toBe('650.00')
+  })
+
+  it('handles an empty list and a missing amount', () => {
+    const empty = splitDrawableItems([])
+    expect(empty.items).toEqual([])
+    expect(empty.negativeCount).toBe(0)
+    expect(empty.total.toString()).toBe('0')
+
+    const missing = splitDrawableItems([item('x', '')])
+    expect(missing.items).toEqual([])
+    expect(missing.negativeCount).toBe(0)
+    expect(missing.total.toString()).toBe('0')
   })
 })

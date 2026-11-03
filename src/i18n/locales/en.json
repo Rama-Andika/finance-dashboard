@@ -416,7 +416,8 @@
       "overdue": "Overdue",
       "composition": "Composition",
       "totalRevenue": "Total revenue",
-      "totalExpense": "Total expense",
+      "totalOperatingExpense": "Op. expense",
+      "totalFixedCost": "Total fixed cost",
       "revenueByEntity": "Revenue by Entity",
       "details": "Details"
     },
@@ -451,7 +452,8 @@
       "composition": "Composition",
       "ariaLabel": "{{title}} {{period}}, total {{total}}. Largest {{top}} {{pct}} percent.",
       "moreItems": "+{{count}} more",
-      "hiddenEntities": "{{count}} entities with zero or negative revenue are not shown"
+      "hiddenEntities": "{{count}} entities with zero or negative revenue are not shown",
+      "hiddenNegative": "{{count}} items with a negative balance are not drawn"
     },
     "topBar": {
       "user": "User"

@@ -78,6 +78,33 @@ export function buildDonutDisplayItems(items: readonly DonutItem[], otherName: s
   return [...kept, { id: 'other', name: otherName, amount: otherSum.toFixed(0), decAmount: otherSum }]
 }
 
+/** The slices of a ring that can be drawn, how many were left out for being negative, and the net total. */
+export type DrawableDonutItems = {
+  /** Slices with an amount above zero, in the order they were given. */
+  items: DonutItem[]
+  /** Slices with a negative amount: not drawn. Slices of exactly zero are left out without being counted. */
+  negativeCount: number
+  /** Sum of every slice, negative ones included: the number shown in the middle of the ring. */
+  total: Decimal
+}
+
+/**
+ * Splits slices into the ones a ring can draw (amount above zero) and the rest. A ring cannot draw a negative
+ * slice, so it is counted for a note under the legend, and it still lowers the total so the total agrees with the P&L.
+ */
+export function splitDrawableItems(items: readonly DonutItem[]): DrawableDonutItems {
+  const drawable: DonutItem[] = []
+  let negativeCount = 0
+  let total = new Decimal(0)
+  for (const item of items) {
+    const amount = new Decimal(item.amount || '0')
+    total = total.plus(amount)
+    if (amount.gt(0)) drawable.push(item)
+    else if (amount.lt(0)) negativeCount += 1
+  }
+  return { items: drawable, negativeCount, total }
+}
+
 /** A slice with the numbers its ring arc and legend row need. */
 export type DonutSegment = DonutDisplayItem & { pct: number; dashArray: string; dashOffset: string }
 

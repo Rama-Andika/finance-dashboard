@@ -67,6 +67,8 @@ function SummaryPage() {
         cashFlow={data.cashFlow}
         revenueByFolder={data.revenue.byFolder}
         expenseFolders={data.expenseFolders}
+        fixedCostFolders={data.fixedCostFolders}
+        fixedCostBasketEmpty={data.fixedCostBasketEmpty}
         revenueByEntity={data.revenue.byEntity}
         entityUnassigned={data.revenue.entityUnassigned}
         onOpen={goTo}

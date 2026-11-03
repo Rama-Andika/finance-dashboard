@@ -8,7 +8,7 @@
 >
 > **Query SQL lengkap untuk developer:** lihat [`summary-queries.md`](./summary-queries.md). Kedua dokumen harus diperbarui bersamaan.
 >
-> **Terakhir diperbarui:** 2026-10-31
+> **Terakhir diperbarui:** 2026-11-03
 
 ## Daftar isi
 
@@ -61,7 +61,7 @@ Berlaku untuk semua kartu di Summary.
 | Net Profit | `pnl.service.ts` | `gl`, `gl_detail`, `coa` |
 | Payables | `ap-aging.service.ts` | `ap_ar_card`, `ap_ar_card_detail`, `vendor` (via snapshot `dash_*`) |
 | Cash Flow | `cash-flow.service.ts` | `gl`, `gl_detail`, `cash_flow_setup`, `cash_flow_group` |
-| Composition | `revenue.service.ts`, `fixed-cost.service.ts` | `gl`, `gl_detail`, `coa`, `system_main` |
+| Composition | `revenue.service.ts`, `pnl.service.ts`, `fixed-cost.service.ts` | `gl`, `gl_detail`, `coa`, `system_main` |
 | Revenue by Entity | `revenue.service.ts` | `gl`, `gl_detail`, `coa`, `segment_detail`, `pos_location` |
 | Tabel tagihan (dua tab) | `payment-plan.service.ts` | AP open invoices, `bankpo_payment`, `bankpo_payment_detail`, `vendor` |
 | Runway, Margin, Current Ratio | `runway.service.ts` | Cash Position + arus kas + P&L + saldo akun |
@@ -242,8 +242,13 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 ## 7. Composition (donut)
 
 - **Tab Revenue:** Revenue per folder akun (data sama dengan kartu Revenue).
-- **Tab Expense:** hanya akun di keranjang **Biaya Tetap** (Fixed Cost), per folder, debit − kredit selama periode terpilih.
-- Judulnya "Total Expense" padahal HPP dan biaya variabel tidak ikut. **Perlu konfirmasi:** sesuai harapan, atau sebaiknya semua Beban?
+- **Tab Expense:** HPP (grup akun *Cost Of Sales*) + Beban Operasional (grup *Expense*), per folder akun teratas dari masing-masing grup, debit − kredit selama periode terpilih. Angka di tengah ("Beban usaha") = HPP + Beban Operasional, diambil dari baris yang sama dengan laporan P&L (tanpa query tambahan), sehingga **Revenue − angka ini = Operating Profit** (D42).
+  - **Other Expense tidak ikut** (mis. bunga pinjaman dan selisih kurs; isinya bergantung pada CoA klien). Other Revenue juga tidak ikut di tab Revenue. Jadi kedua tab hanya memuat kegiatan usaha, dan Net Profit = Operating Profit + Other Revenue − Other Expense. Ditunda sebagai item terbuka O19.
+  - Bila ada folder HPP dan folder Beban Operasional yang namanya sama, nama grupnya ditambahkan dalam kurung di legenda.
+- **Tab Fixed Cost:** hanya akun di keranjang **Biaya Tetap** (Settings), per folder, debit − kredit selama periode terpilih; angka tengah "Total biaya tetap". Tab ini disembunyikan bila keranjang belum diisi. Angkanya tidak harus sama dengan tab Expense.
+- **Irisan negatif (semua donut komposisi, termasuk donut Revenue di halaman Revenue):** folder bersaldo negatif (mis. retur melebihi pembelian) tidak digambar dan jumlahnya disebut dalam catatan kecil di bawah legenda; folder bersaldo nol tidak digambar dan tidak dicatat. Angka tengah tetap neto, jadi bisa lebih kecil dari jumlah irisan yang terlihat. Persentase dihitung dari irisan yang digambar. Sebelumnya donut memakai nilai mutlak.
+- Batas irisan: 4 terbesar + "Lainnya". Klik irisan: tab Revenue membuka halaman Revenue, tab Expense dan Fixed Cost membuka halaman Profit & Loss, dengan filter yang sama.
+- **Perlu konfirmasi (tab Expense):** (1) Apa saja isi grup Other Expense di CoA klien, dan apakah perlu masuk donut (O19)? (2) Apakah HPP diposting ke buku besar klien? Bila tidak, tab Expense hanya berisi Beban Operasional.
 
 ### Revenue by Entity (donut kedua)
 
@@ -305,7 +310,7 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 2. Apakah Deposito harus masuk Cash Position.
 3. Apakah total Payables dan angka Cash Position sama dengan laporan ERP pada tanggal yang sama.
 4. Definisi Overdue dan isi tabel tagihan (apakah tagihan lama perlu ditandai di tab "Lewat jatuh tempo").
-5. Isi tab Expense di donut, dan pembanding periode berjalan vs bulan lalu penuh.
+5. Isi tab Expense di donut (HPP + Beban Operasional; Other Expense ditunda, O19), dan pembanding periode berjalan vs bulan lalu penuh.
 
 ---
 
@@ -319,6 +324,7 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 - Dihitung di server tetapi tidak ditampilkan di Summary: pembanding Cash Position, saldo awal dan overdue Payment Plan 7 hari, pembanding AP, rekonsiliasi GL terhadap AP. Query-nya tetap berjalan.
 - Untuk tanggal acuan masa lalu yang bukan akhir bulan, AP memakai query langsung ke ERP yang lambat.
 - Donut Revenue by Entity: `computeRevenue` mengirim `byEntity` (dengan `id` lokasi) dan `entityUnassigned` (= total − Σ entitas); `computeSummary` meneruskannya. Pengelompokan segmen, persentase, dan baris tabel dihitung di `lib/finance/pnl/revenue-entity.ts`; persentase sisa-terbesar dan geometri cincin dipakai bersama dengan donut Composition lewat `lib/core/donut.ts`. Komponennya `components/neraca/EntityDonut.tsx`, dipanggil lewat `<DonutBreakdown variant="entity">`. Kartu disembunyikan di `components/summary/SummaryCharts.tsx` (`showEntityCard`, memakai `countEntitiesWithRevenue`).
+- Donut Composition: tab Expense memakai `expenseFolders` dari `computeSummary`, yaitu `buildOperatingExpenseFolders(pnl.lines)` (`lib/finance/pnl/operating-expense.ts`; folder dari baris `cogs` dan `opex` hasil `buildPnl`, tanpa query baru). Tab Fixed Cost memakai `fixedCostFolders` dan `fixedCostBasketEmpty` dari `computeFixedCost`; tab disembunyikan di `components/summary/SummaryCharts.tsx` bila keranjang kosong. Nama irisan dibuat `nameOperatingExpenseFolders`. Irisan negatif disaring `splitDrawableItems` (`lib/core/donut.ts`) di `components/neraca/DonutBreakdown.tsx`.
 - Keterangan entitas pada tabel tagihan: `computePaymentPlan` mengisi `entityName` tiap tagihan lewat `lib/core/entity-owner.ts` (daftar entitas dari `getCachedEntities`, tanpa query baru); `listPaymentPlanBills` mengirim `showEntity` (= `entityCount > 1`). Komponennya `components/neraca/EntityCaption.tsx`; dipakai juga di drill-down (daftar tagihan Payables/Receivables/Payment Plan dan baris jurnal) tanpa mengubah angka.
 - Kecepatan tabel tagihan: urutan tiap tab dan kolom, serta jumlah dan total kedua tab, dibuat sekali per hasil rencana (`createViewCache` di `lib/table/query.ts`), jadi pindah halaman atau potongan ekspor CSV tidak mengurutkan ulang. Pembanding teks memakai satu `Intl.Collator` dan pembanding saldo tidak membuat objek `Decimal` per perbandingan (hasil urutan sama). Nama vendor diingat per id selama 10 menit (`party.repo.ts`).
 - Bagian atas semua halaman metrik (judul cetak dan peringatan periode terbuka/bulan kosong) ada di `components/layout/MetricPageHeader.tsx`; bahasa antarmuka dibaca lewat `useLang`.
@@ -341,3 +347,4 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 | 2026-10-30 | Judul empat kartu mini dan teks keterangan kecil di Summary tampil terlalu pucat (kelas warna salah); diperbaiki, tanpa perubahan angka. |
 | 2026-10-31 | Tabel tagihan menampilkan keterangan entitas pemilik (nama kecil di bawah nomor tagihan) bila lebih dari 1 entitas dipilih; ekspor CSV ikut mendapat kolom Entitas (D41). Bagian 8 dan 11 diperbarui; tidak ada angka yang berubah. |
 | 2026-10-31 | Tabel tagihan lebih cepat untuk puluhan ribu tagihan (urutan di-cache per hasil rencana, pembanding teks dan saldo dipercepat) dan nama vendor di-cache; tidak ada angka atau tampilan yang berubah. Bagian 11 diperbarui. |
+| 2026-11-03 | Donut Composition: tab Expense kini berisi HPP + Beban Operasional per folder (sebelumnya hanya keranjang Biaya Tetap, D42), tab Fixed Cost ditambahkan untuk isi lama, irisan negatif tidak digambar (juga di donut halaman Revenue). Other Expense ditunda (O19). Bagian 1, 7, 10, dan 11 diperbarui. |

@@ -173,6 +173,15 @@ describe('Metrics DB integration (demo data window)', () => {
     expect(journals.rows.length).toBeGreaterThan(0)
   })
 
+  it('Summary: operating expense folders add up to Revenue minus Operating Profit', { timeout: TEST_TIMEOUT }, async () => {
+    // One entity, like the other Summary test: the full Summary for all entities takes longer than the timeout.
+    const summary = await computeSummary(entityFilter)
+    for (const folder of summary.expenseFolders) expect(folder.amount).toMatch(MONEY_REGEX)
+    const folderTotal = sum(summary.expenseFolders.map((f) => f.amount))
+    const gap = D(summary.revenue.total).minus(D(folderTotal)).minus(D(summary.pnl.operatingProfit))
+    expect(gap.abs().lt(1)).toBe(true)
+  })
+
   it('Drill-down: P&L, cash flow and cash position sections return rows', { timeout: TEST_TIMEOUT }, async () => {
     const pnlDrill = await computeDrill(filter, { metric: 'pnl', steps: [{ kind: 'section', id: 'revenue', label: 'Revenue' }] })
     expect(pnlDrill.rows.length).toBeGreaterThan(0)

@@ -416,7 +416,8 @@
       "overdue": "Overdue",
       "composition": "Komposisi",
       "totalRevenue": "Total pendapatan",
-      "totalExpense": "Total beban",
+      "totalOperatingExpense": "Beban usaha",
+      "totalFixedCost": "Total biaya tetap",
       "revenueByEntity": "Pendapatan per Entitas",
       "details": "Detail"
     },
@@ -451,7 +452,8 @@
       "composition": "Komposisi",
       "ariaLabel": "{{title}} {{period}}, total {{total}}. Terbesar {{top}} {{pct}} persen.",
       "moreItems": "+{{count}} lainnya",
-      "hiddenEntities": "{{count}} entitas dengan pendapatan nol atau negatif tidak ditampilkan"
+      "hiddenEntities": "{{count}} entitas dengan pendapatan nol atau negatif tidak ditampilkan",
+      "hiddenNegative": "{{count}} item bernilai negatif tidak digambar"
     },
     "topBar": {
       "user": "Pengguna"

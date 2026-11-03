@@ -1,8 +1,7 @@
-import Decimal from 'decimal.js'
 import type { Lang, Money } from '~/lib/core/types'
 import { formatMoneyShort } from '~/lib/format/number'
 import { useTranslation } from 'react-i18next'
-import { buildDonutDisplayItems, buildDonutSegments } from '~/lib/core/donut'
+import { buildDonutDisplayItems, buildDonutSegments, splitDrawableItems } from '~/lib/core/donut'
 import { EntityDonut } from '~/components/neraca/EntityDonut'
 import { DonutLegend, DonutRing, DonutTabs } from '~/components/neraca/DonutBreakdownParts'
 
@@ -64,11 +63,13 @@ function DefaultDonut({
   const { t } = useTranslation()
   const displayTitle = title ?? t('ui.donutBreakdown.composition')
 
+  // Only slices above zero are drawn. The number in the middle is the net total of every slice, so a negative
+  // slice lowers it and it keeps agreeing with the P&L.
+  const drawable = splitDrawableItems(items)
   // Max 5 segments: the 4 largest + "Other"
-  const displayItems = buildDonutDisplayItems(items, t('ui.donutBreakdown.other'))
+  const displayItems = buildDonutDisplayItems(drawable.items, t('ui.donutBreakdown.other'))
   const segments = buildDonutSegments(displayItems)
-  const total = displayItems.reduce((sum, it) => sum.add(it.decAmount), new Decimal(0))
-  const totalFormatted = formatMoneyShort(total.toFixed(0), lang)
+  const totalFormatted = formatMoneyShort(drawable.total.toFixed(0), lang)
 
   // Accessible description
   const ariaLabel = t('ui.donutBreakdown.ariaLabel', {
@@ -100,6 +101,12 @@ function DefaultDonut({
         onSelect={onSelect}
       />
       <DonutLegend segments={segments} lang={lang} onSelect={onSelect} />
+
+      {drawable.negativeCount > 0 && (
+        <p className="nr-muted nr-donut-note">
+          {t('ui.donutBreakdown.hiddenNegative', { count: drawable.negativeCount })}
+        </p>
+      )}
     </section>
   )
 }

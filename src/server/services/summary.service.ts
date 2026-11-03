@@ -9,6 +9,7 @@ import { computeCashFlow } from '~/server/services/cash-flow.service'
 import { computeRunwayMetrics } from '~/server/services/runway.service'
 import { computePaymentPlan } from '~/server/services/payment-plan.service'
 import { computeFixedCost } from '~/server/services/fixed-cost.service'
+import { buildOperatingExpenseFolders, type OperatingExpenseFolder } from '~/lib/finance/pnl/operating-expense'
 
 export type SummaryResult = {
   meta: MetricMeta
@@ -30,7 +31,12 @@ export type SummaryResult = {
     byEntity: RevenueResult['byEntity']
     entityUnassigned: Money
   }
-  expenseFolders: Breakdown[]
+  /** Cost Of Sales and Expense folders: the slices of the Expense tab of the Composition donut (Other Expense is not included, D42). */
+  expenseFolders: OperatingExpenseFolder[]
+  /** Folders of the Fixed Cost basket: the slices of the Fixed Cost tab. */
+  fixedCostFolders: Breakdown[]
+  /** True when the Fixed Cost basket is empty in Settings: the Fixed Cost tab is hidden. */
+  fixedCostBasketEmpty: boolean
   pnl: {
     grossProfit: Money
     grossMargin: string | null
@@ -118,7 +124,9 @@ export async function computeSummary(
       byEntity: revenue.byEntity,
       entityUnassigned: revenue.entityUnassigned,
     },
-    expenseFolders: fixedCost.byFolder,
+    expenseFolders: buildOperatingExpenseFolders(pnl.lines),
+    fixedCostFolders: fixedCost.byFolder,
+    fixedCostBasketEmpty: fixedCost.basketEmpty,
     pnl: {
       grossProfit: gpLine?.amount ?? '0.00',
       grossMargin: gpLine?.margin ?? null,
