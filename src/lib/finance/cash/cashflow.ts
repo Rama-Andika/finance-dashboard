@@ -190,174 +190,125 @@ function mapGroupName(groupName: string): DrawerKey {
   return 'OPERATING'
 }
 
+/** One (group, sub group) of cash_flow_setup that applies to a counter account, with the directions it accepts. */
+type SetupSubRow = {
+  groupName: string
+  groupSequence: number
+  subGroup: string
+  subSequence: number
+  /** valueDisplayed = 0: the sub row takes inflows. */
+  takesInflow: boolean
+  /** valueDisplayed = 1: the sub row takes outflows. */
+  takesOutflow: boolean
+}
+
+type CounterAccount = { accountGroup: string; subAccountGroup: string }
+
+/** The setup sub rows of the counter account's group and sub group, one per (group name, sub group), in setup order. */
+function setupSubRowsOf(setup: readonly CfSetupRow[], counter: CounterAccount): SetupSubRow[] {
+  const subRows = new Map<string, SetupSubRow>()
+  for (const r of setup) {
+    if (r.accountGroup !== counter.accountGroup || r.subAccountGroup !== counter.subAccountGroup) continue
+    const key = `${r.groupName}::${r.subGroup}`
+    const subRow = subRows.get(key) ?? {
+      groupName: r.groupName,
+      groupSequence: r.groupSequence,
+      subGroup: r.subGroup,
+      subSequence: r.subSequence,
+      takesInflow: false,
+      takesOutflow: false,
+    }
+    if (r.valueDisplayed === 0) subRow.takesInflow = true
+    if (r.valueDisplayed === 1) subRow.takesOutflow = true
+    subRows.set(key, subRow)
+  }
+  return Array.from(subRows.values())
+}
+
+/** A sub row with both kinds of rows takes any portion; one kind takes only its own direction. */
+function takesPortion(subRow: SetupSubRow, portion: Decimal): boolean {
+  if (subRow.takesInflow && subRow.takesOutflow) return true
+  if (subRow.takesOutflow) return portion.lt(0)
+  if (subRow.takesInflow) return portion.gt(0)
+  return false
+}
+
+/** Setup order: group sequence first, then sub sequence. */
+const bySetupOrder = (a: SetupSubRow, b: SetupSubRow): number =>
+  a.groupSequence !== b.groupSequence ? a.groupSequence - b.groupSequence : a.subSequence - b.subSequence
+
 /**
  * Classify a portion using ERP cash_flow_setup table.
  */
 export function classifyBySetup(
   portion: Money,
-  counter: { accountGroup: string; subAccountGroup: string },
+  counter: CounterAccount,
   setup: CfSetupRow[],
 ): ClassifiedPortion | 'UNCLASSIFIED' {
   const portionD = D(portion)
+  const eligible = setupSubRowsOf(setup, counter).filter((subRow) => takesPortion(subRow, portionD))
+  if (eligible.length === 0) return 'UNCLASSIFIED'
 
-  // Sub-row candidate grouping: subGroupKey -> { rows, groupName, groupSequence, subGroup, subSequence }
-  const subRows = new Map<
-    string,
-    {
-      groupName: string
-      groupSequence: number
-      subGroup: string
-      subSequence: number
-      has0: boolean
-      has1: boolean
-    }
-  >()
-
-  for (const r of setup) {
-    if (
-      r.accountGroup === counter.accountGroup &&
-      r.subAccountGroup === counter.subAccountGroup
-    ) {
-      const key = `${r.groupName}::${r.subGroup}`
-      const existing = subRows.get(key) ?? {
-        groupName: r.groupName,
-        groupSequence: r.groupSequence,
-        subGroup: r.subGroup,
-        subSequence: r.subSequence,
-        has0: false,
-        has1: false,
-      }
-      if (r.valueDisplayed === 0) existing.has0 = true
-      if (r.valueDisplayed === 1) existing.has1 = true
-      subRows.set(key, existing)
-    }
-  }
-
-  const eligible: Array<{
-    groupName: string
-    groupSequence: number
-    subGroup: string
-    subSequence: number
-  }> = []
-
-  for (const sr of subRows.values()) {
-    if (sr.has0 && sr.has1) {
-      // Accepts both inflow and outflow
-      eligible.push(sr)
-    } else if (sr.has1 && portionD.lt(0)) {
-      // ValueDisplayed = 1: Outflow only
-      eligible.push(sr)
-    } else if (sr.has0 && portionD.gt(0)) {
-      // ValueDisplayed = 0: Inflow only
-      eligible.push(sr)
-    }
-  }
-
-  if (eligible.length === 0) {
-    return 'UNCLASSIFIED'
-  }
-
-  // Sort by groupSequence ASC, then subSequence ASC
-  eligible.sort((a, b) => {
-    if (a.groupSequence !== b.groupSequence) {
-      return a.groupSequence - b.groupSequence
-    }
-    return a.subSequence - b.subSequence
-  })
-
-  const winner = eligible[0]!
-  return {
-    drawer: mapGroupName(winner.groupName),
-    subGroup: winner.subGroup,
-  }
+  // The first in setup order wins; equal sequences keep setup order.
+  const winner = eligible.reduce((best, subRow) => (bySetupOrder(subRow, best) < 0 ? subRow : best))
+  return { drawer: mapGroupName(winner.groupName), subGroup: winner.subGroup }
 }
 
-/**
- * Classify a portion using the 10 fallback rules (§6.3).
- */
-export function classifyByFallback(
-  portion: Money,
-  counter: { accountGroup: string; subAccountGroup: string },
-  journalType: number,
-): ClassifiedPortion {
-  const portionD = D(portion)
+/** A fallback rule gives the classification when it applies to the counter account, otherwise null. */
+type FallbackRule = (counter: CounterAccount, portion: Decimal, journalType: number) => ClassifiedPortion | null
 
-  // 1. journal_type in {11, 12, 13, 14}
-  if (LOAN_JOURNAL_TYPES.has(journalType)) {
-    return { drawer: 'FUNDING', subGroup: CF_FALLBACK.bankLoan }
-  }
-
-  // 2. journal_type in {44, 45, 49, 50, 51} or Fixed/Other Assets
-  if (
-    FIXED_ASSET_JOURNAL_TYPES.has(journalType) ||
-    ['Fixed Assets', 'Other Assets'].includes(counter.accountGroup)
-  ) {
-    return {
-      drawer: 'INVESTING',
-      subGroup: portionD.lt(0) ? CF_FALLBACK.assetPurchase : CF_FALLBACK.assetSale,
-    }
-  }
-
+/** The fallback rules (§6.3) in the order they are tried: the first one that applies wins. */
+const FALLBACK_RULES: readonly FallbackRule[] = [
+  // 1. bank loan journals
+  (_counter, _portion, journalType) =>
+    LOAN_JOURNAL_TYPES.has(journalType) ? { drawer: 'FUNDING', subGroup: CF_FALLBACK.bankLoan } : null,
+  // 2. fixed asset journals, or a Fixed / Other Assets counter account
+  (counter, portion, journalType) =>
+    FIXED_ASSET_JOURNAL_TYPES.has(journalType) || ['Fixed Assets', 'Other Assets'].includes(counter.accountGroup)
+      ? { drawer: 'INVESTING', subGroup: portion.lt(0) ? CF_FALLBACK.assetPurchase : CF_FALLBACK.assetSale }
+      : null,
   // 3. Equity
-  if (counter.accountGroup === 'Equity') {
-    return {
-      drawer: 'FUNDING',
-      subGroup:
-        portionD.gt(0)
-          ? CF_FALLBACK.capitalContribution
-          : CF_FALLBACK.ownerDrawings,
-    }
-  }
-
+  (counter, portion) =>
+    counter.accountGroup === 'Equity'
+      ? {
+          drawer: 'FUNDING',
+          subGroup: portion.gt(0) ? CF_FALLBACK.capitalContribution : CF_FALLBACK.ownerDrawings,
+        }
+      : null,
   // 4. Long Term Liabilities
-  if (counter.accountGroup === 'Long Term Liabilities') {
-    return { drawer: 'FUNDING', subGroup: CF_FALLBACK.longTermLoan }
-  }
-
+  (counter) =>
+    counter.accountGroup === 'Long Term Liabilities' ? { drawer: 'FUNDING', subGroup: CF_FALLBACK.longTermLoan } : null,
   // 5. Revenue or Account Receivable
-  if (
-    counter.accountGroup === 'Revenue' ||
-    counter.subAccountGroup === 'Account Receivable'
-  ) {
-    return { drawer: 'OPERATING', subGroup: CF_FALLBACK.customerReceipts }
-  }
-
-  // 6. Account Payable, Current Liabilities, Inventory
-  if (
-    counter.subAccountGroup === 'Account Payable' ||
-    counter.subAccountGroup === 'Inventory'
-  ) {
-    return { drawer: 'OPERATING', subGroup: CF_FALLBACK.supplierPayments }
-  }
-
+  (counter) =>
+    counter.accountGroup === 'Revenue' || counter.subAccountGroup === 'Account Receivable'
+      ? { drawer: 'OPERATING', subGroup: CF_FALLBACK.customerReceipts }
+      : null,
+  // 6. Account Payable or Inventory
+  (counter) =>
+    counter.subAccountGroup === 'Account Payable' || counter.subAccountGroup === 'Inventory'
+      ? { drawer: 'OPERATING', subGroup: CF_FALLBACK.supplierPayments }
+      : null,
   // 7. Expense, Cost Of Sales, Account Receivable Other
-  if (
-    ['Expense', 'Cost Of Sales'].includes(counter.accountGroup) ||
-    counter.subAccountGroup === 'Account Receivable Other'
-  ) {
-    return {
-      drawer: 'OPERATING',
-      subGroup: CF_FALLBACK.operatingExpenses,
-    }
-  }
-
+  (counter) =>
+    ['Expense', 'Cost Of Sales'].includes(counter.accountGroup) || counter.subAccountGroup === 'Account Receivable Other'
+      ? { drawer: 'OPERATING', subGroup: CF_FALLBACK.operatingExpenses }
+      : null,
   // 8. Other Expense
-  if (counter.accountGroup === 'Other Expense') {
-    return { drawer: 'OPERATING', subGroup: CF_FALLBACK.interestAndFees }
-  }
-
+  (counter) =>
+    counter.accountGroup === 'Other Expense' ? { drawer: 'OPERATING', subGroup: CF_FALLBACK.interestAndFees } : null,
   // 9. Other Revenue
-  if (counter.accountGroup === 'Other Revenue') {
-    return {
-      drawer: 'OPERATING',
-      subGroup: CF_FALLBACK.otherIncome,
-    }
-  }
+  (counter) =>
+    counter.accountGroup === 'Other Revenue' ? { drawer: 'OPERATING', subGroup: CF_FALLBACK.otherIncome } : null,
+]
 
-  // 10. Fallback unclassified
-  return {
-    drawer: 'OPERATING',
-    subGroup: UNCLASSIFIED_SUBGROUP,
-    unclassified: true,
+/**
+ * Classify a portion using the fallback rules (§6.3); 'Unclassified' when none applies.
+ */
+export function classifyByFallback(portion: Money, counter: CounterAccount, journalType: number): ClassifiedPortion {
+  const portionD = D(portion)
+  for (const rule of FALLBACK_RULES) {
+    const classified = rule(counter, portionD, journalType)
+    if (classified) return classified
   }
+  return { drawer: 'OPERATING', subGroup: UNCLASSIFIED_SUBGROUP, unclassified: true }
 }

@@ -1,4 +1,5 @@
 import '@tanstack/react-start/server-only'
+import { toAgingInvoice, toAgingUnallocated, type AgingInvoiceDbRow, type AgingInvoiceOf, type AgingUnallocatedDbRow, type AgingUnallocatedOf } from '~/server/repo/apar.rows'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { chunkOrAll } from '~/server/db/chunk'
@@ -7,22 +8,17 @@ import {
   IN_OUT_VALUES,
   intList,
 } from '~/server/db/erp-codes'
-import { D } from '~/lib/core/money'
 import { memo } from '~/server/cache'
 import { addDays } from '~/lib/format/date'
 import { apArSnapshotCovers, snapshotOpenInvoices, snapshotUnallocated } from '~/server/dash/snapshot'
 import { apArHistCovers, histOpenInvoices, histUnallocated } from '~/server/dash/snapshot-hist'
-import { idOrEmpty, locationFilter, toDay } from '~/server/repo/apar.shared'
+import { locKeyOf, locationFilter } from '~/server/repo/apar.shared'
 import type { AgingInvoice, AgingSide, AgingUnallocated } from '~/server/repo/apar.types'
 import type { Id, IsoDate, Money } from '~/lib/core/types'
 
 const AGING_CACHE_MS = 5 * 60 * 1000
 
 // One implementation for both sides; they differ only in module and transaction types.
-
-function locKeyOf(locIds: Id[] | 'all'): string {
-  return locIds === 'all' ? 'all' : [...locIds].sort().join(',')
-}
 
 /**
  * Open invoices with their balance at the end of the day before `asOfPlusOne`.
@@ -50,26 +46,14 @@ export function liveAgingInvoices<K extends 'vendorId' | 'customerId'>(
   locIds: Id[] | 'all',
   partyKey: K,
 ): Promise<Array<Omit<AgingInvoice, 'partyId'> & Record<K, Id>>> {
-  type Row = Omit<AgingInvoice, 'partyId'> & Record<K, Id>
   if (locIds !== 'all' && locIds.length === 0) return Promise.resolve([])
   const cfg = AGING_SIDES[side]
 
   return memo(`${side}AgingInvoices:${asOfPlusOne}:${locKeyOf(locIds)}`, AGING_CACHE_MS, async () => {
-    const results: Row[] = []
+    const results: Array<AgingInvoiceOf<K>> = []
 
     for (const lChunk of chunkOrAll(locIds)) {
-      const res = await rows<{
-        invoiceId: string
-        invoiceNumber: string | null
-        partyId: string | null
-        locationId: string | null
-        coaId: string | null
-        txDate: string
-        dueDate: string | null
-        itemType: number | string
-        originalAmount: number | string
-        balance: number | string
-      }>(sql`
+      const res = await rows<AgingInvoiceDbRow>(sql`
         SELECT i.ap_ar_card_id AS invoiceId,
                COALESCE(NULLIF(i.invoice_number, ''), i.transaction_number, '') AS invoiceNumber,
                i.owner_id AS partyId,
@@ -96,20 +80,7 @@ export function liveAgingInvoices<K extends 'vendorId' | 'customerId'>(
         HAVING balance <> 0
       `)
 
-      for (const r of res) {
-        results.push({
-          invoiceId: String(r.invoiceId),
-          invoiceNumber: r.invoiceNumber ? String(r.invoiceNumber) : '',
-          [partyKey]: idOrEmpty(r.partyId),
-          locationId: idOrEmpty(r.locationId),
-          coaId: idOrEmpty(r.coaId),
-          txDate: toDay(r.txDate),
-          dueDate: r.dueDate ? toDay(r.dueDate) : null,
-          itemType: Number(r.itemType) || 0,
-          originalAmount: D(r.originalAmount || 0).toFixed(2),
-          balance: D(r.balance || 0).toFixed(2),
-        } as Row)
-      }
+      for (const r of res) results.push(toAgingInvoice(r, partyKey))
     }
 
     return results
@@ -136,22 +107,14 @@ export function liveAgingUnallocated<K extends 'vendorId' | 'customerId'>(
   locIds: Id[] | 'all',
   partyKey: K,
 ): Promise<Array<Omit<AgingUnallocated, 'partyId'> & Record<K, Id>>> {
-  type Row = Omit<AgingUnallocated, 'partyId'> & Record<K, Id>
   if (locIds !== 'all' && locIds.length === 0) return Promise.resolve([])
   const cfg = AGING_SIDES[side]
 
   return memo(`${side}AgingUnallocated:${asOfPlusOne}:${locKeyOf(locIds)}`, AGING_CACHE_MS, async () => {
-    const results: Row[] = []
+    const results: Array<AgingUnallocatedOf<K>> = []
 
     for (const lChunk of chunkOrAll(locIds)) {
-      const res = await rows<{
-        cardId: string
-        partyId: string | null
-        locationId: string | null
-        coaId: string | null
-        txDate: string
-        balance: number | string
-      }>(sql`
+      const res = await rows<AgingUnallocatedDbRow>(sql`
         SELECT p.ap_ar_card_id AS cardId,
                p.owner_id AS partyId,
                p.location_id AS locationId,
@@ -167,16 +130,7 @@ export function liveAgingUnallocated<K extends 'vendorId' | 'customerId'>(
           AND NOT EXISTS (SELECT 1 FROM ap_ar_card_detail d WHERE d.ap_ar_card_id = p.ap_ar_card_id)
       `)
 
-      for (const r of res) {
-        results.push({
-          cardId: String(r.cardId),
-          [partyKey]: idOrEmpty(r.partyId),
-          locationId: idOrEmpty(r.locationId),
-          coaId: idOrEmpty(r.coaId),
-          txDate: toDay(r.txDate),
-          balance: D(r.balance || 0).toFixed(2),
-        } as Row)
-      }
+      for (const r of res) results.push(toAgingUnallocated(r, partyKey))
     }
 
     return results

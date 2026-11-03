@@ -1,7 +1,7 @@
+import { metricLoaderDeps, drillSearchSchema } from '~/lib/filters/search-schema'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { drillSearchSchema } from '~/lib/filters/search-schema'
 import { tableSearchSchema } from '~/lib/table/query'
 import { AGING_PARTY_SORT_KEYS } from '~/lib/finance/ap-ar/aging-parties'
 import { apAgingMetricOptions } from '~/queries/metrics.queries'
@@ -11,13 +11,7 @@ import { AgingPage } from '~/components/aging/AgingPage'
 
 export const Route = createFileRoute('/_authed/payables')({
   validateSearch: drillSearchSchema.extend(tableSearchSchema(AGING_PARTY_SORT_KEYS).shape),
-  loaderDeps: ({ search }) => ({
-    entity: search.entity,
-    preset: search.preset,
-    from: search.from,
-    to: search.to,
-    p13: search.p13,
-  }),
+  loaderDeps: ({ search }) => metricLoaderDeps(search),
   loader: ({ context, deps }) =>
     context.queryClient.ensureQueryData(apAgingMetricOptions(deps)),
   pendingComponent: MetricSkeleton,

@@ -1,3 +1,4 @@
+import type Decimal from 'decimal.js'
 import { D } from '../../core/money'
 import type { AccountGroup, Money } from '../../core/types'
 
@@ -14,13 +15,14 @@ export function accountSide(group: AccountGroup): 'debit' | 'credit' {
   return DEBIT_SIDE_GROUPS.includes(group) ? 'debit' : 'credit'
 }
 
-/** Amount signed by the account group's natural side (G17). */
-export function signedAmount(group: AccountGroup, debet: Money, credit: Money): Money {
+/** Amount signed by the account group's natural side (G17), not rounded: add these up and round once at the end. */
+export function signedDecimal(group: AccountGroup, debet: Money, credit: Money): Decimal {
   const d = D(debet || 0)
   const c = D(credit || 0)
+  return accountSide(group) === 'debit' ? d.minus(c) : c.minus(d)
+}
 
-  if (accountSide(group) === 'debit') {
-    return d.minus(c).toFixed(2)
-  }
-  return c.minus(d).toFixed(2)
+/** Amount signed by the account group's natural side (G17), as a 2-decimal string. */
+export function signedAmount(group: AccountGroup, debet: Money, credit: Money): Money {
+  return signedDecimal(group, debet, credit).toFixed(2)
 }

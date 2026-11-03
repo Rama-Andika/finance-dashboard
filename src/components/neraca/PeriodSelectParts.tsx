@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '~/lib/cn'
 import { limitMonthOptions } from '~/lib/finance/period/period-options'
 import { formatMonthYear } from '~/lib/format/date'
-import type { Lang } from '~/lib/core/types'
+import type { Lang, PeriodStatus } from '~/lib/core/types'
 
-export type PeriodMonthOption = { month: string; status: 'Open' | 'Pre Closed' | 'Closed' }
+export type PeriodMonthOption = { month: string; status: PeriodStatus }
 
 const STATUS_KEY = { Open: 'open', 'Pre Closed': 'preClosed', Closed: 'closed' } as const
 

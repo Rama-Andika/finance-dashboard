@@ -1,8 +1,9 @@
 import '@tanstack/react-start/server-only'
+import { toInt } from '~/server/db/convert'
 import { sql, type SQL } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
-import { chunk, chunkOrAll, sliceCombos } from '~/server/db/chunk'
+import { SLICE_CONCURRENCY, chunk, chunkOrAll, mapLimit, sliceCombos } from '~/server/db/chunk'
 import { assertSegmentColumn } from '~/server/db/segment-column'
 import { BANK_PAYMENT_CHANNEL_TYPES, BANK_PAYMENT_GIRO_TYPES, BANK_PAYMENT_STATUS, intList } from '~/server/db/erp-codes'
 import { addDays } from '~/lib/format/date'
@@ -66,9 +67,8 @@ async function queryUnsettledByChannel(
   const asOfPlusOne = addDays(asOf, 1)
   const segIdent = sql.identifier(segCol)
 
-  const result: UnsettledChannelRow[] = []
-
-  for (const [cChunk, sChunk] of sliceCombos(chunk(coaIds), chunkOrAll(segIds))) {
+  const combos = sliceCombos(chunk(coaIds), chunkOrAll(segIds))
+  const slices = await mapLimit(combos, SLICE_CONCURRENCY, async ([cChunk, sChunk]) => {
     const query = sql`
       SELECT bp.coa_id AS coaId,
              bp.${segIdent} AS segmentDetailId,
@@ -92,18 +92,18 @@ async function queryUnsettledByChannel(
       amount: number | string
     }>(query)
 
-    for (const r of res) {
-      result.push({
+    return res.map(
+      (r): UnsettledChannelRow => ({
         coaId: String(r.coaId),
         segmentDetailId: r.segmentDetailId ? String(r.segmentDetailId) : '',
         txDate: String(r.txDate).slice(0, 10),
-        n: Number(r.n) || 0,
+        n: toInt(r.n),
         amount: D(r.amount || 0).toFixed(2),
-      })
-    }
-  }
+      }),
+    )
+  })
 
-  return result
+  return slices.flat()
 }
 
 /**
@@ -146,7 +146,7 @@ export async function settlementLag(
       result.push({
         coaId: String(r.coaId),
         avgLag: r.avgLag !== null ? Number(r.avgLag) : 1,
-        n: Number(r.n) || 0,
+        n: toInt(r.n),
       })
     }
   }

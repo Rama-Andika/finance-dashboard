@@ -89,8 +89,10 @@ export function balancesAt(input: BalanceInput): Promise<{
 }> {
   if (input.coaIds.length === 0) return Promise.resolve({ byCoa: new Map(), method: 'trial-balance' })
   return memo(balanceKey('balances', input), BALANCE_CACHE_MS, async () => {
-    const accounts = await accountGroupsOf(input.coaIds)
-    const { openings, movements, method } = await loadBalanceInputs(input, false)
+    const [accounts, { openings, movements, method }] = await Promise.all([
+      accountGroupsOf(input.coaIds),
+      loadBalanceInputs(input, false),
+    ])
     return { byCoa: combineBalances(accounts, openings, movements), method }
   })
 }
@@ -113,8 +115,10 @@ async function computeBalancesBySegment(input: BalanceInput): Promise<{
 }> {
   const bySegment = new Map<Id, Map<Id, Money>>()
 
-  const accounts = await accountGroupsOf(input.coaIds)
-  const { openings, movements, method } = await loadBalanceInputs(input, true)
+  const [accounts, { openings, movements, method }] = await Promise.all([
+    accountGroupsOf(input.coaIds),
+    loadBalanceInputs(input, true),
+  ])
 
   const openingsBySeg = new Map<Id, OpeningBalanceRow[]>()
   for (const o of openings) {

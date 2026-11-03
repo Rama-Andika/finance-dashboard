@@ -1,4 +1,6 @@
+import { Fragment } from 'react'
 import type { Lang } from '~/lib/core/types'
+import { FigureTooltip } from '~/components/neraca/FigureTooltip'
 import { DONUT_RADIUS, type DonutSegment } from '~/lib/core/donut'
 import { formatMoneyShort } from '~/lib/format/number'
 
@@ -32,20 +34,31 @@ export function DonutTabs({
   )
 }
 
+/** One arc of the ring. `className` defaults to the palette colour of its position; `tooltip` is the full figure shown on hover. */
+export type RingSegment = { id: string; dashArray: string; dashOffset: string; className?: string; tooltip?: string }
+
 /** The ring: one arc per segment and the total in the middle. */
 export function DonutRing({
   segments,
   totalLabel,
   totalFormatted,
+  totalTooltip,
   ariaLabel,
   onSelect,
 }: {
-  segments: DonutSegment[]
+  segments: readonly RingSegment[]
   totalLabel: string
   totalFormatted: string
+  /** The full total, shown on hover over the figure in the middle. */
+  totalTooltip?: string
   ariaLabel: string
   onSelect?: (id: string) => void
 }) {
+  const centre = (
+    <text className="nr-donut-center" x="80" y="94" textAnchor="middle">
+      {totalFormatted}
+    </text>
+  )
   return (
     <svg
       className="nr-donut-ring"
@@ -58,26 +71,32 @@ export function DonutRing({
     >
       <g transform="rotate(-90 80 80)">
         <circle cx="80" cy="80" r={DONUT_RADIUS} fill="none" stroke="var(--surface-sunken)" strokeWidth="18" />
-        {segments.map((seg, idx) => (
-          <circle
-            key={seg.id}
-            className={`s${(idx % 5) + 1}`}
-            cx="80"
-            cy="80"
-            r={DONUT_RADIUS}
-            strokeDasharray={seg.dashArray}
-            strokeDashoffset={seg.dashOffset}
-            style={{ cursor: onSelect ? 'pointer' : 'default' }}
-            onClick={() => onSelect?.(seg.id)}
-          />
-        ))}
+        {segments.map((seg, idx) => {
+          const arc = (
+            <circle
+              className={seg.className ?? `s${(idx % 5) + 1}`}
+              cx="80"
+              cy="80"
+              r={DONUT_RADIUS}
+              strokeDasharray={seg.dashArray}
+              strokeDashoffset={seg.dashOffset}
+              style={{ cursor: onSelect ? 'pointer' : 'default' }}
+              onClick={() => onSelect?.(seg.id)}
+            />
+          )
+          return seg.tooltip ? (
+            <FigureTooltip key={seg.id} full={seg.tooltip}>
+              {arc}
+            </FigureTooltip>
+          ) : (
+            <Fragment key={seg.id}>{arc}</Fragment>
+          )
+        })}
       </g>
       <text className="nr-donut-caption" x="80" y="72" textAnchor="middle">
         {totalLabel}
       </text>
-      <text className="nr-donut-center" x="80" y="94" textAnchor="middle">
-        {totalFormatted}
-      </text>
+      {totalTooltip ? <FigureTooltip full={totalTooltip}>{centre}</FigureTooltip> : centre}
     </svg>
   )
 }

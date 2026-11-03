@@ -1,7 +1,7 @@
+import { metricLoaderDeps, drillSearchSchema } from '~/lib/filters/search-schema'
 import { searchUpdater } from '~/lib/filters/search-update'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { drillSearchSchema } from '~/lib/filters/search-schema'
 import { summaryMetricOptions } from '~/queries/metrics.queries'
 import { tableSearchSchema } from '~/lib/table/query'
 import { PAYMENT_BILL_SORT_KEYS } from '~/lib/finance/ap-ar/payment-plan-bills'
@@ -17,13 +17,7 @@ import { getCompareLabel } from '~/lib/format/date'
 
 export const Route = createFileRoute('/_authed/summary')({
   validateSearch: drillSearchSchema.extend(tableSearchSchema(PAYMENT_BILL_SORT_KEYS).shape),
-  loaderDeps: ({ search }) => ({
-    entity: search.entity,
-    preset: search.preset,
-    from: search.from,
-    to: search.to,
-    p13: search.p13,
-  }),
+  loaderDeps: ({ search }) => metricLoaderDeps(search),
   loader: ({ context, deps }) =>
     context.queryClient.ensureQueryData(summaryMetricOptions(deps)),
   pendingComponent: MetricSkeleton,

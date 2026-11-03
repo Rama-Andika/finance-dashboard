@@ -1,4 +1,5 @@
 import '@tanstack/react-start/server-only'
+import { activePeriodsOf } from '~/lib/core/filter-scope'
 import { memoMetric } from '~/server/cache'
 import { createLogger, errorText } from '~/server/log'
 import { buildDataChecks, type DataCheckItem } from '~/lib/finance/checks/data-checks'
@@ -38,7 +39,7 @@ export function computeDataChecks(filter: AppContextFilter): Promise<DataCheckIt
 async function computeDataChecksUncached(filter: AppContextFilter): Promise<DataCheckItem[]> {
   const failures: string[] = []
   const periods = await getCachedPeriods()
-  const activePeriods = periods.filter((p) => filter.periodIds.includes(p.periodeId))
+  const activePeriods = activePeriodsOf(periods, filter.periodIds)
 
   // Run checks concurrently
   const [

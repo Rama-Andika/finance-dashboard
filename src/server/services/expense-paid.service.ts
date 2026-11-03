@@ -1,4 +1,5 @@
 import '@tanstack/react-start/server-only'
+import { activePeriodsOf, entitiesOfFilter } from '~/lib/core/filter-scope'
 import Decimal from 'decimal.js'
 import { D } from '~/lib/core/money'
 import { addDays } from '~/lib/format/date'
@@ -53,7 +54,7 @@ async function computeExpensePaidUncached(filter: AppContextFilter): Promise<Exp
 
   // Cash and bank only count as "paid"; the lines are read for the widest cash list so Cash Flow shares the read.
   const cashAndBankIds = Array.from(new Set([...resolved.cash, ...resolved.bank]))
-  const activePeriods = periods.filter((p) => filter.periodIds.includes(p.periodeId))
+  const activePeriods = activePeriodsOf(periods, filter.periodIds)
   const readsLines = cashAndBankIds.length > 0 && activePeriods.length > 0
 
   // 1. AP card payments and the journal lines are independent reads
@@ -107,8 +108,7 @@ async function computeExpensePaidUncached(filter: AppContextFilter): Promise<Exp
     unallocatedByLocation.set(u.locationId, (unallocatedByLocation.get(u.locationId) ?? D(0)).plus(D(u.signedAmount).negated()))
   }
 
-  const targetEntities =
-    filter.locationIds === 'all' ? entities : entities.filter((e) => filter.locationIds.includes(e.locationId))
+  const targetEntities = entitiesOfFilter(entities, filter.locationIds)
 
   const byEntity = targetEntities.map((e) => {
     const amount = (apByLocation.get(e.locationId) ?? D(0))

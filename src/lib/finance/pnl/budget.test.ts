@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
+  actualByCoaOf,
+  budgetByCoaOf,
+  budgetYearMonths,
   monthToMonth0,
   ytdMonths0,
   isHigherBetter,
   computeVariance,
   buildBudgetTree,
+  summarizeBudget,
 } from './budget'
 import { buildCoaTree, type CoaRow } from '../coa/coa-tree'
+import type { AccountGroup } from '../../core/types'
 
 const mockCoa: CoaRow[] = [
   {
@@ -103,5 +108,57 @@ describe('budget vs actual pure logic', () => {
     expect(expGroup.budget).toBe('900.00')
     expect(expGroup.variance).toBe('-100.00')
     expect(expGroup.variancePercent).toBe('-11.1%')
+  })
+})
+
+describe('budget service pieces', () => {
+  const groups = new Map<string, AccountGroup>([
+    ['rev', 'Revenue'],
+    ['exp', 'Expense'],
+  ])
+
+  it('signs the actual amounts by group, adds them exactly and rounds once', () => {
+    const actual = actualByCoaOf(
+      [
+        { coaId: 'rev', debet: '0', credit: '100.004' },
+        { coaId: 'rev', debet: '0', credit: '100.004' },
+        { coaId: 'exp', debet: '30', credit: '5' },
+        { coaId: 'unknown', debet: '8', credit: '0' },
+      ],
+      groups,
+    )
+    expect(actual.get('rev')).toBe('200.01')
+    expect(actual.get('exp')).toBe('25.00')
+    // an account without a known group counts as an expense (debit side)
+    expect(actual.get('unknown')).toBe('8.00')
+  })
+
+  it('adds the budget rows per account', () => {
+    const budget = budgetByCoaOf([
+      { coaId: 'a', amount: '10.50' },
+      { coaId: 'a', amount: '4.50' },
+      { coaId: 'b', amount: '1' },
+    ])
+    expect(budget.get('a')).toBe('15.00')
+    expect(budget.get('b')).toBe('1.00')
+  })
+
+  it('groups the months by year with 0-based months and skips bad keys', () => {
+    expect(budgetYearMonths(['2025-11', '2025-12', '2026-01', '2025-11', 'bad', '2026-00'])).toEqual([
+      { year: 2025, months0: [10, 11] },
+      { year: 2026, months0: [0] },
+    ])
+    expect(budgetYearMonths([])).toEqual([])
+  })
+
+  it('totals the net profit: income groups minus costs and expenses', () => {
+    const total = summarizeBudget([
+      { accountGroup: 'Revenue', actual: '100.00', budget: '90.00' },
+      { accountGroup: 'Other Revenue', actual: '10.00', budget: '10.00' },
+      { accountGroup: 'Cost Of Sales', actual: '40.00', budget: '30.00' },
+      { accountGroup: 'Expense', actual: '20.00', budget: '25.00' },
+    ])
+    expect(total.actual.toFixed(2)).toBe('50.00')
+    expect(total.budget.toFixed(2)).toBe('45.00')
   })
 })

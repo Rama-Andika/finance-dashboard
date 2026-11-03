@@ -1,4 +1,5 @@
 import '@tanstack/react-start/server-only'
+import { isRegularPeriod } from '~/lib/core/period'
 import Decimal from 'decimal.js'
 import { postableAccountIds } from '~/lib/finance/coa/coa-tree'
 import { D, sum } from '~/lib/core/money'
@@ -44,7 +45,7 @@ async function averageBurn(filter: AppContextFilter, periods: Period[], cashEqui
   const priorMonths = Array.from(
     new Set(
       periods
-        .filter((p) => p.type === 0 && p.endDate < filter.asOf && p.startDate.slice(0, 7) < asOfMonth)
+        .filter((p) => isRegularPeriod(p) && p.endDate < filter.asOf && p.startDate.slice(0, 7) < asOfMonth)
         .map((p) => p.startDate.slice(0, 7)),
     ),
   ).sort().reverse().slice(0, 3)

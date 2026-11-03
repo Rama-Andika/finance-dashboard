@@ -1,9 +1,9 @@
+import { metricLoaderDeps, drillSearchSchema } from '~/lib/filters/search-schema'
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Info } from 'lucide-react'
-import { drillSearchSchema } from '~/lib/filters/search-schema'
 import {
   cashFlowMetricOptions,
   expensePaidMetricOptions,
@@ -22,13 +22,7 @@ import { buildActivityRows, buildWaterfall, localizeExpense } from '~/lib/financ
 
 export const Route = createFileRoute('/_authed/cash-flow')({
   validateSearch: drillSearchSchema,
-  loaderDeps: ({ search }) => ({
-    entity: search.entity,
-    preset: search.preset,
-    from: search.from,
-    to: search.to,
-    p13: search.p13,
-  }),
+  loaderDeps: ({ search }) => metricLoaderDeps(search),
   loader: ({ context, deps }) =>
     Promise.all([
       context.queryClient.ensureQueryData(cashFlowMetricOptions(deps)),

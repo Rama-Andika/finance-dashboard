@@ -4,12 +4,12 @@ import { D } from '~/lib/core/money'
 import {
   DONUT_CIRCUMFERENCE,
   DONUT_GAP,
-  DONUT_RADIUS,
   buildDonutArcs,
 } from '~/lib/core/donut'
 import { buildEntityShare, type EntityShareSegment } from '~/lib/finance/pnl/revenue-entity'
 import { formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
 import { FigureTooltip } from '~/components/neraca/FigureTooltip'
+import { DonutRing, type RingSegment } from '~/components/neraca/DonutBreakdownParts'
 
 export interface EntityDonutProps {
   title?: string | undefined
@@ -55,6 +55,13 @@ export function EntityDonut({
 
   const heading = title ?? t('ui.donutBreakdown.composition')
   const tooltipOf = (seg: EntityShareSegment) => `${seg.name}: IDR ${formatMoneyFull(seg.amount, lang)}`
+  const ringSegments: RingSegment[] = share.segments.map((seg, idx) => ({
+    id: seg.id,
+    dashArray: arcs[idx]?.dashArray ?? '0 0',
+    dashOffset: arcs[idx]?.dashOffset ?? '0',
+    className: segmentClass(seg, idx),
+    tooltip: tooltipOf(seg),
+  }))
   const top = share.segments[0]
   const ariaLabel = t('ui.donutBreakdown.ariaLabel', {
     title: heading,
@@ -81,41 +88,14 @@ export function EntityDonut({
         <p className="nr-muted">{t('common.noData')}</p>
       ) : (
         <>
-          <svg
-            className="nr-donut-ring"
-            viewBox="0 0 160 160"
-            width="168"
-            height="168"
-            style={{ alignSelf: 'center' }}
-            role="img"
-            aria-label={ariaLabel}
-          >
-            <g transform="rotate(-90 80 80)">
-              <circle cx="80" cy="80" r={DONUT_RADIUS} fill="none" stroke="var(--surface-sunken)" strokeWidth="18" />
-              {share.segments.map((seg, idx) => (
-                <FigureTooltip key={seg.id} full={tooltipOf(seg)}>
-                  <circle
-                    className={segmentClass(seg, idx)}
-                    cx="80"
-                    cy="80"
-                    r={DONUT_RADIUS}
-                    strokeDasharray={arcs[idx]?.dashArray}
-                    strokeDashoffset={arcs[idx]?.dashOffset}
-                    style={{ cursor }}
-                    onClick={() => onSelect?.(seg.id)}
-                  />
-                </FigureTooltip>
-              ))}
-            </g>
-            <text className="nr-donut-caption" x="80" y="72" textAnchor="middle">
-              {totalLabel}
-            </text>
-            <FigureTooltip full={`IDR ${formatMoneyFull(share.total, lang)}`}>
-              <text className="nr-donut-center" x="80" y="94" textAnchor="middle">
-                {formatMoneyShort(share.total, lang)}
-              </text>
-            </FigureTooltip>
-          </svg>
+          <DonutRing
+            segments={ringSegments}
+            totalLabel={totalLabel}
+            totalFormatted={formatMoneyShort(share.total, lang)}
+            totalTooltip={`IDR ${formatMoneyFull(share.total, lang)}`}
+            ariaLabel={ariaLabel}
+            onSelect={onSelect}
+          />
 
           <ul className="nr-donut-list">
             {share.legend.map((seg, idx) => (

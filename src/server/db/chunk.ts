@@ -26,3 +26,27 @@ export function chunkOrAll<T>(ids: readonly T[] | 'all' | undefined, size: numbe
   if (ids === undefined || ids === 'all') return [undefined]
   return chunk(ids, size)
 }
+
+/** How many slices of one logical query run at the same time: the connection pool is small and shared by every request. */
+export const SLICE_CONCURRENCY = 3
+
+/**
+ * Runs `fn` on every item with at most `limit` running at once. The results keep the order of the items,
+ * so a result built from several slices does not depend on which slice finishes first.
+ */
+export async function mapLimit<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let next = 0
+  const worker = async (): Promise<void> => {
+    while (next < items.length) {
+      const index = next++
+      results[index] = await fn(items[index] as T, index)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(Math.max(limit, 1), items.length) }, worker))
+  return results
+}

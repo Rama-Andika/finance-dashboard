@@ -2,7 +2,7 @@ import '@tanstack/react-start/server-only'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
-import { chunk } from '~/server/db/chunk'
+import { SLICE_CONCURRENCY, chunk, mapLimit } from '~/server/db/chunk'
 import { createLruCache } from '~/server/cache'
 import type { Id } from '~/lib/core/types'
 
@@ -51,14 +51,12 @@ async function lookupParties(
   }
 
   // The slices of 1,000 ids do not depend on each other: read them together.
-  const slices = await Promise.all(
-    chunk(missing).map((slice) =>
-      rows<{ id: string; code: string | null; name: string | null }>(sql`
-        SELECT t.${sql.identifier(idColumn)} AS id, t.code AS code, t.name AS name
-        FROM ${sql.identifier(table)} t
-        WHERE t.${sql.identifier(idColumn)} IN (${inList(slice)})
-      `),
-    ),
+  const slices = await mapLimit(chunk(missing), SLICE_CONCURRENCY, (slice) =>
+    rows<{ id: string; code: string | null; name: string | null }>(sql`
+      SELECT t.${sql.identifier(idColumn)} AS id, t.code AS code, t.name AS name
+      FROM ${sql.identifier(table)} t
+      WHERE t.${sql.identifier(idColumn)} IN (${inList(slice)})
+    `),
   )
   for (const r of slices.flat()) {
     const party = { code: r.code || '', name: r.name || '' }

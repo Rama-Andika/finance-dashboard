@@ -1,3 +1,4 @@
+import { PERIOD_TYPE, isPeriodOpen } from '../../core/period'
 import type { Preset } from './presets'
 import type { IsoDate, Period, ResolvedFilter } from '../../core/types'
 
@@ -34,40 +35,34 @@ function generateMonthsList(startYear: number, startMonth: number, count: number
   return res
 }
 
+/**
+ * The periods that belong to a window: the regular period of each month, plus the period 13 rows that end inside
+ * the window when `withP13` is on. `missingMonths` are the months without a regular period row.
+ */
 function resolvePeriodIds(
-  months: string[],
-  d1: string,
-  asOf: string,
-  includeP13: boolean,
-  isP13AllowedPreset: boolean,
+  window: { months: string[]; d1: string; asOf: string },
+  withP13: boolean,
   periods: Period[],
 ): { periodIds: string[]; missingMonths: string[]; hasOpenPeriod: boolean } {
-  const monthsSet = new Set(months)
-  const matchedType0Months = new Set<string>()
+  const monthsSet = new Set(window.months)
+  const matchedMonths = new Set<string>()
   const periodIds: string[] = []
   let hasOpen = false
 
   for (const p of periods) {
-    if (p.type === 0) {
-      const monthKey = p.startDate.slice(0, 7)
-      if (monthsSet.has(monthKey)) {
-        matchedType0Months.add(monthKey)
-        periodIds.push(p.periodeId)
-        if (p.status === 'Open' || p.status === 'Pre Closed') {
-          hasOpen = true
-        }
-      }
-    } else if (p.type === 1 && includeP13 && isP13AllowedPreset) {
-      if (p.endDate >= d1 && p.endDate <= asOf) {
-        periodIds.push(p.periodeId)
-        if (p.status === 'Open' || p.status === 'Pre Closed') {
-          hasOpen = true
-        }
-      }
-    }
+    const monthKey = p.startDate.slice(0, 7)
+    const isRegular = p.type === PERIOD_TYPE.REGULAR
+    const inWindow = isRegular
+      ? monthsSet.has(monthKey)
+      : p.type === PERIOD_TYPE.PERIOD_13 && withP13 && p.endDate >= window.d1 && p.endDate <= window.asOf
+    if (!inWindow) continue
+
+    if (isRegular) matchedMonths.add(monthKey)
+    periodIds.push(p.periodeId)
+    if (isPeriodOpen(p)) hasOpen = true
   }
 
-  const missingMonths = months.filter((m) => !matchedType0Months.has(m))
+  const missingMonths = window.months.filter((m) => !matchedMonths.has(m))
 
   return { periodIds, missingMonths, hasOpenPeriod: hasOpen }
 }
@@ -214,21 +209,11 @@ export function resolvePeriod(
   const { months, d1, asOf, compareMonths, compareD1, compareAsOf } =
     customCount > 0 ? customWindow(range!, customCount, today) : presetWindow(preset, today)
 
-  const currentResolution = resolvePeriodIds(
-    months,
-    d1,
-    asOf,
-    includeP13,
-    isP13Allowed,
-    periods,
-  )
-
+  const withP13 = includeP13 && isP13Allowed
+  const currentResolution = resolvePeriodIds({ months, d1, asOf }, withP13, periods)
   const compareResolution = resolvePeriodIds(
-    compareMonths,
-    compareD1,
-    compareAsOf,
-    includeP13,
-    isP13Allowed,
+    { months: compareMonths, d1: compareD1, asOf: compareAsOf },
+    withP13,
     periods,
   )
 

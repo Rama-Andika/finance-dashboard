@@ -1,4 +1,5 @@
 import '@tanstack/react-start/server-only'
+import { toInt } from '~/server/db/convert'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
@@ -71,8 +72,8 @@ export async function budgetAmounts(
     for (const r of res) {
       results.push({
         coaId: String(r.coaId),
-        bgtYear: Number(r.bgtYear) || 1900,
-        bgtMonth: Number(r.bgtMonth) || 0,
+        bgtYear: toInt(r.bgtYear, 1900),
+        bgtMonth: toInt(r.bgtMonth),
         amount: D(r.amount || 0).toFixed(2),
       })
     }

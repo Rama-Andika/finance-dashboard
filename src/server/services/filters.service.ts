@@ -1,6 +1,7 @@
 import '@tanstack/react-start/server-only'
+import { isRegularPeriod } from '~/lib/core/period'
 import { PRESETS, type Preset } from '~/lib/filters/search-schema'
-import type { IsoDate } from '~/lib/core/types'
+import type { IsoDate, PeriodStatus } from '~/lib/core/types'
 import { resolvePeriod } from '~/lib/finance/period/periods'
 import { appToday, getCachedEntities, getCachedPeriods } from '~/server/context'
 
@@ -9,7 +10,7 @@ export type FilterOptions = {
   entities: Array<{ id: string; code: string; name: string; isActive: boolean }>
   presets: Array<{ preset: Preset; from: IsoDate; to: IsoDate }> // month hints for PeriodSelect
   /** Calendar months that exist in the periode table (regular periods), newest first. */
-  months: Array<{ month: string; status: 'Open' | 'Pre Closed' | 'Closed' }>
+  months: Array<{ month: string; status: PeriodStatus }>
   today: IsoDate
 }
 
@@ -28,9 +29,9 @@ export async function getFilterOptions(): Promise<FilterOptions> {
     }
   })
 
-  const monthStatus = new Map<string, 'Open' | 'Pre Closed' | 'Closed'>()
+  const monthStatus = new Map<string, PeriodStatus>()
   for (const p of periods) {
-    if (p.type === 0) monthStatus.set(p.startDate.slice(0, 7), p.status)
+    if (isRegularPeriod(p)) monthStatus.set(p.startDate.slice(0, 7), p.status)
   }
   const months = Array.from(monthStatus.entries())
     .map(([month, status]) => ({ month, status }))

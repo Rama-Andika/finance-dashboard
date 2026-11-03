@@ -1,4 +1,5 @@
 import '@tanstack/react-start/server-only'
+import { isRegularPeriod } from '~/lib/core/period'
 import type { PoolConnection } from 'mysql2/promise'
 import { pool } from '~/server/db/client'
 import { env } from '~/server/env'
@@ -39,7 +40,7 @@ export async function refreshApArHistSnapshots(today: IsoDate, options: { maxBui
 
     const months = env.DASH_AP_AR_HIST_MONTHS
     const periods = await listPeriods()
-    const closedMonthEnds = new Set(periods.filter((p) => p.type === 0 && p.status === 'Closed').map((p) => p.endDate))
+    const closedMonthEnds = new Set(periods.filter((p) => isRegularPeriod(p) && p.status === 'Closed').map((p) => p.endDate))
 
     const [builtRows] = await conn.query(
       `SELECT DATE_FORMAT(as_of_date, '%Y-%m-%d') AS asOfDate, is_final AS isFinal,

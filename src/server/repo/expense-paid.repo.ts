@@ -1,10 +1,15 @@
 import '@tanstack/react-start/server-only'
+import { toInt } from '~/server/db/convert'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { chunkOrAll } from '~/server/db/chunk'
+import { memo } from '~/server/cache'
 import { EXPENSE_PAID_TYPES, IN_OUT_VALUES, MODULE_TYPE, intList } from '~/server/db/erp-codes'
 import { D } from '~/lib/core/money'
-import { idOrEmpty, locationFilter, toDay } from '~/server/repo/apar.shared'
+import { idOrEmpty, locKeyOf, locationFilter, toDay } from '~/server/repo/apar.shared'
+
+/** The Expense Paid metric and its drill-down read the same cards: they share one read for a minute. */
+const EXPENSE_PAID_CACHE_MS = 60 * 1000
 import type { Id, IsoDate, Money } from '~/lib/core/types'
 
 export type ExpensePaidAllocatedRow = {
@@ -26,7 +31,7 @@ export type ExpensePaidUnallocatedRow = {
   signedAmount: Money
 }
 
-export async function expensePaidAllocated(
+async function readAllocated(
   d1: IsoDate,
   d2PlusOne: IsoDate,
   locIds: Id[] | 'all',
@@ -71,7 +76,7 @@ export async function expensePaidAllocated(
         txDate: toDay(r.txDate),
         locationId: idOrEmpty(r.locationId),
         vendorId: idOrEmpty(r.vendorId),
-        itemType: Number(r.itemType) || 0,
+        itemType: toInt(r.itemType),
         detailSum: D(r.detailSum || 0).toFixed(2),
       })
     }
@@ -80,7 +85,7 @@ export async function expensePaidAllocated(
   return results
 }
 
-export async function expensePaidUnallocated(
+async function readUnallocated(
   d1: IsoDate,
   d2PlusOne: IsoDate,
   locIds: Id[] | 'all',
@@ -127,4 +132,28 @@ export async function expensePaidUnallocated(
   }
 
   return results
+}
+
+/** AP payment cards with allocations. The cached array is shared: callers must only read it. */
+export function expensePaidAllocated(
+  d1: IsoDate,
+  d2PlusOne: IsoDate,
+  locIds: Id[] | 'all',
+): Promise<ExpensePaidAllocatedRow[]> {
+  if (locIds !== 'all' && locIds.length === 0) return Promise.resolve([])
+  return memo(`expensePaidAllocated:${d1}:${d2PlusOne}:${locKeyOf(locIds)}`, EXPENSE_PAID_CACHE_MS, () =>
+    readAllocated(d1, d2PlusOne, locIds),
+  )
+}
+
+/** AP payment cards without any allocation. The cached array is shared: callers must only read it. */
+export function expensePaidUnallocated(
+  d1: IsoDate,
+  d2PlusOne: IsoDate,
+  locIds: Id[] | 'all',
+): Promise<ExpensePaidUnallocatedRow[]> {
+  if (locIds !== 'all' && locIds.length === 0) return Promise.resolve([])
+  return memo(`expensePaidUnallocated:${d1}:${d2PlusOne}:${locKeyOf(locIds)}`, EXPENSE_PAID_CACHE_MS, () =>
+    readUnallocated(d1, d2PlusOne, locIds),
+  )
 }

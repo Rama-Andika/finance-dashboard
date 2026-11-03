@@ -1,3 +1,4 @@
+import { categoryAxisProps, valueAxisProps } from '~/components/neraca/chart-axis'
 import { useTranslation } from 'react-i18next'
 import {
   ResponsiveContainer,
@@ -39,18 +40,8 @@ export function CashFlowWaterfall({
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--chart-grid)" />
-            <XAxis
-              dataKey="name"
-              axisLine={{ stroke: 'var(--chart-axis)' }}
-              tickLine={false}
-              tick={{ fill: 'var(--ink-muted)', fontSize: 12 }}
-            />
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: 'var(--ink-muted)', fontSize: 11 }}
-              tickFormatter={(val) => formatAxisShort(val, lang)}
-            />
+            <XAxis dataKey="name" {...categoryAxisProps} />
+            <YAxis {...valueAxisProps} tickFormatter={(val) => formatAxisShort(val, lang)} />
             <RechartsTooltip
               cursor={{ fill: 'var(--surface-hover)' }}
               content={({ active, payload }) => {

@@ -1,3 +1,4 @@
+import { categoryAxisProps, valueAxisProps } from '~/components/neraca/chart-axis'
 import { useTranslation } from 'react-i18next'
 import {
   ResponsiveContainer,
@@ -51,14 +52,10 @@ export function MonthlyTrendChart({
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--chart-grid)" />
             <XAxis
               dataKey="displayMonth"
-              axisLine={{ stroke: 'var(--chart-axis)' }}
-              tickLine={false}
-              tick={{ fill: 'var(--ink-muted)', fontSize: 12 }}
+              {...categoryAxisProps}
             />
             <YAxis
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: 'var(--ink-muted)', fontSize: 11 }}
+              {...valueAxisProps}
               tickFormatter={(val) => formatAxisShort(val, lang)}
               domain={[0, (dataMax: number) => (dataMax > 0 ? dataMax * AXIS_HEADROOM : EMPTY_AXIS_MAX)]}
             />

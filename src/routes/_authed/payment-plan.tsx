@@ -1,12 +1,9 @@
+import { metricLoaderDeps, paymentPlanSearchSchema, drillSearchSchema } from '~/lib/filters/search-schema'
 import { summarizePlan } from '~/lib/finance/ap-ar/payment-plan'
 import { searchUpdater } from '~/lib/filters/search-update'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import {
-  paymentPlanSearchSchema,
-  drillSearchSchema,
-} from '~/lib/filters/search-schema'
 import { paymentPlanMetricOptions } from '~/queries/metrics.queries'
 import { MetricSkeleton } from '~/components/neraca/MetricSkeleton'
 import { MetricError } from '~/components/neraca/MetricError'
@@ -21,15 +18,7 @@ import { formatMoneyShort } from '~/lib/format/number'
 
 export const Route = createFileRoute('/_authed/payment-plan')({
   validateSearch: paymentPlanSearchSchema.extend(drillSearchSchema.shape),
-  loaderDeps: ({ search }) => ({
-    entity: search.entity,
-    preset: search.preset,
-    from: search.from,
-    to: search.to,
-    p13: search.p13,
-    horizon: search.horizon,
-    inflow: search.inflow,
-  }),
+  loaderDeps: ({ search }) => ({ ...metricLoaderDeps(search), horizon: search.horizon, inflow: search.inflow }),
   loader: ({ context, deps }) =>
     context.queryClient.ensureQueryData(paymentPlanMetricOptions(deps)),
   pendingComponent: MetricSkeleton,

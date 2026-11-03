@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chunk, chunkOrAll, sliceCombos } from './chunk'
+import { chunk, chunkOrAll, mapLimit, sliceCombos } from './chunk'
 import { assertSegmentColumn, isSegmentColumn } from './segment-column'
 import { intList } from './erp-codes'
 
@@ -62,5 +62,45 @@ describe('sliceCombos', () => {
 
   it('has no combinations when a list has no slices', () => {
     expect(sliceCombos(chunk([]), chunkOrAll('all'))).toEqual([])
+  })
+})
+
+describe('mapLimit', () => {
+  it('keeps the order of the items whichever finishes first', async () => {
+    const result = await mapLimit([30, 5, 15], 3, async (ms, i) => {
+      await new Promise((r) => setTimeout(r, ms))
+      return i
+    })
+    expect(result).toEqual([0, 1, 2])
+  })
+
+  it('never runs more than the limit at once', async () => {
+    let running = 0
+    let peak = 0
+    await mapLimit(
+      Array.from({ length: 10 }, (_, i) => i),
+      3,
+      async () => {
+        running += 1
+        peak = Math.max(peak, running)
+        await new Promise((r) => setTimeout(r, 2))
+        running -= 1
+      },
+    )
+    expect(peak).toBe(3)
+  })
+
+  it('handles no items and a limit below 1', async () => {
+    expect(await mapLimit([], 3, async () => 1)).toEqual([])
+    expect(await mapLimit([1, 2], 0, async (x) => x * 2)).toEqual([2, 4])
+  })
+
+  it('rejects when one item fails', async () => {
+    await expect(
+      mapLimit([1, 2, 3], 2, async (x) => {
+        if (x === 2) throw new Error('boom')
+        return x
+      }),
+    ).rejects.toThrow('boom')
   })
 })

@@ -1,3 +1,4 @@
+import { activePeriodsOf } from '~/lib/core/filter-scope'
 import { postableAccountIds } from '~/lib/finance/coa/coa-tree'
 import '@tanstack/react-start/server-only'
 import type { Breakdown, Id, MetricMeta, Money } from '~/lib/core/types'
@@ -40,7 +41,7 @@ async function computeFixedCostUncached(filter: AppContextFilter): Promise<Fixed
   const fixedCoaIds = new Set(resolved.fixedCost)
   const expenseCoaIds = new Set<Id>(postableAccountIds(tree, ['Expense']))
 
-  const activePeriods = periods.filter((p) => filter.periodIds.includes(p.periodeId))
+  const activePeriods = activePeriodsOf(periods, filter.periodIds)
   const monthsData = filter.months.map((m) => ({
     month: m,
     periodIds: activePeriods

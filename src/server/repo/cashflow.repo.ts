@@ -1,8 +1,9 @@
 import '@tanstack/react-start/server-only'
+import { toInt } from '~/server/db/convert'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
-import { chunk, chunkOrAll, sliceCombos } from '~/server/db/chunk'
+import { SLICE_CONCURRENCY, chunk, chunkOrAll, mapLimit, sliceCombos } from '~/server/db/chunk'
 import { assertSegmentColumn } from '~/server/db/segment-column'
 import { glTablesOf, groupPeriodsByTable } from '~/server/db/gl-tables'
 import { notCanceledClause, prefetchCanceledDateColumns } from '~/server/db/gl-columns'
@@ -81,8 +82,8 @@ async function cashLinesOfTable(
   const notCanceledMain = await notCanceledClause(tableName, 'g')
   const notCanceledSub = await notCanceledClause(tableName, 'g2')
 
-  const result: CashJournalLineRow[] = []
-  for (const [pChunk, cChunk, sChunk] of sliceCombos(chunk(tablePeriods.map((p) => p.periodeId)), chunk(opts.cashCoaIds), chunkOrAll(opts.segIds))) {
+  const combos = sliceCombos(chunk(tablePeriods.map((p) => p.periodeId)), chunk(opts.cashCoaIds), chunkOrAll(opts.segIds))
+  const slices = await mapLimit(combos, SLICE_CONCURRENCY, async ([pChunk, cChunk, sChunk]) => {
     const query = sql`
       SELECT d.gl_id AS glId,
              g.journal_type AS journalType,
@@ -119,19 +120,19 @@ async function cashLinesOfTable(
       credit: number | string
     }>(query)
 
-    for (const r of res) {
-      result.push({
+    return res.map(
+      (r): CashJournalLineRow => ({
         glId: String(r.glId),
-        journalType: Number(r.journalType) || 0,
+        journalType: toInt(r.journalType),
         periodId: String(r.periodId),
         coaId: String(r.coaId),
         segmentDetailId: r.segmentDetailId ? String(r.segmentDetailId) : null,
         debet: D(r.debet || 0).toFixed(2),
         credit: D(r.credit || 0).toFixed(2),
-      })
-    }
-  }
-  return result
+      }),
+    )
+  })
+  return slices.flat()
 }
 
 export type CashFlowSetupRow = {
@@ -185,9 +186,9 @@ export async function getCashFlowSetup(): Promise<CashFlowSetupRow[]> {
     setupId: String(r.setupId),
     groupId: String(r.groupId),
     groupName: r.groupName || '',
-    groupSequence: Number(r.groupSequence) || 0,
+    groupSequence: toInt(r.groupSequence),
     subGroup: r.subGroup || '',
-    subSequence: Number(r.subSequence) || 0,
+    subSequence: toInt(r.subSequence),
     coaId: r.coaId ? String(r.coaId) : null,
     valueDisplayed: Number(r.valueDisplayed) === 1 ? 1 : 0,
     accountGroup: r.accountGroup,

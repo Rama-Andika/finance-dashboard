@@ -1,7 +1,7 @@
+import { metricLoaderDeps, drillSearchSchema } from '~/lib/filters/search-schema'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { drillSearchSchema } from '~/lib/filters/search-schema'
 import { budgetMetricOptions } from '~/queries/metrics.queries'
 import { MetricSkeleton } from '~/components/neraca/MetricSkeleton'
 import { MetricError } from '~/components/neraca/MetricError'
@@ -14,13 +14,7 @@ import { useOpenDrill } from '~/components/drill/useOpenDrill'
 
 export const Route = createFileRoute('/_authed/budget')({
   validateSearch: drillSearchSchema,
-  loaderDeps: ({ search }) => ({
-    entity: search.entity,
-    preset: search.preset,
-    from: search.from,
-    to: search.to,
-    p13: search.p13,
-  }),
+  loaderDeps: ({ search }) => metricLoaderDeps(search),
   loader: ({ context, deps }) =>
     context.queryClient.ensureQueryData(budgetMetricOptions(deps)),
   pendingComponent: MetricSkeleton,

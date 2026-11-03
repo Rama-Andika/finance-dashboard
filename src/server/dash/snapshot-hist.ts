@@ -1,4 +1,10 @@
 import '@tanstack/react-start/server-only'
+import {
+  toAgingInvoice,
+  toAgingUnallocated,
+  type AgingInvoiceDbRow,
+  type AgingUnallocatedDbRow,
+} from '~/server/repo/apar.rows'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { AGING_SIDES, type AgingSide } from '~/server/db/erp-codes'
@@ -41,41 +47,14 @@ async function readHistOpen<K extends 'vendorId' | 'customerId'>(
   asOf: IsoDate,
   partyKey: K,
 ): Promise<Array<Omit<AgingInvoice, 'partyId'> & Record<K, Id>>> {
-  type Row = Omit<AgingInvoice, 'partyId'> & Record<K, Id>
-  const res = await rows<{
-    cardId: string
-    partyId: string | null
-    locationId: string | null
-    coaId: string | null
-    txDate: string
-    dueDate: string | null
-    itemType: number | string
-    invoiceNumber: string | null
-    originalAmount: string
-    balance: string
-  }>(sql`
-    SELECT card_id AS cardId, party_id AS partyId, location_id AS locationId, coa_id AS coaId,
+  const res = await rows<AgingInvoiceDbRow>(sql`
+    SELECT card_id AS invoiceId, party_id AS partyId, location_id AS locationId, coa_id AS coaId,
            tx_date AS txDate, due_date AS dueDate, item_type AS itemType,
            invoice_number AS invoiceNumber, original_amount AS originalAmount, balance AS balance
     FROM ${sql.identifier(DASH_TABLES.apArHistOpen)}
     WHERE as_of_date = ${asOf} AND module_type = ${AGING_SIDES[side].module}
   `)
-  return res.map(
-    (r) =>
-      ({
-        invoiceId: String(r.cardId),
-        invoiceNumber: r.invoiceNumber ?? '',
-        [partyKey]: r.partyId ? String(r.partyId) : '',
-        locationId: r.locationId ? String(r.locationId) : '',
-        coaId: r.coaId ? String(r.coaId) : '',
-        txDate: String(r.txDate).slice(0, 10),
-        dueDate: r.dueDate ? String(r.dueDate).slice(0, 10) : null,
-        itemType: Number(r.itemType) || 0,
-        // DECIMAL(22,2) columns already come back as 2-decimal strings
-        originalAmount: r.originalAmount,
-        balance: r.balance,
-      }) as Row,
-  )
+  return res.map((r) => toAgingInvoice(r, partyKey))
 }
 
 async function readHistUnallocated<K extends 'vendorId' | 'customerId'>(
@@ -83,31 +62,13 @@ async function readHistUnallocated<K extends 'vendorId' | 'customerId'>(
   asOf: IsoDate,
   partyKey: K,
 ): Promise<Array<Omit<AgingUnallocated, 'partyId'> & Record<K, Id>>> {
-  type Row = Omit<AgingUnallocated, 'partyId'> & Record<K, Id>
-  const res = await rows<{
-    cardId: string
-    partyId: string | null
-    locationId: string | null
-    coaId: string | null
-    txDate: string
-    balance: string
-  }>(sql`
+  const res = await rows<AgingUnallocatedDbRow>(sql`
     SELECT card_id AS cardId, party_id AS partyId, location_id AS locationId, coa_id AS coaId,
            tx_date AS txDate, balance AS balance
     FROM ${sql.identifier(DASH_TABLES.apArHistUnallocated)}
     WHERE as_of_date = ${asOf} AND module_type = ${AGING_SIDES[side].module}
   `)
-  return res.map(
-    (r) =>
-      ({
-        cardId: String(r.cardId),
-        [partyKey]: r.partyId ? String(r.partyId) : '',
-        locationId: r.locationId ? String(r.locationId) : '',
-        coaId: r.coaId ? String(r.coaId) : '',
-        txDate: String(r.txDate).slice(0, 10),
-        balance: r.balance,
-      }) as Row,
-  )
+  return res.map((r) => toAgingUnallocated(r, partyKey))
 }
 
 /** Open invoices of one side at the end of the month `asOf` (call `apArHistCovers(asOf)` first). */

@@ -1,4 +1,5 @@
 import '@tanstack/react-start/server-only'
+import { toInt } from '~/server/db/convert'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import type { CoaRow } from '~/lib/finance/coa/coa-tree'
@@ -27,7 +28,7 @@ export async function listCoa(): Promise<CoaRow[]> {
     code: r.code || '',
     name: r.name || '',
     status: r.status === 'HEADER' ? 'HEADER' : 'POSTABLE',
-    level: Number(r.level || 0),
+    level: toInt(r.level),
     accountGroup: r.accountGroup as CoaRow['accountGroup'],
     subAccountGroup: r.subAccountGroup || '',
     saldoNormal: r.saldoNormal === 'CREDIT' ? 'CREDIT' : 'DEBET',

@@ -1,9 +1,8 @@
-import Decimal from 'decimal.js'
 import { useTranslation } from 'react-i18next'
 import type { Lang, Money } from '~/lib/core/types'
 import { DeltaPill } from '~/components/neraca/DeltaPill'
 import { FigureTooltip } from '~/components/neraca/FigureTooltip'
-import { formatAmountShort, formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
+import { kpiFigures } from '~/lib/format/kpi'
 import { cn } from '~/lib/cn'
 
 export interface KpiCardProps {
@@ -20,18 +19,29 @@ export interface KpiCardProps {
   className?: string
 }
 
-const MONEY_RE = /^-?\d+(\.\d+)?$/
-
-function isMoney(value: string | null | undefined): value is Money {
-  return typeof value === 'string' && MONEY_RE.test(value)
-}
-
-/** Percent change against the comparison value, computed with decimal.js (G12). */
-function computeChangePercent(current: Money | null, previous: Money | null | undefined): string | null {
-  if (!isMoney(current) || !isMoney(previous)) return null
-  const prev = new Decimal(previous)
-  if (prev.isZero()) return null
-  return new Decimal(current).minus(prev).div(prev.abs()).times(100).toFixed(2)
+/** The line under the figure: the change against the comparison value and what it is compared with. */
+function KpiFoot({
+  changePercent,
+  higherIsBetter,
+  compareLabel,
+  compareShort,
+}: {
+  changePercent: string | null
+  higherIsBetter: boolean
+  compareLabel: string | undefined
+  compareShort: string
+}) {
+  if (changePercent === null && !compareLabel) return null
+  return (
+    <div className="nr-kpi-foot">
+      {changePercent !== null && <DeltaPill change={changePercent} higherIsBetter={higherIsBetter} />}
+      {compareLabel && (
+        <span>
+          {compareLabel} {compareShort}
+        </span>
+      )}
+    </div>
+  )
 }
 
 export function KpiCard({
@@ -39,21 +49,20 @@ export function KpiCard({
   value,
   compareValue,
   compareLabel,
-  higherIsBetter,
+  higherIsBetter = true,
   onOpen,
   hint,
-  currency,
+  currency = 'IDR',
   className,
 }: KpiCardProps) {
   const { i18n } = useTranslation()
   const lang: Lang = i18n.language?.startsWith('id') ? 'id' : 'en'
-  const currencyLabel = currency ?? 'IDR'
-
-  const valueIsMoney = isMoney(value)
-  const changePercent = computeChangePercent(value, compareValue)
-  const shortValue = value === null ? '–' : valueIsMoney ? formatAmountShort(value, lang) : value
-  const fullValue = valueIsMoney ? `${currencyLabel} ${formatMoneyFull(value, lang, { decimals: 2 })}` : (value ?? '–')
-  const compareShort = isMoney(compareValue) ? formatMoneyShort(compareValue, lang) : ''
+  const { valueIsMoney, shortValue, fullValue, compareShort, changePercent } = kpiFigures({
+    value,
+    compareValue,
+    currency,
+    lang,
+  })
 
   const isClickable = Boolean(onOpen)
 
@@ -82,23 +91,17 @@ export function KpiCard({
 
       <FigureTooltip full={fullValue}>
         <p className={cn('nr-kpi-value', !valueIsMoney && 'text-2xl lg:text-3xl whitespace-normal leading-tight')}>
-          {valueIsMoney && <span className="nr-cur">{currencyLabel}</span>}
+          {valueIsMoney && <span className="nr-cur">{currency}</span>}
           {shortValue}
         </p>
       </FigureTooltip>
 
-      {(changePercent !== null || compareLabel) && (
-        <div className="nr-kpi-foot">
-          {changePercent !== null && (
-            <DeltaPill change={changePercent} higherIsBetter={higherIsBetter ?? true} />
-          )}
-          {compareLabel && (
-            <span>
-              {compareLabel} {compareShort}
-            </span>
-          )}
-        </div>
-      )}
+      <KpiFoot
+        changePercent={changePercent}
+        higherIsBetter={higherIsBetter}
+        compareLabel={compareLabel}
+        compareShort={compareShort}
+      />
     </article>
   )
 }

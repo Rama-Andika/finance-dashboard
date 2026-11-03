@@ -1,7 +1,7 @@
+import { metricLoaderDeps, drillSearchSchema } from '~/lib/filters/search-schema'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { drillSearchSchema } from '~/lib/filters/search-schema'
 import {
   cashPositionMetricOptions,
   runwayMetricOptions,
@@ -21,13 +21,7 @@ import { runwayLabel } from '~/lib/finance/cash/runway-label'
 
 export const Route = createFileRoute('/_authed/cash-position')({
   validateSearch: drillSearchSchema,
-  loaderDeps: ({ search }) => ({
-    entity: search.entity,
-    preset: search.preset,
-    from: search.from,
-    to: search.to,
-    p13: search.p13,
-  }),
+  loaderDeps: ({ search }) => metricLoaderDeps(search),
   loader: ({ context, deps }) =>
     Promise.all([
       context.queryClient.ensureQueryData(cashPositionMetricOptions(deps)),

@@ -1,4 +1,5 @@
 import '@tanstack/react-start/server-only'
+import { activePeriodsOf } from '~/lib/core/filter-scope'
 import { cardSettlementHistory } from '~/server/repo/aging.repo'
 import { getCachedCoaTree, getCachedEntities, getCachedPeriods, type AppContextFilter } from '~/server/context'
 import { D } from '~/lib/core/money'
@@ -22,7 +23,7 @@ export async function computeDrill(
     filter,
     tree,
     periods,
-    activePeriods: periods.filter((p) => filter.periodIds.includes(p.periodeId)),
+    activePeriods: activePeriodsOf(periods, filter.periodIds),
     entities,
     offset,
   }

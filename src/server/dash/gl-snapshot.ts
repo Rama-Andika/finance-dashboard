@@ -1,4 +1,5 @@
 import '@tanstack/react-start/server-only'
+import { toInt } from '~/server/db/convert'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { pool } from '~/server/db/client'
@@ -160,7 +161,7 @@ async function buildPeriod(conn: Conn, period: Period): Promise<void> {
        GROUP BY g.period_id, d.coa_id, COALESCE(d.${GL_SNAPSHOT_SEGMENT_COLUMN}, 0)`,
       [monthly, gl, glDetail, period.periodeId],
     )
-    const rowCount = Number((result as { affectedRows?: number }).affectedRows ?? 0)
+    const rowCount = toInt((result as { affectedRows?: number }).affectedRows)
     await conn.query(
       `INSERT INTO ?? (period_id, built_at, row_count, duration_ms) VALUES (?, UTC_TIMESTAMP(), ?, ?)
        ON DUPLICATE KEY UPDATE built_at = VALUES(built_at), row_count = VALUES(row_count), duration_ms = VALUES(duration_ms)`,

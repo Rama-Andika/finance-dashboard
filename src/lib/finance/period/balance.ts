@@ -1,3 +1,4 @@
+import { isRegularPeriod } from '../../core/period'
 import type { AccountGroup, Id, IsoDate, Money, Period } from '../../core/types'
 import { signedAmount } from '../coa/sign'
 import { D } from '../../core/money'
@@ -12,7 +13,7 @@ export function pickOpeningPeriod(
   asOf: IsoDate,
 ): { closed: Period | null; opening: Period | null } {
   const type0 = periods
-    .filter((p) => p.type === 0)
+    .filter(isRegularPeriod)
     .sort((a, b) => a.startDate.localeCompare(b.startDate))
 
   if (type0.length === 0) {

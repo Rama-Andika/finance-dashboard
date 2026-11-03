@@ -6,6 +6,11 @@ import type { Id, IsoDate } from '~/lib/core/types'
 export const toDay = (v: unknown): IsoDate => String(v).slice(0, 10)
 export const idOrEmpty = (v: unknown): Id => (v ? String(v) : '')
 
+/** Cache-key part for a location filter: the same locations give the same key in any order. */
+export function locKeyOf(locIds: Id[] | 'all'): string {
+  return locIds === 'all' ? 'all' : [...locIds].sort().join(',')
+}
+
 /** `AND <alias>.location_id IN (...)` for one location slice, or nothing when the slice is "all". */
 export function locationFilter(alias: 'i' | 'p', slice: string[] | undefined): SQL {
   return slice ? sql`AND ${sql.identifier(alias)}.location_id IN (${inList(slice)})` : sql``

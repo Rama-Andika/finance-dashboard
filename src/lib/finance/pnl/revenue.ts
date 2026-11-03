@@ -1,5 +1,6 @@
-import { D } from '../../core/money'
-import { signedAmount } from '../coa/sign'
+import Decimal from 'decimal.js'
+import { D, sum } from '../../core/money'
+import { signedAmount, signedDecimal } from '../coa/sign'
 import type { AccountGroup, Breakdown, Id, Money } from '../../core/types'
 import { type CoaTree, type CoaNode, ORPHAN_FOLDER_ID, postableDescendants } from '../coa/coa-tree'
 
@@ -116,4 +117,86 @@ export function buildRevenueBreakdown(
   }
 
   return result
+}
+
+/** A movement row as the Revenue read returns it (the period and location are present when they were asked for). */
+export type RevenueMovement = {
+  coaId: Id
+  periodId?: Id | null
+  locationId?: Id | null
+  debet: Money
+  credit: Money
+}
+
+export type RevenueAggregate = {
+  /** Net revenue of every row. */
+  total: Decimal
+  /** Debit and credit per account (not rounded: the caller rounds what it shows). */
+  byCoa: Map<Id, { debet: Decimal; credit: Decimal }>
+  byPeriod: Map<Id, Decimal>
+  byLocation: Map<Id, Decimal>
+}
+
+/** Net revenue (credit - debit) of rows, e.g. the rows of a comparison period. */
+export function sumNetRevenue(rows: readonly Pick<RevenueMovement, 'debet' | 'credit'>[]): Decimal {
+  return rows.reduce((acc, r) => acc.plus(signedDecimal('Revenue', r.debet, r.credit)), D(0))
+}
+
+/** One pass over the rows: the total and the totals per account, per period and per location. */
+export function aggregateRevenue(rows: readonly RevenueMovement[]): RevenueAggregate {
+  let total = D(0)
+  const byCoa = new Map<Id, { debet: Decimal; credit: Decimal }>()
+  const byPeriod = new Map<Id, Decimal>()
+  const byLocation = new Map<Id, Decimal>()
+
+  for (const r of rows) {
+    const net = signedDecimal('Revenue', r.debet, r.credit)
+    total = total.plus(net)
+
+    const coa = byCoa.get(r.coaId) ?? { debet: D(0), credit: D(0) }
+    byCoa.set(r.coaId, { debet: coa.debet.plus(D(r.debet)), credit: coa.credit.plus(D(r.credit)) })
+
+    if (r.periodId) byPeriod.set(r.periodId, (byPeriod.get(r.periodId) ?? D(0)).plus(net))
+    if (r.locationId) byLocation.set(r.locationId, (byLocation.get(r.locationId) ?? D(0)).plus(net))
+  }
+  return { total, byCoa, byPeriod, byLocation }
+}
+
+/** Debit and credit per account as 2-decimal strings, the shape `buildRevenueBreakdown` takes. */
+export function movementsByCoaOf(byCoa: ReadonlyMap<Id, { debet: Decimal; credit: Decimal }>): Map<Id, { debet: Money; credit: Money }> {
+  return new Map(Array.from(byCoa, ([coaId, m]) => [coaId, { debet: m.debet.toFixed(2), credit: m.credit.toFixed(2) }]))
+}
+
+/** Revenue per calendar month ('YYYY-MM'): the sum of the periods that start in that month. */
+export function revenueTrend(
+  byPeriod: ReadonlyMap<Id, Decimal>,
+  periods: readonly { periodeId: Id; startDate: string }[],
+  months: readonly string[],
+): Array<{ month: string; amount: Money }> {
+  const monthOfPeriod = new Map(periods.map((p) => [p.periodeId, p.startDate.slice(0, 7)]))
+  const byMonth = new Map<string, Decimal>()
+  for (const [periodId, amount] of byPeriod) {
+    const month = monthOfPeriod.get(periodId)
+    if (month !== undefined) byMonth.set(month, (byMonth.get(month) ?? D(0)).plus(amount))
+  }
+  return months.map((month) => ({ month, amount: (byMonth.get(month) ?? D(0)).toFixed(2) }))
+}
+
+/**
+ * Revenue per entity row, and the revenue that belongs to no entity row (journal lines without a location, or of a
+ * location outside the list): the total minus the sum of the rows.
+ */
+export function splitRevenueByEntity(
+  entities: readonly { locationId: Id; code: string; name: string }[],
+  byLocation: ReadonlyMap<Id, Decimal>,
+  total: Decimal,
+): { byEntity: Array<{ id: Id; code: string; name: string; amount: Money }>; entityUnassigned: Money } {
+  const byEntity = entities.map((e) => ({
+    id: e.locationId,
+    code: e.code,
+    name: e.name,
+    amount: (byLocation.get(e.locationId) ?? D(0)).toFixed(2),
+  }))
+  const entityUnassigned = total.minus(D(sum(byEntity.map((e) => e.amount)))).toFixed(2)
+  return { byEntity, entityUnassigned }
 }

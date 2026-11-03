@@ -1,4 +1,6 @@
+import Decimal from 'decimal.js'
 import { isIncomeGroup } from '../coa/account-groups'
+import { signedDecimal } from '../coa/sign'
 import { D, safeDiv } from '../../core/money'
 import { formatPercent } from '~/lib/format/number'
 import type { AccountGroup, Id, Money } from '../../core/types'
@@ -146,4 +148,59 @@ export function buildBudgetTree(input: {
   }
 
   return results
+}
+
+/**
+ * Net actual amount per account, signed by the account's group (accounts of an unknown group count as Expense).
+ * Rows are added as exact decimals and rounded once per account.
+ */
+export function actualByCoaOf(
+  movements: readonly { coaId: Id; debet: Money; credit: Money }[],
+  groupByCoa: ReadonlyMap<Id, AccountGroup>,
+): Map<Id, Money> {
+  const sums = new Map<Id, Decimal>()
+  for (const m of movements) {
+    const net = signedDecimal(groupByCoa.get(m.coaId) ?? 'Expense', m.debet, m.credit)
+    sums.set(m.coaId, (sums.get(m.coaId) ?? D(0)).plus(net))
+  }
+  return new Map(Array.from(sums, ([coaId, amount]) => [coaId, amount.toFixed(2)]))
+}
+
+/** Budget amount per account (a row is one account and month). */
+export function budgetByCoaOf(rows: readonly { coaId: Id; amount: Money }[]): Map<Id, Money> {
+  const sums = new Map<Id, Decimal>()
+  for (const b of rows) sums.set(b.coaId, (sums.get(b.coaId) ?? D(0)).plus(D(b.amount)))
+  return new Map(Array.from(sums, ([coaId, amount]) => [coaId, amount.toFixed(2)]))
+}
+
+/** The budget table is read per year with 0-based months (G23): 'YYYY-MM' keys become `{ year, months0 }`. */
+export function budgetYearMonths(months: readonly string[]): Array<{ year: number; months0: number[] }> {
+  const byYear = new Map<number, Set<number>>()
+  for (const key of months) {
+    const [year, month1] = key.split('-').map(Number)
+    if (!year || !month1) continue
+    const set = byYear.get(year) ?? new Set<number>()
+    set.add(monthToMonth0(month1))
+    byYear.set(year, set)
+  }
+  return Array.from(byYear, ([year, set]) => ({ year, months0: Array.from(set) }))
+}
+
+/** Net profit of the table, actual and budget: income groups minus costs and expenses. */
+export function summarizeBudget(rows: readonly Pick<BudgetRow, 'accountGroup' | 'actual' | 'budget'>[]): {
+  actual: Decimal
+  budget: Decimal
+} {
+  let actual = D(0)
+  let budget = D(0)
+  for (const r of rows) {
+    if (isIncomeGroup(r.accountGroup)) {
+      actual = actual.plus(D(r.actual))
+      budget = budget.plus(D(r.budget))
+    } else {
+      actual = actual.minus(D(r.actual))
+      budget = budget.minus(D(r.budget))
+    }
+  }
+  return { actual, budget }
 }

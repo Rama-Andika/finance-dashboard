@@ -17,6 +17,11 @@ export const globalSearchSchema = z.object({
 })
 export type GlobalSearch = z.infer<typeof globalSearchSchema>
 
+/** The part of the search that decides which data a metric route loads: the loader dependencies of every metric page. */
+export function metricLoaderDeps(search: GlobalSearch): GlobalSearch {
+  return { entity: search.entity, preset: search.preset, from: search.from, to: search.to, p13: search.p13 }
+}
+
 export const metricInputSchema = globalSearchSchema
 export type MetricInput = z.infer<typeof metricInputSchema>
 

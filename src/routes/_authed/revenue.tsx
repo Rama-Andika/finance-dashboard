@@ -1,8 +1,8 @@
+import { metricLoaderDeps, drillSearchSchema } from '~/lib/filters/search-schema'
 import { searchUpdater } from '~/lib/filters/search-update'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { drillSearchSchema } from '~/lib/filters/search-schema'
 import { revenueMetricOptions } from '~/queries/metrics.queries'
 import { MetricSkeleton } from '~/components/neraca/MetricSkeleton'
 import { MetricError } from '~/components/neraca/MetricError'
@@ -17,13 +17,7 @@ import { formatMonthYear, getCompareLabel } from '~/lib/format/date'
 
 export const Route = createFileRoute('/_authed/revenue')({
   validateSearch: drillSearchSchema,
-  loaderDeps: ({ search }) => ({
-    entity: search.entity,
-    preset: search.preset,
-    from: search.from,
-    to: search.to,
-    p13: search.p13,
-  }),
+  loaderDeps: ({ search }) => metricLoaderDeps(search),
   loader: ({ context, deps }) =>
     context.queryClient.ensureQueryData(revenueMetricOptions(deps)),
   pendingComponent: MetricSkeleton,

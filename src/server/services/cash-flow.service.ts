@@ -1,4 +1,5 @@
 import '@tanstack/react-start/server-only'
+import { activePeriodsOf } from '~/lib/core/filter-scope'
 import Decimal from 'decimal.js'
 import { D, sum } from '~/lib/core/money'
 import { addDays } from '~/lib/format/date'
@@ -120,7 +121,7 @@ async function loadClassifiedPortionsUncached(
   const setup = await getCashFlowSetup()
   const setupValid = isSetupValid(setup)
 
-  const activePeriods = periods.filter((p) => filter.periodIds.includes(p.periodeId))
+  const activePeriods = activePeriodsOf(periods, filter.periodIds)
   if (cashEquivIds.length === 0 || activePeriods.length === 0) {
     return { lines: [], portions: [], setupValid, setup, cashEquivIds, isOurCash }
   }

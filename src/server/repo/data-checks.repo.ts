@@ -1,4 +1,5 @@
 import '@tanstack/react-start/server-only'
+import { toInt } from '~/server/db/convert'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
@@ -41,7 +42,7 @@ export async function checkQ1b(locIds: Id[] | 'all'): Promise<QCheckSummary> {
   `
 
   const result = await rows<{ n: number | string; amount: number | string }>(query)
-  const n = Number(result[0]?.n || 0)
+  const n = toInt(result[0]?.n)
   const amount = D(result[0]?.amount || 0).toFixed(2)
   return { count: n, amount }
 }
@@ -63,7 +64,7 @@ export async function checkQ7(locIds: Id[] | 'all'): Promise<number> {
 
   const [apCount, resC] = await Promise.all([apCardsWithUnknownVendor(locIds), rows<{ n: number | string }>(queryCustomer)])
 
-  return apCount + Number(resC[0]?.n || 0)
+  return apCount + toInt(resC[0]?.n)
 }
 
 /**
@@ -87,7 +88,7 @@ async function apCardsWithUnknownVendor(locIds: Id[] | 'all'): Promise<number> {
       ${locClause}
     GROUP BY c.module_type
   `)
-  return Number(res.find((r) => Number(r.moduleType) === MODULE_TYPE.AP)?.n || 0)
+  return toInt(res.find((r) => toInt(r.moduleType) === MODULE_TYPE.AP)?.n)
 }
 
 export async function checkQ8(): Promise<number> {
@@ -99,7 +100,7 @@ export async function checkQ8(): Promise<number> {
   `
 
   const res = await rows<{ n: number | string }>(query)
-  return Number(res[0]?.n || 0)
+  return toInt(res[0]?.n)
 }
 
 export async function checkQ9(
@@ -132,7 +133,7 @@ export async function checkQ9(
   `
 
   const result = await rows<{ n: number | string; amount: number | string }>(query)
-  const n = Number(result[0]?.n || 0)
+  const n = toInt(result[0]?.n)
   const amount = D(result[0]?.amount || 0).toFixed(2)
   return { count: n, amount }
 }
@@ -154,5 +155,5 @@ export async function checkUnpostedJournals(periods: Period[]): Promise<number> 
       )
     }),
   )
-  return counts.reduce((total, result) => total + Number(result[0]?.n || 0), 0)
+  return counts.reduce((total, result) => total + toInt(result[0]?.n), 0)
 }

@@ -1,13 +1,9 @@
+import { metricLoaderDeps, drillSearchSchema } from '~/lib/filters/search-schema'
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { drillSearchSchema } from '~/lib/filters/search-schema'
-import {
-  pnlMetricOptions,
-  fixedCostMetricOptions,
-  runwayMetricOptions,
-} from '~/queries/metrics.queries'
+import { pnlMetricOptions, fixedCostMetricOptions } from '~/queries/metrics.queries'
 import { MetricSkeleton } from '~/components/neraca/MetricSkeleton'
 import { MetricError } from '~/components/neraca/MetricError'
 import { Tabs } from '~/components/neraca/Tabs'
@@ -20,18 +16,11 @@ import { getCompareLabel } from '~/lib/format/date'
 
 export const Route = createFileRoute('/_authed/profit-loss')({
   validateSearch: drillSearchSchema,
-  loaderDeps: ({ search }) => ({
-    entity: search.entity,
-    preset: search.preset,
-    from: search.from,
-    to: search.to,
-    p13: search.p13,
-  }),
+  loaderDeps: ({ search }) => metricLoaderDeps(search),
   loader: ({ context, deps }) =>
     Promise.all([
       context.queryClient.ensureQueryData(pnlMetricOptions(deps)),
       context.queryClient.ensureQueryData(fixedCostMetricOptions(deps)),
-      context.queryClient.ensureQueryData(runwayMetricOptions(deps)),
     ]),
   pendingComponent: MetricSkeleton,
   errorComponent: MetricError,

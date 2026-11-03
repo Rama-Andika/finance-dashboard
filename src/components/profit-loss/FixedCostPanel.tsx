@@ -1,3 +1,4 @@
+import { categoryAxisProps, valueAxisProps } from '~/components/neraca/chart-axis'
 import { useTranslation } from 'react-i18next'
 import {
   ResponsiveContainer,
@@ -72,14 +73,10 @@ export function FixedCostPanel({ data, lang, scope }: { data: FixedCostPanelData
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--chart-grid)" />
               <XAxis
                 dataKey="displayMonth"
-                axisLine={{ stroke: 'var(--chart-axis)' }}
-                tickLine={false}
-                tick={{ fill: 'var(--ink-muted)', fontSize: 12 }}
+                {...categoryAxisProps}
               />
               <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: 'var(--ink-muted)', fontSize: 11 }}
+                {...valueAxisProps}
                 tickFormatter={(val) => formatAxisShort(val, lang)}
               />
               <RechartsTooltip

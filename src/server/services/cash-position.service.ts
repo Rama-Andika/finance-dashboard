@@ -1,4 +1,5 @@
 import '@tanstack/react-start/server-only'
+import { entitiesOfFilter } from '~/lib/core/filter-scope'
 import { D, sum } from '~/lib/core/money'
 import type { Money, Id, MetricMeta, Breakdown } from '~/lib/core/types'
 import {
@@ -81,8 +82,7 @@ async function entityCashBalances(
   bySegment: Map<Id, Map<Id, Money>>,
 ): Promise<CashPositionResult['byEntity']> {
   const { entities } = await getCachedEntities()
-  const targetEntities =
-    filter.locationIds === 'all' ? entities : entities.filter((e) => filter.locationIds.includes(e.locationId))
+  const targetEntities = entitiesOfFilter(entities, filter.locationIds)
 
   return targetEntities.map((e) => {
     const amounts = e.segmentDetailIds.flatMap((segId) => {
@@ -92,6 +92,39 @@ async function entityCashBalances(
     const entSum = sum(amounts)
     return { code: e.code, name: e.name, amount: entSum, isNegative: D(entSum).lt(0) }
   })
+}
+
+type CashPositionReads = {
+  asOfBalances: Awaited<ReturnType<typeof balancesAt>>
+  compareRes: Awaited<ReturnType<typeof balancesAt>> | null
+  unsettled: Awaited<ReturnType<typeof unsettledByChannel>>
+  byEntityBalances: Awaited<ReturnType<typeof balancesBySegmentAt>> | null
+  giroOutstanding: Awaited<ReturnType<typeof outstandingGiro>>
+}
+
+/** The reads Cash Position needs, started together: balances, compare balances, unsettled register, giro and per-entity balances. */
+async function readCashPositionInputs(
+  filter: AppContextFilter,
+  ids: { allCoaIds: Id[]; cashAndBankIds: Id[]; inTransitIds: Id[] },
+  opts: { includeByEntity: boolean; includeCompare: boolean },
+): Promise<CashPositionReads> {
+  const { allCoaIds, cashAndBankIds, inTransitIds } = ids
+  const compare = opts.includeCompare && filter.compare && filter.compare.asOf ? filter.compare : null
+  // Awaited together so a failure in one read never leaves another rejection unhandled.
+  const [asOfBalances, compareRes, unsettled, byEntityBalances, giroOutstanding] = await Promise.all([
+    balancesAt({ asOf: filter.asOf, coaIds: allCoaIds, filter }),
+    compare
+      ? balancesAt({
+          asOf: compare.asOf,
+          coaIds: cashAndBankIds,
+          filter: { ...filter, d1: compare.d1, asOf: compare.asOf, periodIds: compare.periodIds },
+        })
+      : null,
+    unsettledByChannel(filter.asOf, inTransitIds, filter.segmentDetailIds, filter.entitySegmentColumn),
+    opts.includeByEntity ? balancesBySegmentAt({ asOf: filter.asOf, coaIds: cashAndBankIds, filter }) : null,
+    outstandingGiro(filter.asOf, filter.segmentDetailIds, filter.entitySegmentColumn),
+  ])
+  return { asOfBalances, compareRes, unsettled, byEntityBalances, giroOutstanding }
 }
 
 async function computeCashPositionUncached(
@@ -117,41 +150,12 @@ async function computeCashPositionUncached(
     new Set([...cashIds, ...bankIds, ...depositIds, ...inTransitIds]),
   )
 
-  // Independent reads start together: balances, compare balances, unsettled register, per-entity balances.
   const cashAndBankIds = Array.from(new Set([...cashIds, ...bankIds]))
-  const asOfPromise = balancesAt({ asOf: filter.asOf, coaIds: allCoaIds, filter })
-  const comparePromise =
-    includeCompare && filter.compare && filter.compare.asOf
-      ? balancesAt({
-          asOf: filter.compare.asOf,
-          coaIds: cashAndBankIds,
-          filter: {
-            ...filter,
-            d1: filter.compare.d1,
-            asOf: filter.compare.asOf,
-            periodIds: filter.compare.periodIds,
-          },
-        })
-      : null
-  const unsettledPromise = unsettledByChannel(
-    filter.asOf,
-    inTransitIds,
-    filter.segmentDetailIds,
-    filter.entitySegmentColumn,
+  const { asOfBalances, compareRes, unsettled, byEntityBalances, giroOutstanding } = await readCashPositionInputs(
+    filter,
+    { allCoaIds, cashAndBankIds, inTransitIds },
+    { includeByEntity, includeCompare },
   )
-  const giroPromise = outstandingGiro(filter.asOf, filter.segmentDetailIds, filter.entitySegmentColumn)
-  const byEntityPromise = includeByEntity
-    ? balancesBySegmentAt({ asOf: filter.asOf, coaIds: cashAndBankIds, filter })
-    : null
-
-  // Awaited together so a failure in one read never leaves another rejection unhandled.
-  const [asOfBalances, compareRes, unsettled, byEntityBalances, giroOutstanding] = await Promise.all([
-    asOfPromise,
-    comparePromise,
-    unsettledPromise,
-    byEntityPromise,
-    giroPromise,
-  ])
 
   // Cash position at compare.asOf
   const compareCashPosition = compareRes

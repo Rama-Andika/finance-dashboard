@@ -62,6 +62,30 @@ export function computePaymentPlan(
   return memoMetric('paymentPlan', { filter, opts }, () => computePaymentPlanUncached(filter, opts))
 }
 
+type Inflows = { arItems: ArItemForPlan[]; unsettled: UnsettledBankForPlan[]; settlementLags: Map<Id, number> }
+
+/** Expected inflows: open AR invoices, and the receipts still in a settlement channel with that channel's usual lag. */
+async function loadInflows(filter: AppContextFilter, asOfPlusOne: string): Promise<Inflows> {
+  const today = filter.today
+  const tree = await getCachedCoaTree()
+  const resolved = resolveBaskets(await loadAccountMapping(tree), tree)
+  const inTransitIds = resolved.inTransit
+
+  const [rawAr, unsettledRows, lagRows] = await Promise.all([
+    arOpenInvoices(asOfPlusOne, filter.locationIds),
+    inTransitIds.length > 0
+      ? unsettledByChannel(today, inTransitIds, filter.segmentDetailIds, filter.entitySegmentColumn)
+      : Promise.resolve([]),
+    inTransitIds.length > 0 ? settlementLag(today, inTransitIds) : Promise.resolve([]),
+  ])
+
+  return {
+    arItems: rawAr.filter((a) => D(a.balance).gt(0)).map((a) => ({ dueDate: a.dueDate || a.txDate, balance: a.balance })),
+    unsettled: unsettledRows.map((u) => ({ coaId: u.coaId, txDate: u.txDate, amount: u.amount })),
+    settlementLags: new Map(lagRows.map((l) => [l.coaId, l.avgLag])),
+  }
+}
+
 async function computePaymentPlanUncached(
   filter: AppContextFilter,
   opts: PaymentPlanOptions,
@@ -99,39 +123,9 @@ async function computePaymentPlanUncached(
   }))
 
   // 4. Inflows (AR + bank payments unsettled)
-  let arItems: ArItemForPlan[] = []
-  let unsettled: UnsettledBankForPlan[] = []
-  const settlementLags = new Map<Id, number>()
-
-  if (opts.inflow) {
-    const tree = await getCachedCoaTree()
-    const resolved = resolveBaskets(await loadAccountMapping(tree), tree)
-    const inTransitIds = resolved.inTransit
-
-    const [rawAr, unsettledRows, lagRows] = await Promise.all([
-      arOpenInvoices(asOfPlusOne, filter.locationIds),
-      inTransitIds.length > 0
-        ? unsettledByChannel(today, inTransitIds, filter.segmentDetailIds, filter.entitySegmentColumn)
-        : Promise.resolve([]),
-      inTransitIds.length > 0 ? settlementLag(today, inTransitIds) : Promise.resolve([]),
-    ])
-
-    arItems = rawAr
-      .filter((a) => D(a.balance).gt(0))
-      .map((a) => ({
-        dueDate: a.dueDate || a.txDate,
-        balance: a.balance,
-      }))
-
-    unsettled = unsettledRows.map((u) => ({
-      coaId: u.coaId,
-      txDate: u.txDate,
-      amount: u.amount,
-    }))
-    for (const l of lagRows) {
-      settlementLags.set(l.coaId, l.avgLag)
-    }
-  }
+  const { arItems, unsettled, settlementLags } = opts.inflow
+    ? await loadInflows(filter, asOfPlusOne)
+    : { arItems: [], unsettled: [], settlementLags: new Map<Id, number>() }
 
   // 5. Projection
   const res = buildPaymentPlan({

@@ -59,65 +59,75 @@ export async function cashFlowDrill(ctx: DrillContext, steps: Map<DrillStepKind,
   return portionJournalRows(ctx, scoped.filter((p) => p.counterCoaId === accountStep.id), accountStep.label, 1)
 }
 
-export async function expensePaidDrill(ctx: DrillContext, steps: Map<DrillStepKind, DrillStep>): Promise<DrillResult> {
-  const sectionStep = steps.get('section')
-  const folderStep = steps.get('folder')
-  const vendorStep = steps.get('vendor')
-  const accountStep = steps.get('account')
+type PaymentCard = { cardId: Id; cardNumber: string; txDate: IsoDate; vendorId: Id; amount: Decimal }
+
+/** The payment cards of one section of Expense Paid (AP bill payments or unallocated payments), amounts shown positive. */
+async function paymentCardsOf(ctx: DrillContext, sectionId: 'apBills' | 'unallocated'): Promise<Map<Id, PaymentCard>> {
   const d2PlusOne = addDays(ctx.filter.asOf, 1)
-
-  // (a) AP bill payments and unallocated payments: category → vendor → payment cards
-  if (sectionStep && (sectionStep.id === 'apBills' || sectionStep.id === 'unallocated')) {
-    type Card = { cardId: Id; cardNumber: string; txDate: IsoDate; vendorId: Id; amount: Decimal }
-    const cards = new Map<Id, Card>()
-    if (sectionStep.id === 'apBills') {
-      for (const r of await expensePaidAllocated(ctx.filter.d1, d2PlusOne, ctx.filter.locationIds)) {
-        if (!AP_BILL_ITEM_TYPES.has(r.itemType)) continue
-        const cur = cards.get(r.cardId) ?? { ...r, amount: D(0) }
-        cur.amount = cur.amount.plus(D(r.detailSum).negated())
-        cards.set(r.cardId, cur)
-      }
-    } else {
-      for (const r of await expensePaidUnallocated(ctx.filter.d1, d2PlusOne, ctx.filter.locationIds)) {
-        cards.set(r.cardId, { ...r, amount: D(r.signedAmount).negated() })
-      }
+  const cards = new Map<Id, PaymentCard>()
+  if (sectionId === 'apBills') {
+    for (const r of await expensePaidAllocated(ctx.filter.d1, d2PlusOne, ctx.filter.locationIds)) {
+      if (!AP_BILL_ITEM_TYPES.has(r.itemType)) continue
+      const cur = cards.get(r.cardId) ?? { ...r, amount: D(0) }
+      cur.amount = cur.amount.plus(D(r.detailSum).negated())
+      cards.set(r.cardId, cur)
     }
-
-    if (vendorStep) {
-      return {
-        titleKey: 'drill.title.payments',
-        titleLabel: vendorStep.label,
-        columns: [col('docNumber', 'code'), col('txDate', 'date'), col('amount', 'money')],
-        rows: Array.from(cards.values())
-          .filter((c) => c.vendorId === vendorStep.id)
-          .sort((a, b) => b.txDate.localeCompare(a.txDate))
-          .map((c) => ({ id: c.cardId, docNumber: c.cardNumber || c.cardId, txDate: c.txDate, amount: c.amount.toFixed(2) })),
-        nextKind: null,
-        hasMore: false,
-      }
+  } else {
+    for (const r of await expensePaidUnallocated(ctx.filter.d1, d2PlusOne, ctx.filter.locationIds)) {
+      cards.set(r.cardId, { ...r, amount: D(r.signedAmount).negated() })
     }
+  }
+  return cards
+}
 
-    const byVendor = new Map<Id, Decimal>()
-    for (const c of cards.values()) byVendor.set(c.vendorId, (byVendor.get(c.vendorId) ?? D(0)).plus(c.amount))
-    const vendors = new Map((await listVendors(Array.from(byVendor.keys()).filter(Boolean))).map((v) => [v.vendorId, v]))
+/** AP bill payments and unallocated payments: section → vendor → payment cards. */
+async function vendorPaymentsDrill(
+  ctx: DrillContext,
+  sectionStep: DrillStep,
+  sectionId: 'apBills' | 'unallocated',
+  vendorStep: DrillStep | undefined,
+): Promise<DrillResult> {
+  const cards = await paymentCardsOf(ctx, sectionId)
+
+  if (vendorStep) {
     return {
-      titleKey: 'drill.title.vendors',
-      titleLabel: sectionStep.label,
-      columns: NAMED_TOTAL_COLUMNS,
-      rows: Array.from(byVendor.entries()).map(([id, amt]) => ({
-        id,
-        code: vendors.get(id)?.code ?? '',
-        name: vendors.get(id)?.name || id,
-        amount: amt.toFixed(2),
-      })),
-      nextKind: 'vendor',
+      titleKey: 'drill.title.payments',
+      titleLabel: vendorStep.label,
+      columns: [col('docNumber', 'code'), col('txDate', 'date'), col('amount', 'money')],
+      rows: Array.from(cards.values())
+        .filter((c) => c.vendorId === vendorStep.id)
+        .sort((a, b) => b.txDate.localeCompare(a.txDate))
+        .map((c) => ({ id: c.cardId, docNumber: c.cardNumber || c.cardId, txDate: c.txDate, amount: c.amount.toFixed(2) })),
+      nextKind: null,
       hasMore: false,
     }
   }
 
-  // (b) Direct payments: expense folder → account → journals (cash = cash ∪ bank, §6.5 b)
-  const scopeStep = folderStep ?? sectionStep
+  const byVendor = new Map<Id, Decimal>()
+  for (const c of cards.values()) byVendor.set(c.vendorId, (byVendor.get(c.vendorId) ?? D(0)).plus(c.amount))
+  const vendors = new Map((await listVendors(Array.from(byVendor.keys()).filter(Boolean))).map((v) => [v.vendorId, v]))
+  return {
+    titleKey: 'drill.title.vendors',
+    titleLabel: sectionStep.label,
+    columns: NAMED_TOTAL_COLUMNS,
+    rows: Array.from(byVendor.entries()).map(([id, amt]) => ({
+      id,
+      code: vendors.get(id)?.code ?? '',
+      name: vendors.get(id)?.name || id,
+      amount: amt.toFixed(2),
+    })),
+    nextKind: 'vendor',
+    hasMore: false,
+  }
+}
+
+/** Direct payments: expense folder → account → journals (cash = cash ∪ bank, §6.5 b). */
+async function directExpenseDrill(ctx: DrillContext, steps: Map<DrillStepKind, DrillStep>): Promise<DrillResult> {
+  const sectionStep = steps.get('section')
+  const accountStep = steps.get('account')
+  const scopeStep = steps.get('folder') ?? sectionStep
   if (!scopeStep) return empty('drill.title.accounts', '')
+
   const resolved = resolveBaskets(await loadAccountMapping(ctx.tree), ctx.tree)
   const { portions } = await loadClassifiedPortions(ctx.filter, {
     cashEquivIds: Array.from(new Set([...resolved.cash, ...resolved.bank])),
@@ -147,3 +157,10 @@ export async function expensePaidDrill(ctx: DrillContext, steps: Map<DrillStepKi
   }
 }
 
+export async function expensePaidDrill(ctx: DrillContext, steps: Map<DrillStepKind, DrillStep>): Promise<DrillResult> {
+  const sectionStep = steps.get('section')
+  if (sectionStep && (sectionStep.id === 'apBills' || sectionStep.id === 'unallocated')) {
+    return vendorPaymentsDrill(ctx, sectionStep, sectionStep.id, steps.get('vendor'))
+  }
+  return directExpenseDrill(ctx, steps)
+}

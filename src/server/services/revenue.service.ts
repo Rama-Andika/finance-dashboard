@@ -1,7 +1,6 @@
-import { postableAccountIds } from '~/lib/finance/coa/coa-tree'
 import '@tanstack/react-start/server-only'
-import Decimal from 'decimal.js'
-import { D, sum } from '~/lib/core/money'
+import { activePeriodsOf, entitiesOfFilter } from '~/lib/core/filter-scope'
+import { postableAccountIds } from '~/lib/finance/coa/coa-tree'
 import type { Money, Id, MetricMeta, Breakdown } from '~/lib/core/types'
 import {
   type AppContextFilter,
@@ -14,9 +13,13 @@ import { movementsByPeriods } from '~/server/repo/gl.repo'
 import { memoMetric } from '~/server/cache'
 import { loadPlMovements, onlyAccounts } from '~/server/services/shared/pl-movements'
 import {
-  computeNetRevenue,
-  groupFolders,
+  aggregateRevenue,
   buildRevenueBreakdown,
+  groupFolders,
+  movementsByCoaOf,
+  revenueTrend,
+  splitRevenueByEntity,
+  sumNetRevenue,
 } from '~/lib/finance/pnl/revenue'
 
 export type RevenueResult = {
@@ -36,10 +39,8 @@ export function computeRevenue(filter: AppContextFilter): Promise<RevenueResult>
 
 async function computeRevenueUncached(filter: AppContextFilter): Promise<RevenueResult> {
   const meta = buildMetricMeta(filter)
-  const tree = await getCachedCoaTree()
-  const periods = await getCachedPeriods()
+  const [tree, periods, { entities }] = await Promise.all([getCachedCoaTree(), getCachedPeriods(), getCachedEntities()])
 
-  // 1. Collect POSTABLE Revenue accounts
   const revenueCoaIds: Id[] = postableAccountIds(tree, ['Revenue'])
 
   if (revenueCoaIds.length === 0 || filter.periodIds.length === 0) {
@@ -54,13 +55,11 @@ async function computeRevenueUncached(filter: AppContextFilter): Promise<Revenue
     }
   }
 
-  // 2. Fetch movements for active periods
-  const activePeriods = periods.filter((p) => filter.periodIds.includes(p.periodeId))
   // The per-entity split needs its own read; the comparison total reuses the shared P&L movements.
   const hasCompare = Boolean(filter.compare && filter.compare.periodIds.length > 0)
   const [rows, allCompareRows] = await Promise.all([
     movementsByPeriods({
-      periods: activePeriods,
+      periods: activePeriodsOf(periods, filter.periodIds),
       segCol: filter.entitySegmentColumn,
       segIds: filter.segmentDetailIds,
       coaIds: revenueCoaIds,
@@ -70,92 +69,21 @@ async function computeRevenueUncached(filter: AppContextFilter): Promise<Revenue
     hasCompare ? loadPlMovements(filter, filter.compare.periodIds) : Promise.resolve([]),
   ])
 
-  // 3. Compare total
-  let compareTotal: Money | null = null
-  if (hasCompare) {
-    const compareRows = onlyAccounts(allCompareRows, revenueCoaIds)
-    let cmpSum = D(0)
-    for (const r of compareRows) {
-      cmpSum = cmpSum.plus(D(computeNetRevenue(r.debet, r.credit)))
-    }
-    compareTotal = cmpSum.toFixed(2)
-  }
+  const compareTotal = hasCompare ? sumNetRevenue(onlyAccounts(allCompareRows, revenueCoaIds)).toFixed(2) : null
 
-  // 4. Aggregates
-  let totalSum = D(0)
-  const movementsByCoa = new Map<Id, { debet: Money; credit: Money }>()
-  const byPeriodMap = new Map<Id, Decimal>()
-  const byLocationMap = new Map<Id, Decimal>()
-
-  for (const r of rows) {
-    const net = D(computeNetRevenue(r.debet, r.credit))
-    totalSum = totalSum.plus(net)
-
-    // By coa
-    const currCoa = movementsByCoa.get(r.coaId) ?? { debet: '0.00', credit: '0.00' }
-    movementsByCoa.set(r.coaId, {
-      debet: D(currCoa.debet).plus(D(r.debet)).toFixed(2),
-      credit: D(currCoa.credit).plus(D(r.credit)).toFixed(2),
-    })
-
-    // By period
-    if (r.periodId) {
-      const currP = byPeriodMap.get(r.periodId) ?? D(0)
-      byPeriodMap.set(r.periodId, currP.plus(net))
-    }
-
-    // By location
-    if (r.locationId) {
-      const currL = byLocationMap.get(r.locationId) ?? D(0)
-      byLocationMap.set(r.locationId, currL.plus(net))
-    }
-  }
-
-  // 5. Breakdown by folder
-  const folders = groupFolders(tree, 'Revenue')
-  const byFolder = buildRevenueBreakdown(tree, folders, movementsByCoa)
-
-  // 6. Trend per month
-  const periodById = new Map(periods.map((p) => [p.periodeId, p]))
-  const trend = filter.months.map((month) => {
-    let monthSum = D(0)
-    for (const [pId, amount] of byPeriodMap.entries()) {
-      const p = periodById.get(pId)
-      if (p && p.startDate.slice(0, 7) === month) {
-        monthSum = monthSum.plus(amount)
-      }
-    }
-    return {
-      month,
-      amount: monthSum.toFixed(2),
-    }
-  })
-
-  // 7. By Entity
-  const { entities } = await getCachedEntities()
-  const targetEntities =
-    filter.locationIds === 'all'
-      ? entities
-      : entities.filter((e) => filter.locationIds.includes(e.locationId))
-
-  const byEntity = targetEntities.map((e) => {
-    const entAmount = byLocationMap.get(e.locationId) ?? D(0)
-    return {
-      id: e.locationId,
-      code: e.code,
-      name: e.name,
-      amount: entAmount.toFixed(2),
-    }
-  })
-
-  // Revenue lines without a location (or of a location outside the list) belong to no entity row.
-  const entityUnassigned = totalSum.minus(D(sum(byEntity.map((e) => e.amount)))).toFixed(2)
+  const aggregate = aggregateRevenue(rows)
+  const byFolder = buildRevenueBreakdown(tree, groupFolders(tree, 'Revenue'), movementsByCoaOf(aggregate.byCoa))
+  const { byEntity, entityUnassigned } = splitRevenueByEntity(
+    entitiesOfFilter(entities, filter.locationIds),
+    aggregate.byLocation,
+    aggregate.total,
+  )
 
   return {
     meta,
-    total: totalSum.toFixed(2),
+    total: aggregate.total.toFixed(2),
     compareTotal,
-    trend,
+    trend: revenueTrend(aggregate.byPeriod, periods, filter.months),
     byFolder,
     byEntity,
     entityUnassigned,
