@@ -10,6 +10,8 @@ import { refreshGlMonthlySnapshot } from './gl-snapshot'
 import { refreshApArHistSnapshots } from './hist-ap-ar'
 import { warmApArSnapshot } from './snapshot'
 import { clearCachesAfterPeriodChange } from './invalidate'
+import { refreshCashLinesSnapshot } from './cash-lines-build'
+import { currentCashAccountIds } from '~/server/services/shared/cash-accounts'
 
 /** Who started a run: the timer in the server process, or a user pressing "Refresh now". */
 export type RefreshSource = 'scheduler' | 'manual'
@@ -85,6 +87,20 @@ export async function runRefreshCycle(
         )
         // A period that was rebuilt or dropped may have served older numbers: forget what was derived from it.
         if (gl.rebuilt > 0 || gl.removed > 0) clearCachesAfterPeriodChange()
+      }
+      // Lines of the cash journals of Closed periods (feeds Cash Flow, Runway and Expense Paid).
+      // A failure here is recorded but does not stop the steps after it: the live ERP query still answers, only slower.
+      try {
+        const cash = await refreshCashLinesSnapshot(await currentCashAccountIds())
+        if (cash.ran) {
+          dashLog.info(
+            `cash lines snapshot built ${cash.built} period(s) (${cash.rebuilt} rebuilt), removed ${cash.removed} in ${Math.round(cash.durationMs / 1000)}s`,
+          )
+          if (cash.rebuilt > 0 || cash.removed > 0) clearCachesAfterPeriodChange()
+        }
+      } catch (error) {
+        ok = false
+        dashLog.error(`cash lines snapshot failed (the live query is used meanwhile): ${errorText(error)}`)
       }
       // Month-end AP/AR history: one month per run (the first fill takes a few runs; `npm run dash:refresh-hist` does it at once)
       const hist = await refreshApArHistSnapshots(today(), { maxBuilds: HIST_MAX_BUILDS_PER_RUN })

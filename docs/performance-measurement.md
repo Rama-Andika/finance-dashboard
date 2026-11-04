@@ -90,3 +90,4 @@ Catatan pembacaan:
 | 2026-11-04 | Dokumen dibuat bersama alat ukur: `PERF_LOG`, `SLOW_QUERY_MS`, probe Summary                                    |
 | 2026-11-04 | §7: hasil pengukuran pertama di DB lokal `demo` (probe Summary, tiga preset)                                    |
 | 2026-11-04 | Phase 1A: snapshot GL memakai sidik jari periode dan pembangunan ulang otomatis bila periode dibuka-tutup ulang |
+| 2026-11-04 | Phase 1B: snapshot baris jurnal kas (dash_snap_cash_lines) untuk mempercepat runway dan Cash Flow               |

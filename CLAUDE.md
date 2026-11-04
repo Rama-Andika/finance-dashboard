@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Oxy Finance Dashboard** — a TanStack Start (SSR) app that reads a client's **ERP MySQL database directly** (server functions + Drizzle) and shows consolidated finance metrics (Summary, Revenue, Cash Position, Cash Flow, P&L, AP/AR aging, Payment Plan, Budget). Login uses the ERP's own `sysuser` accounts.
 
 Source-of-truth documents (Indonesian), read the relevant part before touching finance logic:
+
 - `docs/decisions.md` — numbered decisions (D#, F#, S#, U#, T#, open items O#)
 - `docs/data-model.md` — ERP tables, formulas per metric (§x.y), data-quality findings
 - `plans/README.md` — golden rules G1–G38 (§2), conventions (§5), open-item defaults (§7, §9 "K#")
@@ -54,6 +55,7 @@ npm run dash:refresh-hist  # build the month-end AP/AR history (past asOf dates;
 ## Permission rules (from plans/README.md §1.1 and user preferences)
 
 Ask the user in chat and wait for a clear yes before:
+
 - installing/removing packages or scaffolding (`npm install`, `npx shadcn …`); versions are pinned exactly — never `--force`/`--legacy-peer-deps`;
 - **running anything against a database**, including a plain `SELECT`, `npm run test:db`, `db:dash:migrate`, `dash:refresh*`, `drizzle-kit pull`, seed scripts;
 - commits/pushes.
@@ -87,8 +89,10 @@ src/routes/**            file-based routes; loader → queryClient.ensureQueryDa
 ### Snapshot tables (`dash_*`)
 
 The ERP tables are read-only. Heavy numbers are precomputed into the dashboard's own `dash_*` tables in the same database (`src/server/dash/`, migrations in `drizzle-dash/`, config `drizzle.dash.config.ts`, migration table `dash_migrations`):
+
 - AP/AR open-invoice + unallocated-payment snapshot, rebuilt every `DASH_REFRESH_MINUTES` by `scheduler.ts` inside the server process (skipped when the ERP fingerprint is unchanged; atomic shadow-table swap; `dash_snap_meta` holds status shown as "Data as of …" in the sidebar).
 - `dash_snap_gl_monthly` — monthly GL movements for Closed periods, each period tied to a fingerprint (`period_key`, `stats_key`); the refresh rebuilds a period whose fingerprint changed (an admin can re-open and re-close a period), and the cache key of closed-period movements carries the build version. `gl.repo.ts` reads it for periods it contains and falls back to the live ERP query otherwise.
+- `dash_snap_cash_lines` / `dash_snap_cash_periods` — lines of every posted journal that touches a cash account, for Closed periods, built by `cash-lines-build.ts` with the same fingerprint rules as the GL snapshot; `cashflow.repo.ts` reads closed periods from it when the cash account list (`cash_hash`) and the entity segment column match, and falls back to the live ERP query otherwise.
 - `dash_snap_ap_ar_hist_*` hold the AP/AR state at the end of each of the last `DASH_AP_AR_HIST_MONTHS` (default 13) completed months, built by `hist-ap-ar.ts` (one month per scheduler run; the two newest months are rebuilt daily until final). `apar.repo.ts` reads today's snapshot first, then the month-end history when `asOf` is exactly a built month-end, then the slow live ERP query. Any other past `asOf` still uses the live query.
 - Manual refresh (decision U8): the "Refresh now" button in the sidebar's "Data as of" card calls `startSnapshotRefresh` (`snapshot.service.ts`), which starts `runRefreshCycle` (`src/server/dash/refresh-cycle.ts`, the same cycle `scheduler.ts` runs) with `force: true` and answers at once; the browser polls `getSnapshotInfoFn` (`job` = state of the cycle in this server process, `canRefresh`). A shared cooldown of 2 minutes (from `dash_snap_meta.refreshed_at`, constant `MANUAL_REFRESH_COOLDOWN_MS`) and the advisory locks stop repeated presses. New files in `src/server/dash/` must not contain write-statement phrases (even in comments) that `guard.test.ts` would read as a write to a non-`dash_` table.
 - `src/server/dash/guard.test.ts` fails if any migration or dash code writes to a non-`dash_` table. The only other allowed write is INSERT/UPDATE of the `DASHBOARD_ACCOUNT_MAPPING` row in `system_main` (Settings › Account mapping). Never run `drizzle-kit push`, and never generate/migrate against ERP tables (`drizzle.config.ts` is only for `pull` from a local DB).
@@ -96,16 +100,19 @@ The ERP tables are read-only. Heavy numbers are precomputed into the dashboard's
 ## Non-negotiable rules (summary of plans/README.md §2)
 
 SQL / DB
+
 - Must run on **MySQL 5.7.44**: no CTE (`WITH`), window functions (`OVER`, `ROW_NUMBER`, `LAG`…), `LATERAL`, `REGEXP_REPLACE/SUBSTR`. The local `demo` DB is MariaDB 10.4 and accepts them, so local success proves nothing. `src/server/repo/sql-guard.test.ts` statically scans all repo files, sub folders included.
-- Full `GROUP BY` (`ONLY_FULL_GROUP_BY`); upsert with `ON DUPLICATE KEY UPDATE col = VALUES(col)` (no `AS new`); Drizzle core builder or `sql\`\`` only (no relational `db.query`); aggregate in SQL.
+- Full `GROUP BY` (`ONLY_FULL_GROUP_BY`); upsert with `ON DUPLICATE KEY UPDATE col = VALUES(col)` (no `AS new`); Drizzle core builder or the `sql` template tag only (no relational `db.query`); aggregate in SQL.
 - Always parameterized. Repo functions taking id lists return `[]` early on an empty list (use `inList`). Column aliases are camelCase via `AS`.
 - GL table per period comes from `periode.table_name` (`gl` or archive `gl_20xx`); validate via `src/server/db/gl-tables.ts` and insert with `sql.identifier`. Some queries use `STRAIGHT_JOIN` from `gl` for performance — keep it.
 
 Numbers & dates
+
 - All IDs are strings (never `Number(id)`); all money is a string computed with `decimal.js` (`src/lib/core/money.ts`) — no `+ - * /`, `Number()`, `parseFloat()` on money; round only when displaying.
 - Monthly figures use `gl.period_id`; daily/date ranges use `gl.trans_date`.
 
 Accounting
+
 - Count journals only when `posted_status = 1` (reversals included). Add `AND canceled_date IS NULL` only when the GL header table has that column (`notCanceledClause` in `src/server/db/gl-columns.ts`; some ERP versions have no such column).
 - Sign comes from the `account_group` side (`src/lib/finance/coa/sign.ts`), not `coa.saldo_normal`.
 - Entity = `pos_location`; journals map via the entity segment column (`segment.count = 1`) → `segment_detail.location_id`. Consolidation is a plain sum, no intercompany elimination. No department dimension.
@@ -113,14 +120,17 @@ Accounting
 - Account baskets (cash, bank, deposit, in-transit, fixed cost) come from Settings in `system_main`, never hard-coded codes. `acc_link` is not used for cash accounts.
 
 Security / sensitive data
+
 - `sysuser.password` is selected in exactly one login function, compared with `timingSafeEqual`, never logged/returned/cached. Select columns explicitly.
 - From `vendor`/`customer` select only id, `code`, `name` — never bank account/NPWP/ID columns. Do not write account numbers, loan numbers, shareholder or client company names anywhere (code, tests, logs, docs, commits).
 
 UI
+
 - Neraca UI tokens/classes only (`src/styles/tokens.css`, `neraca.css`, `nr-*` components in `src/components/ui/`, `charts/` and `layout/`); no hex colors in components, one `forest` card per screen, `lime` only as fill, no gradients/emoji. Cards show abbreviated figures + full-value tooltip; tables show full numbers, right-aligned, `tabular-nums`, negatives in parentheses. `src/components/ui/shadcn/` is shadcn-generated (`components.json` makes `npx shadcn add` write there); do not edit those files by hand. `src/components/ui/` itself holds the project's own domain-free base components (buttons, notices, KPI card, data table, ...); ESLint forbids it from importing pages, layout, charts or finance logic.
 - Every UI string goes through i18n (`src/i18n/locales/en.json` default + `id.json`); `src/i18n/keys.test.ts` requires identical keys in both. Use finance terms in labels, not table names.
 
 Language
+
 - Everything in code is English: routes, file names, identifiers, SQL aliases, comments, error messages, logs, test names. Indonesian appears only in `id.json` and `docs/`. ERP table/column names stay as-is.
 
 ## Conventions
@@ -128,6 +138,7 @@ Language
 - Server logs go through `createLogger` / `errorText` in `src/server/log.ts` (`dashLog` for the snapshot code), not `console.*`.
 - Import alias `~/` → `src/`. Files `kebab-case.ts` (hooks `use-*.ts`), components `PascalCase.tsx`, tests next to the file (`*.test.ts`); integration tests in `tests/integration/*.int.test.ts` with fixtures in `tests/fixtures/`.
 - TypeScript strict + `noUncheckedIndexedAccess`, `noUnusedLocals`, `noUnusedParameters` (remove dead imports and props instead of leaving them); no `any` (use `unknown` + zod). Core types in `src/lib/core/types.ts` (`Id`, `Money`, `IsoDate`, `ResolvedFilter`, …).
+- **Prettier on changed files is expected, `.md` files and this one included.** It re-pads tables and turns `*text*` into `_text_`; that diff noise is accepted. Do not put backticks inside inline code (a template-literal tag written between backticks): Prettier strips the spaces around it and garbles the sentence. Say it in words instead (the `sql` template tag).
 - `src/routeTree.gen.ts` is generated by the router plugin — do not edit by hand.
 - **Summary page docs stay in sync.** Whenever the Summary page changes or gains something (cards, tables, tabs, figures, formulas, queries behind them, status labels, filters), update `docs/summary-page.md` (finance-facing explanation) and `docs/summary-queries.md` (the SQL/queries) in the same change, and add a line to the change log ("Riwayat Perubahan") of each, with the date and the "Terakhir diperbarui" header. Do not leave the docs for later.
 - **Revenue page docs stay in sync.** Whenever the Revenue page changes or gains something (cards, charts, tables, drill-down, figures, formulas, folder grouping, queries behind them, filters), or a change elsewhere touches Revenue (`lib/finance/pnl/revenue*.ts`, `revenue.service.ts`, `loadPlMovements` / `movementsByPeriods` / the `dash_snap_gl_monthly` read, period or comparison rules in `lib/finance/period/periods.ts`, entity or segment handling, the Summary Revenue card, the Composition Revenue tab and the Revenue by Entity donut), update `docs/revenue-page.md` (finance-facing explanation) and `docs/revenue-queries.md` (the SQL/queries) in the same change, and add a line to the change log ("Riwayat Perubahan") of each, with the date and the "Terakhir diperbarui" header. Do not leave the docs for later. A change that touches both pages (for example a shared revenue formula) must update the Summary docs as well.

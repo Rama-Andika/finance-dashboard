@@ -9,6 +9,8 @@ import { glTablesOf, groupPeriodsByTable } from '~/server/db/gl-tables'
 import { notCanceledClause, prefetchCanceledDateColumns } from '~/server/db/gl-columns'
 import { D } from '~/lib/core/money'
 import { hashIds, memo } from '~/server/cache'
+import { CASH_LINES_MAX_ACCOUNTS, SNAPSHOT_SEGMENT_COLUMN } from '~/server/dash/tables'
+import { builtCashPeriods, snapshotCashLines } from '~/server/dash/cash-lines-read'
 import type { Id, Money, Period } from '~/lib/core/types'
 
 const CASH_LINES_CACHE_MS = 60 * 1000
@@ -28,6 +30,8 @@ export type LinesOfCashJournalsOptions = {
   segCol: string
   segIds: Id[] | 'all'
   cashCoaIds: Id[]
+  /** Read closed periods from the dash_snap_cash_lines snapshot when they are in it (default true; tests turn it off). */
+  useSnapshot?: boolean
 }
 
 /**
@@ -35,15 +39,14 @@ export type LinesOfCashJournalsOptions = {
  * Memoized briefly: Cash Flow, Expense Paid and the drill-downs ask for the same lines, so callers
  * pass the same (widest) cash account list and share one read. The returned array is read-only.
  */
-export function linesOfCashJournals(
-  opts: LinesOfCashJournalsOptions,
-): Promise<CashJournalLineRow[]> {
+export function linesOfCashJournals(opts: LinesOfCashJournalsOptions): Promise<CashJournalLineRow[]> {
   if (opts.periods.length === 0 || opts.cashCoaIds.length === 0) return Promise.resolve([])
   if (opts.segIds !== 'all' && opts.segIds.length === 0) return Promise.resolve([])
 
   assertSegmentColumn(opts.segCol)
   const key = [
     'cashLines',
+    String(opts.useSnapshot !== false),
     opts.segCol,
     hashIds(opts.periods.map((p) => p.periodeId)),
     hashIds(opts.segIds),
@@ -53,20 +56,42 @@ export function linesOfCashJournals(
 }
 
 async function queryCashLines(opts: LinesOfCashJournalsOptions): Promise<CashJournalLineRow[]> {
-  const grouped = groupPeriodsByTable(opts.periods)
+  // Closed periods that are in the snapshot, built for exactly this cash account list, are read from it.
+  const canUseSnapshot =
+    opts.useSnapshot !== false &&
+    opts.segCol === SNAPSHOT_SEGMENT_COLUMN &&
+    opts.cashCoaIds.length <= CASH_LINES_MAX_ACCOUNTS
+  const built = canUseSnapshot ? await builtCashPeriods(hashIds(opts.cashCoaIds)) : new Map<Id, string>()
+  const inSnapshot = (p: Period) => p.status === 'Closed' && built.has(p.periodeId)
+  const fromSnapshot = opts.periods.filter(inSnapshot)
+  const live = opts.periods.filter((p) => !inSnapshot(p))
 
-  await prefetchCanceledDateColumns(grouped.keys())
-  // One read per GL table, all tables in parallel; merged in table order so the result order is stable.
-  const perTable = await Promise.all(
-    Array.from(grouped, ([tableName, tablePeriods]) => cashLinesOfTable(tableName, tablePeriods, opts)),
-  )
+  const [snapshotLines, liveLines] = await Promise.all([
+    snapshotCashLines(
+      fromSnapshot.map((p) => p.periodeId),
+      opts.segIds,
+    ),
+    queryLiveCashLines({ ...opts, periods: live }),
+  ])
 
   // A journal that matches in two slices (account or segment lists above 1000 ids) comes back once per slice.
   const unique = new Map<string, CashJournalLineRow>()
-  for (const line of perTable.flat()) {
+  for (const line of [...snapshotLines, ...liveLines]) {
     unique.set(`${line.glId}|${line.coaId}|${line.segmentDetailId ?? ''}`, line)
   }
   return Array.from(unique.values())
+}
+
+/** The ERP query: one read per GL table, all tables in parallel, merged in table order so the result order is stable. */
+async function queryLiveCashLines(opts: LinesOfCashJournalsOptions): Promise<CashJournalLineRow[]> {
+  if (opts.periods.length === 0) return []
+  const grouped = groupPeriodsByTable(opts.periods)
+
+  await prefetchCanceledDateColumns(grouped.keys())
+  const perTable = await Promise.all(
+    Array.from(grouped, ([tableName, tablePeriods]) => cashLinesOfTable(tableName, tablePeriods, opts)),
+  )
+  return perTable.flat()
 }
 
 /** The cash journal lines of one GL table (one query per slice of periods, accounts and segments). */
@@ -82,7 +107,11 @@ async function cashLinesOfTable(
   const notCanceledMain = await notCanceledClause(tableName, 'g')
   const notCanceledSub = await notCanceledClause(tableName, 'g2')
 
-  const combos = sliceCombos(chunk(tablePeriods.map((p) => p.periodeId)), chunk(opts.cashCoaIds), chunkOrAll(opts.segIds))
+  const combos = sliceCombos(
+    chunk(tablePeriods.map((p) => p.periodeId)),
+    chunk(opts.cashCoaIds),
+    chunkOrAll(opts.segIds),
+  )
   const slices = await mapLimit(combos, SLICE_CONCURRENCY, async ([pChunk, cChunk, sChunk]) => {
     const query = sql`
       SELECT d.gl_id AS glId,
@@ -120,17 +149,15 @@ async function cashLinesOfTable(
       credit: number | string
     }>(query)
 
-    return res.map(
-      (r): CashJournalLineRow => ({
-        glId: String(r.glId),
-        journalType: toInt(r.journalType),
-        periodId: String(r.periodId),
-        coaId: String(r.coaId),
-        segmentDetailId: r.segmentDetailId ? String(r.segmentDetailId) : null,
-        debet: D(r.debet || 0).toFixed(2),
-        credit: D(r.credit || 0).toFixed(2),
-      }),
-    )
+    return res.map((r): CashJournalLineRow => ({
+      glId: String(r.glId),
+      journalType: toInt(r.journalType),
+      periodId: String(r.periodId),
+      coaId: String(r.coaId),
+      segmentDetailId: r.segmentDetailId ? String(r.segmentDetailId) : null,
+      debet: D(r.debet || 0).toFixed(2),
+      credit: D(r.credit || 0).toFixed(2),
+    }))
   })
   return slices.flat()
 }

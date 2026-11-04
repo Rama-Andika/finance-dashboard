@@ -247,9 +247,11 @@ async function buildPeriod(conn: Conn, period: Period): Promise<void> {
     // Older ERP versions have no canceled_date column on the GL header; the filter is only added when the column exists.
     const notCanceled = (await glTableHasCanceledDate(gl)) ? ' AND g.canceled_date IS NULL' : ''
     // STRAIGHT_JOIN: drive from gl (period index) into gl_detail, as the live queries do
+    // COALESCE: debet and credit may be NULL in the ERP while the snapshot columns are NOT NULL, and a strict SQL mode
+    // (the MySQL 5.7 default) refuses such a row. The live queries read a missing value as 0, so 0 gives the same sums.
     const [result] = await conn.query(
       `INSERT INTO ?? (period_id, coa_id, segment_id, debet, credit)
-       SELECT STRAIGHT_JOIN g.period_id, d.coa_id, COALESCE(d.${GL_SNAPSHOT_SEGMENT_COLUMN}, 0), SUM(d.debet), SUM(d.credit)
+       SELECT STRAIGHT_JOIN g.period_id, d.coa_id, COALESCE(d.${GL_SNAPSHOT_SEGMENT_COLUMN}, 0), COALESCE(SUM(d.debet), 0), COALESCE(SUM(d.credit), 0)
        FROM ?? g JOIN ?? d ON d.gl_id = g.gl_id
        WHERE g.posted_status = 1${notCanceled} AND g.period_id = ?
        GROUP BY g.period_id, d.coa_id, COALESCE(d.${GL_SNAPSHOT_SEGMENT_COLUMN}, 0)`,

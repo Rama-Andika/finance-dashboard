@@ -157,3 +157,40 @@ export const dashSnapGlPeriods = mysqlTable('dash_snap_gl_periods', {
   /** When the journal counts were last compared with the ERP */
   checkedAt: datetime('checked_at', { mode: 'string' }),
 })
+
+/**
+ * Every line of every posted journal that touches a cash account, for CLOSED periods (see cash-lines-build.ts).
+ * Same rows the live query `linesOfCashJournals` returns. No primary key: rows are replaced per period, never addressed one by one.
+ */
+export const dashSnapCashLines = mysqlTable(
+  'dash_snap_cash_lines',
+  {
+    periodId: bigint('period_id', { mode: 'string' }).notNull(),
+    glId: bigint('gl_id', { mode: 'string' }).notNull(),
+    journalType: int('journal_type').notNull().default(0),
+    coaId: bigint('coa_id', { mode: 'string' }).notNull(),
+    /** segment1_id of the line; NULL when the line has no segment (kept as the ERP returns it) */
+    segmentId: bigint('segment_id', { mode: 'string' }),
+    /** 1 when the account of the line was one of the cash accounts the period was built for */
+    isCash: tinyint('is_cash').notNull().default(0),
+    debet: decimal('debet', { precision: 22, scale: 2 }).notNull().default('0.00'),
+    credit: decimal('credit', { precision: 22, scale: 2 }).notNull().default('0.00'),
+  },
+  (t) => [
+    index('idx_dash_cash_key').on(t.periodId, t.isCash, t.segmentId, t.glId),
+    index('idx_dash_cash_period_gl').on(t.periodId, t.glId),
+  ],
+)
+
+/** Which closed periods are present in dash_snap_cash_lines, and the fingerprint they were built with. */
+export const dashSnapCashPeriods = mysqlTable('dash_snap_cash_periods', {
+  periodId: bigint('period_id', { mode: 'string' }).notNull().primaryKey(),
+  builtAt: datetime('built_at', { mode: 'string' }),
+  rowCount: int('row_count').default(0),
+  durationMs: int('duration_ms').default(0),
+  periodKey: varchar('period_key', { length: 100 }),
+  statsKey: varchar('stats_key', { length: 100 }),
+  checkedAt: datetime('checked_at', { mode: 'string' }),
+  /** hashIds() of the cash account list the lines were built for */
+  cashHash: varchar('cash_hash', { length: 32 }),
+})

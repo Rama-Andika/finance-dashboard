@@ -3,6 +3,7 @@
 > **Untuk developer.** Daftar semua query yang berjalan saat halaman Summary dimuat, ditulis ulang dari kode sumber dalam bentuk SQL dengan parameter `?` / `:nama`. Penjelasan untuk tim finance ada di [`summary-page.md`](./summary-page.md).
 >
 > **Cara baca:**
+>
 > - Setiap query punya ID (`Q1`, `Q2`, …) dan petunjuk file sumbernya. Query ditranskripsi dari kode; bila kode berubah, kodenya yang benar.
 > - `<SEG>` = kolom segmen entitas, dicari dari `segment` yang `count = 1` (klien ini `segment1_id`) dan divalidasi `assertSegmentColumn`.
 > - `<GL>` / `<GL_DETAIL>` = `gl` / `gl_detail` atau tabel arsip `gl_20XX` / `gl_detail_20XX`, ditentukan `periode.table_name` (`src/server/db/gl-tables.ts`, pola `^gl(_20\d{2})?$`).
@@ -36,6 +37,7 @@
 Dibaca setiap request, tetapi di-cache di memori (`src/server/context.ts`, TTL 10 menit; pengaturan keranjang 2 menit).
 
 ### Q1 — Daftar akun (CoA)
+
 `src/server/repo/master-data/coa.repo.ts` · `listCoa`
 
 ```sql
@@ -46,6 +48,7 @@ ORDER BY code, coa_id;
 ```
 
 ### Q2 — Daftar periode
+
 `src/server/repo/master-data/periods.repo.ts` · `listPeriods`
 
 ```sql
@@ -58,6 +61,7 @@ ORDER BY start_date, type;
 `type`: 0 = reguler, 1 = periode 13. `status`: `Open` / `Pre Closed` / `Closed`.
 
 ### Q3 — Kolom segmen entitas
+
 `src/server/repo/master-data/entities.repo.ts` · `getEntitySegment`
 
 ```sql
@@ -69,6 +73,7 @@ WHERE `count` = 1;
 Harus tepat 1 baris, kalau tidak aplikasi melempar error.
 
 ### Q4 — Daftar entitas
+
 `src/server/repo/master-data/entities.repo.ts` · `listEntities`
 
 ```sql
@@ -82,6 +87,7 @@ ORDER BY pl.name, pl.location_id;
 Satu lokasi bisa punya lebih dari satu `segment_detail_id`; keduanya digabung menjadi satu entitas di kode.
 
 ### Q5 — Pengaturan keranjang akun
+
 `src/server/repo/settings.repo.ts` · `getMappingRow`
 
 ```sql
@@ -94,6 +100,7 @@ LIMIT 1;
 `valueprop` berisi JSON keranjang (`cash`, `bank`, `deposit`, `inTransit`, `fixedCost`). Folder (HEADER) di-resolve menjadi akun POSTABLE turunannya di JavaScript, bukan di SQL.
 
 ### Q6 — Daftar entitas dari filter
+
 Tidak ada query: token `entity` di URL (id lokasi) dicocokkan ke hasil Q4, lalu diubah menjadi daftar `segment_detail_id` (`:segIds`) yang dipakai semua query di bawah. Bila memilih semua entitas, `:segIds = 'all'` dan klausa `AND <SEG> IN (...)` dihilangkan.
 
 ---
@@ -105,6 +112,7 @@ Dipakai **Cash Position**, Cash Flow (kas awal dan akhir), Runway (Current Ratio
 ### Menentukan periode saldo awal (di JavaScript, tanpa SQL)
 
 Dari hasil Q2, hanya periode `type = 0`:
+
 - **C** = periode `Closed` terakhir dengan `end_date < :asOf`.
 - **P\*** = periode tepat setelah C. Bila tidak ada C, P\* = periode reguler paling awal.
 - `:fromDate` = `C.end_date + 1 hari` (atau `P*.start_date` bila tidak ada C).
@@ -112,6 +120,7 @@ Dari hasil Q2, hanya periode `type = 0`:
 Lalu: bila Q7 mengembalikan > 0 baris untuk P\*, pakai **jalur tabel saldo awal** (Q8 + Q9). Bila 0, pakai **jalur cadangan** (Q9 saja, rentang `1900-01-01` s.d. `:asOf`).
 
 ### Q7 — Hitung baris saldo awal
+
 `gl.repo.ts` · `countOpeningRows`
 
 ```sql
@@ -121,6 +130,7 @@ WHERE periode_id = :periodeId;
 ```
 
 ### Q8 — Saldo awal per akun
+
 `gl.repo.ts` · `openingBalances`. Hanya dipakai bila `<SEG> = segment1_id`, selain itu melempar error.
 
 ```sql
@@ -137,6 +147,7 @@ GROUP BY o.coa_id
 ```
 
 ### Q9 — Mutasi per akun menurut tanggal
+
 `gl.repo.ts` · `movementsByDate`. Dijalankan **per tabel GL** yang menutup rentang `:fromDate … :asOf` (`tablesBetween`); tabel-tabel itu dibaca **paralel** dan hasilnya digabung menurut urutan tabel.
 
 ```sql
@@ -170,6 +181,7 @@ signed: grup sisi debit  → debet − credit
 Grup sisi debit: Liquid Assets, Fixed Assets, Other Assets, Cost Of Sales, Expense, Other Expense (`src/lib/finance/coa/sign.ts`).
 
 ### Q10 — Dana belum cair (register `bank_payment`)
+
 `src/server/repo/cash/bank-payment.repo.ts` · `unsettledByChannel`. Dijalankan di Summary walau hasilnya tidak ditampilkan di kartu (dipakai rekonsiliasi di halaman Cash Position).
 
 ```sql
@@ -237,6 +249,7 @@ GROUP BY d.coa_id
 `STRAIGHT_JOIN` wajib: tanpa itu optimizer mulai dari `coa` dan memindai seluruh riwayat `gl_detail` (menit pada 13 juta baris).
 
 ### Q12 — Mutasi periode Closed dari snapshot
+
 `src/server/dash/gl-snapshot.ts` · `snapshotMovements`. Dipakai bila periodenya sudah ada di `dash_snap_gl_periods` dan `<SEG> = segment1_id`.
 
 ```sql
@@ -267,16 +280,16 @@ Cache 30 detik. Hasilnya berupa peta id periode → **versi build** (`builtAt#ro
 
 ### Rumus di JavaScript
 
-| Kartu | Rumus | File |
-|---|---|---|
-| Revenue | Σ (credit − debet) akun grup Revenue | `src/lib/finance/pnl/revenue.ts` |
+| Kartu                                 | Rumus                                                                                                                         | File                                                                                  |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Revenue                               | Σ (credit − debet) akun grup Revenue                                                                                          | `src/lib/finance/pnl/revenue.ts`                                                      |
 | Revenue per entitas (donut dan tabel) | Σ (credit − debet) akun Revenue per `locationId`; **Tanpa entitas = total − Σ entitas** (dihitung di JavaScript, tanpa query) | `src/server/services/pnl/revenue.service.ts`, `src/lib/finance/pnl/revenue-entity.ts` |
-| Laba Kotor | Revenue − Σ (debet − credit) Cost Of Sales | `src/lib/finance/pnl/pnl.ts` |
-| Laba Usaha | Laba Kotor − Σ (debet − credit) Expense | idem |
-| **Net Profit** | Laba Usaha + Other Revenue − Other Expense | idem |
-| Margin | Laba ÷ Revenue; Revenue = 0 → `null` | idem |
-| Biaya Tetap | Σ (debet − credit) akun keranjang `fixedCost` | `src/lib/finance/pnl/fixed-cost.ts` |
-| Beban usaha (donut Expense) | Σ folder Cost Of Sales + Σ folder Expense dari baris P&L yang sama; Revenue − nilai ini = Laba Usaha. Tanpa query baru | `src/lib/finance/pnl/operating-expense.ts` |
+| Laba Kotor                            | Revenue − Σ (debet − credit) Cost Of Sales                                                                                    | `src/lib/finance/pnl/pnl.ts`                                                          |
+| Laba Usaha                            | Laba Kotor − Σ (debet − credit) Expense                                                                                       | idem                                                                                  |
+| **Net Profit**                        | Laba Usaha + Other Revenue − Other Expense                                                                                    | idem                                                                                  |
+| Margin                                | Laba ÷ Revenue; Revenue = 0 → `null`                                                                                          | idem                                                                                  |
+| Biaya Tetap                           | Σ (debet − credit) akun keranjang `fixedCost`                                                                                 | `src/lib/finance/pnl/fixed-cost.ts`                                                   |
+| Beban usaha (donut Expense)           | Σ folder Cost Of Sales + Σ folder Expense dari baris P&L yang sama; Revenue − nilai ini = Laba Usaha. Tanpa query baru        | `src/lib/finance/pnl/operating-expense.ts`                                            |
 
 OCI tidak dipisahkan (D39): setiap akun dihitung menurut grup akunnya.
 
@@ -289,11 +302,13 @@ Pembanding Revenue dan Net Profit: Q11/Q12 yang sama dengan `:periodIds = compar
 Logika: `src/server/services/ap-ar/ap-aging.service.ts` (pemuatan dan total pembanding bersama dengan AR di `ap-ar/aging-reader.ts`), `src/lib/finance/ap-ar/apar.ts`. Pembacaan data: `src/server/repo/ap-ar/aging.repo.ts`.
 
 Urutan sumber data (`agingInvoices` / `agingUnallocated`):
+
 1. `asOf` ≥ tanggal snapshot hari ini → **snapshot** (Q14, Q15).
 2. `asOf` = akhir bulan yang sudah dibangun → **snapshot riwayat** (`dash_snap_ap_ar_hist_*`, struktur sama dengan Q14/Q15 plus kolom tanggal).
 3. Selain itu → **query langsung ke ERP** (Q16, Q17), lambat pada ERP besar.
 
 ### Q14 — Tagihan terbuka (snapshot)
+
 `src/server/dash/snapshot.ts` · `readOpenInvoices`. Seluruh sisi AP dibaca sekali per generasi snapshot, lalu disaring entitas di memori.
 
 ```sql
@@ -314,6 +329,7 @@ WHERE module_type = 0;
 ```
 
 ### Q16 — Tagihan terbuka (ERP langsung)
+
 `aging.repo.ts` · `liveAgingInvoices`. Nilai `:cfg.*` untuk AP: `module = 0`, `invoiceTypes = (0,1,2,3,4,5,6,12)`, `settlementTypes = (7,8,9,10,11,13,14)`.
 
 ```sql
@@ -366,6 +382,7 @@ WHERE p.module_type = 0
 ```
 
 ### Q18 — Nama vendor
+
 `src/server/repo/ap-ar/party.repo.ts` · `listVendors`. Hanya id, kode, nama.
 
 ```sql
@@ -392,12 +409,15 @@ Overdue (kartu Summary)      = Σ saldo POSITIF item yang bucket-nya overdue*   
 Sumber: `src/lib/finance/ap-ar/apar.ts`, `src/lib/finance/ap-ar/aging.ts`.
 
 ### Rekonsiliasi AP dengan GL (jalan di Summary, tidak ditampilkan)
+
 Akun kontrol = `ap_ar_card.coa_id` dari baris AP. Saldo GL-nya dihitung dengan Q7–Q9 (bagian 2) pada `:asOf` (`controlAccountsGlTotal`); `reconcileAging` menghitung selisih GL − subledger dan menganggap selisih di bawah Rp1 sebagai pembulatan. Hasilnya disimpan di `reconciliation`. Kode yang sama dipakai AP dan AR (`src/server/services/ap-ar/aging-helpers.ts`, `src/lib/finance/ap-ar/aging-reconciliation.ts`).
 
 ### Pembanding AP
+
 Sama dengan Q14–Q17 pada `compare.asOf` bila snapshot (atau riwayat bulan) mencakup tanggal itu (`agingCompareIsAvailable`); kalau tidak, pembanding dilewati agar halaman tidak menunggu. Tanpa snapshot sama sekali, query langsung ke ERP yang dipakai.
 
 ### Tabel tagihan (dua tab)
+
 Memakai Q14/Q16 dengan `:asOfPlusOne = today + 1`, lalu di JavaScript:
 
 ```
@@ -417,6 +437,7 @@ Keterangan entitas: **tidak ada query baru.** Nama entitas tiap tagihan diambil 
 ## 5. Cash Flow dan Runway
 
 ### Q20 — Baris jurnal yang menyentuh akun kas
+
 `src/server/repo/cash/cashflow.repo.ts` · `linesOfCashJournals`. Per tabel GL, per potongan `:periodIds` / `:cashCoaIds` / `:segIds` (masing-masing ≤ 1.000). Cache 60 detik.
 
 ```sql
@@ -447,7 +468,33 @@ GROUP BY d.gl_id, g.journal_type, g.period_id, d.coa_id, d.<SEG>;
 
 `:cashCoaIds` = Kas ∪ Bank ∪ Deposito (selalu daftar terluas supaya hasilnya dipakai bersama halaman lain).
 
+#### Sumber alternatif: snapshot `dash_snap_cash_lines`
+
+Untuk periode berstatus `Closed` yang sudah ada di tabel `dash_snap_cash_periods` dan memiliki `cash_hash` yang cocok dengan daftar akun kas aktif serta kolom segmen `segment1_id`, baris jurnal kas tidak dibaca dari tabel ERP (`gl`/`gl_detail`), melainkan langsung dari snapshot:
+
+```sql
+SELECT s.gl_id AS glId,
+       s.journal_type AS journalType,
+       s.period_id AS periodId,
+       s.coa_id AS coaId,
+       s.segment_id AS segmentDetailId,
+       s.debet AS debet,
+       s.credit AS credit
+FROM dash_snap_cash_lines s
+JOIN (
+  SELECT DISTINCT k0.period_id, k0.gl_id
+  FROM dash_snap_cash_lines k0
+  WHERE k0.period_id IN (:periodIds)
+    AND k0.is_cash = 1
+    -- AND k0.segment_id IN (:segIds)
+) k ON k.period_id = s.period_id AND k.gl_id = s.gl_id
+WHERE s.period_id IN (:periodIds);
+```
+
+Tabel ini dibangun dan diperbarui oleh background refresh cycle (`cash-lines-build.ts`) dengan aturan sidik jari yang sama dengan snapshot GL. Bila periode berstatus `Open`, `Pre Closed`, belum ada di snapshot, atau daftar akun kas berbeda, query langsung ke ERP (Q20 di atas) yang digunakan. Hasil keduanya digabung dan di-_dedupe_.
+
 ### Q21 — Setup arus kas ERP
+
 `cashflow.repo.ts` · `getCashFlowSetup`
 
 ```sql
@@ -470,6 +517,7 @@ ORDER BY grp.sequence, s.sequence_sub_group;
 Hanya dipakai klasifikasi Operating/Investing/Funding, yang tidak tampil di Summary tetapi tetap dieksekusi oleh `computeCashFlow`.
 
 ### Kas awal dan akhir (Cash Flow)
+
 - Kas awal = saldo Kas ∪ Bank ∪ Deposito pada `d1 − 1 hari` → bagian 2 (Q7–Q9).
 - Kas akhir (cek) = saldo yang sama pada `asOf`.
 
@@ -495,6 +543,7 @@ Net = Cash In − Cash Out
 3. `avgBurn = rata-rata net 3 bulan`. `avgBurn ≥ 0` → "arus kas positif". Selain itu `runway = CashPosition ÷ |avgBurn|` (1 desimal; kas ≤ 0 → `0.0`).
 
 ### Current Ratio
+
 Saldo semua akun POSTABLE grup **Liquid Assets** dan **Current Liabilities** pada `asOf` (bagian 2, Q7–Q9 dengan `:coaIds` = gabungan keduanya):
 
 ```
@@ -508,6 +557,7 @@ Gross dan Net margin memakai hasil P&L di bagian 3.
 ## 6. Status Pengakuan Biaya
 
 ### Q19 — Dokumen Pengakuan Biaya aktif per tagihan
+
 `src/server/repo/ap-ar/payment-plan.repo.ts` · `listActivePlanStatuses`. Satu query untuk semua tagihan, cache 5 menit.
 
 ```sql
@@ -527,13 +577,14 @@ Pemetaan di JavaScript (`planStatus`): ada `Posted` atau `Partialy Paid` → `ap
 Berjalan di dalam proses server (`src/server/dash/scheduler.ts`), bukan saat halaman dimuat. Menulis **hanya** ke tabel berawalan `dash_` (dijaga `dashTable()` dan `src/server/dash/guard.test.ts`).
 
 ### Snapshot GL bulanan
+
 `src/server/dash/gl-snapshot.ts` · `buildPeriod`. Satu transaksi per periode `Closed` yang belum ada, atau yang sidik jarinya berubah (lihat "Sidik jari periode" di bawah). Sidik jari diambil **sebelum** baris dibaca.
 
 ```sql
 DELETE FROM dash_snap_gl_monthly WHERE period_id = :periodId;
 
 INSERT INTO dash_snap_gl_monthly (period_id, coa_id, segment_id, debet, credit)
-SELECT STRAIGHT_JOIN g.period_id, d.coa_id, COALESCE(d.segment1_id, 0), SUM(d.debet), SUM(d.credit)
+SELECT STRAIGHT_JOIN g.period_id, d.coa_id, COALESCE(d.segment1_id, 0), COALESCE(SUM(d.debet), 0), COALESCE(SUM(d.credit), 0)
 FROM <GL> g JOIN <GL_DETAIL> d ON d.gl_id = g.gl_id
 WHERE g.posted_status = 1 AND g.canceled_date IS NULL AND g.period_id = :periodId
 GROUP BY g.period_id, d.coa_id, COALESCE(d.segment1_id, 0);
@@ -578,6 +629,7 @@ Setelah ada periode yang dibangun ulang atau dihapus, cache di memori yang beras
 Batas yang diketahui (keputusan D43): koreksi angka di dalam jurnal periode lama yang tidak mengubah jumlah jurnal, id tertinggi, atau jumlah jurnal terposting tidak terdeteksi otomatis; paksa dengan `npm run dash:refresh-gl -- --rebuild <id periode>`.
 
 ### Snapshot AP/AR
+
 `src/server/dash/refresh-ap-ar.ts`. Dibangun dari tiga pemindaian sederhana (satu join besar memakan ±10 menit pada data demo), gabungannya dikerjakan di JavaScript. Dijalankan per sisi (`module_type` 0 dan 1).
 
 ```sql
@@ -619,38 +671,38 @@ Hasil ditulis ke tabel bayangan `dash_snap_ap_ar_open_new` / `dash_snap_ap_ar_un
 
 ## 8. Matriks: kartu → query
 
-| Komponen Summary | Query |
-|---|---|
-| Cash Position | Q1, Q2, Q3, Q4, Q5, Q7, Q8, Q9, Q10, Q22 untuk baris giro/cek beredar (+ ulang Q7–Q9 untuk pembanding) |
-| Revenue | Q1–Q5, Q11 atau Q12 (+ Q13), plus Q11/Q12 untuk pembanding |
-| Net Profit | Q1–Q5, Q11 atau Q12 (+ Q13), plus pembanding |
-| Payables | Q1, Q14–Q15 (atau Q16–Q17), Q18, rekonsiliasi GL (Q7–Q9) |
-| Cash Flow (grafik) | Q1–Q5, Q7–Q9 (kas awal/akhir), Q20, Q21 |
-| Composition — Revenue | sama dengan kartu Revenue |
-| Composition — Expense | sama dengan kartu Net Profit (Q11 / Q12); folder HPP dan Beban Operasional diambil dari baris P&L, tanpa query tambahan |
-| Composition — Fixed Cost | Q11 / Q12 (akun keranjang Biaya Tetap termasuk di pembacaan bersama) |
+| Komponen Summary          | Query                                                                                                                               |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Cash Position             | Q1, Q2, Q3, Q4, Q5, Q7, Q8, Q9, Q10, Q22 untuk baris giro/cek beredar (+ ulang Q7–Q9 untuk pembanding)                              |
+| Revenue                   | Q1–Q5, Q11 atau Q12 (+ Q13), plus Q11/Q12 untuk pembanding                                                                          |
+| Net Profit                | Q1–Q5, Q11 atau Q12 (+ Q13), plus pembanding                                                                                        |
+| Payables                  | Q1, Q14–Q15 (atau Q16–Q17), Q18, rekonsiliasi GL (Q7–Q9)                                                                            |
+| Cash Flow (grafik)        | Q1–Q5, Q7–Q9 (kas awal/akhir), Q20, Q21                                                                                             |
+| Composition — Revenue     | sama dengan kartu Revenue                                                                                                           |
+| Composition — Expense     | sama dengan kartu Net Profit (Q11 / Q12); folder HPP dan Beban Operasional diambil dari baris P&L, tanpa query tambahan             |
+| Composition — Fixed Cost  | Q11 / Q12 (akun keranjang Biaya Tetap termasuk di pembacaan bersama)                                                                |
 | Revenue by Entity (donut) | sama dengan kartu Revenue (Q11 / Q12 dengan `byLocation`); selisih "Tanpa entitas" dihitung di JavaScript, **tanpa query tambahan** |
-| Tabel tagihan (dua tab) | Q14 (atau Q16), Q19, Q18, Cash Position hari ini (Q7–Q10) |
-| Runway | Q20 (3 bulan sebelumnya), Cash Position, P&L |
-| Gross / Net margin | hasil P&L (Q11 / Q12) |
-| Current Ratio | Q1, Q7–Q9 untuk akun Liquid Assets + Current Liabilities |
+| Tabel tagihan (dua tab)   | Q14 (atau Q16), Q19, Q18, Cash Position hari ini (Q7–Q10)                                                                           |
+| Runway                    | Q20 (3 bulan sebelumnya), Cash Position, P&L                                                                                        |
+| Gross / Net margin        | hasil P&L (Q11 / Q12)                                                                                                               |
+| Current Ratio             | Q1, Q7–Q9 untuk akun Liquid Assets + Current Liabilities                                                                            |
 
 ---
 
 ## 9. Cache dan jumlah eksekusi
 
-| Cache | TTL | Lokasi |
-|---|---|---|
-| Q1–Q4 | 10 menit | `context.ts` |
-| Q5 | 2 menit | `shared/account-mapping.ts` |
-| Saldo akun (Q7–Q9) | 60 detik | `balance.service.ts` |
-| Q10 dan Q20 | 60 detik | repo masing-masing |
-| Q19 | 5 menit | `payment-plan.repo.ts` |
-| Q22 (giro/cek beredar) | 60 detik | `bank-payment.repo.ts` |
-| Q24 (kolom `canceled_date`) | 1 jam per tabel GL | `db/gl-columns.ts` |
-| Hasil metrik (Revenue, P&L, …) | 60 detik (`memoMetric`) | `server/cache.ts` |
-| Hasil turunan snapshot AP | selama snapshot yang sama (maks 6 jam) | `dash/snapshot.ts` |
-| Mutasi periode `Closed` (Q11) | LRU (maks. 500 entri, kedaluwarsa 6 jam); kuncinya memuat versi build snapshot (Q13), jadi periode yang dibangun ulang tidak dijawab dari cache lama; periode `Open` / `Pre Closed` tidak pernah di-cache | `gl.repo.ts` |
+| Cache                          | TTL                                                                                                                                                                                                       | Lokasi                      |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| Q1–Q4                          | 10 menit                                                                                                                                                                                                  | `context.ts`                |
+| Q5                             | 2 menit                                                                                                                                                                                                   | `shared/account-mapping.ts` |
+| Saldo akun (Q7–Q9)             | 60 detik                                                                                                                                                                                                  | `balance.service.ts`        |
+| Q10 dan Q20                    | 60 detik                                                                                                                                                                                                  | repo masing-masing          |
+| Q19                            | 5 menit                                                                                                                                                                                                   | `payment-plan.repo.ts`      |
+| Q22 (giro/cek beredar)         | 60 detik                                                                                                                                                                                                  | `bank-payment.repo.ts`      |
+| Q24 (kolom `canceled_date`)    | 1 jam per tabel GL                                                                                                                                                                                        | `db/gl-columns.ts`          |
+| Hasil metrik (Revenue, P&L, …) | 60 detik (`memoMetric`)                                                                                                                                                                                   | `server/cache.ts`           |
+| Hasil turunan snapshot AP      | selama snapshot yang sama (maks 6 jam)                                                                                                                                                                    | `dash/snapshot.ts`          |
+| Mutasi periode `Closed` (Q11)  | LRU (maks. 500 entri, kedaluwarsa 6 jam); kuncinya memuat versi build snapshot (Q13), jadi periode yang dibangun ulang tidak dijawab dari cache lama; periode `Open` / `Pre Closed` tidak pernah di-cache | `gl.repo.ts`                |
 
 Semua metrik dijalankan paralel (`Promise.all` di `summary.service.ts`), dan beberapa memakai pembacaan yang sama (P&L, Fixed Cost, Revenue-pembanding berbagi Q11).
 
@@ -661,6 +713,7 @@ Semua metrik dijalankan paralel (`Promise.all` di `summary.service.ts`), dan beb
 Query yang ditambahkan pada gelombang 2 (keputusan D31 dan D35 di `decisions.md`).
 
 ### Q22 — Giro/cek beredar
+
 `src/server/repo/cash/bank-payment.repo.ts` · `outstandingGiro`. Cache 60 detik. Dipakai kartu Cash Position (informasi, bukan bagian angka utama).
 
 ```sql
@@ -674,9 +727,11 @@ WHERE bp.type IN (0, 4, 7)                    -- BG, cek tangguh, e-banking
 ```
 
 ### Q23 — Tidak dipakai
+
 Nomor ini dikosongkan: query "terposting sampai" dibatalkan (D34) sehingga tidak ada di kode.
 
 ### Q24 — Apakah tabel GL punya kolom `canceled_date`
+
 `src/server/db/gl-columns.ts` · `glTableHasCanceledDate`. Cache 1 jam per nama tabel (`gl`, `gl_2024`, …).
 
 ```sql
@@ -691,20 +746,22 @@ WHERE table_schema = DATABASE()
 
 ## 11. Riwayat Perubahan
 
-| Tanggal | Perubahan |
-|---|---|
-| 2026-10-30 | Dokumen dibuat dari pembacaan kode (belum ada perubahan pada halaman Summary). |
-| 2026-10-30 | Rencana gelombang 2: Q10 memakai aturan belum cair pada asOf; Q22 dan Q24 ditambahkan (Q23 dibatalkan); istilah Pengakuan Biaya. |
-| 2026-10-30 | Disinkronkan dengan kode terbaru: tabel tagihan dua tab (`filterBillsByScope`, `planStatusInUse`), rekonsiliasi AP/AR (`reconcileAging`), `settledJournals`, `sliceCombos`, Q20 menandai kondisi `canceled_date` sebagai opsional, matriks dan tabel cache ditambah Q22 dan Q24. Tidak ada query yang berubah isinya. |
-| 2026-10-30 | Fitur OCI dinonaktifkan (D39): akun OCI tidak lagi dikeluarkan dari baris P&L dan tidak ikut dibaca sebagai kelompok tersendiri di Q11/Q12. |
-| 2026-10-30 | Kartu Revenue by Entity memakai Q11 / Q12 yang sama (`byLocation`); tidak ada query baru. Ditambah baris rumus "Revenue per entitas" dan baris matriks. |
-| 2026-10-30 | Tidak ada query yang berubah isinya: pembacaan Q9 / Q20 / daftar jurnal per tabel GL kini paralel (hasil sama, urutan tabel dijaga), dan pemuatan AP/AR memakai satu pembaca bersama (`ap-ar/aging-reader.ts`). |
-| 2026-10-30 | Kartu Payables tidak lagi menampilkan persentase terhadap Overdue; tidak ada query yang berubah. |
-| 2026-10-30 | Perbaikan warna teks keterangan di halaman; tidak ada query yang berubah. |
-| 2026-10-31 | Keterangan entitas pada tabel tagihan memakai kolom `location_id` yang sudah dibaca Q14/Q16 dan daftar entitas Q4; tidak ada query Summary yang berubah. (Di drill-down baris jurnal, query daftar jurnal mendapat satu kolom segmen tambahan di `SELECT`/`GROUP BY`/`ORDER BY` hanya saat lebih dari 1 entitas dipilih; query itu bukan bagian dari katalog Summary.) |
-| 2026-10-31 | Q18 (nama vendor) berjalan lebih jarang: nama diingat per id selama 10 menit dan potongan 1.000 id dibaca bersamaan; isi query tidak berubah. Urutan tabel tagihan di-cache per hasil rencana (tidak ada query baru). |
-| 2026-11-03 | Donut Composition: tab Expense memakai baris P&L (HPP + Beban Operasional) dan tab Fixed Cost memakai pembacaan Biaya Tetap yang sudah ada; tidak ada query yang berubah atau ditambahkan. |
-| 2026-11-03 | Penataan struktur folder src (tahap 4): hanya lokasi berkas yang berubah dan rujukan jalur di dokumen ini disesuaikan (entity-owner pindah ke lib/finance/entity); tidak ada query yang berubah. |
-| 2026-11-03 | Penataan struktur folder src (tahap 5): file repo dipindah ke subfolder per domain (ap-ar, cash, gl, master-data, pnl) dan jalur di dokumen ini disesuaikan; tidak ada query yang berubah. |
-| 2026-11-03 | Penataan struktur folder src (tahap 6): file service dipindah ke subfolder per domain (ap-ar, cash, pnl, drill) dan jalur di dokumen ini disesuaikan; dua file helper berganti nama tanpa akhiran .helper; tidak ada query yang berubah. |
+| Tanggal    | Perubahan                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-10-30 | Dokumen dibuat dari pembacaan kode (belum ada perubahan pada halaman Summary).                                                                                                                                                                                                                                                                                                                   |
+| 2026-10-30 | Rencana gelombang 2: Q10 memakai aturan belum cair pada asOf; Q22 dan Q24 ditambahkan (Q23 dibatalkan); istilah Pengakuan Biaya.                                                                                                                                                                                                                                                                 |
+| 2026-10-30 | Disinkronkan dengan kode terbaru: tabel tagihan dua tab (`filterBillsByScope`, `planStatusInUse`), rekonsiliasi AP/AR (`reconcileAging`), `settledJournals`, `sliceCombos`, Q20 menandai kondisi `canceled_date` sebagai opsional, matriks dan tabel cache ditambah Q22 dan Q24. Tidak ada query yang berubah isinya.                                                                            |
+| 2026-10-30 | Fitur OCI dinonaktifkan (D39): akun OCI tidak lagi dikeluarkan dari baris P&L dan tidak ikut dibaca sebagai kelompok tersendiri di Q11/Q12.                                                                                                                                                                                                                                                      |
+| 2026-10-30 | Kartu Revenue by Entity memakai Q11 / Q12 yang sama (`byLocation`); tidak ada query baru. Ditambah baris rumus "Revenue per entitas" dan baris matriks.                                                                                                                                                                                                                                          |
+| 2026-10-30 | Tidak ada query yang berubah isinya: pembacaan Q9 / Q20 / daftar jurnal per tabel GL kini paralel (hasil sama, urutan tabel dijaga), dan pemuatan AP/AR memakai satu pembaca bersama (`ap-ar/aging-reader.ts`).                                                                                                                                                                                  |
+| 2026-10-30 | Kartu Payables tidak lagi menampilkan persentase terhadap Overdue; tidak ada query yang berubah.                                                                                                                                                                                                                                                                                                 |
+| 2026-10-30 | Perbaikan warna teks keterangan di halaman; tidak ada query yang berubah.                                                                                                                                                                                                                                                                                                                        |
+| 2026-10-31 | Keterangan entitas pada tabel tagihan memakai kolom `location_id` yang sudah dibaca Q14/Q16 dan daftar entitas Q4; tidak ada query Summary yang berubah. (Di drill-down baris jurnal, query daftar jurnal mendapat satu kolom segmen tambahan di `SELECT`/`GROUP BY`/`ORDER BY` hanya saat lebih dari 1 entitas dipilih; query itu bukan bagian dari katalog Summary.)                           |
+| 2026-10-31 | Q18 (nama vendor) berjalan lebih jarang: nama diingat per id selama 10 menit dan potongan 1.000 id dibaca bersamaan; isi query tidak berubah. Urutan tabel tagihan di-cache per hasil rencana (tidak ada query baru).                                                                                                                                                                            |
+| 2026-11-03 | Donut Composition: tab Expense memakai baris P&L (HPP + Beban Operasional) dan tab Fixed Cost memakai pembacaan Biaya Tetap yang sudah ada; tidak ada query yang berubah atau ditambahkan.                                                                                                                                                                                                       |
+| 2026-11-03 | Penataan struktur folder src (tahap 4): hanya lokasi berkas yang berubah dan rujukan jalur di dokumen ini disesuaikan (entity-owner pindah ke lib/finance/entity); tidak ada query yang berubah.                                                                                                                                                                                                 |
+| 2026-11-03 | Penataan struktur folder src (tahap 5): file repo dipindah ke subfolder per domain (ap-ar, cash, gl, master-data, pnl) dan jalur di dokumen ini disesuaikan; tidak ada query yang berubah.                                                                                                                                                                                                       |
+| 2026-11-03 | Penataan struktur folder src (tahap 6): file service dipindah ke subfolder per domain (ap-ar, cash, pnl, drill) dan jalur di dokumen ini disesuaikan; dua file helper berganti nama tanpa akhiran .helper; tidak ada query yang berubah.                                                                                                                                                         |
 | 2026-11-04 | Phase 1A performa: Q13 kini juga membaca waktu build dan jumlah baris (versi build ikut kunci cache mutasi periode Closed); bagian 7 "Snapshot GL bulanan" memuat kolom sidik jari, query penghitung `stats_key`, dan aturan pembangunan ulang otomatis; baris cache mutasi Closed diperbarui (LRU 500 entri, 6 jam, kunci memuat versi build). Angka tidak berubah bila data ERP tidak berubah. |
+| 2026-11-04 | Phase 1B performa: subbagian sumber alternatif snapshot `dash_snap_cash_lines` ditambahkan pada Q20 (Cash Flow dan Runway); periode Closed yang ada di snapshot dibaca dari tabel dash_* dan periode lain query langsung.                                                                                                                                                                        |
+| 2026-11-04 | Query pembangun snapshot GL bulanan: jumlah debet dan kredit dibungkus `COALESCE(..., 0)` supaya kolom `NOT NULL` tidak menolak baris saat kolom `gl_detail` bernilai `NULL` pada mode SQL ketat (default MySQL 5.7); hasil sama dengan query langsung, yang membaca nilai kosong sebagai 0. |

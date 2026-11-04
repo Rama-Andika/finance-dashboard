@@ -16,12 +16,17 @@ export const DASH_TABLES = {
   apArHistOpen: 'dash_snap_ap_ar_hist_open',
   apArHistUnallocated: 'dash_snap_ap_ar_hist_unallocated',
   apArHistDates: 'dash_snap_ap_ar_hist_dates',
+  cashLines: 'dash_snap_cash_lines',
+  cashPeriods: 'dash_snap_cash_periods',
 } as const
 
 export const SNAPSHOT_AP_AR = 'ap_ar'
 
 /** The snapshots hold the entity segment only (segment1_id); other segment columns are always read from the ERP. */
 export const SNAPSHOT_SEGMENT_COLUMN = 'segment1_id'
+
+/** The cash-lines snapshot is built only for at most this many cash accounts (one IN list); more means live queries. */
+export const CASH_LINES_MAX_ACCOUNTS = 1000
 
 const DASH_TABLE_RE = /^dash_[a-z0-9_]+$/
 

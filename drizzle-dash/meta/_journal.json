@@ -43,6 +43,13 @@
       "when": 1793795498959,
       "tag": "0005_add_gl_period_fingerprint",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1793797977545,
+      "tag": "0006_create_cash_lines",
+      "breakpoints": true
     }
   ]
 }
