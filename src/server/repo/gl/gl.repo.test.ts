@@ -5,11 +5,15 @@ const rowsMock = vi.fn()
 vi.mock('~/server/db/query', () => ({ rows: (...args: unknown[]) => rowsMock(...args) }))
 vi.mock('~/server/db/gl-columns', async () => {
   const { sql } = await import('drizzle-orm')
-  return { glTableHasCanceledDate: async () => true, prefetchCanceledDateColumns: async () => {}, notCanceledClause: async () => sql`` }
+  return {
+    glTableHasCanceledDate: async () => true,
+    prefetchCanceledDateColumns: async () => {},
+    notCanceledClause: async () => sql``,
+  }
 })
 
 // The GL snapshot (dash_snap_gl_monthly) is mocked: `built` decides which closed periods it "contains".
-let built = new Set<string>()
+let built = new Map<string, string>()
 const snapshotMovements = vi.fn()
 vi.mock('~/server/dash/gl-snapshot', () => ({
   GL_SNAPSHOT_SEGMENT_COLUMN: 'segment1_id',
@@ -35,7 +39,7 @@ describe('movementsByPeriods query budget', () => {
     rowsMock.mockReset()
     snapshotMovements.mockReset()
     snapshotMovements.mockResolvedValue([])
-    built = new Set()
+    built = new Map()
     glMovementsCache.clear()
   })
 
@@ -54,7 +58,9 @@ describe('movementsByPeriods query budget', () => {
 
     const first = await movementsByPeriods(opts)
     expect(rowsMock).toHaveBeenCalledTimes(1)
-    expect(first).toEqual([{ coaId: '10', periodId: undefined, locationId: undefined, debet: '151.00', credit: '0.00' }])
+    expect(first).toEqual([
+      { coaId: '10', periodId: undefined, locationId: undefined, debet: '151.00', credit: '0.00' },
+    ])
 
     const second = await movementsByPeriods({ ...opts, byPeriod: true })
     expect(rowsMock).toHaveBeenCalledTimes(1)
@@ -74,13 +80,16 @@ describe('movementsByPeriods query budget', () => {
   })
 
   it('rejects a segment column that is not segmentN_id', async () => {
-    await expect(
-      movementsByPeriods({ periods: [period('p1')], segCol: 'coa_id', segIds: 'all' }),
-    ).rejects.toThrow('Invalid segment column')
+    await expect(movementsByPeriods({ periods: [period('p1')], segCol: 'coa_id', segIds: 'all' })).rejects.toThrow(
+      'Invalid segment column',
+    )
   })
 
   it('reads closed periods that are in the GL snapshot from it, and only the others from the ERP tables', async () => {
-    built = new Set(['p1', 'p2'])
+    built = new Map([
+      ['p1', 'v1'],
+      ['p2', 'v1'],
+    ])
     snapshotMovements.mockResolvedValue([
       { coaId: '10', periodId: 'p1', debet: '100.00', credit: '0.00' },
       { coaId: '10', periodId: 'p2', debet: '50.00', credit: '0.00' },
@@ -97,24 +106,51 @@ describe('movementsByPeriods query budget', () => {
     expect(snapshotMovements).toHaveBeenCalledTimes(1)
     expect(snapshotMovements.mock.calls[0]![0]).toEqual(['p1', 'p2'])
     expect(rowsMock).toHaveBeenCalledTimes(1) // only p3
-    expect(result).toEqual([{ coaId: '10', periodId: undefined, locationId: undefined, debet: '151.00', credit: '0.00' }])
+    expect(result).toEqual([
+      { coaId: '10', periodId: undefined, locationId: undefined, debet: '151.00', credit: '0.00' },
+    ])
   })
 
   it('never uses the GL snapshot for another segment column or when switched off', async () => {
-    built = new Set(['p1'])
+    built = new Map([['p1', 'v1']])
     rowsMock.mockResolvedValue([])
     await movementsByPeriods({ periods: [period('p1')], segCol: 'segment2_id', segIds: 'all' })
     await movementsByPeriods({ periods: [period('p1')], segCol: 'segment1_id', segIds: 'all', useSnapshot: false })
     expect(snapshotMovements).not.toHaveBeenCalled()
     expect(rowsMock).toHaveBeenCalledTimes(2)
   })
-})
 
+  it('does not serve a closed period from rows cached for an older build of the snapshot', async () => {
+    const opts = { periods: [period('p1')], segCol: 'segment1_id', segIds: 'all' as const, coaIds: ['10'] }
+    built = new Map([['p1', 'build-1']])
+    snapshotMovements.mockResolvedValueOnce([{ coaId: '10', periodId: 'p1', debet: '1.00', credit: '0.00' }])
+    const first = await movementsByPeriods(opts)
+
+    built = new Map([['p1', 'build-2']]) // the period was re-opened, re-closed and rebuilt
+    snapshotMovements.mockResolvedValueOnce([{ coaId: '10', periodId: 'p1', debet: '2.00', credit: '0.00' }])
+    const second = await movementsByPeriods(opts)
+
+    expect(first[0]?.debet).toBe('1.00')
+    expect(second[0]?.debet).toBe('2.00')
+    expect(snapshotMovements).toHaveBeenCalledTimes(2)
+  })
+
+  it('still serves a closed period from the cache while its snapshot build is the same', async () => {
+    const opts = { periods: [period('p1')], segCol: 'segment1_id', segIds: 'all' as const, coaIds: ['10'] }
+    built = new Map([['p1', 'build-1']])
+    snapshotMovements.mockResolvedValue([{ coaId: '10', periodId: 'p1', debet: '1.00', credit: '0.00' }])
+    await movementsByPeriods(opts)
+    await movementsByPeriods(opts)
+    expect(snapshotMovements).toHaveBeenCalledTimes(1)
+  })
+})
 
 /** A query that stays open until `release()` is called, to see whether the next query already started. */
 function gate<T>(value: T) {
   let release: () => void = () => {}
-  const promise = new Promise<T>((resolve) => { release = () => resolve(value) })
+  const promise = new Promise<T>((resolve) => {
+    release = () => resolve(value)
+  })
   return { promise, release }
 }
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -132,7 +168,13 @@ describe('reads over several GL tables', () => {
       { coaId: '20', debet: '1', credit: '0' },
     ])
 
-    const pending = movementsByDate({ from: '2026-10-01', to: '2026-10-31', tables: ['gl', 'gl_2020'], segCol: 'segment1_id', segIds: 'all' })
+    const pending = movementsByDate({
+      from: '2026-10-01',
+      to: '2026-10-31',
+      tables: ['gl', 'gl_2020'],
+      segCol: 'segment1_id',
+      segIds: 'all',
+    })
     await tick()
     // The second table is already being read although the first one has not answered yet.
     expect(rowsMock).toHaveBeenCalledTimes(2)
@@ -140,18 +182,34 @@ describe('reads over several GL tables', () => {
     first.release()
     const result = await pending
     // Table order, not answer order: the first table's account comes first; the same account is summed.
-    expect(result.map((r) => [r.coaId, r.debet])).toEqual([['20', '101.00'], ['10', '5.00']])
+    expect(result.map((r) => [r.coaId, r.debet])).toEqual([
+      ['20', '101.00'],
+      ['10', '5.00'],
+    ])
   })
 
   it('journalLines reads every table at once and merges the pages into one global order', async () => {
     const line = (glId: string, transDate: string) => ({
-      glId, journalNumber: 'J' + glId, transDate, journalType: 1, memo: '', coaId: '10', debet: '1', credit: '0',
+      glId,
+      journalNumber: 'J' + glId,
+      transDate,
+      journalType: 1,
+      memo: '',
+      coaId: '10',
+      debet: '1',
+      credit: '0',
     })
     const first = gate([line('3', '2026-10-03'), line('1', '2026-10-01')])
     rowsMock.mockReturnValueOnce(first.promise)
     rowsMock.mockResolvedValueOnce([line('2', '2026-10-02')])
 
-    const pending = journalLines({ tables: ['gl', 'gl_2020'], startDate: '2026-10-01', endDate: '2026-10-31', limit: 2, offset: 0 })
+    const pending = journalLines({
+      tables: ['gl', 'gl_2020'],
+      startDate: '2026-10-01',
+      endDate: '2026-10-31',
+      limit: 2,
+      offset: 0,
+    })
     await tick()
     expect(rowsMock).toHaveBeenCalledTimes(2)
 
@@ -162,7 +220,15 @@ describe('reads over several GL tables', () => {
 
   it('journalLines reports the segment detail of a line only when asked to group by segment', async () => {
     const dbRow = {
-      glId: '1', journalNumber: 'J1', transDate: '2026-10-01', journalType: 1, memo: '', coaId: '10', debet: '1', credit: '0', segmentDetailId: 's7',
+      glId: '1',
+      journalNumber: 'J1',
+      transDate: '2026-10-01',
+      journalType: 1,
+      memo: '',
+      coaId: '10',
+      debet: '1',
+      credit: '0',
+      segmentDetailId: 's7',
     }
     rowsMock.mockResolvedValueOnce([dbRow])
     const grouped = await journalLines({ tables: ['gl'], segCol: 'segment1_id', segIds: 'all', bySegment: true })

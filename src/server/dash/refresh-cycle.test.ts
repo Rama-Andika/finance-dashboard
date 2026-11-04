@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   refreshGlMonthlySnapshot: vi.fn(),
   refreshApArHistSnapshots: vi.fn(),
   clearCache: vi.fn(),
+  clearCachesAfterPeriodChange: vi.fn(),
 }))
 
 vi.mock('~/server/env', () => ({ env: { APP_TODAY: '2026-10-15', APP_TIMEZONE: 'Asia/Jakarta' } }))
@@ -17,6 +18,7 @@ vi.mock('./refresh-ap-ar', () => ({ refreshApArSnapshot: mocks.refreshApArSnapsh
 vi.mock('./gl-snapshot', () => ({ refreshGlMonthlySnapshot: mocks.refreshGlMonthlySnapshot }))
 vi.mock('./hist-ap-ar', () => ({ refreshApArHistSnapshots: mocks.refreshApArHistSnapshots }))
 vi.mock('./snapshot', () => ({ warmApArSnapshot: mocks.warmApArSnapshot }))
+vi.mock('./invalidate', () => ({ clearCachesAfterPeriodChange: mocks.clearCachesAfterPeriodChange }))
 
 const { getRefreshJob, runRefreshCycle } = await import('./refresh-cycle')
 
@@ -133,5 +135,17 @@ describe('runRefreshCycle', () => {
     const copy = getRefreshJob()
     copy.running = true
     expect(getRefreshJob().running).toBe(false)
+  })
+
+  it('forgets cached answers when a snapshot period was rebuilt or removed', async () => {
+    mocks.refreshGlMonthlySnapshot.mockResolvedValue({ ran: true, built: 1, rebuilt: 1, removed: 0, durationMs: 5 })
+    await runRefreshCycle('scheduler', { force: false })
+    expect(mocks.clearCachesAfterPeriodChange).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps cached answers when the GL snapshot only gained new periods', async () => {
+    mocks.refreshGlMonthlySnapshot.mockResolvedValue({ ran: true, built: 2, rebuilt: 0, removed: 0, durationMs: 5 })
+    await runRefreshCycle('scheduler', { force: false })
+    expect(mocks.clearCachesAfterPeriodChange).not.toHaveBeenCalled()
   })
 })

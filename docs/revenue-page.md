@@ -53,7 +53,7 @@
 - Tanda angka mengikuti sisi alami kelompok akun: Pendapatan (grup *Revenue*) = **kredit − debet**. Penjualan menambah, retur dan diskon yang didebet pada akun pendapatan mengurangi.
 - Hanya akun grup **Revenue** yang berstatus **POSTABLE** (akun yang bisa dijurnal, bukan folder). **Other Revenue (pendapatan lain-lain) tidak termasuk.**
 - Saldo awal (`coa_opening_balance_location`) **tidak dipakai** untuk pendapatan. Akun laba-rugi dihitung dari mutasi periode saja; saldo awal tabel akun laba-rugi memang tidak cocok dengan jumlah buku besar (data-model §4.5).
-- Periode berstatus **Closed** dibaca dari tabel salinan `dash_snap_gl_monthly` bila sudah dibangun (dan hasilnya diingat di memori server selama server hidup, dengan batas jumlah entri). Periode **Open / Pre Closed** selalu dibaca langsung dari ERP dan tidak pernah diingat, karena angkanya masih bisa berubah.
+- Periode berstatus **Closed** dibaca dari tabel salinan `dash_snap_gl_monthly` bila sudah dibangun (dan hasilnya diingat di memori server, dengan batas jumlah entri dan waktu). Salinan itu tidak dianggap final: bila admin membuka kembali lalu menutup ulang sebuah periode (atau jumlah jurnalnya berubah), salinan periode itu dibangun ulang otomatis di latar belakang dan hasil yang diingat untuk build lama tidak dipakai lagi. Periode **Open / Pre Closed** selalu dibaca langsung dari ERP dan tidak pernah diingat, karena angkanya masih bisa berubah.
 - Banner peringatan di atas halaman muncul bila rentang memuat periode Open / Pre Closed ("angka bisa berubah"), atau ada bulan yang tidak punya baris periode reguler (daftar bulannya ditampilkan).
 
 ---
@@ -305,3 +305,4 @@ Perubahan = (1.260 − 1.000) ÷ 1.000 = +26,00%   (tampil hijau)
 | Tanggal | Perubahan |
 |---|---|
 | 2026-11-04 | Dokumen dibuat dari pembacaan kode halaman Revenue (belum ada perubahan pada halaman). Dibuat bersama `revenue-queries.md`. |
+| 2026-11-04 | Phase 1A performa: salinan `dash_snap_gl_monthly` kini dibangun ulang otomatis bila periode Closed dibuka dan ditutup ulang di ERP (sidik jari periode), dan hasil yang diingat di memori mengikuti versi build salinan itu. Penjelasan di Aturan akuntansi diperbarui. Tidak ada rumus atau angka yang berubah bila data ERP tidak berubah. |

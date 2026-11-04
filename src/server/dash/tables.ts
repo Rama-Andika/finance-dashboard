@@ -20,6 +20,9 @@ export const DASH_TABLES = {
 
 export const SNAPSHOT_AP_AR = 'ap_ar'
 
+/** The snapshots hold the entity segment only (segment1_id); other segment columns are always read from the ERP. */
+export const SNAPSHOT_SEGMENT_COLUMN = 'segment1_id'
+
 const DASH_TABLE_RE = /^dash_[a-z0-9_]+$/
 
 /** The only way a table name reaches a write statement: it must be a dash_ table. */

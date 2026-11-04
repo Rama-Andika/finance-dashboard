@@ -13,7 +13,7 @@
 >
 > **Belum dijalankan.** Dokumen ini tidak dibuat dengan mengeksekusi query ke database.
 >
-> **Terakhir diperbarui:** 2026-11-03
+> **Terakhir diperbarui:** 2026-11-04
 
 ## Daftar isi
 
@@ -257,10 +257,13 @@ GROUP BY s.coa_id, s.period_id
 ### Q13 — Daftar periode yang sudah ada di snapshot GL
 
 ```sql
-SELECT CAST(period_id AS CHAR) AS id FROM dash_snap_gl_periods;
+SELECT CAST(period_id AS CHAR) AS id,
+       DATE_FORMAT(built_at, '%Y-%m-%dT%H:%i:%sZ') AS builtAt,
+       row_count AS rowCount
+FROM dash_snap_gl_periods;
 ```
 
-Cache 30 detik. Bila tabel `dash_*` belum ada, error ditelan dan semua periode dibaca dari ERP (Q11).
+Cache 30 detik. Hasilnya berupa peta id periode → **versi build** (`builtAt#rowCount`). Versi itu ikut dalam kunci cache mutasi periode Closed (lihat tabel cache di bagian 9), sehingga periode yang dibangun ulang tidak pernah dijawab dari baris yang di-cache untuk build lama. Bila tabel `dash_*` belum ada, error ditelan dan semua periode dibaca dari ERP (Q11).
 
 ### Rumus di JavaScript
 
@@ -524,7 +527,7 @@ Pemetaan di JavaScript (`planStatus`): ada `Posted` atau `Partialy Paid` → `ap
 Berjalan di dalam proses server (`src/server/dash/scheduler.ts`), bukan saat halaman dimuat. Menulis **hanya** ke tabel berawalan `dash_` (dijaga `dashTable()` dan `src/server/dash/guard.test.ts`).
 
 ### Snapshot GL bulanan
-`src/server/dash/gl-snapshot.ts` · `buildPeriod`. Satu transaksi per periode `Closed` yang belum ada.
+`src/server/dash/gl-snapshot.ts` · `buildPeriod`. Satu transaksi per periode `Closed` yang belum ada, atau yang sidik jarinya berubah (lihat "Sidik jari periode" di bawah). Sidik jari diambil **sebelum** baris dibaca.
 
 ```sql
 DELETE FROM dash_snap_gl_monthly WHERE period_id = :periodId;
@@ -535,12 +538,44 @@ FROM <GL> g JOIN <GL_DETAIL> d ON d.gl_id = g.gl_id
 WHERE g.posted_status = 1 AND g.canceled_date IS NULL AND g.period_id = :periodId
 GROUP BY g.period_id, d.coa_id, COALESCE(d.segment1_id, 0);
 
-INSERT INTO dash_snap_gl_periods (period_id, built_at, row_count, duration_ms)
-VALUES (:periodId, UTC_TIMESTAMP(), :rowCount, :durationMs)
-ON DUPLICATE KEY UPDATE built_at = VALUES(built_at), row_count = VALUES(row_count), duration_ms = VALUES(duration_ms);
+INSERT INTO dash_snap_gl_periods (period_id, built_at, row_count, duration_ms, period_key, stats_key, checked_at)
+VALUES (:periodId, UTC_TIMESTAMP(), :rowCount, :durationMs, :periodKey, :statsKey, UTC_TIMESTAMP())
+ON DUPLICATE KEY UPDATE built_at = VALUES(built_at), row_count = VALUES(row_count), duration_ms = VALUES(duration_ms),
+                        period_key = VALUES(period_key), stats_key = VALUES(stats_key), checked_at = VALUES(checked_at);
 ```
 
 Periode yang tidak lagi `Closed` dihapus dari kedua tabel snapshot.
+
+#### Sidik jari periode
+
+Admin back office bisa membuka kembali periode `Closed` lewat layar "Open New Accounting Period", mengoreksi jurnal, lalu menutupnya lagi; layar itu juga bisa mengubah tanggal dan tabel GL sebuah periode, dan tidak mencatat riwayat. Karena itu snapshot sebuah periode tidak dianggap final. Tiap baris `dash_snap_gl_periods` menyimpan:
+
+- `period_key` = `<tabel GL>|<tanggal mulai>|<tanggal akhir>|<tipe>`, diambil dari baris `periode` yang sudah dibaca tiap siklus (tanpa query tambahan);
+- `stats_key` = `<jumlah jurnal>:<id jurnal tertinggi>:<jumlah terposting>:<jumlah dibatalkan>`, dari header tabel GL periode itu;
+- `checked_at` = kapan `stats_key` terakhir dibandingkan dengan ERP.
+
+Query penghitung `stats_key` (`src/server/repo/gl/gl-period-stats.repo.ts` · `glPeriodStats`; satu jangkauan indeks `period_id`, baris detail tidak dibaca):
+
+```sql
+SELECT COUNT(*) AS journals,
+       COALESCE(MAX(g.gl_id), 0) AS maxGlId,
+       COALESCE(SUM(g.posted_status = 1), 0) AS posted,
+       COALESCE(SUM(g.canceled_date IS NOT NULL), 0) AS canceled   -- diganti 0 bila tabel GL tidak punya kolom canceled_date
+FROM <GL> g
+WHERE g.period_id = :periodId;
+```
+
+Aturan tiap siklus refresh (`verifyDecision` di `src/lib/finance/period/period-fingerprint.ts`):
+
+1. Baris snapshot yang dibangun sebelum sidik jari ada (`period_key` atau `stats_key` kosong): dibangun ulang sekali.
+2. `period_key` berbeda: dibangun ulang.
+3. Dua periode `Closed` terbaru: `stats_key` dibandingkan **setiap siklus** (default 10 menit), dan dibangun ulang penuh bila umur build lebih dari 24 jam (menangkap koreksi angka yang tidak mengubah hitungan).
+4. Periode yang lebih lama: `stats_key` dibandingkan paling cepat tiap 6 jam.
+5. `stats_key` berbeda: dibangun ulang. Sama: hanya `checked_at` yang dimajukan (`UPDATE dash_snap_gl_periods SET checked_at = UTC_TIMESTAMP() WHERE period_id IN (...)`).
+
+Setelah ada periode yang dibangun ulang atau dihapus, cache di memori yang berasal dari periode Closed dikosongkan (`src/server/dash/invalidate.ts`).
+
+Batas yang diketahui (keputusan D43): koreksi angka di dalam jurnal periode lama yang tidak mengubah jumlah jurnal, id tertinggi, atau jumlah jurnal terposting tidak terdeteksi otomatis; paksa dengan `npm run dash:refresh-gl -- --rebuild <id periode>`.
 
 ### Snapshot AP/AR
 `src/server/dash/refresh-ap-ar.ts`. Dibangun dari tiga pemindaian sederhana (satu join besar memakan ±10 menit pada data demo), gabungannya dikerjakan di JavaScript. Dijalankan per sisi (`module_type` 0 dan 1).
@@ -615,7 +650,7 @@ Hasil ditulis ke tabel bayangan `dash_snap_ap_ar_open_new` / `dash_snap_ap_ar_un
 | Q24 (kolom `canceled_date`) | 1 jam per tabel GL | `db/gl-columns.ts` |
 | Hasil metrik (Revenue, P&L, …) | 60 detik (`memoMetric`) | `server/cache.ts` |
 | Hasil turunan snapshot AP | selama snapshot yang sama (maks 6 jam) | `dash/snapshot.ts` |
-| Mutasi periode `Closed` (Q11) | LRU permanen; periode `Open` / `Pre Closed` tidak pernah di-cache | `gl.repo.ts` |
+| Mutasi periode `Closed` (Q11) | LRU (maks. 500 entri, kedaluwarsa 6 jam); kuncinya memuat versi build snapshot (Q13), jadi periode yang dibangun ulang tidak dijawab dari cache lama; periode `Open` / `Pre Closed` tidak pernah di-cache | `gl.repo.ts` |
 
 Semua metrik dijalankan paralel (`Promise.all` di `summary.service.ts`), dan beberapa memakai pembacaan yang sama (P&L, Fixed Cost, Revenue-pembanding berbagi Q11).
 
@@ -672,3 +707,4 @@ WHERE table_schema = DATABASE()
 | 2026-11-03 | Penataan struktur folder src (tahap 4): hanya lokasi berkas yang berubah dan rujukan jalur di dokumen ini disesuaikan (entity-owner pindah ke lib/finance/entity); tidak ada query yang berubah. |
 | 2026-11-03 | Penataan struktur folder src (tahap 5): file repo dipindah ke subfolder per domain (ap-ar, cash, gl, master-data, pnl) dan jalur di dokumen ini disesuaikan; tidak ada query yang berubah. |
 | 2026-11-03 | Penataan struktur folder src (tahap 6): file service dipindah ke subfolder per domain (ap-ar, cash, pnl, drill) dan jalur di dokumen ini disesuaikan; dua file helper berganti nama tanpa akhiran .helper; tidak ada query yang berubah. |
+| 2026-11-04 | Phase 1A performa: Q13 kini juga membaca waktu build dan jumlah baris (versi build ikut kunci cache mutasi periode Closed); bagian 7 "Snapshot GL bulanan" memuat kolom sidik jari, query penghitung `stats_key`, dan aturan pembangunan ulang otomatis; baris cache mutasi Closed diperbarui (LRU 500 entri, 6 jam, kunci memuat versi build). Angka tidak berubah bila data ERP tidak berubah. |

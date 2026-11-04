@@ -4,6 +4,8 @@ import { builtGlPeriods } from '~/server/dash/gl-snapshot'
 import { movementsByPeriods, type MovementRow } from '~/server/repo/gl/gl.repo'
 import { clearCache } from '~/server/cache'
 import type { Period } from '~/lib/core/types'
+import { rows } from '~/server/db/query'
+import { sql } from 'drizzle-orm'
 
 /**
  * Closed-period GL movements from the snapshot must equal the live ERP query, for every option combination the
@@ -32,32 +34,57 @@ async function both(opts: Parameters<typeof movementsByPeriods>[0]) {
 }
 
 describe('GL snapshot equals the live ERP query (closed periods)', () => {
-  it('matches for all entities, by period and by location, with account groups', async () => {
-    const periods = await sample()
-    if (periods.length === 0) return console.warn('skipped: no closed period in the GL snapshot yet (npm run dash:refresh-gl)')
+  it(
+    'matches for all entities, by period and by location, with account groups',
+    async () => {
+      const periods = await sample()
+      if (periods.length === 0)
+        return console.warn('skipped: no closed period in the GL snapshot yet (npm run dash:refresh-gl)')
 
-    for (const opts of [
-      { segIds: 'all' as const, byPeriod: true },
-      { segIds: 'all' as const, byPeriod: true, byLocation: true },
-      { segIds: 'all' as const, accountGroups: ['Revenue', 'Expense'] as never },
-      { segIds: 'all' as const },
-    ]) {
-      const { live, snap } = await both({ periods, segCol: 'segment1_id', ...opts })
-      expect(live.length).toBeGreaterThan(0)
+      for (const opts of [
+        { segIds: 'all' as const, byPeriod: true },
+        { segIds: 'all' as const, byPeriod: true, byLocation: true },
+        { segIds: 'all' as const, accountGroups: ['Revenue', 'Expense'] as never },
+        { segIds: 'all' as const },
+      ]) {
+        const { live, snap } = await both({ periods, segCol: 'segment1_id', ...opts })
+        expect(live.length).toBeGreaterThan(0)
+        expect(sorted(snap)).toEqual(sorted(live))
+      }
+    },
+    TIMEOUT,
+  )
+
+  it(
+    'matches with an entity filter and an account subset',
+    async () => {
+      const periods = await sample()
+      if (periods.length === 0) return console.warn('skipped: no closed period in the GL snapshot yet')
+
+      const { entities } = await getCachedEntities()
+      const segIds = entities.slice(0, 5).flatMap((e) => e.segmentDetailIds)
+      const all = await both({ periods, segCol: 'segment1_id', segIds: 'all', byPeriod: true })
+      const someCoa = Array.from(new Set(all.live.map((r) => r.coaId))).slice(0, 20)
+
+      const { live, snap } = await both({
+        periods,
+        segCol: 'segment1_id',
+        segIds,
+        coaIds: someCoa,
+        byPeriod: true,
+        byLocation: true,
+      })
       expect(sorted(snap)).toEqual(sorted(live))
-    }
-  }, TIMEOUT)
+    },
+    TIMEOUT,
+  )
+})
 
-  it('matches with an entity filter and an account subset', async () => {
-    const periods = await sample()
-    if (periods.length === 0) return console.warn('skipped: no closed period in the GL snapshot yet')
-
-    const { entities } = await getCachedEntities()
-    const segIds = entities.slice(0, 5).flatMap((e) => e.segmentDetailIds)
-    const all = await both({ periods, segCol: 'segment1_id', segIds: 'all', byPeriod: true })
-    const someCoa = Array.from(new Set(all.live.map((r) => r.coaId))).slice(0, 20)
-
-    const { live, snap } = await both({ periods, segCol: 'segment1_id', segIds, coaIds: someCoa, byPeriod: true, byLocation: true })
-    expect(sorted(snap)).toEqual(sorted(live))
-  }, TIMEOUT)
+describe('GL snapshot fingerprints', () => {
+  it('every period in the snapshot carries its fingerprint (run npm run dash:refresh-gl after the migration)', async () => {
+    const res = await rows<{ missing: string | number }>(
+      sql`SELECT COUNT(*) AS missing FROM dash_snap_gl_periods WHERE period_key IS NULL OR stats_key IS NULL`,
+    )
+    expect(Number(res[0]?.missing ?? 0)).toBe(0)
+  })
 })

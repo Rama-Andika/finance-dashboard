@@ -6,12 +6,12 @@ Tujuan: tahu **bagian mana yang lambat dan seberapa lambat** sebelum mengoptimal
 
 ## 1. Alat ukur yang tersedia
 
-| Alat | Cara menyalakan | Yang tampil di log server |
-|---|---|---|
-| Waktu per metrik | `PERF_LOG=1` | `perf: metric revenue 842ms` — satu baris tiap metrik yang benar-benar dihitung (cache hit tidak dicatat). Metrik bersarang tumpang tindih: `metric summary` sudah mencakup semua metrik di dalamnya |
-| Menunggu koneksi | `PERF_LOG=1` | `perf: a query is waiting for a free connection (pool is full)` — muncul saat semua koneksi pool sedang dipakai |
-| Query lambat | `SLOW_QUERY_MS=1000` (default; `0` = mati) | `perf: slow query 5320ms: SELECT STRAIGHT_JOIN ...` — teks SQL dengan placeholder `?`, **tanpa nilai parameter** (aman untuk data sensitif). Waktunya termasuk menunggu koneksi pool |
-| Probe Summary | `PERF_PROBE=1 npm run test:db -- perf-summary` | Waktu **dingin** (cache kosong, seperti login pertama atau restart server) dan **hangat** untuk `this-month`, `last-month`, dan `ytd`, semua entitas |
+| Alat             | Cara menyalakan                                | Yang tampil di log server                                                                                                                                                                            |
+| ---------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Waktu per metrik | `PERF_LOG=1`                                   | `perf: metric revenue 842ms` — satu baris tiap metrik yang benar-benar dihitung (cache hit tidak dicatat). Metrik bersarang tumpang tindih: `metric summary` sudah mencakup semua metrik di dalamnya |
+| Menunggu koneksi | `PERF_LOG=1`                                   | `perf: a query is waiting for a free connection (pool is full)` — muncul saat semua koneksi pool sedang dipakai                                                                                      |
+| Query lambat     | `SLOW_QUERY_MS=1000` (default; `0` = mati)     | `perf: slow query 5320ms: SELECT STRAIGHT_JOIN ...` — teks SQL dengan placeholder `?`, **tanpa nilai parameter** (aman untuk data sensitif). Waktunya termasuk menunggu koneksi pool                 |
+| Probe Summary    | `PERF_PROBE=1 npm run test:db -- perf-summary` | Waktu **dingin** (cache kosong, seperti login pertama atau restart server) dan **hangat** untuk `this-month`, `last-month`, dan `ytd`, semua entitas                                                 |
 
 Semuanya mati atau tak berbiaya saat `PERF_LOG=0`. `SLOW_QUERY_MS` boleh tetap menyala di produksi untuk menemukan query yang melambat saat data tumbuh.
 
@@ -19,21 +19,21 @@ Semuanya mati atau tak berbiaya saat `PERF_LOG=0`. `SLOW_QUERY_MS` boleh tetap m
 
 Ukur tiap skenario **tiga kali**, catat angka tengah. Mulai dari server yang baru dinyalakan.
 
-| # | Skenario | Cara |
-|---|---|---|
-| A | Login pertama / startup dengan session lama | Restart server, buka `/summary` |
-| B | Muat ulang (F5) setelah lebih dari 60 detik | Buka `/summary`, tunggu 70 detik, F5 |
-| C | Muat ulang (F5) dalam 60 detik | F5 segera (memo masih hangat; pembanding) |
-| D | Tombol "Refresh now" | Tekan tombol, buka `/summary` selama snapshot dibangun |
-| E | Tiap halaman metrik (Revenue, P&L, Cash Flow, Payables, Receivables, Payment Plan, Budget) | Buka satu per satu setelah restart |
-| F | Filter berbeda | `ytd` dan `last-12m`, semua entitas dan satu entitas |
+| #   | Skenario                                                                                   | Cara                                                   |
+| --- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| A   | Login pertama / startup dengan session lama                                                | Restart server, buka `/summary`                        |
+| B   | Muat ulang (F5) setelah lebih dari 60 detik                                                | Buka `/summary`, tunggu 70 detik, F5                   |
+| C   | Muat ulang (F5) dalam 60 detik                                                             | F5 segera (memo masih hangat; pembanding)              |
+| D   | Tombol "Refresh now"                                                                       | Tekan tombol, buka `/summary` selama snapshot dibangun |
+| E   | Tiap halaman metrik (Revenue, P&L, Cash Flow, Payables, Receivables, Payment Plan, Budget) | Buka satu per satu setelah restart                     |
+| F   | Filter berbeda                                                                             | `ytd` dan `last-12m`, semua entitas dan satu entitas   |
 
 ## 3. Yang dicatat
 
 Isi tabel ini (satu baris per skenario) lalu simpan di `docs/progress.md` atau lampirkan di diskusi:
 
 | Skenario | Total waktu halaman | Metrik terlama (nama, ms) | Query terlama (ringkas, ms) | Ada "pool is full"? |
-|---|---|---|---|---|
+| -------- | ------------------- | ------------------------- | --------------------------- | ------------------- |
 
 Tiga pertanyaan yang harus terjawab dari angka itu:
 
@@ -65,16 +65,16 @@ DB `demo` (±1,5 juta baris `gl`, ±13,6 juta `gl_detail`) belum mewakili klien 
 
 Probe Summary, semua entitas, `APP_TODAY` dipin 2025-10-15 (lihat catatan di bawah tabel). Waktu dalam detik, dari log `PERF_LOG=1`.
 
-| Bagian | this-month | last-month | ytd | Catatan |
-|---|---|---|---|---|
-| Total Summary, dingin | 337 | 335 | 329 | ditentukan oleh AP aging live (lihat catatan) |
-| `runway` | 52–60 | 51–59 | 56–60 | satu query per jurnal (`gl_id`) atas 3 bulan penuh: 47–56 dtk |
-| `cashPortions` / `cashFlow` | 5–12 | 9–11 | **172–186** | query per jurnal yang sama; naik seiring jumlah bulan |
-| `cashPosition` | 3–8 | 7–8 | 3–6 | beberapa query GL @ 3–7 dtk, saling bersaing di pool |
-| `revenue`, `pnl`, `plMovements` | 1–2 | < 0,1 | 2–3 | |
-| `apAgingCore` / `paymentPlan` | **325–336** | 325–335 | 327 | satu query tagihan terbuka live: 325–335 dtk |
-| `ap_ar_card` pembayaran belum dialokasikan | 8–12 | 12 | 10 | |
-| Status voucher pembayaran (`bankpo_payment`) | 3 | 3 | 3 | satu query tetap |
+| Bagian                                       | this-month  | last-month | ytd         | Catatan                                                       |
+| -------------------------------------------- | ----------- | ---------- | ----------- | ------------------------------------------------------------- |
+| Total Summary, dingin                        | 337         | 335        | 329         | ditentukan oleh AP aging live (lihat catatan)                 |
+| `runway`                                     | 52–60       | 51–59      | 56–60       | satu query per jurnal (`gl_id`) atas 3 bulan penuh: 47–56 dtk |
+| `cashPortions` / `cashFlow`                  | 5–12        | 9–11       | **172–186** | query per jurnal yang sama; naik seiring jumlah bulan         |
+| `cashPosition`                               | 3–8         | 7–8        | 3–6         | beberapa query GL @ 3–7 dtk, saling bersaing di pool          |
+| `revenue`, `pnl`, `plMovements`              | 1–2         | < 0,1      | 2–3         |                                                               |
+| `apAgingCore` / `paymentPlan`                | **325–336** | 325–335    | 327         | satu query tagihan terbuka live: 325–335 dtk                  |
+| `ap_ar_card` pembayaran belum dialokasikan   | 8–12        | 12         | 10          |                                                               |
+| Status voucher pembayaran (`bankpo_payment`) | 3           | 3          | 3           | satu query tetap                                              |
 
 Catatan pembacaan:
 
@@ -85,7 +85,8 @@ Catatan pembacaan:
 
 ## Riwayat Perubahan
 
-| Tanggal | Perubahan |
-|---|---|
-| 2026-11-04 | Dokumen dibuat bersama alat ukur: `PERF_LOG`, `SLOW_QUERY_MS`, probe Summary |
-| 2026-11-04 | §7: hasil pengukuran pertama di DB lokal `demo` (probe Summary, tiga preset) |
+| Tanggal    | Perubahan                                                                                                       |
+| ---------- | --------------------------------------------------------------------------------------------------------------- |
+| 2026-11-04 | Dokumen dibuat bersama alat ukur: `PERF_LOG`, `SLOW_QUERY_MS`, probe Summary                                    |
+| 2026-11-04 | §7: hasil pengukuran pertama di DB lokal `demo` (probe Summary, tiga preset)                                    |
+| 2026-11-04 | Phase 1A: snapshot GL memakai sidik jari periode dan pembangunan ulang otomatis bila periode dibuka-tutup ulang |

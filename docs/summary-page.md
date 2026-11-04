@@ -49,7 +49,7 @@ Berlaku untuk semua kartu di Summary.
   - Utang, Modal, Pendapatan → kredit − debit.
 - Angka **bulanan** memakai `gl.period_id`; angka **per tanggal** (saldo kas) memakai `gl.trans_date`.
 - Daftar akun Kas, Bank, Deposito, Dana transit, Biaya Tetap **tidak ditulis mati di kode**. Diambil dari Settings › Account Mapping (`system_main`, baris `DASHBOARD_ACCOUNT_MAPPING`).
-- Periode berstatus **Closed** dibaca dari tabel salinan `dash_snap_gl_monthly` bila sudah dibangun. Periode Open / Pre Closed selalu dibaca langsung dari ERP.
+- Periode berstatus **Closed** dibaca dari tabel salinan `dash_snap_gl_monthly` bila sudah dibangun. Periode Open / Pre Closed selalu dibaca langsung dari ERP. Salinan itu tidak dianggap final: bila admin membuka kembali lalu menutup ulang sebuah periode (atau jumlah jurnalnya berubah), salinan periode itu dibangun ulang otomatis di latar belakang, kira-kira pada siklus refresh berikutnya (default 10 menit) untuk dua periode Closed terbaru dan paling lama sekitar 6 jam untuk periode yang lebih lama. Koreksi angka di dalam jurnal lama yang tidak mengubah jumlah jurnal baru terlihat setelah bangun ulang manual (keputusan D43).
 - Banner peringatan muncul bila rentang memuat periode Open / Pre Closed, atau ada bulan tanpa baris periode.
 
 **Peta isi halaman:**
@@ -352,3 +352,4 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 | 2026-11-03 | Penataan struktur folder src (tahap 2): hanya lokasi berkas yang berubah dan rujukan jalur di dokumen ini disesuaikan (komponen donut dan keterangan entitas); tidak ada angka, rumus, atau tampilan yang berubah. |
 | 2026-11-03 | Penataan struktur folder src (tahap 4): hanya lokasi berkas yang berubah dan rujukan jalur di dokumen ini disesuaikan (logika donut dan kepemilikan entitas dipindah dari lib/core ke lib/format dan lib/finance/entity); tidak ada angka, rumus, atau tampilan yang berubah. |
 | 2026-11-04 | Bagian 3 (Revenue) diberi tautan ke dokumen halaman Revenue (`revenue-page.md`, `revenue-queries.md`); tidak ada angka, rumus, atau tampilan yang berubah. |
+| 2026-11-04 | Phase 1A performa: salinan `dash_snap_gl_monthly` kini dibangun ulang otomatis bila periode Closed dibuka dan ditutup ulang di ERP (sidik jari periode); penjelasan di Aturan umum diperbarui. Tidak ada rumus atau angka yang berubah bila data ERP tidak berubah. |

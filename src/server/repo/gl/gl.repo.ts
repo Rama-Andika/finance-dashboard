@@ -26,7 +26,7 @@ export type MovementsByPeriodsOptions = {
 }
 
 /**
- * Closed periods never change, so their movements are cached per (table, period, filters).
+ * Closed periods never change, so their movements are cached per (table, period, build version, filters).
  * Cached rows always carry `periodId`; `byPeriod` only decides whether callers see it, so
  * P&L, trend and drill-down calls share the same cache entries.
  */
@@ -34,11 +34,12 @@ function closedPeriodCacheKey(
   tableName: string,
   periodeId: string,
   opts: MovementsByPeriodsOptions,
+  version: string,
 ): string {
   const segHash = hashIds(opts.segIds)
   const coaHash = hashIds(opts.coaIds)
   const groups = (opts.accountGroups || []).slice().sort().join(',')
-  return `mv|${tableName}|${periodeId}|Closed|${opts.segCol}|${segHash}|${coaHash}|loc:${Boolean(opts.byLocation)}|g:${groups}`
+  return `mv|${tableName}|${periodeId}|Closed|v:${version}|${opts.segCol}|${segHash}|${coaHash}|loc:${Boolean(opts.byLocation)}|g:${groups}`
 }
 
 type MovementDbRow = {
@@ -72,7 +73,9 @@ function movementQuery(
     opts.accountGroups && opts.accountGroups.length > 0
       ? sql`JOIN coa c ON c.coa_id = d.coa_id AND c.account_group IN (${inList(opts.accountGroups)})`
       : sql``
-  const locationJoin = opts.byLocation ? sql`LEFT JOIN segment_detail sd ON sd.segment_detail_id = d.${segIdent}` : sql``
+  const locationJoin = opts.byLocation
+    ? sql`LEFT JOIN segment_detail sd ON sd.segment_detail_id = d.${segIdent}`
+    : sql``
   const coaFilter = slice.coaIds ? sql`AND d.coa_id IN (${inList(slice.coaIds)})` : sql``
   const segFilter = slice.segIds ? sql`AND d.${segIdent} IN (${inList(slice.segIds)})` : sql``
   const periodGroup = opts.byPeriod ? sql`, g.period_id` : sql``
@@ -135,6 +138,14 @@ export async function movementsByPeriods(opts: MovementsByPeriodsOptions): Promi
     }
   }
 
+  // Closed periods that are in the snapshot, with the version of their build. The version is part of the cache key,
+  // so a period that was rebuilt (after the ERP admin re-closed it) never answers from rows cached for an older build.
+  const built =
+    opts.useSnapshot !== false && opts.segCol === GL_SNAPSHOT_SEGMENT_COLUMN
+      ? await builtGlPeriods()
+      : new Map<string, string>()
+  const versionOf = (periodeId: string): string => built.get(periodeId) ?? 'erp'
+
   // One query per GL table for all periods that are not cached yet, all tables in parallel.
   await Promise.all(
     Array.from(grouped.entries()).map(async ([tableName, tablePeriods]) => {
@@ -147,18 +158,22 @@ export async function movementsByPeriods(opts: MovementsByPeriodsOptions): Promi
           toQuery.push(p)
           continue
         }
-        const hit = glMovementsCache.get(closedPeriodCacheKey(tableName, p.periodeId, opts))
+        const hit = glMovementsCache.get(closedPeriodCacheKey(tableName, p.periodeId, opts, versionOf(p.periodeId)))
         if (hit) mergeRows(hit)
         else uncachedClosed.push(p)
       }
 
       // Closed periods that are in the snapshot are read from it (small, indexed); the rest from the ERP tables.
-      const built = opts.useSnapshot !== false && opts.segCol === GL_SNAPSHOT_SEGMENT_COLUMN ? await builtGlPeriods() : new Set<string>()
       const fromSnapshot = uncachedClosed.filter((p) => built.has(p.periodeId))
       const fromErp = uncachedClosed.filter((p) => !built.has(p.periodeId))
 
       const [snapshotRows, erpRows, openRows] = await Promise.all([
-        fromSnapshot.length > 0 ? snapshotMovements(fromSnapshot.map((p) => p.periodeId), opts) : Promise.resolve([]),
+        fromSnapshot.length > 0
+          ? snapshotMovements(
+              fromSnapshot.map((p) => p.periodeId),
+              opts,
+            )
+          : Promise.resolve([]),
         queryMovementsFromDb(tableName, fromErp, { ...opts, byPeriod: true }),
         queryMovementsFromDb(tableName, toQuery, opts),
       ])
@@ -167,7 +182,7 @@ export async function movementsByPeriods(opts: MovementsByPeriodsOptions): Promi
       const byPeriod = new Map<string, MovementRow[]>(uncachedClosed.map((p) => [p.periodeId, []]))
       for (const r of closedRows) byPeriod.get(r.periodId ?? '')?.push(r)
       for (const [periodeId, periodRows] of byPeriod) {
-        glMovementsCache.set(closedPeriodCacheKey(tableName, periodeId, opts), periodRows)
+        glMovementsCache.set(closedPeriodCacheKey(tableName, periodeId, opts, versionOf(periodeId)), periodRows)
         mergeRows(periodRows)
       }
       mergeRows(openRows)
@@ -176,7 +191,6 @@ export async function movementsByPeriods(opts: MovementsByPeriodsOptions): Promi
 
   return Array.from(resultMap.values())
 }
-
 
 export * from '~/server/repo/gl/gl-by-date.repo'
 export * from '~/server/repo/gl/gl-opening.repo'

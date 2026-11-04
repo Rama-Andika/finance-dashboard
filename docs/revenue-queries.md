@@ -53,7 +53,7 @@ Mesin: `src/server/repo/gl/gl.repo.ts` · `movementsByPeriods`, dipanggil `src/s
 
 Parameter Revenue: `:coaIds` = semua akun **POSTABLE** dengan `account_group = 'Revenue'` (`postableAccountIds(tree, ['Revenue'])`, tanpa akun yatim), `byPeriod = true`, `byLocation = true`, tanpa `accountGroups` (jadi tanpa `JOIN coa`).
 
-Per periode: `Closed` → cache LRU di memori, lalu snapshot (R2) bila periodenya sudah dibangun dan `<SEG> = segment1_id`, selain itu ERP (R1). `Open` / `Pre Closed` → **selalu** ERP (R1), tidak pernah di-cache.
+Per periode: `Closed` → cache LRU di memori (kuncinya memuat versi build snapshot dari Q13, jadi periode yang dibangun ulang tidak dijawab dari baris yang di-cache untuk build lama), lalu snapshot (R2) bila periodenya sudah dibangun dan `<SEG> = segment1_id`, selain itu ERP (R1). `Open` / `Pre Closed` → **selalu** ERP (R1), tidak pernah di-cache.
 
 ### R1 — Mutasi Revenue (ERP langsung) = Q11 dengan `byPeriod` + `byLocation`
 
@@ -81,7 +81,7 @@ GROUP BY d.coa_id, g.period_id, sd.location_id;
 
 ### R2 — Mutasi Revenue periode Closed dari snapshot = Q12 dengan `byLocation`
 
-`src/server/dash/gl-snapshot.ts` · `snapshotMovements`. Dipakai bila periode ada di `dash_snap_gl_periods` (Q13) dan `<SEG> = segment1_id`.
+`src/server/dash/gl-snapshot.ts` · `snapshotMovements`. Dipakai bila periode ada di `dash_snap_gl_periods` (Q13) dan `<SEG> = segment1_id`. Snapshot dibangun ulang otomatis bila periodenya dibuka dan ditutup ulang di ERP (sidik jari periode; lihat `summary-queries.md` bagian 7, "Sidik jari periode").
 
 ```sql
 SELECT s.coa_id AS coaId, s.period_id AS periodId
@@ -97,9 +97,9 @@ GROUP BY s.coa_id, s.period_id, sd.location_id;
 
 Di snapshot, jurnal tanpa entitas disimpan dengan `segment_id = 0` (`COALESCE(d.segment1_id, 0)`), jadi `sd.location_id` juga `NULL`: perilakunya sama dengan R1.
 
-### Q13 dan Q24 (tidak berubah)
+### Q13 dan Q24
 
-- **Q13** daftar periode yang sudah ada di snapshot GL (cache 30 detik). Bila tabel `dash_*` belum ada, error ditelan dan semua periode Closed dibaca dari ERP (R1).
+- **Q13** daftar periode yang sudah ada di snapshot GL, kini bersama waktu build dan jumlah barisnya sebagai versi build (`built_at`, `row_count`; SQL lengkap di `summary-queries.md`). Cache 30 detik. Bila tabel `dash_*` belum ada, error ditelan dan semua periode Closed dibaca dari ERP (R1).
 - **Q24** apakah tabel GL punya kolom `canceled_date` (cache 1 jam per tabel). Dijalankan di awal untuk semua tabel GL yang dipakai.
 
 ---
@@ -267,7 +267,7 @@ Jumlah query SQL satu kali muat halaman (cache dingin, satu tabel GL, tanpa pemo
 | Q24 (kolom `canceled_date`) | 1 jam per tabel GL | `src/server/db/gl-columns.ts` |
 | Hasil Revenue (`computeRevenue`) | 60 detik (`memoMetric('revenue', filter)`) | `src/server/cache.ts` |
 | Pembacaan bersama P&L untuk pembanding (R3) | 60 detik (`memoMetric('plMovements', …)`), dibagi dengan P&L, Fixed Cost, Budget | `pl-movements.ts` |
-| Mutasi periode `Closed` | LRU di memori, tidak kedaluwarsa; kuncinya memuat opsi baca (`byLocation`, akun, entitas) sehingga pembacaan Revenue dan P&L memiliki entri sendiri-sendiri; periode `Open` / `Pre Closed` tidak pernah di-cache | `gl.repo.ts` |
+| Mutasi periode `Closed` | LRU di memori (maks. 500 entri, kedaluwarsa 6 jam); kuncinya memuat versi build snapshot (Q13) dan opsi baca (`byLocation`, akun, entitas) sehingga pembacaan Revenue dan P&L memiliki entri sendiri-sendiri; periode `Open` / `Pre Closed` tidak pernah di-cache | `gl.repo.ts` |
 | Drill-down (R4–R6) | tidak ada cache di tingkat hasil; R4 dan R5 memakai LRU periode Closed yang sama | `drill.service.ts` |
 
 Pembacaan R1 dan R3 berjalan **paralel** (`Promise.all` di `computeRevenue`).
@@ -279,3 +279,4 @@ Pembacaan R1 dan R3 berjalan **paralel** (`Promise.all` di `computeRevenue`).
 | Tanggal | Perubahan |
 |---|---|
 | 2026-11-04 | Dokumen dibuat dari pembacaan kode halaman Revenue (belum ada perubahan pada halaman). Dibuat bersama `revenue-page.md`. |
+| 2026-11-04 | Phase 1A performa: Q13 kini juga membaca waktu build dan jumlah baris (versi build); kunci cache mutasi periode Closed memuat versi build itu; snapshot GL dibangun ulang otomatis bila periode dibuka dan ditutup ulang (sidik jari periode). Baris cache Closed diperbarui (LRU 500 entri, 6 jam). SQL R1 dan R2 tidak berubah; angka tidak berubah bila data ERP tidak berubah. |

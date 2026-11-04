@@ -9,6 +9,7 @@ import { refreshApArSnapshot } from './refresh-ap-ar'
 import { refreshGlMonthlySnapshot } from './gl-snapshot'
 import { refreshApArHistSnapshots } from './hist-ap-ar'
 import { warmApArSnapshot } from './snapshot'
+import { clearCachesAfterPeriodChange } from './invalidate'
 
 /** Who started a run: the timer in the server process, or a user pressing "Refresh now". */
 export type RefreshSource = 'scheduler' | 'manual'
@@ -78,10 +79,13 @@ export async function runRefreshCycle(
       await warmApArSnapshot()
       // Closed GL periods: cheap when nothing is new, a few seconds to minutes per new period otherwise
       const gl = await refreshGlMonthlySnapshot()
-      if (gl.ran)
+      if (gl.ran) {
         dashLog.info(
-          `GL snapshot built ${gl.built} period(s), removed ${gl.removed} in ${Math.round(gl.durationMs / 1000)}s`,
+          `GL snapshot built ${gl.built} period(s) (${gl.rebuilt} rebuilt), removed ${gl.removed} in ${Math.round(gl.durationMs / 1000)}s`,
         )
+        // A period that was rebuilt or dropped may have served older numbers: forget what was derived from it.
+        if (gl.rebuilt > 0 || gl.removed > 0) clearCachesAfterPeriodChange()
+      }
       // Month-end AP/AR history: one month per run (the first fill takes a few runs; `npm run dash:refresh-hist` does it at once)
       const hist = await refreshApArHistSnapshots(today(), { maxBuilds: HIST_MAX_BUILDS_PER_RUN })
       if (hist.ran) {

@@ -1,4 +1,15 @@
-import { datetime, decimal, index, int, mysqlTable, primaryKey, text, tinyint, varchar, date } from 'drizzle-orm/mysql-core'
+import {
+  datetime,
+  decimal,
+  index,
+  int,
+  mysqlTable,
+  primaryKey,
+  text,
+  tinyint,
+  varchar,
+  date,
+} from 'drizzle-orm/mysql-core'
 import { bigint } from '../db/bigint-string'
 
 /**
@@ -117,7 +128,6 @@ export const dashSnapApArUnallocated = mysqlTable(
   (t) => [index('idx_dash_unalloc_mod_loc').on(t.moduleType, t.locationId)],
 )
 
-
 /**
  * GL movements of CLOSED periods, summed per (period, account, entity segment). A closed period no longer changes,
  * so it is built once. `segment_id` is `segment1_id` (the entity segment); 0 stands for "no segment".
@@ -140,4 +150,10 @@ export const dashSnapGlPeriods = mysqlTable('dash_snap_gl_periods', {
   builtAt: datetime('built_at', { mode: 'string' }),
   rowCount: int('row_count').default(0),
   durationMs: int('duration_ms').default(0),
+  /** Table, dates and type of the period when it was built (see period-fingerprint.ts); NULL = built before fingerprints existed */
+  periodKey: varchar('period_key', { length: 100 }),
+  /** Journal counts of the GL table when it was built */
+  statsKey: varchar('stats_key', { length: 100 }),
+  /** When the journal counts were last compared with the ERP */
+  checkedAt: datetime('checked_at', { mode: 'string' }),
 })
