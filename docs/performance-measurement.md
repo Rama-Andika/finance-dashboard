@@ -83,11 +83,81 @@ Catatan pembacaan:
 - **Antre pool terjadi di awal setiap run** (45 kali "pool is full" selama tiga skenario). Satu query live 325 detik menduduki satu dari 5 koneksi sepanjang waktu itu; query lain berebut sisanya dan jadi lebih lambat dari waktu aslinya (`cashPosition` 3 dtk sendirian, 7–8 dtk saat bersaing).
 - **Query paling berat di luar artefak AP:** query GL per jurnal (`gl_id`, `journal_type`, join periode) untuk klasifikasi arus kas. Ia dipakai `runway` (3 bulan, ±50 dtk) dan `cashFlow` (naik menjadi ±170 dtk untuk YTD). Query ini tidak memakai snapshot GL bulanan dan hanya di-memo 60 detik.
 
+## 8. Cache SWR dan Summary bertahap (Phase 2)
+
+Dengan _stale-while-revalidate_ pada `memoMetric`:
+
+- Saat metrik melewati masa segar (`METRIC_FRESH_SECONDS`, default 60 detik), permintaan berikutnya tetap mendapat jawaban lama seketika, dan satu kalkulasi ulang berjalan di latar belakang selama masa basi (`METRIC_STALE_SECONDS`, default 180 detik).
+- Menyalakan `PERF_LOG=1` akan menampilkan baris `perf: metric ...` saat kalkulasi ulang di latar belakang sedang berjalan, meskipun pengguna di browser sudah menerima respons dalam 0–5 ms.
+- Summary memuat bertahap: bagian atas (`getSummaryHeadFn`) ditunggu di loader, sedangkan grafik (`getSummaryChartsFn`) dan kartu mini (`getSummaryMiniFn`) dimulai paralel tanpa `await` di loader.
+
+## 9. Hasil sesudah Phase 1B dan Phase 2 (DB lokal `demo`, 2026-11-04)
+
+Probe Summary yang sama dengan §7 (`PERF_PROBE=1`, semua entitas, `APP_TODAY` dipin 2025-10-15), hanya untuk `last-month` dan `ytd`, dijalankan **tanpa dev server dan tanpa proses lain**. Waktu dalam detik dari log `perf: metric ...`. "Sebelum" diambil dari §7. "Hangat" adalah jalankan kedua tepat setelah yang dingin, yaitu keadaan setelah cache 60 detik kedaluwarsa (F5 setelah semenit).
+
+| Bagian | last-month sebelum | last-month sesudah | ytd sebelum | ytd sesudah |
+| --- | --- | --- | --- | --- |
+| `runway`, dingin | 51–59 | **33,4** | 56–60 | **36,5** |
+| `cashPortions` / `cashFlow`, dingin | 9–11 | **15,3 / 15,8** | 172–186 | **82,2 / 86,9** |
+| `cashPosition`, dingin | 7–8 | 5,3–8,7 | 3–6 | 4,4–9,2 |
+| Total Summary, dingin | 335 | 331 | 329 | 373 |
+| Total Summary, hangat | 51,5 | **16,9** | 176,6 | **55,9** |
+
+Catatan pembacaan:
+
+- **Perbaikan nyata tetapi bukan "milidetik".** Pada filter panjang (`ytd`) Cash Flow dingin turun dari sekitar 180 menjadi sekitar 87 detik, dan total hangat dari 177 menjadi 56 detik (sekitar 3 kali lebih cepat). `runway` turun dari sekitar 55 menjadi 33–36 detik (sekitar 1,6 kali). Target Phase 1B (puluhan detik menjadi milidetik) **belum tercapai**.
+- **Filter satu bulan tidak membaik.** `last-month` dingin: `cashFlow` 15,8 detik, lebih lambat daripada baseline 9–11 detik. Sebabnya diduga pembacaan snapshot satu bulan tidak lebih murah daripada query langsung, ditambah beberapa pembacaan snapshot berjalan bersamaan (`runway` membaca 3 bulan, `cashFlow` 1 bulan) dan berebut koneksi pool.
+- **Volume baris (diukur, `SELECT` read-only pada `dash_snap_cash_periods`):** snapshot kas berisi 5,09 juta baris untuk 46 periode (417 MB data + 397 MB indeks). Bulan-bulan 2024–2025 berisi 146–178 ribu baris (rata-rata seluruh periode 111 ribu), sekitar 3 baris per jurnal. Jadi `runway` (3 bulan: Juli–September 2025) membaca sekitar 0,52 juta baris dan `ytd` (Januari–September 2025) sekitar 1,48 juta baris. Query baca `dash_snap_cash_lines` tercatat 4–30 detik (`last-month`) dan 15–71 detik (`ytd`), yaitu hanya sekitar 20–40 ribu baris per detik: **terlalu lambat untuk sekadar memindahkan data**. Dugaan awal "jutaan baris dipindahkan ke Node" karena itu **tidak cukup menjelaskan** angka untuk filter 1–3 bulan.
+- **Total dingin masih ditentukan AP aging langsung ke ERP** (326–371 detik): artefak tanggal yang dipin, bukan angka produksi (lihat §7).
+- **Batas:** satu kali jalan per filter, satu mesin, MariaDB 10.4, buffer pool bisa berbeda dari pengukuran §7. Bacalah sebagai petunjuk arah, bukan angka mutlak.
+
+Dugaan yang lebih kuat: join dengan subquery `DISTINCT` (semi-join) pada query baca. Untuk filter **semua entitas** join itu sebenarnya tidak perlu, karena setiap jurnal di snapshot sudah pasti punya minimal satu baris kas (begitu cara snapshot dibangun), sehingga cukup `SELECT ... WHERE period_id IN (...)`. Untuk filter entitas join tetap diperlukan. Langkah berikutnya: ukur dulu query yang sama tanpa join untuk semua entitas dan lihat `EXPLAIN`-nya (atas izin), sebelum mengubah kode.
+
+### Sesudah join `DISTINCT` dihapus untuk filter semua entitas
+
+Probe yang sama, tanpa dev server. Tes paritas snapshot melawan query langsung ke ERP lulus (semua entitas dan entitas pertama), jadi hasilnya identik. Detik, dingin kecuali disebut lain:
+
+| Bagian | last-month (sebelumnya → sekarang) | ytd (sebelumnya → sekarang) |
+| --- | --- | --- |
+| `runway` | 33,4 → **23,2** | 36,5 → **22,7** |
+| `cashPortions` | 15,3 → **4,8** | 82,2 → **49,6** |
+| `cashFlow` | 15,8 → **8,7** | 86,9 → **61,5** |
+| Total Summary, hangat | 16,9 → **11,8** | 55,9 → **56,3** (tidak berubah) |
+| Query baca `dash_snap_cash_lines` | 4–30 → **1,5–14,6** | 15–71 → **8,4–22,7** |
+
+- **Dugaan terbukti sebagian.** Query baca menjadi sekitar 2–3 kali lebih cepat, tetapi masih sekitar 65 ribu baris per detik, bukan milidetik. Cash Flow `ytd` dingin turun dari baseline 172–186 detik menjadi 61 detik, dan `runway` dari 51–60 detik menjadi 23 detik.
+- **Sisa waktu ada di Node.** Untuk `ytd`, `cashPortions` 49,6 detik sedangkan baca snapshot 22,7 detik: selisih sekitar 27 detik dipakai mengubah sekitar 1,5 juta baris menjadi uang desimal (`decimal.js`) dan menjalankan alokasi kas proporsional. Ini selisih waktu, bukan pengukuran langsung per tahap.
+- **Total hangat `ytd` tidak membaik (56 detik)** karena didominasi tahap Node itu. Untuk benar-benar turun ke orde detik, baris yang diproses harus dikurangi (agregasi alokasi kas per jurnal saat build untuk filter semua entitas), bukan hanya dipercepat membacanya.
+- Batas: satu kali jalan per filter, satu mesin, MariaDB 10.4.
+
+### Sesudah jalur cepat untuk uang dua desimal (tanpa `decimal.js` di pembacaan snapshot)
+
+Pembaca snapshot kas kini mempertahankan teks uang yang sudah berbentuk dua desimal dan hanya memakai `decimal.js` untuk bentuk lain. Tes paritas snapshot melawan ERP lulus. Probe yang sama, tanpa dev server. Detik:
+
+| Bagian | last-month (baseline Phase 0 → sebelumnya → sekarang) | ytd (baseline Phase 0 → sebelumnya → sekarang) |
+| --- | --- | --- |
+| `runway`, dingin | 51–59 → 23,2 → **18,4** | 56–60 → 22,7 → **17,8** |
+| `cashPortions`, dingin | tidak diukur terpisah → 4,8 → **4,5** | tidak diukur terpisah → 49,6 → **27,0** |
+| `cashFlow`, dingin | 9–11 → 8,7 → **7,5** | 172–186 → 61,5 → **31,7** |
+| Total Summary, hangat | 51,5 → 11,8 → **10,8** | 176,6 → 56,3 → **33,1** |
+| Query baca `dash_snap_cash_lines` | → 1,5–14,6 → **1,2–14,9** | → 8,4–22,7 → **9,8–17,8** |
+
+- **Biaya terbesar di Node ternyata pembuatan objek `Decimal`.** Pada `ytd`, `cashPortions` turun dari 49,6 ke 27,0 detik (sekitar 22 detik hilang) tanpa mengubah SQL. Sisa selisih antara `cashPortions` (27 detik) dan baca snapshot (sekitar 18 detik) tinggal sekitar 9 detik untuk alokasi kas dan klasifikasi.
+- **Dibanding baseline Phase 0:** Cash Flow `ytd` dingin 172–186 → 32 detik (sekitar 5–6 kali), total hangat `ytd` 177 → 33 detik (sekitar 5 kali), total hangat `last-month` 52 → 11 detik (sekitar 5 kali), `runway` 51–60 → 14–18 detik (sekitar 3 kali).
+- **Masih bukan milidetik.** Membaca 0,5 sampai 1,5 juta baris dari tabel snapshot tetap memakan beberapa sampai belasan detik. Untuk turun ke orde detik, jumlah baris yang dibaca per permintaan harus dikurangi (mis. agregasi alokasi kas per jurnal saat build untuk filter semua entitas). Itu perubahan desain tersendiri.
+- Batas: satu kali jalan per filter, satu mesin, MariaDB 10.4; selisih beberapa detik antar-jalan masih dalam kisaran noise.
+
 ## Riwayat Perubahan
 
-| Tanggal    | Perubahan                                                                                                       |
-| ---------- | --------------------------------------------------------------------------------------------------------------- |
-| 2026-11-04 | Dokumen dibuat bersama alat ukur: `PERF_LOG`, `SLOW_QUERY_MS`, probe Summary                                    |
-| 2026-11-04 | §7: hasil pengukuran pertama di DB lokal `demo` (probe Summary, tiga preset)                                    |
-| 2026-11-04 | Phase 1A: snapshot GL memakai sidik jari periode dan pembangunan ulang otomatis bila periode dibuka-tutup ulang |
-| 2026-11-04 | Phase 1B: snapshot baris jurnal kas (dash_snap_cash_lines) untuk mempercepat runway dan Cash Flow               |
+| Tanggal    | Perubahan                                                                                                         |
+| ---------- | ----------------------------------------------------------------------------------------------------------------- |
+| 2026-11-04 | Dokumen dibuat bersama alat ukur: `PERF_LOG`, `SLOW_QUERY_MS`, probe Summary                                      |
+| 2026-11-04 | §7: hasil pengukuran pertama di DB lokal `demo` (probe Summary, tiga preset)                                      |
+| 2026-11-04 | Phase 1A: snapshot GL memakai sidik jari periode dan pembangunan ulang otomatis bila periode dibuka-tutup ulang   |
+| 2026-11-04 | Phase 1B: snapshot baris jurnal kas (dash_snap_cash_lines) untuk mempercepat runway dan Cash Flow                 |
+| 2026-11-04 | Phase 2: cache SWR (`METRIC_FRESH_SECONDS`, `METRIC_STALE_SECONDS`), Summary bertahap, dan pelacakan via PERF_LOG |
+| 2026-11-04 | Default `METRIC_STALE_SECONDS` diturunkan dari 600 ke 180 detik: angka yang dijawab dari cache paling lama sekitar 4 menit lebih tua (60 detik segar + 180 detik masa basi), sehingga selisih kartu dan drill-down lebih kecil. Tidak ada rumus atau query yang berubah. |
+| 2026-11-04 | §9: hasil probe sesudah Phase 1B dan Phase 2 (`last-month` dan `ytd`): `ytd` hangat 177 → 56 detik, `ytd` Cash Flow dingin 180 → 87 detik, `runway` 55 → 33–36 detik; `last-month` Cash Flow dingin tidak membaik (15,8 vs 9–11 detik); target milidetik belum tercapai. |
+| 2026-11-04 | §9: volume snapshot kas diukur (5,09 juta baris, 146–178 ribu baris per bulan); dugaan "jutaan baris dipindahkan" dikoreksi: kecepatan baca hanya 20–40 ribu baris per detik, dugaan baru adalah join `DISTINCT` yang tidak perlu untuk filter semua entitas. |
+| 2026-11-04 | §9: hasil sesudah join `DISTINCT` dihapus untuk filter semua entitas: query baca snapshot kas 2–3 kali lebih cepat, Cash Flow `ytd` dingin 87 → 61 detik, `runway` 33–36 → 23 detik, total hangat `ytd` tetap 56 detik (sisa waktu ada di pengolahan Node). |
+| 2026-11-04 | §9: hasil sesudah jalur cepat uang dua desimal di pembacaan snapshot kas: `ytd` hangat 56 → 33 detik, Cash Flow `ytd` dingin 62 → 32 detik, `runway` 23 → 18 detik; dibanding baseline Phase 0 sekitar 3–6 kali lebih cepat. |

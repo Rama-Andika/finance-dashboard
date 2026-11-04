@@ -173,4 +173,12 @@ describe('runRefreshCycle', () => {
     expect(mocks.refreshCashLinesSnapshot).toHaveBeenCalledWith(['11', '12'])
     expect(mocks.clearCachesAfterPeriodChange).toHaveBeenCalledTimes(1)
   })
+
+  it('forgets cached metrics after a manual refresh, but not after a scheduled one', async () => {
+    await runRefreshCycle('manual', { force: true })
+    expect(mocks.clearCache).toHaveBeenCalledWith('metric:')
+    mocks.clearCache.mockClear()
+    await runRefreshCycle('scheduler', { force: false })
+    expect(mocks.clearCache).not.toHaveBeenCalledWith('metric:')
+  })
 })

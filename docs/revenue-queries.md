@@ -259,14 +259,16 @@ Jumlah query SQL satu kali muat halaman (cache dingin, satu tabel GL, tanpa pemo
 
 ## 7. Cache dan jumlah eksekusi
 
+Hasil metrik (`memoMetric`) memakai _stale-while-revalidate_: segar selama `METRIC_FRESH_SECONDS` (default 60 detik), lalu masih dijawab seketika sampai `METRIC_STALE_SECONDS` (default 180 detik) lagi sementara satu perhitungan ulang berjalan di belakang layar; tombol "Perbarui sekarang" mengosongkannya, dan `METRIC_STALE_SECONDS=0` mematikan masa basi. Pemanggil yang memberi TTL sendiri tidak mendapat masa basi. Keterbatasan: karena metrik saling memakai hasil satu sama lain, angka di kartu dan di drill-down-nya dapat dihitung pada saat berbeda dan selisihnya bisa sebesar masa basi (dulu paling lama 60 detik); hasil yang dihitung ulang di belakang layar juga bisa memakai metrik dalam yang sendiri masih berasal dari cache basi, sehingga umurnya bisa melebihi 4 menit (paling buruk mendekati dua kali lipat). Bila keduanya harus identik, tunggu sampai segar atau tekan "Perbarui sekarang".
+
 | Cache | TTL | Lokasi |
 |---|---|---|
 | Q1–Q4 | 10 menit | `src/server/context.ts` |
 | Q5 | 2 menit | `src/server/services/shared/account-mapping.ts` |
 | Q13 (periode di snapshot GL) | 30 detik | `src/server/dash/gl-snapshot.ts` |
 | Q24 (kolom `canceled_date`) | 1 jam per tabel GL | `src/server/db/gl-columns.ts` |
-| Hasil Revenue (`computeRevenue`) | 60 detik (`memoMetric('revenue', filter)`) | `src/server/cache.ts` |
-| Pembacaan bersama P&L untuk pembanding (R3) | 60 detik (`memoMetric('plMovements', …)`), dibagi dengan P&L, Fixed Cost, Budget | `pl-movements.ts` |
+| Hasil Revenue (`computeRevenue`) | 60 detik segar + sampai 3 menit boleh basi (`memoMetric('revenue', filter)`, stale-while-revalidate) | `src/server/cache.ts` |
+| Pembacaan bersama P&L untuk pembanding (R3) | 60 detik segar + sampai 3 menit boleh basi (`memoMetric('plMovements', …)`), dibagi dengan P&L, Fixed Cost, Budget | `pl-movements.ts` |
 | Mutasi periode `Closed` | LRU di memori (maks. 500 entri, kedaluwarsa 6 jam); kuncinya memuat versi build snapshot (Q13) dan opsi baca (`byLocation`, akun, entitas) sehingga pembacaan Revenue dan P&L memiliki entri sendiri-sendiri; periode `Open` / `Pre Closed` tidak pernah di-cache | `gl.repo.ts` |
 | Drill-down (R4–R6) | tidak ada cache di tingkat hasil; R4 dan R5 memakai LRU periode Closed yang sama | `drill.service.ts` |
 
@@ -280,3 +282,5 @@ Pembacaan R1 dan R3 berjalan **paralel** (`Promise.all` di `computeRevenue`).
 |---|---|
 | 2026-11-04 | Dokumen dibuat dari pembacaan kode halaman Revenue (belum ada perubahan pada halaman). Dibuat bersama `revenue-page.md`. |
 | 2026-11-04 | Phase 1A performa: Q13 kini juga membaca waktu build dan jumlah baris (versi build); kunci cache mutasi periode Closed memuat versi build itu; snapshot GL dibangun ulang otomatis bila periode dibuka dan ditutup ulang (sidik jari periode). Baris cache Closed diperbarui (LRU 500 entri, 6 jam). SQL R1 dan R2 tidak berubah; angka tidak berubah bila data ERP tidak berubah. |
+| 2026-11-04 | Phase 2 performa: tabel cache bagian 7 diperbarui: hasil Revenue dan pembacaan bersama P&L (R3) kini 60 detik segar + sampai 10 menit boleh basi (_stale-while-revalidate_); ditambah paragraf penjelasan dan keterbatasan umur angka. SQL tidak berubah. |
+| 2026-11-04 | Default `METRIC_STALE_SECONDS` diturunkan dari 600 ke 180 detik: angka yang dijawab dari cache paling lama sekitar 4 menit lebih tua (60 detik segar + 180 detik masa basi), sehingga selisih kartu dan drill-down lebih kecil. Tidak ada rumus atau query yang berubah. |

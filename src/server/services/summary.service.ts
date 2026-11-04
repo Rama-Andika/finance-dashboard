@@ -74,21 +74,10 @@ export type SummaryResult = {
   }
 }
 
-export async function computeSummary(
-  filter: AppContextFilter,
-): Promise<SummaryResult> {
+export async function computeSummary(filter: AppContextFilter): Promise<SummaryResult> {
   const meta = buildMetricMeta(filter)
 
-  const [
-    cashPos,
-    revenue,
-    pnl,
-    apAging,
-    cashFlow,
-    runway,
-    paymentPlan,
-    fixedCost,
-  ] = await Promise.all([
+  const [cashPos, revenue, pnl, apAging, cashFlow, runway, paymentPlan, fixedCost] = await Promise.all([
     computeCashPosition(filter, { includeByEntity: false }),
     computeRevenue(filter),
     computePnl(filter),
@@ -162,5 +151,102 @@ export async function computeSummary(
         isNegative: d.isNegative,
       })),
     },
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The Summary page loads in three parts so the quick top row does not wait for the slow ones.
+// The parts share metrics (P&L, revenue): memoMetric makes them compute once, whichever part asks first.
+// ---------------------------------------------------------------------------
+
+/** The four cards at the top: cash position, revenue, net profit and payables. */
+export type SummaryHead = {
+  meta: MetricMeta
+  cashPosition: SummaryResult['cashPosition']
+  revenue: { total: Money; compare: Money | null }
+  pnl: { netProfit: Money; netMargin: string | null }
+  apAging: SummaryResult['apAging']
+}
+
+export async function computeSummaryHead(filter: AppContextFilter): Promise<SummaryHead> {
+  const meta = buildMetricMeta(filter)
+  const [cashPos, revenue, pnl, apAging] = await Promise.all([
+    computeCashPosition(filter, { includeByEntity: false }),
+    computeRevenue(filter),
+    computePnl(filter),
+    computeApAging(filter),
+  ])
+  const netProfit = pnl.lines.find((l) => l.key === 'netProfit')
+  return {
+    meta,
+    cashPosition: {
+      total: cashPos.cashPosition,
+      compare: cashPos.compare.cashPosition,
+      cash: cashPos.cash,
+      bank: cashPos.bank,
+      deposit: cashPos.deposit,
+      inTransit: cashPos.inTransit,
+      giroOutstanding: cashPos.giroOutstanding,
+      entityCount: filter.entityCount,
+    },
+    revenue: { total: revenue.total, compare: revenue.compareTotal },
+    pnl: { netProfit: netProfit?.amount ?? '0.00', netMargin: netProfit?.margin ?? null },
+    apAging: {
+      total: apAging.total,
+      unpaidBills: apAging.unpaidBills,
+      overdueSubtotal: apAging.overdueSubtotal,
+      overdueBills: apAging.overdueBills,
+    },
+  }
+}
+
+/** The cash flow chart and the Composition / Revenue by Entity donuts. */
+export type SummaryCharts = {
+  cashFlow: SummaryResult['cashFlow']
+  revenueByFolder: Breakdown[]
+  revenueByEntity: RevenueResult['byEntity']
+  entityUnassigned: Money
+  expenseFolders: OperatingExpenseFolder[]
+  fixedCostFolders: Breakdown[]
+  fixedCostBasketEmpty: boolean
+}
+
+export async function computeSummaryCharts(filter: AppContextFilter): Promise<SummaryCharts> {
+  const [revenue, pnl, cashFlow, fixedCost] = await Promise.all([
+    computeRevenue(filter),
+    computePnl(filter),
+    computeCashFlow(filter),
+    computeFixedCost(filter),
+  ])
+  return {
+    cashFlow: { netCashFlow: cashFlow.netCashFlow, closingCash: cashFlow.closingCash, monthly: cashFlow.monthly },
+    revenueByFolder: revenue.byFolder,
+    revenueByEntity: revenue.byEntity,
+    entityUnassigned: revenue.entityUnassigned,
+    expenseFolders: buildOperatingExpenseFolders(pnl.lines),
+    fixedCostFolders: fixedCost.byFolder,
+    fixedCostBasketEmpty: fixedCost.basketEmpty,
+  }
+}
+
+/** Runway, gross margin, net margin and current ratio. */
+export type SummaryMini = {
+  runway: SummaryResult['runway']
+  grossMargin: string | null
+  netMargin: string | null
+}
+
+export async function computeSummaryMini(filter: AppContextFilter): Promise<SummaryMini> {
+  const [runway, pnl] = await Promise.all([computeRunwayMetrics(filter), computePnl(filter)])
+  const line = (key: string) => pnl.lines.find((l) => l.key === key)
+  return {
+    runway: {
+      runwayMonths: runway.runwayMonths,
+      cashFlowPositive: runway.cashFlowPositive,
+      avgBurn: runway.avgBurn,
+      currentRatio: runway.currentRatio,
+    },
+    grossMargin: line('grossProfit')?.margin ?? null,
+    netMargin: line('netProfit')?.margin ?? null,
   }
 }

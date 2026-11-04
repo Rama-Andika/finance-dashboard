@@ -75,7 +75,7 @@ Halaman: `src/routes/_authed/revenue.tsx`. Semua angka berasal dari **satu hasil
 
 Server: `src/server/services/pnl/revenue.service.ts`. Logika hitung murni: `src/lib/finance/pnl/revenue.ts` dan `revenue-entity.ts`. Komponen: `src/components/revenue/`.
 
-Hasil server di-cache 60 detik (per kombinasi filter). Mengganti entitas, periode, atau toggle Periode 13 memicu hitung ulang bila belum ada di cache.
+Hasil server di-cache per kombinasi filter: segar selama 60 detik, lalu masih ditampilkan seketika sampai 3 menit lagi sementara angka baru dihitung di belakang layar (_stale-while-revalidate_; angka bisa sampai sekitar 4 menit lebih tua dari ERP, dan tombol "Perbarui sekarang" mengosongkan cache itu). Keterbatasan: karena metrik saling memakai hasil satu sama lain, angka di kartu dan di drill-down-nya dapat dihitung pada saat berbeda dan selisihnya bisa sebesar masa basi (dulu paling lama 60 detik); hasil yang dihitung ulang di belakang layar juga bisa memakai metrik dalam yang sendiri masih berasal dari cache basi, sehingga umurnya bisa melebihi 4 menit (paling buruk mendekati dua kali lipat). Bila keduanya harus identik, tunggu sampai segar atau tekan "Perbarui sekarang". Mengganti entitas, periode, atau toggle Periode 13 memicu hitung ulang bila belum ada di cache. Di halaman Summary, kartu Revenue dimuat bersama empat kartu atas, sedangkan tab Revenue di donut Composition dan donut Revenue by Entity dimuat di bagian grafik yang menyusul.
 
 ---
 
@@ -306,3 +306,5 @@ Perubahan = (1.260 − 1.000) ÷ 1.000 = +26,00%   (tampil hijau)
 |---|---|
 | 2026-11-04 | Dokumen dibuat dari pembacaan kode halaman Revenue (belum ada perubahan pada halaman). Dibuat bersama `revenue-queries.md`. |
 | 2026-11-04 | Phase 1A performa: salinan `dash_snap_gl_monthly` kini dibangun ulang otomatis bila periode Closed dibuka dan ditutup ulang di ERP (sidik jari periode), dan hasil yang diingat di memori mengikuti versi build salinan itu. Penjelasan di Aturan akuntansi diperbarui. Tidak ada rumus atau angka yang berubah bila data ERP tidak berubah. |
+| 2026-11-04 | Phase 2 performa: cache hasil metrik kini _stale-while-revalidate_ (segar 60 detik, boleh basi sampai 10 menit, dapat diatur lewat env); Summary memuat bertahap (kartu Revenue di bagian atas, tab Revenue Composition dan donut Revenue by Entity di bagian grafik). Penjelasan cache dan keterbatasan umur angka diperbarui. Tidak ada rumus atau angka yang berubah. |
+| 2026-11-04 | Default `METRIC_STALE_SECONDS` diturunkan dari 600 ke 180 detik: angka yang dijawab dari cache paling lama sekitar 4 menit lebih tua (60 detik segar + 180 detik masa basi), sehingga selisih kartu dan drill-down lebih kecil. Tidak ada rumus atau query yang berubah. |

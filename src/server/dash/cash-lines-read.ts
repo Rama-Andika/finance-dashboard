@@ -12,6 +12,17 @@ import { DASH_TABLES } from './tables'
 
 const BUILT_TTL_MS = 30_000
 
+/** What the driver returns for a DECIMAL(22,2) column: no leading zeros, always two decimals. */
+const TWO_DECIMALS = /^-?(0|[1-9]\d*)\.\d{2}$/
+
+/**
+ * Money as two-decimal text. The snapshot columns are DECIMAL(22,2), so the text is almost always in that form already
+ * and is kept as it is; building a decimal.js value for every one of the (hundreds of thousands of) rows is the
+ * expensive part of reading a long period. Anything else goes through decimal.js, as the live query does.
+ */
+const toMoney = (value: number | string | null | undefined): string =>
+  typeof value === 'string' && TWO_DECIMALS.test(value) ? value : D(value || 0).toFixed(2)
+
 /**
  * Closed periods whose cash lines are in the snapshot, built for exactly this cash account list (`cashHash`):
  * period id → "version" (build time and row count). Empty when the tables do not exist yet.
@@ -53,35 +64,41 @@ export async function snapshotCashLines(periodIds: Id[], segIds: Id[] | 'all'): 
   if (periodIds.length === 0) return []
   if (segIds !== 'all' && segIds.length === 0) return []
   const table = sql.identifier(DASH_TABLES.cashLines)
+  const columns = sql`s.gl_id AS glId, s.journal_type AS journalType, s.period_id AS periodId, s.coa_id AS coaId,
+                      s.segment_id AS segmentDetailId, s.debet AS debet, s.credit AS credit`
 
   const combos = sliceCombos(chunk(periodIds), chunkOrAll(segIds))
   const slices = await mapLimit(combos, SLICE_CONCURRENCY, async ([pChunk, sChunk]) => {
-    const res = await rows<SnapshotLineDbRow>(sql`
-      SELECT s.gl_id AS glId,
-             s.journal_type AS journalType,
-             s.period_id AS periodId,
-             s.coa_id AS coaId,
-             s.segment_id AS segmentDetailId,
-             s.debet AS debet,
-             s.credit AS credit
-      FROM ${table} s
-      JOIN (
-        SELECT DISTINCT k0.period_id, k0.gl_id
-        FROM ${table} k0
-        WHERE k0.period_id IN (${inList(pChunk)})
-          AND k0.is_cash = 1
-          ${sChunk ? sql`AND k0.segment_id IN (${inList(sChunk)})` : sql``}
-      ) k ON k.period_id = s.period_id AND k.gl_id = s.gl_id
-      WHERE s.period_id IN (${inList(pChunk)})
-    `)
+    // Every journal in the snapshot has at least one cash line (that is how a period is built), so with all entities
+    // all of its lines are wanted and no journal filter is needed. With an entity filter only the journals that have a
+    // cash line in one of the selected segments count; then the semi-join below picks them.
+    const query = sChunk
+      ? sql`
+          SELECT ${columns}
+          FROM ${table} s
+          JOIN (
+            SELECT DISTINCT k0.period_id, k0.gl_id
+            FROM ${table} k0
+            WHERE k0.period_id IN (${inList(pChunk)})
+              AND k0.is_cash = 1
+              AND k0.segment_id IN (${inList(sChunk)})
+          ) k ON k.period_id = s.period_id AND k.gl_id = s.gl_id
+          WHERE s.period_id IN (${inList(pChunk)})
+        `
+      : sql`
+          SELECT ${columns}
+          FROM ${table} s
+          WHERE s.period_id IN (${inList(pChunk)})
+        `
+    const res = await rows<SnapshotLineDbRow>(query)
     return res.map((r): CashJournalLineRow => ({
       glId: String(r.glId),
       journalType: toInt(r.journalType),
       periodId: String(r.periodId),
       coaId: String(r.coaId),
       segmentDetailId: r.segmentDetailId ? String(r.segmentDetailId) : null,
-      debet: D(r.debet || 0).toFixed(2),
-      credit: D(r.credit || 0).toFixed(2),
+      debet: toMoney(r.debet),
+      credit: toMoney(r.credit),
     }))
   })
   return slices.flat()

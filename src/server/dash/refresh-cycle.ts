@@ -115,6 +115,8 @@ export async function runRefreshCycle(
           `AP/AR snapshot refreshed in ${Math.round(result.durationMs / 1000)}s (${result.openRows} open invoices, ${result.unallocatedRows} unallocated)`,
         )
       }
+      // The person who pressed "Refresh now" expects fresh numbers, not an answer kept for the stale window.
+      if (source === 'manual') clearCache('metric:')
     }
   } catch (error) {
     ok = false

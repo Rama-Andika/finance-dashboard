@@ -84,7 +84,7 @@ src/routes/**            file-based routes; loader → queryClient.ensureQueryDa
 - "Today" = `APP_TODAY` if set, else today in `APP_TIMEZONE`. Integration tests pin it (`TEST_TODAY`, default `2025-10-15`) to fit the local `demo` data.
 - Server functions return money as strings, dates as `YYYY-MM-DD`; never `Decimal`, `Date`, `Map`, `Set`, `bigint`. Labels are sent as neutral keys and translated on the client.
 - Drill-down is a side sheet whose state is in the `drill` search param; `src/server/services/drill/*` builds rows for every metric down to journal lines.
-- `src/server/cache.ts`: `memo`/`memoMetric` (bounded, shares in-flight loads) and an LRU for GL movements of Closed periods.
+- `src/server/cache.ts`: `memo`/`memoMetric` (bounded, shares in-flight loads; `memoMetric` is stale-while-revalidate (`METRIC_FRESH_SECONDS` / `METRIC_STALE_SECONDS`)) and an LRU for GL movements of Closed periods.
 
 ### Snapshot tables (`dash_*`)
 

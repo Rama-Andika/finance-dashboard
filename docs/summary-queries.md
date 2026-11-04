@@ -34,7 +34,7 @@
 
 ## 1. Query referensi
 
-Dibaca setiap request, tetapi di-cache di memori (`src/server/context.ts`, TTL 10 menit; pengaturan keranjang 2 menit).
+Dibaca setiap request, tetapi di-cache di memori (`src/server/context.ts`, TTL 10 menit; pengaturan keranjang 2 menit). Halaman Summary dimuat dalam tiga bagian terpisah: `getSummaryHeadFn` (kartu atas), `getSummaryChartsFn` (grafik), dan `getSummaryMiniFn` (kartu mini). Query Payment Plan 7 hari tidak lagi dijalankan oleh Summary; hanya dijalankan oleh tabel tagihan lewat `getPaymentBillsFn`.
 
 ### Q1 — Daftar akun (CoA)
 
@@ -472,6 +472,22 @@ GROUP BY d.gl_id, g.journal_type, g.period_id, d.coa_id, d.<SEG>;
 
 Untuk periode berstatus `Closed` yang sudah ada di tabel `dash_snap_cash_periods` dan memiliki `cash_hash` yang cocok dengan daftar akun kas aktif serta kolom segmen `segment1_id`, baris jurnal kas tidak dibaca dari tabel ERP (`gl`/`gl_detail`), melainkan langsung dari snapshot:
 
+Semua entitas (tanpa filter entitas): setiap jurnal di snapshot pasti punya minimal satu baris kas (begitu cara satu periode dibangun), jadi semua barisnya dibutuhkan dan tidak ada penyaring jurnal:
+
+```sql
+SELECT s.gl_id AS glId,
+       s.journal_type AS journalType,
+       s.period_id AS periodId,
+       s.coa_id AS coaId,
+       s.segment_id AS segmentDetailId,
+       s.debet AS debet,
+       s.credit AS credit
+FROM dash_snap_cash_lines s
+WHERE s.period_id IN (:periodIds);
+```
+
+Dengan filter entitas: hanya jurnal yang punya baris kas pada salah satu segmen terpilih yang dihitung, lalu **semua** barisnya diambil:
+
 ```sql
 SELECT s.gl_id AS glId,
        s.journal_type AS journalType,
@@ -486,7 +502,7 @@ JOIN (
   FROM dash_snap_cash_lines k0
   WHERE k0.period_id IN (:periodIds)
     AND k0.is_cash = 1
-    -- AND k0.segment_id IN (:segIds)
+    AND k0.segment_id IN (:segIds)
 ) k ON k.period_id = s.period_id AND k.gl_id = s.gl_id
 WHERE s.period_id IN (:periodIds);
 ```
@@ -700,7 +716,7 @@ Hasil ditulis ke tabel bayangan `dash_snap_ap_ar_open_new` / `dash_snap_ap_ar_un
 | Q19                            | 5 menit                                                                                                                                                                                                   | `payment-plan.repo.ts`      |
 | Q22 (giro/cek beredar)         | 60 detik                                                                                                                                                                                                  | `bank-payment.repo.ts`      |
 | Q24 (kolom `canceled_date`)    | 1 jam per tabel GL                                                                                                                                                                                        | `db/gl-columns.ts`          |
-| Hasil metrik (Revenue, P&L, …) | 60 detik (`memoMetric`)                                                                                                                                                                                   | `server/cache.ts`           |
+| Hasil metrik (Revenue, P&L, …) | 60 detik segar + sampai 3 menit boleh basi (`memoMetric`, stale-while-revalidate; `METRIC_FRESH_SECONDS` / `METRIC_STALE_SECONDS`)                                                                                                                                                                                   | `server/cache.ts`           |
 | Hasil turunan snapshot AP      | selama snapshot yang sama (maks 6 jam)                                                                                                                                                                    | `dash/snapshot.ts`          |
 | Mutasi periode `Closed` (Q11)  | LRU (maks. 500 entri, kedaluwarsa 6 jam); kuncinya memuat versi build snapshot (Q13), jadi periode yang dibangun ulang tidak dijawab dari cache lama; periode `Open` / `Pre Closed` tidak pernah di-cache | `gl.repo.ts`                |
 
@@ -764,4 +780,8 @@ WHERE table_schema = DATABASE()
 | 2026-11-03 | Penataan struktur folder src (tahap 6): file service dipindah ke subfolder per domain (ap-ar, cash, pnl, drill) dan jalur di dokumen ini disesuaikan; dua file helper berganti nama tanpa akhiran .helper; tidak ada query yang berubah.                                                                                                                                                         |
 | 2026-11-04 | Phase 1A performa: Q13 kini juga membaca waktu build dan jumlah baris (versi build ikut kunci cache mutasi periode Closed); bagian 7 "Snapshot GL bulanan" memuat kolom sidik jari, query penghitung `stats_key`, dan aturan pembangunan ulang otomatis; baris cache mutasi Closed diperbarui (LRU 500 entri, 6 jam, kunci memuat versi build). Angka tidak berubah bila data ERP tidak berubah. |
 | 2026-11-04 | Phase 1B performa: subbagian sumber alternatif snapshot `dash_snap_cash_lines` ditambahkan pada Q20 (Cash Flow dan Runway); periode Closed yang ada di snapshot dibaca dari tabel dash_* dan periode lain query langsung.                                                                                                                                                                        |
-| 2026-11-04 | Query pembangun snapshot GL bulanan: jumlah debet dan kredit dibungkus `COALESCE(..., 0)` supaya kolom `NOT NULL` tidak menolak baris saat kolom `gl_detail` bernilai `NULL` pada mode SQL ketat (default MySQL 5.7); hasil sama dengan query langsung, yang membaca nilai kosong sebagai 0. |
+| 2026-11-04 | Query pembangun snapshot GL bulanan: jumlah debet dan kredit dibungkus `COALESCE(..., 0)` supaya kolom `NOT NULL` tidak menolak baris saat kolom `gl_detail` bernilai `NULL` pada mode SQL ketat (default MySQL 5.7); hasil sama dengan query langsung, yang membaca nilai kosong sebagai 0.                                                                                                     |
+| 2026-11-04 | Phase 2 performa: Summary dibagi tiga bagian (head, charts, mini); query Payment Plan 7 hari tidak lagi dijalankan oleh Summary (hanya oleh tabel tagihan); SWR untuk metrik (D45). Bagian 1 diperbarui.                                                                                                                                                                                         |
+| 2026-11-04 | Tabel cache bagian 9: baris "Hasil metrik" kini 60 detik segar + sampai 10 menit boleh basi (_stale-while-revalidate_, dapat diatur lewat env). SQL tidak berubah. |
+| 2026-11-04 | Default `METRIC_STALE_SECONDS` diturunkan dari 600 ke 180 detik: angka yang dijawab dari cache paling lama sekitar 4 menit lebih tua (60 detik segar + 180 detik masa basi), sehingga selisih kartu dan drill-down lebih kecil. Tidak ada rumus atau query yang berubah. |
+| 2026-11-04 | Snapshot kas: untuk filter semua entitas, query baca `dash_snap_cash_lines` tidak lagi memakai join `DISTINCT` (setiap jurnal di snapshot sudah pasti punya baris kas); join tetap dipakai untuk filter entitas. Hasil sama; SQL di bagian Q20 diperbarui. |

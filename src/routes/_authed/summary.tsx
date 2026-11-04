@@ -2,7 +2,7 @@ import { metricLoaderDeps, drillSearchSchema } from '~/lib/filters/search-schema
 import { searchUpdater } from '~/lib/filters/search-update'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { summaryMetricOptions } from '~/queries/metrics.queries'
+import { summaryChartsOptions, summaryHeadOptions, summaryMiniOptions } from '~/queries/metrics.queries'
 import { tableSearchSchema } from '~/lib/table/query'
 import { PAYMENT_BILL_SORT_KEYS } from '~/lib/finance/ap-ar/payment-plan-bills'
 import { MetricSkeleton } from '~/components/layout/MetricSkeleton'
@@ -10,16 +10,20 @@ import { MetricError } from '~/components/layout/MetricError'
 import { MetricPageHeader } from '~/components/layout/MetricPageHeader'
 import { useLang } from '~/hooks/use-lang'
 import { BillsTable } from '~/components/summary/BillsTable'
-import { MiniMetricsBar } from '~/components/summary/MiniMetricsBar'
-import { SummaryCharts } from '~/components/summary/SummaryCharts'
+import { SummaryChartsSection } from '~/components/summary/SummaryChartsSection'
 import { SummaryKpiRow } from '~/components/summary/SummaryKpiRow'
+import { SummaryMiniSection } from '~/components/summary/SummaryMiniSection'
 import { getCompareLabel } from '~/lib/format/date'
 
 export const Route = createFileRoute('/_authed/summary')({
   validateSearch: drillSearchSchema.extend(tableSearchSchema(PAYMENT_BILL_SORT_KEYS).shape),
   loaderDeps: ({ search }) => metricLoaderDeps(search),
-  loader: ({ context, deps }) =>
-    context.queryClient.ensureQueryData(summaryMetricOptions(deps)),
+  loader: ({ context, deps }) => {
+    // The charts and the small figures start loading now but are not awaited: the page shows as soon as the top row is ready.
+    void context.queryClient.prefetchQuery(summaryChartsOptions(deps))
+    void context.queryClient.prefetchQuery(summaryMiniOptions(deps))
+    return context.queryClient.ensureQueryData(summaryHeadOptions(deps))
+  },
   pendingComponent: MetricSkeleton,
   errorComponent: MetricError,
   component: SummaryPage,
@@ -28,7 +32,7 @@ export const Route = createFileRoute('/_authed/summary')({
 function SummaryPage() {
   const deps = Route.useLoaderDeps()
   const navigate = useNavigate()
-  const { data } = useQuery(summaryMetricOptions(deps))
+  const { data } = useQuery(summaryHeadOptions(deps))
   const lang = useLang()
 
   if (!data) return null
@@ -54,26 +58,17 @@ function SummaryPage() {
         onOpen={goTo}
       />
 
-      <SummaryCharts
+      <SummaryChartsSection
+        filters={deps}
         asOf={data.meta.asOf}
         lang={lang}
         entityCount={data.meta.entityCount}
-        cashFlow={data.cashFlow}
-        revenueByFolder={data.revenue.byFolder}
-        expenseFolders={data.expenseFolders}
-        fixedCostFolders={data.fixedCostFolders}
-        fixedCostBasketEmpty={data.fixedCostBasketEmpty}
-        revenueByEntity={data.revenue.byEntity}
-        entityUnassigned={data.revenue.entityUnassigned}
         onOpen={goTo}
       />
 
       <BillsTable filters={deps} lang={lang} onRowClick={() => goTo('/payment-plan')} />
 
-      <MiniMetricsBar
-        metrics={{ runway: data.runway, grossMargin: data.pnl.grossMargin, netMargin: data.pnl.netMargin }}
-        lang={lang}
-      />
+      <SummaryMiniSection filters={deps} lang={lang} />
     </div>
   )
 }

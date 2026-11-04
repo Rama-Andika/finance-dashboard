@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
-import { createLruCache, hashIds, memo, memoSize, clearCache } from './cache'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { clearCache, createLruCache, hashIds, memo, memoMetric, memoSize } from './cache'
 
 describe('LRU Cache & Closed Period Caching (Phase 14)', () => {
   it('returns cached item on second call and does not call loader', () => {
@@ -201,5 +201,173 @@ describe('memo bounds', () => {
     expect(await slow).toBe('old')
     const fresh = vi.fn(async () => 'new')
     expect(await memo('stale', 60_000, fresh)).toBe('new')
+  })
+})
+
+describe('memo stale-while-revalidate', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    clearCache()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const options = { staleMs: 5000 }
+
+  it('serves the expired value at once and reloads once in the background', async () => {
+    const loader = vi.fn().mockResolvedValueOnce('v1').mockResolvedValueOnce('v2')
+    expect(await memo('swr-a', 1000, loader, options)).toBe('v1')
+    vi.setSystemTime(Date.now() + 1500) // expired, inside the stale window
+    expect(await memo('swr-a', 1000, loader, options)).toBe('v1')
+    await vi.advanceTimersByTimeAsync(0) // let the background load finish
+    expect(loader).toHaveBeenCalledTimes(2)
+    expect(await memo('swr-a', 1000, loader, options)).toBe('v2')
+    expect(loader).toHaveBeenCalledTimes(2)
+  })
+
+  it('shares one background reload between concurrent callers', async () => {
+    let release: (v: string) => void = () => {}
+    const loader = vi
+      .fn()
+      .mockResolvedValueOnce('v1')
+      .mockImplementationOnce(
+        () =>
+          new Promise<string>((resolve) => {
+            release = resolve
+          }),
+      )
+    await memo('swr-b', 1000, loader, options)
+    vi.setSystemTime(Date.now() + 1500)
+    const answers = await Promise.all([memo('swr-b', 1000, loader, options), memo('swr-b', 1000, loader, options)])
+    expect(answers).toEqual(['v1', 'v1'])
+    expect(loader).toHaveBeenCalledTimes(2) // the first load plus ONE reload
+    release('v2')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(await memo('swr-b', 1000, loader, options)).toBe('v2')
+  })
+
+  it('keeps serving the old value when the background reload fails, and retries after a pause', async () => {
+    const loader = vi
+      .fn()
+      .mockResolvedValueOnce('v1')
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce('v3')
+    await memo('swr-c', 1000, loader, { staleMs: 60_000 })
+    vi.setSystemTime(Date.now() + 1500)
+    expect(await memo('swr-c', 1000, loader, { staleMs: 60_000 })).toBe('v1') // starts the failing reload
+    await vi.advanceTimersByTimeAsync(0)
+    expect(loader).toHaveBeenCalledTimes(2)
+
+    expect(await memo('swr-c', 1000, loader, { staleMs: 60_000 })).toBe('v1') // inside the retry pause: no new reload
+    expect(loader).toHaveBeenCalledTimes(2)
+
+    vi.setSystemTime(Date.now() + 11_000) // pause over
+    expect(await memo('swr-c', 1000, loader, { staleMs: 60_000 })).toBe('v1')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(loader).toHaveBeenCalledTimes(3)
+    expect(await memo('swr-c', 1000, loader, { staleMs: 60_000 })).toBe('v3')
+  })
+
+  it('waits for the loader again once the stale window is over', async () => {
+    const loader = vi.fn().mockResolvedValueOnce('v1').mockResolvedValueOnce('v2')
+    await memo('swr-d', 1000, loader, options)
+    vi.setSystemTime(Date.now() + 1000 + 5000 + 1) // past ttl + stale window
+    expect(await memo('swr-d', 1000, loader, options)).toBe('v2')
+  })
+
+  it('does not serve an expired value without a stale window', async () => {
+    const loader = vi.fn().mockResolvedValueOnce('v1').mockResolvedValueOnce('v2')
+    await memo('swr-e', 1000, loader)
+    vi.setSystemTime(Date.now() + 1500)
+    expect(await memo('swr-e', 1000, loader)).toBe('v2')
+  })
+
+  it('a clearCache during a background reload keeps its result out of the cache', async () => {
+    let release: (v: string) => void = () => {}
+    const loader = vi
+      .fn()
+      .mockResolvedValueOnce('v1')
+      .mockImplementationOnce(
+        () =>
+          new Promise<string>((resolve) => {
+            release = resolve
+          }),
+      )
+      .mockResolvedValueOnce('v3')
+    await memo('swr-f', 1000, loader, options)
+    vi.setSystemTime(Date.now() + 1500)
+    await memo('swr-f', 1000, loader, options) // starts the slow reload
+    clearCache()
+    release('stale-result')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(await memo('swr-f', 1000, loader, options)).toBe('v3') // loaded again, the old result was not stored
+  })
+})
+
+describe('memoMetric', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.useRealTimers()
+  })
+
+  it('serves an old answer for METRIC_STALE_SECONDS after METRIC_FRESH_SECONDS', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    vi.stubEnv('METRIC_FRESH_SECONDS', '10')
+    vi.stubEnv('METRIC_STALE_SECONDS', '100')
+    clearCache()
+    const loader = vi.fn().mockResolvedValueOnce('a').mockResolvedValueOnce('b')
+    expect(await memoMetric('swr-metric', { x: 1 }, loader)).toBe('a')
+    vi.setSystemTime(Date.now() + 20_000)
+    expect(await memoMetric('swr-metric', { x: 1 }, loader)).toBe('a')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(await memoMetric('swr-metric', { x: 1 }, loader)).toBe('b')
+  })
+
+  it('METRIC_STALE_SECONDS=0 turns the stale window off, and a bad value falls back to the default', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    vi.stubEnv('METRIC_FRESH_SECONDS', '10')
+    vi.stubEnv('METRIC_STALE_SECONDS', '0')
+    clearCache()
+    const loader = vi.fn().mockResolvedValueOnce('a').mockResolvedValueOnce('b')
+    await memoMetric('swr-off', {}, loader)
+    vi.setSystemTime(Date.now() + 20_000)
+    expect(await memoMetric('swr-off', {}, loader)).toBe('b') // waited for the new answer
+
+    vi.stubEnv('METRIC_FRESH_SECONDS', 'banana') // invalid: the 60 s default applies
+    clearCache()
+    const loader2 = vi.fn().mockResolvedValue('c')
+    await memoMetric('swr-bad', {}, loader2)
+    vi.setSystemTime(Date.now() + 30_000)
+    await memoMetric('swr-bad', {}, loader2)
+    expect(loader2).toHaveBeenCalledTimes(1) // still fresh after 30 s
+  })
+
+  it('without settings, an answer is fresh for 60 s and may be served old for 180 s more', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    vi.stubEnv('METRIC_FRESH_SECONDS', '')
+    vi.stubEnv('METRIC_STALE_SECONDS', '')
+    clearCache()
+    const loader = vi.fn().mockResolvedValueOnce('a').mockResolvedValueOnce('b').mockResolvedValueOnce('c')
+    await memoMetric('swr-default', {}, loader)
+    vi.setSystemTime(Date.now() + 61_000) // fresh time is over, still inside the stale window
+    expect(await memoMetric('swr-default', {}, loader)).toBe('a')
+    await vi.advanceTimersByTimeAsync(0) // the background load stores b
+    vi.setSystemTime(Date.now() + 60_000 + 180_000 + 1) // past fresh + stale of b
+    expect(await memoMetric('swr-default', {}, loader)).toBe('c') // waited for the loader
+  })
+
+  it('an explicit ttl gets no stale window', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    clearCache()
+    const loader = vi.fn().mockResolvedValueOnce('a').mockResolvedValueOnce('b')
+    await memoMetric('swr-ttl', {}, loader, 1000)
+    vi.setSystemTime(Date.now() + 1500)
+    expect(await memoMetric('swr-ttl', {}, loader, 1000)).toBe('b')
   })
 })

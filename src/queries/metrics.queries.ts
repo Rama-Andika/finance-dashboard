@@ -2,7 +2,7 @@ import { keepPreviousData, queryOptions } from '@tanstack/react-query'
 import { qk } from '~/queries/keys'
 import type { MetricInput, PaymentPlanSearch } from '~/lib/filters/search-schema'
 
-import { getSummaryFn } from '~/functions/summary.fn'
+import { getSummaryChartsFn, getSummaryHeadFn, getSummaryMiniFn } from '~/functions/summary.fn'
 import { getRevenueFn } from '~/functions/pnl/revenue.fn'
 import { getCashPositionFn } from '~/functions/cash/cash-position.fn'
 import { getCashFlowFn } from '~/functions/cash/cash-flow.fn'
@@ -15,10 +15,24 @@ import { getPaymentPlanFn } from '~/functions/ap-ar/payment-plan.fn'
 import { getBudgetFn } from '~/functions/pnl/budget.fn'
 import { getRunwayFn } from '~/functions/cash/runway.fn'
 
-export function summaryMetricOptions(input: MetricInput) {
+export function summaryHeadOptions(input: MetricInput) {
   return queryOptions({
-    queryKey: qk.metric('summary', input),
-    queryFn: () => getSummaryFn({ data: input }),
+    queryKey: qk.metric('summaryHead', input),
+    queryFn: () => getSummaryHeadFn({ data: input }),
+  })
+}
+
+export function summaryChartsOptions(input: MetricInput) {
+  return queryOptions({
+    queryKey: qk.metric('summaryCharts', input),
+    queryFn: () => getSummaryChartsFn({ data: input }),
+  })
+}
+
+export function summaryMiniOptions(input: MetricInput) {
+  return queryOptions({
+    queryKey: qk.metric('summaryMini', input),
+    queryFn: () => getSummaryMiniFn({ data: input }),
   })
 }
 
