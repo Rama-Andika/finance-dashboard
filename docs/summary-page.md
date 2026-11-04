@@ -8,7 +8,7 @@
 >
 > **Query SQL lengkap untuk developer:** lihat [`summary-queries.md`](./summary-queries.md). Kedua dokumen harus diperbarui bersamaan.
 >
-> **Terakhir diperbarui:** 2026-11-03
+> **Terakhir diperbarui:** 2026-11-04
 
 ## Daftar isi
 
@@ -180,6 +180,7 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 - **Rumus:** Revenue = Σ (kredit − debet) akun Revenue pada `period_id` terpilih. *Other Revenue* **tidak** termasuk.
 - **Pembanding:** rumus yang sama untuk rentang sebelumnya dengan panjang yang sama.
 - **Dipakai juga di:** donut Composition (tab Revenue) dan donut Revenue by Entity (bagian 7).
+- **Penjelasan lengkap halaman Revenue** (kartu, tren, folder, tabel entitas, drill-down, contoh kasus): [`revenue-page.md`](./revenue-page.md); querynya di [`revenue-queries.md`](./revenue-queries.md).
 
 **Perlu dikonfirmasi:**
 - Retur dan diskon sudah tercatat di akun Revenue sehingga angkanya neto?
@@ -350,3 +351,4 @@ Default keranjang menurut dokumen: Kas = folder 111, Bank = 1121, Deposito = 112
 | 2026-11-03 | Donut Composition: tab Expense kini berisi HPP + Beban Operasional per folder (sebelumnya hanya keranjang Biaya Tetap, D42), tab Fixed Cost ditambahkan untuk isi lama, irisan negatif tidak digambar (juga di donut halaman Revenue). Other Expense ditunda (O19). Bagian 1, 7, 10, dan 11 diperbarui. |
 | 2026-11-03 | Penataan struktur folder src (tahap 2): hanya lokasi berkas yang berubah dan rujukan jalur di dokumen ini disesuaikan (komponen donut dan keterangan entitas); tidak ada angka, rumus, atau tampilan yang berubah. |
 | 2026-11-03 | Penataan struktur folder src (tahap 4): hanya lokasi berkas yang berubah dan rujukan jalur di dokumen ini disesuaikan (logika donut dan kepemilikan entitas dipindah dari lib/core ke lib/format dan lib/finance/entity); tidak ada angka, rumus, atau tampilan yang berubah. |
+| 2026-11-04 | Bagian 3 (Revenue) diberi tautan ke dokumen halaman Revenue (`revenue-page.md`, `revenue-queries.md`); tidak ada angka, rumus, atau tampilan yang berubah. |
