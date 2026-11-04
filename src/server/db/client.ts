@@ -3,6 +3,7 @@ import mysql from 'mysql2/promise'
 import { drizzle } from 'drizzle-orm/mysql2'
 import { env } from '~/server/env'
 import { createLogger } from '~/server/log'
+import { logPoolWait } from '~/server/perf'
 
 declare global {
   var __nrPool: mysql.Pool | undefined
@@ -38,5 +39,8 @@ if (env.DB_QUERY_TIMEOUT_MS > 0) {
     conn.query('SET SESSION max_statement_time = ?', [env.DB_QUERY_TIMEOUT_MS / 1000], done)
   })
 }
+
+// A query that has to queue because all pooled connections are busy (shown with PERF_LOG=1).
+pool.pool.on('enqueue', logPoolWait)
 
 export const db = drizzle(pool, { mode: 'default' })

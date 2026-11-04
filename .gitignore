@@ -23,6 +23,7 @@ drizzle/
 # editor & OS
 .vscode/
 .idea/
+.claude/
 .DS_Store
 Thumbs.db
 *.log

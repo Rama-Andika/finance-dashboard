@@ -34,6 +34,10 @@ const envSchema = z.object({
   // Cash Position flags funds in settlement whose oldest transaction is older than this many days.
   // Raise it for a client that releases settlements late (the usual delay is the right order of magnitude).
   IN_TRANSIT_ALERT_DAYS: z.preprocess((v) => (v === '' ? undefined : v), z.coerce.number().int().min(0).max(120).default(3)),
+  // Measuring: a query slower than this many ms is logged as a warning, with its SQL text but never its parameters (0 = off).
+  SLOW_QUERY_MS: z.preprocess((v) => (v === '' ? undefined : v), z.coerce.number().int().min(0).max(3_600_000).default(1000)),
+  // 1 = log the duration of every computed metric (cache hits are not logged) and pool waits. Off by default.
+  PERF_LOG: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['0', '1']).default('0')),
   ERP_APP_ID_INDEX: z.coerce.number().int().min(0).max(99).default(7),
   NODE_ENV: z.string().default('development'),
 })

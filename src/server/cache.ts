@@ -1,5 +1,6 @@
 import '@tanstack/react-start/server-only'
 import { createHash } from 'node:crypto'
+import { timed } from '~/server/perf'
 
 type CacheEntry<T> = {
   value: T
@@ -107,7 +108,8 @@ export function memoMetric<T>(
   ttlMs: number = METRIC_TTL_MS,
 ): Promise<T> {
   const digest = createHash('sha1').update(JSON.stringify(params)).digest('hex')
-  return memo(`metric:${name}:${digest}`, ttlMs, loader)
+  // Only a real computation is timed: a cache hit never calls the loader. Nested metrics overlap in time.
+  return memo(`metric:${name}:${digest}`, ttlMs, () => timed(`metric ${name}`, loader))
 }
 
 /** Number of memo entries (for tests). */
