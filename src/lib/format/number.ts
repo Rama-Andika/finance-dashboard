@@ -4,7 +4,6 @@ import type { Lang, Money } from '~/lib/core/types'
 // One number style for every language: 1,000,000.50 (the `lang` parameters below are kept only so
 // call sites do not change; they no longer affect separators or units).
 const THIN_SPACE = '\u2009'
-const MINUS_SIGN = '\u2212'
 const CURRENCY_PREFIX = 'IDR'
 
 type Tier = {
@@ -54,10 +53,10 @@ export function formatMoneyShort(value: Money, _lang?: Lang): string {
 
   const { formattedNum, unit } = getScaledShort(abs)
 
-  const unitStr = unit
-  const minus = isNeg ? MINUS_SIGN : ''
+  const text = `${CURRENCY_PREFIX}${THIN_SPACE}${formattedNum}${unit}`
 
-  return `${minus}${CURRENCY_PREFIX}${THIN_SPACE}${formattedNum}${unitStr}`
+  // Accounting style: a negative amount is written in parentheses, not with a minus sign.
+  return isNeg ? `(${text})` : text
 }
 
 /** Same as formatMoneyShort but without the currency prefix (the KPI card renders it separately). */
@@ -65,15 +64,11 @@ export function formatAmountShort(value: Money, _lang?: Lang): string {
   const d = new Decimal(value || 0)
   const isNeg = d.isNegative() && !d.isZero()
   const { formattedNum, unit } = getScaledShort(d.abs())
-  const unitStr = unit
-  return `${isNeg ? MINUS_SIGN : ''}${formattedNum}${unitStr}`
+  const text = `${formattedNum}${unit}`
+  return isNeg ? `(${text})` : text
 }
 
-export function formatMoneyFull(
-  value: Money,
-  _lang?: Lang,
-  opts?: { decimals?: 0 | 2 },
-): string {
+export function formatMoneyFull(value: Money, _lang?: Lang, opts?: { decimals?: 0 | 2 }): string {
   const decimals = opts?.decimals ?? 0
   const d = new Decimal(value || 0)
   const isNeg = d.isNegative() && !d.isZero()
@@ -91,11 +86,7 @@ export function formatMoneyFull(
   return isNeg ? `(${result})` : result
 }
 
-export function formatPercent(
-  ratio: string | null,
-  _lang?: Lang,
-  decimals: number = 2,
-): string {
+export function formatPercent(ratio: string | null, _lang?: Lang, decimals: number = 2): string {
   if (ratio === null || ratio === undefined || ratio === '') return '—'
   const d = new Decimal(ratio).times(100)
   const rounded = d.toFixed(decimals, Decimal.ROUND_HALF_UP)
@@ -110,8 +101,7 @@ export function formatAxisShort(value: number, _lang?: Lang): string {
 
   const { formattedNum, unit } = getScaledShort(abs)
   const cleanNum = formattedNum.replace(/\.00$/, '')
-  const unitStr = unit
-  const minus = isNeg ? MINUS_SIGN : ''
+  const text = `${cleanNum}${unit}`
 
-  return `${minus}${cleanNum}${unitStr}`
+  return isNeg ? `(${text})` : text
 }

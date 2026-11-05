@@ -128,7 +128,7 @@ Security / sensitive data
 
 UI
 
-- Neraca UI tokens/classes only (`src/styles/tokens.css`, `neraca.css`, `nr-*` components in `src/components/ui/`, `charts/` and `layout/`); no hex colors in components, one `forest` card per screen, `lime` only as fill, no gradients/emoji. Cards show abbreviated figures + full-value tooltip; tables show full numbers, right-aligned, `tabular-nums`, negatives in parentheses. `src/components/ui/shadcn/` is shadcn-generated (`components.json` makes `npx shadcn add` write there); do not edit those files by hand. `src/components/ui/` itself holds the project's own domain-free base components (buttons, notices, KPI card, data table, ...); ESLint forbids it from importing pages, layout, charts or finance logic.
+- Neraca UI tokens/classes only (`src/styles/tokens.css`, `neraca.css`, `nr-*` components in `src/components/ui/`, `charts/` and `layout/`); no hex colors in components, one `forest` card per screen, `lime` only as fill, no gradients/emoji. Cards show abbreviated figures + full-value tooltip; tables show full numbers, right-aligned, `tabular-nums`. Negative amounts are written in parentheses everywhere (cards, chart axes, tables), never with a minus sign (accounting style). `src/components/ui/shadcn/` is shadcn-generated (`components.json` makes `npx shadcn add` write there); do not edit those files by hand. `src/components/ui/` itself holds the project's own domain-free base components (buttons, notices, KPI card, data table, ...); ESLint forbids it from importing pages, layout, charts or finance logic.
 - Every UI string goes through i18n (`src/i18n/locales/en.json` default + `id.json`); `src/i18n/keys.test.ts` requires identical keys in both. Use finance terms in labels, not table names.
 
 Language

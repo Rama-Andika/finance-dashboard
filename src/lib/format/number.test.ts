@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  formatAmountShort,
-  formatAxisShort,
-  formatMoneyFull,
-  formatMoneyShort,
-  formatPercent,
-} from './number'
+import { formatAmountShort, formatAxisShort, formatMoneyFull, formatMoneyShort, formatPercent } from './number'
 
 describe('formatMoneyShort', () => {
   it('uses the same units and separators in every language', () => {
@@ -20,8 +14,8 @@ describe('formatMoneyShort', () => {
     expect(formatMoneyShort('999995000')).toBe('IDR 1.00B')
   })
 
-  it('puts the U+2212 minus sign before the prefix for negative values', () => {
-    expect(formatMoneyShort('-1200000')).toBe('−IDR 1.20M')
+  it('writes negative values in parentheses, not with a minus sign', () => {
+    expect(formatMoneyShort('-1200000')).toBe('(IDR 1.20M)')
   })
 
   it('shows numbers under 1,000 without unit or decimals', () => {
@@ -77,7 +71,7 @@ describe('formatAxisShort', () => {
   it('formats chart axis numbers cleanly', () => {
     expect(formatAxisShort(10000000000, 'id')).toBe('10B')
     expect(formatAxisShort(10000000000, 'en')).toBe('10B')
-    expect(formatAxisShort(-5000000000)).toBe('−5B')
+    expect(formatAxisShort(-5000000000)).toBe('(5B)')
     expect(formatAxisShort(0)).toBe('0')
   })
 })
@@ -85,6 +79,6 @@ describe('formatAxisShort', () => {
 describe('formatAmountShort', () => {
   it('abbreviates without the currency prefix', () => {
     expect(formatAmountShort('42560118400', 'id')).toBe('42.56B')
-    expect(formatAmountShort('-1200000')).toBe('−1.20M')
+    expect(formatAmountShort('-1200000')).toBe('(1.20M)')
   })
 })
