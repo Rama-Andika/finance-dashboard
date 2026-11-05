@@ -48,15 +48,15 @@ describe('expense-paid pure calculations', () => {
         cardId: 'c1',
         locationId: 'loc1',
         vendorId: 'v1',
-        itemType: 0, // General bill
-        detailSum: '1000.00',
+        itemType: 0, // General bill; a payment's allocation is negative in the ERP
+        detailSum: '-1000.00',
       },
       {
         cardId: 'c2',
         locationId: 'loc1',
         vendorId: 'v1',
         itemType: 3, // Asset debt (must be excluded!)
-        detailSum: '5000.00',
+        detailSum: '-5000.00',
       },
     ]
 

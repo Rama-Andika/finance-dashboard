@@ -2,9 +2,39 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildCoaTree } from '~/lib/finance/coa/coa-tree'
 
 const tree = buildCoaTree([
-  { coaId: '11', parentId: '0', code: '1-1000', name: 'Cash', status: 'POSTABLE', level: 1, accountGroup: 'Liquid Assets', subAccountGroup: 'Cash', saldoNormal: 'DEBET' },
-  { coaId: '61', parentId: '0', code: '6-1000', name: 'Rent', status: 'POSTABLE', level: 1, accountGroup: 'Expense', subAccountGroup: '', saldoNormal: 'DEBET' },
-  { coaId: '51', parentId: '0', code: '5-1000', name: 'Materials', status: 'POSTABLE', level: 1, accountGroup: 'Cost Of Sales', subAccountGroup: '', saldoNormal: 'DEBET' },
+  {
+    coaId: '11',
+    parentId: '0',
+    code: '1-1000',
+    name: 'Cash',
+    status: 'POSTABLE',
+    level: 1,
+    accountGroup: 'Liquid Assets',
+    subAccountGroup: 'Cash',
+    saldoNormal: 'DEBET',
+  },
+  {
+    coaId: '61',
+    parentId: '0',
+    code: '6-1000',
+    name: 'Rent',
+    status: 'POSTABLE',
+    level: 1,
+    accountGroup: 'Expense',
+    subAccountGroup: '',
+    saldoNormal: 'DEBET',
+  },
+  {
+    coaId: '51',
+    parentId: '0',
+    code: '5-1000',
+    name: 'Materials',
+    status: 'POSTABLE',
+    level: 1,
+    accountGroup: 'Cost Of Sales',
+    subAccountGroup: '',
+    saldoNormal: 'DEBET',
+  },
 ])
 const entities = [
   { locationId: 'locA', code: 'A', name: 'Store A', isActive: true, segmentDetailIds: ['sA'] },
@@ -15,7 +45,15 @@ vi.mock('~/server/env', () => ({ env: { APP_TODAY: '2026-10-15', APP_TIMEZONE: '
 vi.mock('~/server/context', () => ({
   getCachedCoaTree: async () => tree,
   getCachedPeriods: async () => [
-    { periodeId: 'p1', name: 'Oct', startDate: '2026-10-01', endDate: '2026-10-31', status: 'Open', type: 0, tableName: 'gl' },
+    {
+      periodeId: 'p1',
+      name: 'Oct',
+      startDate: '2026-10-01',
+      endDate: '2026-10-31',
+      status: 'Open',
+      type: 0,
+      tableName: 'gl',
+    },
   ],
   getCachedEntities: async () => ({ segment: { segmentId: 's', columnName: 'segment1_id' }, entities }),
   buildMetricMeta: () => ({}),
@@ -42,7 +80,9 @@ vi.mock('~/server/repo/ap-ar/expense-paid.repo', () => ({
   expensePaidUnallocated: (...a: unknown[]) => expensePaidUnallocated(...a),
 }))
 vi.mock('~/server/repo/ap-ar/party.repo', () => ({ listVendors: async () => [] }))
-vi.mock('~/server/repo/cash/cashflow.repo', () => ({ linesOfCashJournals: (...a: unknown[]) => linesOfCashJournals(...a) }))
+vi.mock('~/server/repo/cash/cashflow.repo', () => ({
+  linesOfCashJournals: (...a: unknown[]) => linesOfCashJournals(...a),
+}))
 
 const { computeExpensePaid } = await import('./expense-paid.service')
 const { clearCache } = await import('~/server/cache')
@@ -63,7 +103,13 @@ const filter = {
 }
 
 const line = (glId: string, coaId: string, seg: string, debet: string, credit: string) => ({
-  glId, journalType: 1, periodId: 'p1', coaId, segmentDetailId: seg, debet, credit,
+  glId,
+  journalType: 1,
+  periodId: 'p1',
+  coaId,
+  segmentDetailId: seg,
+  debet,
+  credit,
 })
 
 describe('computeExpensePaid', () => {
@@ -73,11 +119,34 @@ describe('computeExpensePaid', () => {
     expensePaidUnallocated.mockReset()
     linesOfCashJournals.mockReset()
     expensePaidAllocated.mockResolvedValue([
-      { cardId: 'c1', cardNumber: 'C1', txDate: '2026-10-02', locationId: 'locA', vendorId: 'v1', itemType: 1, detailSum: '200.00' },
-      { cardId: 'c2', cardNumber: 'C2', txDate: '2026-10-03', locationId: 'locB', vendorId: 'v1', itemType: 3, detailSum: '999.00' }, // type 3 is not a bill
+      {
+        cardId: 'c1',
+        cardNumber: 'C1',
+        txDate: '2026-10-02',
+        locationId: 'locA',
+        vendorId: 'v1',
+        itemType: 1,
+        detailSum: '-200.00',
+      },
+      {
+        cardId: 'c2',
+        cardNumber: 'C2',
+        txDate: '2026-10-03',
+        locationId: 'locB',
+        vendorId: 'v1',
+        itemType: 3,
+        detailSum: '-999.00',
+      }, // type 3 is not a bill
     ])
     expensePaidUnallocated.mockResolvedValue([
-      { cardId: 'c3', cardNumber: 'C3', txDate: '2026-10-04', locationId: 'locB', vendorId: 'v2', signedAmount: '-50.00' },
+      {
+        cardId: 'c3',
+        cardNumber: 'C3',
+        txDate: '2026-10-04',
+        locationId: 'locB',
+        vendorId: 'v2',
+        signedAmount: '-50.00',
+      },
     ])
     linesOfCashJournals.mockResolvedValue([
       // Rent 100 paid in cash for store A, Materials 40 paid for store B

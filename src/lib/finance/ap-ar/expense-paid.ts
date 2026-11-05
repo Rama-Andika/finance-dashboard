@@ -58,10 +58,7 @@ function vendorCategory(
 }
 
 /** Direct payments of COGS / expense accounts (cash out, portion < 0), grouped in the folders of the account tree. */
-function directCategories(
-  direct: DirectExpensePortion[],
-  tree: CoaTree,
-): { categories: Breakdown[]; total: Decimal } {
+function directCategories(direct: DirectExpensePortion[], tree: CoaTree): { categories: Breakdown[]; total: Decimal } {
   let total = D(0)
   const byCoa = new Map<Id, Decimal>()
   for (const item of direct) {
@@ -87,7 +84,13 @@ function directCategories(
     }
 
     if (!folderSum.isZero()) {
-      categories.push({ id: folder.coaId, label: folder.name, code: folder.code, amount: folderSum.toFixed(2), children })
+      categories.push({
+        id: folder.coaId,
+        label: folder.name,
+        code: folder.code,
+        amount: folderSum.toFixed(2),
+        children,
+      })
     }
   }
   return { categories, total }
@@ -108,13 +111,15 @@ export function computeExpensePaidBreakdown(input: {
 } {
   const { allocated, unallocated, direct, vendorNames, tree } = input
 
-  // 1. AP Bill payments (itemType in {0, 1, 2, 4, 5, 6, 12})
+  // 1. AP Bill payments (itemType in {0, 1, 2, 4, 5, 6, 12}).
+  // The allocation of a payment card has the opposite sign of the item it settles (a payment is negative, a credit note
+  // used in the payment is positive), so the negated sum is the money paid out.
   const apCategory = vendorCategory(
     'apBills',
     'AP bill payments', // translated on the page by id
     allocated
       .filter((item) => AP_BILL_ITEM_TYPES.has(item.itemType))
-      .map((item) => ({ vendorId: item.vendorId, amount: D(item.detailSum) })),
+      .map((item) => ({ vendorId: item.vendorId, amount: D(item.detailSum).negated() })),
     vendorNames,
   )
 

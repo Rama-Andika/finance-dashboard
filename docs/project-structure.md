@@ -1,6 +1,6 @@
 # Panduan Struktur Folder `src` — Apa Masuk ke Mana
 
-> **Tujuan:** menjawab satu pertanyaan sebelum menulis kode: *"file ini ditaruh di mana?"* Dokumen ini adalah acuan untuk developer dan untuk AI yang mengerjakan proyek ini.
+> **Tujuan:** menjawab satu pertanyaan sebelum menulis kode: _"file ini ditaruh di mana?"_ Dokumen ini adalah acuan untuk developer dan untuk AI yang mengerjakan proyek ini.
 >
 > **Aturan pemeliharaan:** setiap kali ada folder baru di `src`, atau ada aturan penempatan yang berubah, perbarui dokumen ini dan tambahkan baris di [Riwayat Perubahan](#riwayat-perubahan).
 >
@@ -68,67 +68,67 @@ src/
 
 ## 4. Tabel keputusan: file baru ditaruh di mana?
 
-| Saya ingin menambah... | Taruh di | Catatan |
-|---|---|---|
-| Komponen dasar yang bisa dipakai di mana saja tanpa peduli domain (dialog, tombol, kartu, tabel generik) | `src/components/ui/` | Tidak boleh mengimpor halaman, layout, charts, `lib/finance`, `functions`, atau `queries` (dijaga ESLint). |
-| Komponen shadcn baru | `src/components/ui/shadcn/` | Dibuat oleh `npx shadcn add`; izin user diperlukan. |
-| Bagian dari kerangka aplikasi (sidebar, top bar, footer, pembungkus halaman) | `src/components/layout/` | |
-| Grafik yang dipakai oleh lebih dari satu halaman | `src/components/charts/` | Grafik yang hanya dipakai satu halaman tinggal di folder halaman itu. |
-| Komponen khusus satu halaman | `src/components/<halaman>/` | |
-| Komponen yang dipakai dua halaman atau lebih tetapi punya makna domain | Folder halaman yang memiliki konsepnya; halaman lain mengimpor dari sana | Contoh: `CashBalanceCard` ada di `cash-position/` dan dipakai juga oleh Summary. |
-| Hook yang dipakai banyak area | `src/hooks/use-*.ts` | |
-| Hook milik satu fitur | Di sebelah fiturnya, mis. `src/components/drill/use-drill-data.ts` | |
-| Fungsi perhitungan murni (tanpa DB, tanpa React) | `src/lib/finance/<domain>/` atau `src/lib/format/` | Wajib ada test di sebelahnya. |
-| Tipe atau helper uang yang dipakai semua lapisan | `src/lib/core/` | Hanya yang benar-benar universal. |
-| Query SQL | `src/server/repo/<domain>/<topik>.repo.ts` | Satu-satunya tempat SQL. Harus lolos `sql-guard.test.ts`. |
-| Rangkaian beberapa repo + logika menjadi satu hasil | `src/server/services/<domain>/<topik>.service.ts` | Mengembalikan objek sederhana yang bisa diserialisasi. |
-| Helper server yang dipakai beberapa domain | `src/server/services/shared/` | |
-| Pintu masuk dari klien ke server | `src/functions/<domain>/<topik>.fn.ts` | Urutan: `authMiddleware`, validasi zod, `resolveFilter`, service. |
-| Opsi TanStack Query | `src/queries/` | Kunci cache selalu lewat `qk` di `keys.ts`. |
-| Teks tampilan | `src/i18n/locales/en.json` dan `id.json` | Kedua file harus punya kunci yang sama. |
+| Saya ingin menambah...                                                                                   | Taruh di                                                                 | Catatan                                                                                                    |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Komponen dasar yang bisa dipakai di mana saja tanpa peduli domain (dialog, tombol, kartu, tabel generik) | `src/components/ui/`                                                     | Tidak boleh mengimpor halaman, layout, charts, `lib/finance`, `functions`, atau `queries` (dijaga ESLint). |
+| Komponen shadcn baru                                                                                     | `src/components/ui/shadcn/`                                              | Dibuat oleh `npx shadcn add`; izin user diperlukan.                                                        |
+| Bagian dari kerangka aplikasi (sidebar, top bar, footer, pembungkus halaman)                             | `src/components/layout/`                                                 |                                                                                                            |
+| Grafik yang dipakai oleh lebih dari satu halaman                                                         | `src/components/charts/`                                                 | Grafik yang hanya dipakai satu halaman tinggal di folder halaman itu.                                      |
+| Komponen khusus satu halaman                                                                             | `src/components/<halaman>/`                                              |                                                                                                            |
+| Komponen yang dipakai dua halaman atau lebih tetapi punya makna domain                                   | Folder halaman yang memiliki konsepnya; halaman lain mengimpor dari sana | Contoh: `CashBalanceCard` ada di `cash-position/` dan dipakai juga oleh Summary.                           |
+| Hook yang dipakai banyak area                                                                            | `src/hooks/use-*.ts`                                                     |                                                                                                            |
+| Hook milik satu fitur                                                                                    | Di sebelah fiturnya, mis. `src/components/drill/use-drill-data.ts`       |                                                                                                            |
+| Fungsi perhitungan murni (tanpa DB, tanpa React)                                                         | `src/lib/finance/<domain>/` atau `src/lib/format/`                       | Wajib ada test di sebelahnya.                                                                              |
+| Tipe atau helper uang yang dipakai semua lapisan                                                         | `src/lib/core/`                                                          | Hanya yang benar-benar universal.                                                                          |
+| Query SQL                                                                                                | `src/server/repo/<domain>/<topik>.repo.ts`                               | Satu-satunya tempat SQL. Harus lolos `sql-guard.test.ts`.                                                  |
+| Rangkaian beberapa repo + logika menjadi satu hasil                                                      | `src/server/services/<domain>/<topik>.service.ts`                        | Mengembalikan objek sederhana yang bisa diserialisasi.                                                     |
+| Helper server yang dipakai beberapa domain                                                               | `src/server/services/shared/`                                            |                                                                                                            |
+| Pintu masuk dari klien ke server                                                                         | `src/functions/<domain>/<topik>.fn.ts`                                   | Urutan: `authMiddleware`, validasi zod, `resolveFilter`, service.                                          |
+| Opsi TanStack Query                                                                                      | `src/queries/`                                                           | Kunci cache selalu lewat `qk` di `keys.ts`.                                                                |
+| Teks tampilan                                                                                            | `src/i18n/locales/en.json` dan `id.json`                                 | Kedua file harus punya kunci yang sama.                                                                    |
 
 ## 5. Domain dan lokasinya di tiap lapisan
 
-| Domain | `lib/finance` | `server/repo` | `server/services` | `functions` | Komponen | Route |
-|---|---|---|---|---|---|---|
-| Utang/piutang, rencana bayar, biaya dibayar | `ap-ar/` | `ap-ar/` | `ap-ar/` | `ap-ar/` | `aging/`, `payment-plan/` | `payables`, `receivables`, `payment-plan` |
-| Kas (posisi, arus, runway, saldo) | `cash/`, `period/balance.ts` | `cash/` | `cash/` | `cash/` | `cash-position/`, `cash-flow/` | `cash-position`, `cash-flow` |
-| Laba rugi (P&L, revenue, biaya tetap, anggaran) | `pnl/` | `pnl/` | `pnl/` | `pnl/` | `profit-loss/`, `revenue/`, `budget/` | `profit-loss`, `revenue`, `budget` |
-| Jurnal buku besar | `journal/` | `gl/` | (dipakai semua service) | — | — | — |
-| Data induk (akun, entitas, periode) | `coa/`, `entity/`, `period/` | `master-data/` | `filters.service.ts` | `filters.fn.ts` | — | — |
-| Summary | — | — | `summary.service.ts` | `summary.fn.ts` | `summary/` | `summary` (`index` hanya mengarahkan ke `summary`) |
-| Drill-down | — | — | `drill/` | `drill.fn.ts` | `drill/` | (lembar samping, parameter `drill`) |
-| Cek data | `checks/` | `data-checks.repo.ts` | `data-checks.service.ts` | `data-checks.fn.ts` | `data-checks/` | — |
-| Pengaturan pemetaan akun | `coa/` dan `lib/settings/` | `settings.repo.ts` | `settings.service.ts` | `settings.fn.ts` | `settings/` | `settings/account-mapping` |
-| Snapshot data | — | — | `snapshot.service.ts` | `snapshot.fn.ts` | `layout/DataFreshness.tsx` | — |
-| Login | — | `auth.repo.ts` | `server/auth/` | `auth.fn.ts` | — | `login` |
+| Domain                                          | `lib/finance`                | `server/repo`         | `server/services`        | `functions`         | Komponen                              | Route                                              |
+| ----------------------------------------------- | ---------------------------- | --------------------- | ------------------------ | ------------------- | ------------------------------------- | -------------------------------------------------- |
+| Utang/piutang, rencana bayar, biaya dibayar     | `ap-ar/`                     | `ap-ar/`              | `ap-ar/`                 | `ap-ar/`            | `aging/`, `payment-plan/`             | `payables`, `receivables`, `payment-plan`          |
+| Kas (posisi, arus, runway, saldo)               | `cash/`, `period/balance.ts` | `cash/`               | `cash/`                  | `cash/`             | `cash-position/`, `cash-flow/`        | `cash-position`, `cash-flow`                       |
+| Laba rugi (P&L, revenue, biaya tetap, anggaran) | `pnl/`                       | `pnl/`                | `pnl/`                   | `pnl/`              | `profit-loss/`, `revenue/`, `budget/` | `profit-loss`, `revenue`, `budget`                 |
+| Jurnal buku besar                               | `journal/`                   | `gl/`                 | (dipakai semua service)  | —                   | —                                     | —                                                  |
+| Data induk (akun, entitas, periode)             | `coa/`, `entity/`, `period/` | `master-data/`        | `filters.service.ts`     | `filters.fn.ts`     | —                                     | —                                                  |
+| Summary                                         | —                            | —                     | `summary.service.ts`     | `summary.fn.ts`     | `summary/`                            | `summary` (`index` hanya mengarahkan ke `summary`) |
+| Drill-down                                      | —                            | —                     | `drill/`                 | `drill.fn.ts`       | `drill/`                              | (lembar samping, parameter `drill`)                |
+| Cek data                                        | `checks/`                    | `data-checks.repo.ts` | `data-checks.service.ts` | `data-checks.fn.ts` | `data-checks/`                        | —                                                  |
+| Pengaturan pemetaan akun                        | `coa/` dan `lib/settings/`   | `settings.repo.ts`    | `settings.service.ts`    | `settings.fn.ts`    | `settings/`                           | `settings/account-mapping`                         |
+| Snapshot data                                   | —                            | —                     | `snapshot.service.ts`    | `snapshot.fn.ts`    | `layout/DataFreshness.tsx`            | —                                                  |
+| Login                                           | —                            | `auth.repo.ts`        | `server/auth/`           | `auth.fn.ts`        | —                                     | `login`                                            |
 
 ## 6. Aturan penamaan file
 
-| Jenis | Aturan | Contoh |
-|---|---|---|
-| Komponen React | `PascalCase.tsx`; bagian pendukung memakai akhiran `Parts` atau `Rows` di folder yang sama | `KpiCard.tsx`, `DataTableRows.tsx` |
-| Hook | `use-*.ts` (kebab-case); nama export tetap `useXxx` | `use-lang.ts` mengekspor `useLang` |
-| Context | `*-context.tsx` | `prefs-context.tsx` |
-| Repo | `<topik>.repo.ts`; helper repo tanpa akhiran di dalam folder domain | `ap-ar/aging.repo.ts`, `ap-ar/rows.ts`, `gl/shared.ts` |
-| Service | `<topik>.service.ts`; helper tanpa akhiran `.helper` | `cash/cash-flow.service.ts`, `ap-ar/aging-helpers.ts` |
-| Server function | `<topik>.fn.ts` | `ap-ar/ap-aging.fn.ts` |
-| Query options | `<topik>.queries.ts` | `drill.queries.ts` |
-| Test | `<nama file>.test.ts` di sebelah file yang diuji | `money.test.ts` |
-| Logika murni lain | `kebab-case.ts` | `period-type.ts` |
+| Jenis             | Aturan                                                                                     | Contoh                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| Komponen React    | `PascalCase.tsx`; bagian pendukung memakai akhiran `Parts` atau `Rows` di folder yang sama | `KpiCard.tsx`, `DataTableRows.tsx`                     |
+| Hook              | `use-*.ts` (kebab-case); nama export tetap `useXxx`                                        | `use-lang.ts` mengekspor `useLang`                     |
+| Context           | `*-context.tsx`                                                                            | `prefs-context.tsx`                                    |
+| Repo              | `<topik>.repo.ts`; helper repo tanpa akhiran di dalam folder domain                        | `ap-ar/aging.repo.ts`, `ap-ar/rows.ts`, `gl/shared.ts` |
+| Service           | `<topik>.service.ts`; helper tanpa akhiran `.helper`                                       | `cash/cash-flow.service.ts`, `ap-ar/aging-helpers.ts`  |
+| Server function   | `<topik>.fn.ts`                                                                            | `ap-ar/ap-aging.fn.ts`                                 |
+| Query options     | `<topik>.queries.ts`                                                                       | `drill.queries.ts`                                     |
+| Test              | `<nama file>.test.ts` di sebelah file yang diuji                                           | `money.test.ts`                                        |
+| Logika murni lain | `kebab-case.ts`                                                                            | `period-type.ts`                                       |
 
 Nama yang diekspor (fungsi, komponen, tipe) tidak boleh berubah hanya karena file dipindah.
 
 ## 7. Penjaga otomatis
 
-| Penjaga | Menjaga apa |
-|---|---|
-| `eslint.config.js` — layering | `routes`, `components`, `queries`, `lib` tidak mengimpor `~/server` atau `drizzle-orm`/`mysql2`. |
-| `eslint.config.js` — `lib` murni | `src/lib` tidak mengimpor React atau router. |
-| `eslint.config.js` — `ui` bebas domain | `src/components/ui` (kecuali `shadcn/`) tidak mengimpor halaman, layout, charts, `lib/finance`, `functions`, atau `queries`. |
-| `src/server/repo/sql-guard.test.ts` | Semua file di `src/server/repo`, termasuk subfolder, kompatibel dengan MySQL 5.7, bebas `SELECT *`, dan tidak menulis ke database (satu-satunya pengecualian adalah `settings.repo.ts`). |
-| `src/server/dash/guard.test.ts` | Hanya tabel `dash_*` yang ditulis; repo tidak menulis ke tabel `dash_*`. |
-| `src/i18n/keys.test.ts` | Kunci `en.json` dan `id.json` sama. |
+| Penjaga                                | Menjaga apa                                                                                                                                                                              |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `eslint.config.js` — layering          | `routes`, `components`, `queries`, `lib` tidak mengimpor `~/server` atau `drizzle-orm`/`mysql2`.                                                                                         |
+| `eslint.config.js` — `lib` murni       | `src/lib` tidak mengimpor React atau router.                                                                                                                                             |
+| `eslint.config.js` — `ui` bebas domain | `src/components/ui` (kecuali `shadcn/`) tidak mengimpor halaman, layout, charts, `lib/finance`, `functions`, atau `queries`.                                                             |
+| `src/server/repo/sql-guard.test.ts`    | Semua file di `src/server/repo`, termasuk subfolder, kompatibel dengan MySQL 5.7, bebas `SELECT *`, dan tidak menulis ke database (satu-satunya pengecualian adalah `settings.repo.ts`). |
+| `src/server/dash/guard.test.ts`        | Hanya tabel `dash_*` yang ditulis; repo tidak menulis ke tabel `dash_*`.                                                                                                                 |
+| `src/i18n/keys.test.ts`                | Kunci `en.json` dan `id.json` sama.                                                                                                                                                      |
 
 ## 8. Menambah metrik baru (urutan kerja)
 
@@ -138,10 +138,11 @@ Nama yang diekspor (fungsi, komponen, tipe) tidak boleh berubah hanya karena fil
 4. Pintu masuk: `src/functions/<domain>/<topik>.fn.ts` dan opsi query di `src/queries/metrics.queries.ts` (kunci lewat `qk`).
 5. Tampilan: `src/components/<halaman>/` dan route di `src/routes/_authed/`.
 6. Teks di `en.json` dan `id.json`.
-7. Bila menyentuh halaman Summary: `docs/summary-page.md` dan `docs/summary-queries.md` ikut diperbarui beserta riwayatnya.
+7. Bila menyentuh data, query, tabel (termasuk `dash_*`), rumus, halaman, atau istilah: `docs/project-guide.md` ikut diperbarui dalam perubahan yang sama, beserta riwayat dan tabel konfirmasinya (bab 12 dan 14).
 
 ## 9. Riwayat Perubahan
 
-| Tanggal | Perubahan |
-|---|---|
+| Tanggal    | Perubahan                                                                                                                                  |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | 2026-11-03 | Dokumen dibuat bersama penataan ulang folder src: peta folder, tabel keputusan, aturan penamaan, domain per lapisan, dan penjaga otomatis. |
+| 2026-11-05 | Langkah 7 di "Menambah metrik baru" mengarah ke `docs/project-guide.md` (menggantikan dokumen Summary dan Revenue).                        |

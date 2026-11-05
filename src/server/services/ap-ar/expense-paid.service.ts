@@ -41,11 +41,7 @@ export function computeExpensePaid(filter: AppContextFilter): Promise<ExpensePai
 
 async function computeExpensePaidUncached(filter: AppContextFilter): Promise<ExpensePaidResult> {
   const meta = buildMetricMeta(filter)
-  const [tree, periods, { entities }] = await Promise.all([
-    getCachedCoaTree(),
-    getCachedPeriods(),
-    getCachedEntities(),
-  ])
+  const [tree, periods, { entities }] = await Promise.all([getCachedCoaTree(), getCachedPeriods(), getCachedEntities()])
 
   const resolved = await loadResolvedBaskets(tree)
   const d1 = filter.d1
@@ -99,12 +95,15 @@ async function computeExpensePaidUncached(filter: AppContextFilter): Promise<Exp
   const apByLocation = new Map<Id, Decimal>()
   for (const a of allocated) {
     if (AP_BILL_ITEM_TYPES.has(a.itemType)) {
-      apByLocation.set(a.locationId, (apByLocation.get(a.locationId) ?? D(0)).plus(D(a.detailSum)))
+      apByLocation.set(a.locationId, (apByLocation.get(a.locationId) ?? D(0)).plus(D(a.detailSum).negated()))
     }
   }
   const unallocatedByLocation = new Map<Id, Decimal>()
   for (const u of unallocated) {
-    unallocatedByLocation.set(u.locationId, (unallocatedByLocation.get(u.locationId) ?? D(0)).plus(D(u.signedAmount).negated()))
+    unallocatedByLocation.set(
+      u.locationId,
+      (unallocatedByLocation.get(u.locationId) ?? D(0)).plus(D(u.signedAmount).negated()),
+    )
   }
 
   const targetEntities = entitiesOfFilter(entities, filter.locationIds)
