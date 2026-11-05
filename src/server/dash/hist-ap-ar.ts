@@ -1,7 +1,7 @@
 import '@tanstack/react-start/server-only'
 import { isRegularPeriod } from '~/lib/finance/period/period-type'
 import type { PoolConnection } from 'mysql2/promise'
-import { pool } from '~/server/db/client'
+import { refreshPool } from '~/server/db/refresh-pool'
 import { env } from '~/server/env'
 import { chunk } from '~/server/db/chunk'
 import { addDays } from '~/lib/format/date'
@@ -25,9 +25,12 @@ type BuiltRow = { asOfDate: string; isFinal: number | string; ageHours: number |
  * and removes month-ends that are no longer wanted. `maxBuilds` limits how many months one call builds.
  * One run at a time (advisory lock). A failed month leaves the other months untouched.
  */
-export async function refreshApArHistSnapshots(today: IsoDate, options: { maxBuilds?: number } = {}): Promise<HistRefreshResult> {
+export async function refreshApArHistSnapshots(
+  today: IsoDate,
+  options: { maxBuilds?: number } = {},
+): Promise<HistRefreshResult> {
   const started = Date.now()
-  const conn = await pool.getConnection()
+  const conn = await refreshPool.getConnection()
   let locked = false
   try {
     // Long scans are expected here; the per-connection limit meant for report queries does not apply.
@@ -40,7 +43,9 @@ export async function refreshApArHistSnapshots(today: IsoDate, options: { maxBui
 
     const months = env.DASH_AP_AR_HIST_MONTHS
     const periods = await listPeriods()
-    const closedMonthEnds = new Set(periods.filter((p) => isRegularPeriod(p) && p.status === 'Closed').map((p) => p.endDate))
+    const closedMonthEnds = new Set(
+      periods.filter((p) => isRegularPeriod(p) && p.status === 'Closed').map((p) => p.endDate),
+    )
 
     const [builtRows] = await conn.query(
       `SELECT DATE_FORMAT(as_of_date, '%Y-%m-%d') AS asOfDate, is_final AS isFinal,
@@ -70,7 +75,9 @@ export async function refreshApArHistSnapshots(today: IsoDate, options: { maxBui
       const t0 = Date.now()
       const isFinal = isFinalMonthEnd(wanted.indexOf(asOfDate), asOfDate, closedMonthEnds)
       const rowCount = await buildMonth(conn, asOfDate, isFinal)
-      dashLog.info(`AP/AR history ${index + 1}/${plan.build.length}: ${asOfDate} (${rowCount} rows, ${Math.round((Date.now() - t0) / 1000)}s)`)
+      dashLog.info(
+        `AP/AR history ${index + 1}/${plan.build.length}: ${asOfDate} (${rowCount} rows, ${Math.round((Date.now() - t0) / 1000)}s)`,
+      )
     }
 
     return { ran: true, built: plan.build, pruned: plan.prune.length, durationMs: Date.now() - started }

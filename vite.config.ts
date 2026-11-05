@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [
     tsconfigPaths(),
     tailwindcss(),
-    tanstackStart(), // MUST come before viteReact()
+    tanstackStart({ server: { entry: 'server-entry' } }), // MUST come before viteReact()
     viteReact(),
   ],
 })

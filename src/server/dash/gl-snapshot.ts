@@ -2,7 +2,7 @@ import '@tanstack/react-start/server-only'
 import { toInt } from '~/server/db/convert'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
-import { pool } from '~/server/db/client'
+import { refreshPool } from '~/server/db/refresh-pool'
 import { inList } from '~/server/db/in-list'
 import { chunk, chunkOrAll, sliceCombos } from '~/server/db/chunk'
 import { glTablesOf } from '~/server/db/gl-tables'
@@ -137,7 +137,7 @@ const toMs = (iso: string | null): number | null => {
  */
 export async function refreshGlMonthlySnapshot(): Promise<GlRefreshResult> {
   const started = Date.now()
-  const conn = await pool.getConnection()
+  const conn = await refreshPool.getConnection()
   let locked = false
   try {
     await conn.query('SET SESSION max_execution_time = 0').catch(() => {})
@@ -227,7 +227,7 @@ export async function refreshGlMonthlySnapshot(): Promise<GlRefreshResult> {
   }
 }
 
-type Conn = Awaited<ReturnType<typeof pool.getConnection>>
+type Conn = Awaited<ReturnType<typeof refreshPool.getConnection>>
 
 /** One period: rows and the "built" marker are written in one transaction, so readers never see half a period. */
 async function buildPeriod(conn: Conn, period: Period): Promise<void> {

@@ -32,6 +32,8 @@ const envSchema = z.object({
     (v) => (v === '' ? undefined : v),
     z.coerce.number().int().min(0).max(36).default(13),
   ),
+  // Connections reserved for the background refresh (snapshot building), separate from DB_POOL_SIZE so a long refresh query never takes a connection a user request needs.
+  DASH_POOL_SIZE: z.preprocess((v) => (v === '' ? undefined : v), z.coerce.number().int().min(1).max(5).default(2)),
   // 1 = apply pending dash_* migrations when the server starts (off by default in production)
   AUTO_MIGRATE: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['0', '1']).default('0')),
   // Cash Position flags funds in settlement whose oldest transaction is older than this many days.

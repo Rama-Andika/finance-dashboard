@@ -9,7 +9,7 @@ Tujuan: tahu **bagian mana yang lambat dan seberapa lambat** sebelum mengoptimal
 | Alat             | Cara menyalakan                                | Yang tampil di log server                                                                                                                                                                            |
 | ---------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Waktu per metrik | `PERF_LOG=1`                                   | `perf: metric revenue 842ms` — satu baris tiap metrik yang benar-benar dihitung (cache hit tidak dicatat). Metrik bersarang tumpang tindih: `metric summary` sudah mencakup semua metrik di dalamnya |
-| Menunggu koneksi | `PERF_LOG=1`                                   | `perf: a query is waiting for a free connection (pool is full)` — muncul saat semua koneksi pool sedang dipakai                                                                                      |
+| Menunggu koneksi | `PERF_LOG=1`                                   | `perf: a query is waiting for a free connection (pool is full)` — muncul saat semua koneksi pool sedang dipakai (hanya pool utama; refresh snapshot memakai pool sendiri)                            |
 | Query lambat     | `SLOW_QUERY_MS=1000` (default; `0` = mati)     | `perf: slow query 5320ms: SELECT STRAIGHT_JOIN ...` — teks SQL dengan placeholder `?`, **tanpa nilai parameter** (aman untuk data sensitif). Waktunya termasuk menunggu koneksi pool                 |
 | Probe Summary    | `PERF_PROBE=1 npm run test:db -- perf-summary` | Waktu **dingin** (cache kosong, seperti login pertama atau restart server) dan **hangat** untuk `this-month`, `last-month`, dan `ytd`, semua entitas                                                 |
 
@@ -95,13 +95,13 @@ Dengan _stale-while-revalidate_ pada `memoMetric`:
 
 Probe Summary yang sama dengan §7 (`PERF_PROBE=1`, semua entitas, `APP_TODAY` dipin 2025-10-15), hanya untuk `last-month` dan `ytd`, dijalankan **tanpa dev server dan tanpa proses lain**. Waktu dalam detik dari log `perf: metric ...`. "Sebelum" diambil dari §7. "Hangat" adalah jalankan kedua tepat setelah yang dingin, yaitu keadaan setelah cache 60 detik kedaluwarsa (F5 setelah semenit).
 
-| Bagian | last-month sebelum | last-month sesudah | ytd sebelum | ytd sesudah |
-| --- | --- | --- | --- | --- |
-| `runway`, dingin | 51–59 | **33,4** | 56–60 | **36,5** |
-| `cashPortions` / `cashFlow`, dingin | 9–11 | **15,3 / 15,8** | 172–186 | **82,2 / 86,9** |
-| `cashPosition`, dingin | 7–8 | 5,3–8,7 | 3–6 | 4,4–9,2 |
-| Total Summary, dingin | 335 | 331 | 329 | 373 |
-| Total Summary, hangat | 51,5 | **16,9** | 176,6 | **55,9** |
+| Bagian                              | last-month sebelum | last-month sesudah | ytd sebelum | ytd sesudah     |
+| ----------------------------------- | ------------------ | ------------------ | ----------- | --------------- |
+| `runway`, dingin                    | 51–59              | **33,4**           | 56–60       | **36,5**        |
+| `cashPortions` / `cashFlow`, dingin | 9–11               | **15,3 / 15,8**    | 172–186     | **82,2 / 86,9** |
+| `cashPosition`, dingin              | 7–8                | 5,3–8,7            | 3–6         | 4,4–9,2         |
+| Total Summary, dingin               | 335                | 331                | 329         | 373             |
+| Total Summary, hangat               | 51,5               | **16,9**           | 176,6       | **55,9**        |
 
 Catatan pembacaan:
 
@@ -117,13 +117,13 @@ Dugaan yang lebih kuat: join dengan subquery `DISTINCT` (semi-join) pada query b
 
 Probe yang sama, tanpa dev server. Tes paritas snapshot melawan query langsung ke ERP lulus (semua entitas dan entitas pertama), jadi hasilnya identik. Detik, dingin kecuali disebut lain:
 
-| Bagian | last-month (sebelumnya → sekarang) | ytd (sebelumnya → sekarang) |
-| --- | --- | --- |
-| `runway` | 33,4 → **23,2** | 36,5 → **22,7** |
-| `cashPortions` | 15,3 → **4,8** | 82,2 → **49,6** |
-| `cashFlow` | 15,8 → **8,7** | 86,9 → **61,5** |
-| Total Summary, hangat | 16,9 → **11,8** | 55,9 → **56,3** (tidak berubah) |
-| Query baca `dash_snap_cash_lines` | 4–30 → **1,5–14,6** | 15–71 → **8,4–22,7** |
+| Bagian                            | last-month (sebelumnya → sekarang) | ytd (sebelumnya → sekarang)     |
+| --------------------------------- | ---------------------------------- | ------------------------------- |
+| `runway`                          | 33,4 → **23,2**                    | 36,5 → **22,7**                 |
+| `cashPortions`                    | 15,3 → **4,8**                     | 82,2 → **49,6**                 |
+| `cashFlow`                        | 15,8 → **8,7**                     | 86,9 → **61,5**                 |
+| Total Summary, hangat             | 16,9 → **11,8**                    | 55,9 → **56,3** (tidak berubah) |
+| Query baca `dash_snap_cash_lines` | 4–30 → **1,5–14,6**                | 15–71 → **8,4–22,7**            |
 
 - **Dugaan terbukti sebagian.** Query baca menjadi sekitar 2–3 kali lebih cepat, tetapi masih sekitar 65 ribu baris per detik, bukan milidetik. Cash Flow `ytd` dingin turun dari baseline 172–186 detik menjadi 61 detik, dan `runway` dari 51–60 detik menjadi 23 detik.
 - **Sisa waktu ada di Node.** Untuk `ytd`, `cashPortions` 49,6 detik sedangkan baca snapshot 22,7 detik: selisih sekitar 27 detik dipakai mengubah sekitar 1,5 juta baris menjadi uang desimal (`decimal.js`) dan menjalankan alokasi kas proporsional. Ini selisih waktu, bukan pengukuran langsung per tahap.
@@ -134,30 +134,47 @@ Probe yang sama, tanpa dev server. Tes paritas snapshot melawan query langsung k
 
 Pembaca snapshot kas kini mempertahankan teks uang yang sudah berbentuk dua desimal dan hanya memakai `decimal.js` untuk bentuk lain. Tes paritas snapshot melawan ERP lulus. Probe yang sama, tanpa dev server. Detik:
 
-| Bagian | last-month (baseline Phase 0 → sebelumnya → sekarang) | ytd (baseline Phase 0 → sebelumnya → sekarang) |
-| --- | --- | --- |
-| `runway`, dingin | 51–59 → 23,2 → **18,4** | 56–60 → 22,7 → **17,8** |
-| `cashPortions`, dingin | tidak diukur terpisah → 4,8 → **4,5** | tidak diukur terpisah → 49,6 → **27,0** |
-| `cashFlow`, dingin | 9–11 → 8,7 → **7,5** | 172–186 → 61,5 → **31,7** |
-| Total Summary, hangat | 51,5 → 11,8 → **10,8** | 176,6 → 56,3 → **33,1** |
-| Query baca `dash_snap_cash_lines` | → 1,5–14,6 → **1,2–14,9** | → 8,4–22,7 → **9,8–17,8** |
+| Bagian                            | last-month (baseline Phase 0 → sebelumnya → sekarang) | ytd (baseline Phase 0 → sebelumnya → sekarang) |
+| --------------------------------- | ----------------------------------------------------- | ---------------------------------------------- |
+| `runway`, dingin                  | 51–59 → 23,2 → **18,4**                               | 56–60 → 22,7 → **17,8**                        |
+| `cashPortions`, dingin            | tidak diukur terpisah → 4,8 → **4,5**                 | tidak diukur terpisah → 49,6 → **27,0**        |
+| `cashFlow`, dingin                | 9–11 → 8,7 → **7,5**                                  | 172–186 → 61,5 → **31,7**                      |
+| Total Summary, hangat             | 51,5 → 11,8 → **10,8**                                | 176,6 → 56,3 → **33,1**                        |
+| Query baca `dash_snap_cash_lines` | → 1,5–14,6 → **1,2–14,9**                             | → 8,4–22,7 → **9,8–17,8**                      |
 
 - **Biaya terbesar di Node ternyata pembuatan objek `Decimal`.** Pada `ytd`, `cashPortions` turun dari 49,6 ke 27,0 detik (sekitar 22 detik hilang) tanpa mengubah SQL. Sisa selisih antara `cashPortions` (27 detik) dan baca snapshot (sekitar 18 detik) tinggal sekitar 9 detik untuk alokasi kas dan klasifikasi.
 - **Dibanding baseline Phase 0:** Cash Flow `ytd` dingin 172–186 → 32 detik (sekitar 5–6 kali), total hangat `ytd` 177 → 33 detik (sekitar 5 kali), total hangat `last-month` 52 → 11 detik (sekitar 5 kali), `runway` 51–60 → 14–18 detik (sekitar 3 kali).
 - **Masih bukan milidetik.** Membaca 0,5 sampai 1,5 juta baris dari tabel snapshot tetap memakan beberapa sampai belasan detik. Untuk turun ke orde detik, jumlah baris yang dibaca per permintaan harus dikurangi (mis. agregasi alokasi kas per jurnal saat build untuk filter semua entitas). Itu perubahan desain tersendiri.
 - Batas: satu kali jalan per filter, satu mesin, MariaDB 10.4; selisih beberapa detik antar-jalan masih dalam kisaran noise.
 
+## 10. Efek pool refresh terpisah (Phase 3), uji A/B di DB lokal `demo`, 2026-11-05
+
+Satu proses, tiga tahap berurutan. Beban "halaman Summary" = lima metrik sekaligus (posisi kas, Revenue, P&L, Cash Flow, runway) untuk rentang 2025-01-01 sampai 2025-09-30, cache dikosongkan tiap putaran. Tahap refresh: refresh AP/AR dipaksa (`force`) berjalan bersamaan dengan beban itu, diulang sampai refresh selesai. "Hari ini" dipin ke tanggal sungguhan. Tes sementara, sudah dihapus.
+
+| Tahap | Beban halaman: median / p90 / maks (detik) | Query mengantre koneksi | Lama refresh |
+| --- | --- | --- | --- |
+| Kontrol (tanpa refresh), 3 putaran | 25,8 / – / 26,5 | – | – |
+| Pool refresh terpisah (Phase 3), 23 putaran | **27,6** / 29,9 / 30,7 | 45 | 647 detik |
+| Pool bersama (sebelum Phase 3), 24 putaran | **28,9** / 30,5 / 30,8 | 48 | 692 detik |
+
+- **Arahnya benar tetapi kecil.** Dengan pool terpisah, refresh menambah median beban halaman 1,8 detik (+7%) dibanding kontrol; dengan pool bersama 3,1 detik (+12%). Selisih kedua skenario sekitar 1,3 detik (sekitar 4–5%) dan refresh sendiri selesai 45 detik lebih cepat. Urutan uji sengaja menaruh baseline kedua (pemanasan cache database menguntungkannya), jadi arahnya tidak bisa dijelaskan oleh pemanasan, tetapi ini **satu kali jalan per tahap**, tanpa pengulangan: bacalah sebagai petunjuk, bukan bukti kuat.
+- **Antrean koneksi hampir sama (45 vs 48).** Beban halaman itu sendiri sudah menjenuhkan 5 koneksi pengguna (sekitar 2 antrean per putaran) dengan atau tanpa refresh; yang dihilangkan Phase 3 hanya satu koneksi yang ditahan refresh.
+- **Sisa perlambatan berasal dari server database, bukan dari pool.** Walau refresh memakai koneksi sendiri, beban halaman tetap 7% lebih lambat daripada kontrol: refresh dan pengguna berbagi CPU dan disk database yang sama. Pool terpisah tidak bisa menghilangkannya.
+- **Dampak Phase 3 di produksi** bergantung pada ukuran server database dan jumlah pengguna; angka di atas dari satu mesin lokal dengan MariaDB 10.4 dan satu "pengguna" yang memuat beban berat terus-menerus.
+
 ## Riwayat Perubahan
 
-| Tanggal    | Perubahan                                                                                                         |
-| ---------- | ----------------------------------------------------------------------------------------------------------------- |
-| 2026-11-04 | Dokumen dibuat bersama alat ukur: `PERF_LOG`, `SLOW_QUERY_MS`, probe Summary                                      |
-| 2026-11-04 | §7: hasil pengukuran pertama di DB lokal `demo` (probe Summary, tiga preset)                                      |
-| 2026-11-04 | Phase 1A: snapshot GL memakai sidik jari periode dan pembangunan ulang otomatis bila periode dibuka-tutup ulang   |
-| 2026-11-04 | Phase 1B: snapshot baris jurnal kas (dash_snap_cash_lines) untuk mempercepat runway dan Cash Flow                 |
-| 2026-11-04 | Phase 2: cache SWR (`METRIC_FRESH_SECONDS`, `METRIC_STALE_SECONDS`), Summary bertahap, dan pelacakan via PERF_LOG |
+| Tanggal    | Perubahan                                                                                                                                                                                                                                                                |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-11-04 | Dokumen dibuat bersama alat ukur: `PERF_LOG`, `SLOW_QUERY_MS`, probe Summary                                                                                                                                                                                             |
+| 2026-11-04 | §7: hasil pengukuran pertama di DB lokal `demo` (probe Summary, tiga preset)                                                                                                                                                                                             |
+| 2026-11-04 | Phase 1A: snapshot GL memakai sidik jari periode dan pembangunan ulang otomatis bila periode dibuka-tutup ulang                                                                                                                                                          |
+| 2026-11-04 | Phase 1B: snapshot baris jurnal kas (dash_snap_cash_lines) untuk mempercepat runway dan Cash Flow                                                                                                                                                                        |
+| 2026-11-04 | Phase 2: cache SWR (`METRIC_FRESH_SECONDS`, `METRIC_STALE_SECONDS`), Summary bertahap, dan pelacakan via PERF_LOG                                                                                                                                                        |
 | 2026-11-04 | Default `METRIC_STALE_SECONDS` diturunkan dari 600 ke 180 detik: angka yang dijawab dari cache paling lama sekitar 4 menit lebih tua (60 detik segar + 180 detik masa basi), sehingga selisih kartu dan drill-down lebih kecil. Tidak ada rumus atau query yang berubah. |
 | 2026-11-04 | §9: hasil probe sesudah Phase 1B dan Phase 2 (`last-month` dan `ytd`): `ytd` hangat 177 → 56 detik, `ytd` Cash Flow dingin 180 → 87 detik, `runway` 55 → 33–36 detik; `last-month` Cash Flow dingin tidak membaik (15,8 vs 9–11 detik); target milidetik belum tercapai. |
-| 2026-11-04 | §9: volume snapshot kas diukur (5,09 juta baris, 146–178 ribu baris per bulan); dugaan "jutaan baris dipindahkan" dikoreksi: kecepatan baca hanya 20–40 ribu baris per detik, dugaan baru adalah join `DISTINCT` yang tidak perlu untuk filter semua entitas. |
-| 2026-11-04 | §9: hasil sesudah join `DISTINCT` dihapus untuk filter semua entitas: query baca snapshot kas 2–3 kali lebih cepat, Cash Flow `ytd` dingin 87 → 61 detik, `runway` 33–36 → 23 detik, total hangat `ytd` tetap 56 detik (sisa waktu ada di pengolahan Node). |
-| 2026-11-04 | §9: hasil sesudah jalur cepat uang dua desimal di pembacaan snapshot kas: `ytd` hangat 56 → 33 detik, Cash Flow `ytd` dingin 62 → 32 detik, `runway` 23 → 18 detik; dibanding baseline Phase 0 sekitar 3–6 kali lebih cepat. |
+| 2026-11-04 | §9: volume snapshot kas diukur (5,09 juta baris, 146–178 ribu baris per bulan); dugaan "jutaan baris dipindahkan" dikoreksi: kecepatan baca hanya 20–40 ribu baris per detik, dugaan baru adalah join `DISTINCT` yang tidak perlu untuk filter semua entitas.            |
+| 2026-11-04 | §9: hasil sesudah join `DISTINCT` dihapus untuk filter semua entitas: query baca snapshot kas 2–3 kali lebih cepat, Cash Flow `ytd` dingin 87 → 61 detik, `runway` 33–36 → 23 detik, total hangat `ytd` tetap 56 detik (sisa waktu ada di pengolahan Node).              |
+| 2026-11-04 | §9: hasil sesudah jalur cepat uang dua desimal di pembacaan snapshot kas: `ytd` hangat 56 → 33 detik, Cash Flow `ytd` dingin 62 → 32 detik, `runway` 23 → 18 detik; dibanding baseline Phase 0 sekitar 3–6 kali lebih cepat.                                             |
+| 2026-11-05 | Phase 3: pool koneksi terpisah untuk refresh snapshot (`DASH_POOL_SIZE`, default 2), tidak lagi menahan koneksi pool utama                                                                                                                                               |
+| 2026-11-05 | §10: uji A/B pool refresh terpisah: median beban halaman saat refresh 27,6 detik (terpisah) vs 28,9 detik (bersama) vs 25,8 detik tanpa refresh; efek kecil (sekitar 4–5%), antrean koneksi hampir sama (45 vs 48). |

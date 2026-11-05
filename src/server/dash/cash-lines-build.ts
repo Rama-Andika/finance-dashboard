@@ -1,5 +1,5 @@
 import '@tanstack/react-start/server-only'
-import { pool } from '~/server/db/client'
+import { refreshPool } from '~/server/db/refresh-pool'
 import { toInt } from '~/server/db/convert'
 import { chunk } from '~/server/db/chunk'
 import { glTablesOf } from '~/server/db/gl-tables'
@@ -22,7 +22,7 @@ export type CashLinesRefreshResult =
   | { ran: true; built: number; rebuilt: number; removed: number; durationMs: number }
   | { ran: false; reason: 'locked' | 'nothing-to-do' | 'no-cash-accounts' | 'too-many-accounts' }
 
-type Conn = Awaited<ReturnType<typeof pool.getConnection>>
+type Conn = Awaited<ReturnType<typeof refreshPool.getConnection>>
 
 type BuiltRow = {
   id: string
@@ -56,7 +56,7 @@ export async function refreshCashLinesSnapshot(cashCoaIds: Id[]): Promise<CashLi
   const cashHash = hashIds(cashCoaIds)
 
   const started = Date.now()
-  const conn = await pool.getConnection()
+  const conn = await refreshPool.getConnection()
   let locked = false
   try {
     await conn.query('SET SESSION max_execution_time = 0').catch(() => {})

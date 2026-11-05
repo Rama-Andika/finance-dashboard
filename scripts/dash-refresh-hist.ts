@@ -6,6 +6,7 @@ import { env } from '../src/server/env'
 import { todayIn } from '../src/lib/format/date'
 import { refreshApArHistSnapshots } from '../src/server/dash/hist-ap-ar'
 import { pool } from '../src/server/db/client'
+import { refreshPool } from '../src/server/db/refresh-pool'
 
 try {
   const today = env.APP_TODAY ?? todayIn(env.APP_TIMEZONE)
@@ -20,9 +21,9 @@ try {
       ? `Done in ${Math.round(result.durationMs / 1000)}s: built ${result.built.length} month(s) (${result.built.join(', ') || 'none'}), removed ${result.pruned}`
       : `Nothing to do (${result.reason}).`,
   )
-  await pool.end()
+  await Promise.all([pool.end(), refreshPool.end()])
 } catch (error) {
   console.error('AP/AR history failed:', error instanceof Error ? error.message : error)
-  await pool.end().catch(() => {})
+  await Promise.all([pool.end(), refreshPool.end()]).catch(() => {})
   process.exit(1)
 }

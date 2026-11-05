@@ -22,6 +22,7 @@ export function ensureDashScheduler(): void {
   // After a failed start, wait a minute before trying again (this runs on every request).
   if (globalThis.__dashSchedulerRetryAt && Date.now() < globalThis.__dashSchedulerRetryAt) return
   globalThis.__dashScheduler = { started: true }
+  dashLog.info(`scheduler started (refresh every ${env.DASH_REFRESH_MINUTES} min)`)
 
   const intervalMs = env.DASH_REFRESH_MINUTES * 60_000
   void (async () => {

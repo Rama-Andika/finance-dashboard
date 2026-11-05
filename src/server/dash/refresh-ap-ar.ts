@@ -1,6 +1,6 @@
 import '@tanstack/react-start/server-only'
 import type { PoolConnection } from 'mysql2/promise'
-import { pool } from '~/server/db/client'
+import { refreshPool } from '~/server/db/refresh-pool'
 import { AGING_SIDES, IN_OUT_VALUES, type AgingSide } from '~/server/db/erp-codes'
 import { openBalance } from '~/lib/finance/ap-ar/open-invoices'
 import { chunk } from '~/server/db/chunk'
@@ -12,8 +12,17 @@ import { errorText } from '~/server/log'
 export type Row = unknown[]
 
 export const OPEN_COLUMNS = [
-  'card_id', 'module_type', 'party_id', 'location_id', 'coa_id',
-  'tx_date', 'due_date', 'item_type', 'invoice_number', 'original_amount', 'balance',
+  'card_id',
+  'module_type',
+  'party_id',
+  'location_id',
+  'coa_id',
+  'tx_date',
+  'due_date',
+  'item_type',
+  'invoice_number',
+  'original_amount',
+  'balance',
 ]
 export const UNALLOC_COLUMNS = ['card_id', 'module_type', 'party_id', 'location_id', 'coa_id', 'tx_date', 'balance']
 
@@ -88,8 +97,17 @@ export async function loadOpenInvoices(conn: PoolConnection, side: AgingSide, as
       const m = open.get(String(r[0]))
       if (!m) continue
       out.push([
-        String(r[0]), cfg.module, idOrNull(r[1]), idOrNull(r[2]), idOrNull(r[3]),
-        day(r[4]), r[5] ? day(r[5]) : null, Number(r[6]) || 0, String(r[7] ?? ''), m.original, m.balance,
+        String(r[0]),
+        cfg.module,
+        idOrNull(r[1]),
+        idOrNull(r[2]),
+        idOrNull(r[3]),
+        day(r[4]),
+        r[5] ? day(r[5]) : null,
+        Number(r[6]) || 0,
+        String(r[7] ?? ''),
+        m.original,
+        m.balance,
       ])
     }
   }
@@ -108,7 +126,15 @@ export async function loadUnallocated(conn: PoolConnection, side: AgingSide, asO
        AND NOT EXISTS (SELECT 1 FROM ap_ar_card_detail d WHERE d.ap_ar_card_id = p.ap_ar_card_id)`,
     [asOfPlusOne],
   )
-  return rows.map((r) => [String(r[0]), cfg.module, idOrNull(r[1]), idOrNull(r[2]), idOrNull(r[3]), day(r[4]), String(r[5])])
+  return rows.map((r) => [
+    String(r[0]),
+    cfg.module,
+    idOrNull(r[1]),
+    idOrNull(r[2]),
+    idOrNull(r[3]),
+    day(r[4]),
+    String(r[5]),
+  ])
 }
 
 /**
@@ -174,7 +200,16 @@ async function setMeta(
      VALUES (?, ${touchData ? 'UTC_TIMESTAMP(), UTC_TIMESTAMP()' : 'NULL, NULL'}, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE status = VALUES(status), error = VALUES(error)
        ${touchData ? ', refreshed_at = VALUES(refreshed_at), checked_at = VALUES(checked_at), as_of_date = VALUES(as_of_date), row_count = VALUES(row_count), duration_ms = VALUES(duration_ms), fingerprint = VALUES(fingerprint)' : ''}`,
-    [meta, SNAPSHOT_AP_AR, fields.asOfDate ?? null, fields.rowCount ?? 0, fields.durationMs ?? 0, fields.fingerprint ?? null, fields.status, fields.error ?? null],
+    [
+      meta,
+      SNAPSHOT_AP_AR,
+      fields.asOfDate ?? null,
+      fields.rowCount ?? 0,
+      fields.durationMs ?? 0,
+      fields.fingerprint ?? null,
+      fields.status,
+      fields.error ?? null,
+    ],
   )
 }
 
@@ -188,7 +223,7 @@ export type RefreshResult =
  * (and the snapshot is for today and younger than an hour) the rebuild is skipped and only the timestamp moves.
  */
 export async function refreshApArSnapshot(today: string, options: { force?: boolean } = {}): Promise<RefreshResult> {
-  const conn = await pool.getConnection()
+  const conn = await refreshPool.getConnection()
   const started = Date.now()
   let locked = false
   try {
@@ -212,7 +247,10 @@ export async function refreshApArSnapshot(today: string, options: { force?: bool
       previous.ageMs < FORCE_REBUILD_MS
     ) {
       // Nothing changed: keep the data, but say that it was checked just now.
-      await conn.query('UPDATE ?? SET checked_at = UTC_TIMESTAMP() WHERE name = ?', [dashTable(DASH_TABLES.meta), SNAPSHOT_AP_AR])
+      await conn.query('UPDATE ?? SET checked_at = UTC_TIMESTAMP() WHERE name = ?', [
+        dashTable(DASH_TABLES.meta),
+        SNAPSHOT_AP_AR,
+      ])
       return { ran: false, reason: 'unchanged' }
     }
 
@@ -231,12 +269,19 @@ export async function refreshApArSnapshot(today: string, options: { force?: bool
     await replaceTable(conn, DASH_TABLES.apArUnallocated, UNALLOC_COLUMNS, unallocRows)
 
     const durationMs = Date.now() - started
-    await setMeta(conn, { status: 'ok', asOfDate: today, rowCount: openRows.length + unallocRows.length, durationMs, fingerprint })
+    await setMeta(conn, {
+      status: 'ok',
+      asOfDate: today,
+      rowCount: openRows.length + unallocRows.length,
+      durationMs,
+      fingerprint,
+    })
     return { ran: true, asOfDate: today, openRows: openRows.length, unallocatedRows: unallocRows.length, durationMs }
   } catch (error) {
     const message = errorText(error)
     dashLog.error(`AP/AR snapshot refresh failed: ${message}`)
-    if (locked) await setMeta(conn, { status: 'failed', error: message.slice(0, DASH_MAX_ERROR_LENGTH) }).catch(() => {})
+    if (locked)
+      await setMeta(conn, { status: 'failed', error: message.slice(0, DASH_MAX_ERROR_LENGTH) }).catch(() => {})
     throw error
   } finally {
     if (locked) await conn.query("SELECT RELEASE_LOCK('dash_refresh_ap_ar')").catch(() => {})

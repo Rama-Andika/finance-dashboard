@@ -1,7 +1,7 @@
 // Production Node server: serves the built client assets and forwards every other request
-// to the TanStack Start fetch handler in dist/server/server.js. No extra dependencies.
+// to the TanStack Start fetch handler in dist/server/server-entry.js. No extra dependencies.
 import { createServer } from 'node:http'
-import { createReadStream } from 'node:fs'
+import { createReadStream, existsSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { extname, join, resolve, sep } from 'node:path'
 import { Readable } from 'node:stream'
@@ -9,7 +9,10 @@ import { pathToFileURL } from 'node:url'
 
 const root = resolve(import.meta.dirname, '..')
 const clientDir = join(root, 'dist', 'client')
-const serverEntryPath = join(root, 'dist', 'server', 'server.js')
+// The server entry is built as dist/server/server-entry.js (src/server-entry.ts); older builds produced dist/server/server.js.
+const serverEntryPath =
+  ['server-entry.js', 'server.js'].map((file) => join(root, 'dist', 'server', file)).find((file) => existsSync(file)) ??
+  join(root, 'dist', 'server', 'server-entry.js')
 
 const { default: serverEntry } = await import(pathToFileURL(serverEntryPath).href)
 if (!serverEntry || typeof serverEntry.fetch !== 'function') {
@@ -89,7 +92,9 @@ const server = createServer(async (req, res) => {
         // Hashed build assets never change; everything else is revalidated.
         res.setHeader(
           'cache-control',
-          url.pathname.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'public, max-age=0, must-revalidate',
+          url.pathname.startsWith('/assets/')
+            ? 'public, max-age=31536000, immutable'
+            : 'public, max-age=0, must-revalidate',
         )
         if (method === 'HEAD') return res.end()
         createReadStream(filePath).pipe(res)

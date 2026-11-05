@@ -4,6 +4,7 @@
  */
 import { refreshGlMonthlySnapshot } from '../src/server/dash/gl-snapshot'
 import { pool } from '../src/server/db/client'
+import { refreshPool } from '../src/server/db/refresh-pool'
 import { DASH_TABLES, dashTable } from '../src/server/dash/tables'
 
 const rebuildIndex = process.argv.indexOf('--rebuild')
@@ -23,9 +24,9 @@ try {
       ? `Built ${result.built} period(s) (${result.rebuilt} rebuilt), removed ${result.removed}, in ${Math.round(result.durationMs / 1000)}s`
       : `Nothing to do (${result.reason}).`,
   )
-  await pool.end()
+  await Promise.all([pool.end(), refreshPool.end()])
 } catch (error) {
   console.error('GL snapshot failed:', error instanceof Error ? error.message : error)
-  await pool.end().catch(() => {})
+  await Promise.all([pool.end(), refreshPool.end()]).catch(() => {})
   process.exit(1)
 }
