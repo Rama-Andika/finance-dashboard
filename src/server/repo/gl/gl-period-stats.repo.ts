@@ -3,6 +3,8 @@ import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { glTablesOf } from '~/server/db/gl-tables'
 import { glTableHasCanceledDate } from '~/server/db/gl-columns'
+import { memo } from '~/server/cache'
+import { PERIOD_STATS_CACHE_PREFIX } from '~/server/dash/tables'
 import type { PeriodHeaderStats } from '~/lib/finance/period/period-fingerprint'
 import type { Period } from '~/lib/core/types'
 
@@ -39,4 +41,19 @@ export async function glPeriodStats(period: Pick<Period, 'periodeId' | 'tableNam
     posted: String(r?.posted ?? 0),
     canceled: String(r?.canceled ?? 0),
   }
+}
+
+/** How long one cycle step may reuse the counts another step read just before it. */
+export const SHARED_STATS_TTL_MS = 60_000
+
+/**
+ * `glPeriodStats` with a short memory, for the checks of the refresh cycle: the GL and cash-lines snapshots compare the
+ * same periods one after the other, so the second step reuses the counts of the first instead of asking the ERP again.
+ * Building a period must read fresh counts (`glPeriodStats`): they are its fingerprint and are taken before its rows.
+ * A count that is up to a minute old only delays noticing a journal change by one cycle; it never hides one for longer.
+ */
+export function glPeriodStatsShared(period: Pick<Period, 'periodeId' | 'tableName'>): Promise<PeriodHeaderStats> {
+  return memo(`${PERIOD_STATS_CACHE_PREFIX}${period.tableName}:${period.periodeId}`, SHARED_STATS_TTL_MS, () =>
+    glPeriodStats(period),
+  )
 }

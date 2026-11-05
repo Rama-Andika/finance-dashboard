@@ -10,6 +10,7 @@ import type { IsoDate } from '~/lib/core/types'
 import { listPeriods } from '~/server/repo/master-data/periods.repo'
 import { DASH_INSERT_BATCH_SIZE, DASH_TABLES, dashTable } from './tables'
 import { dashLog } from './log'
+import { prepareRefreshConnection, tryLock, unlock } from './refresh-connection'
 import { OPEN_COLUMNS, UNALLOC_COLUMNS, loadOpenInvoices, loadUnallocated, type Row } from './refresh-ap-ar'
 
 const LOCK_NAME = 'dash_refresh_ap_ar_hist'
@@ -33,12 +34,8 @@ export async function refreshApArHistSnapshots(
   const conn = await refreshPool.getConnection()
   let locked = false
   try {
-    // Long scans are expected here; the per-connection limit meant for report queries does not apply.
-    await conn.query('SET SESSION max_execution_time = 0').catch(() => {})
-    await conn.query('SET SESSION max_statement_time = 0').catch(() => {})
-
-    const [lockRows] = await conn.query('SELECT GET_LOCK(?, 0) AS got', [LOCK_NAME])
-    locked = Number((lockRows as Array<{ got: number }>)[0]?.got) === 1
+    await prepareRefreshConnection(conn)
+    locked = await tryLock(conn, LOCK_NAME)
     if (!locked) return { ran: false, reason: 'locked' }
 
     const months = env.DASH_AP_AR_HIST_MONTHS
@@ -82,7 +79,7 @@ export async function refreshApArHistSnapshots(
 
     return { ran: true, built: plan.build, pruned: plan.prune.length, durationMs: Date.now() - started }
   } finally {
-    if (locked) await conn.query('SELECT RELEASE_LOCK(?)', [LOCK_NAME]).catch(() => {})
+    if (locked) await unlock(conn, LOCK_NAME)
     conn.release()
   }
 }

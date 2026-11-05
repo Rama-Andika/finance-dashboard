@@ -4,6 +4,7 @@ import { errorText } from '~/server/log'
 import { todayIn } from '~/lib/format/date'
 import { clearCache } from '~/server/cache'
 import { dashLog } from './log'
+import { PERIOD_STATS_CACHE_PREFIX } from './tables'
 import { dashMigrationStatus } from './migrate'
 import { refreshApArSnapshot } from './refresh-ap-ar'
 import { refreshGlMonthlySnapshot } from './gl-snapshot'
@@ -116,7 +117,11 @@ export async function runRefreshCycle(
         )
       }
       // The person who pressed "Refresh now" expects fresh numbers, not an answer kept for the stale window.
-      if (source === 'manual') clearCache('metric:')
+      if (source === 'manual') {
+        clearCache('metric:')
+        // ... and its period checks look at the ERP again instead of reusing the counts of the previous run
+        clearCache(PERIOD_STATS_CACHE_PREFIX)
+      }
     }
   } catch (error) {
     ok = false

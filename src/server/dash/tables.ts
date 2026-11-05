@@ -22,6 +22,9 @@ export const DASH_TABLES = {
 
 export const SNAPSHOT_AP_AR = 'ap_ar'
 
+/** Cache key prefix of the journal counts of a period that the GL and cash-lines steps share within one refresh cycle. */
+export const PERIOD_STATS_CACHE_PREFIX = 'dash:period-stats:'
+
 /** The snapshots hold the entity segment only (segment1_id); other segment columns are always read from the ERP. */
 export const SNAPSHOT_SEGMENT_COLUMN = 'segment1_id'
 

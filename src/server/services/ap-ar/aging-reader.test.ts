@@ -99,8 +99,10 @@ describe('createAgingReader with aggregates', () => {
     unallocatedPartyId: (item: Unallocated) => item.partyId,
     loadPartyNames: (ids) => loadPartyNames(ids),
     compute: (input) => compute(input) as { total: string },
-    aggregates: (asOf, loc) => aggregatesFn(asOf, loc),
-    computeFromAggregates: (input) => computeFromAggregates(input) as { total: string },
+    aggregate: {
+      load: (asOf, loc) => aggregatesFn(asOf, loc),
+      compute: (input) => computeFromAggregates(input) as { total: string },
+    },
   })
 
   beforeEach(() => {
@@ -142,6 +144,8 @@ describe('createAgingReader with aggregates', () => {
     expect(await aggReader.compareTotal(filter, new Map(), {} as never)).toBe('7.00')
     expect(aggregatesFn).toHaveBeenCalledWith('2026-09-15', 'all')
     expect(openItems).not.toHaveBeenCalled()
+    // the names of the main figures are reused: the comparison never asks for them again
+    expect(loadPartyNames).not.toHaveBeenCalled()
   })
 
   it('compares through the list of invoices when the sums are not available for the comparison date', async () => {

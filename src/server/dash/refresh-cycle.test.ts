@@ -181,4 +181,12 @@ describe('runRefreshCycle', () => {
     await runRefreshCycle('scheduler', { force: false })
     expect(mocks.clearCache).not.toHaveBeenCalledWith('metric:')
   })
+
+  it('makes a manual refresh look at the ERP again instead of reusing the period counts of the last cycle', async () => {
+    await runRefreshCycle('manual', { force: true })
+    expect(mocks.clearCache).toHaveBeenCalledWith('dash:period-stats:')
+    mocks.clearCache.mockClear()
+    await runRefreshCycle('scheduler', { force: false })
+    expect(mocks.clearCache).not.toHaveBeenCalledWith('dash:period-stats:')
+  })
 })

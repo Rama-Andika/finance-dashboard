@@ -5,7 +5,9 @@ vi.mock('~/server/db/query', () => ({ rows: (...args: unknown[]) => rowsMock(...
 const hasCanceledMock = vi.fn()
 vi.mock('~/server/db/gl-columns', () => ({ glTableHasCanceledDate: (...args: unknown[]) => hasCanceledMock(...args) }))
 
-const { glPeriodStats } = await import('./gl-period-stats.repo')
+const { glPeriodStats, glPeriodStatsShared } = await import('./gl-period-stats.repo')
+const { clearCache } = await import('~/server/cache')
+const { PERIOD_STATS_CACHE_PREFIX } = await import('~/server/dash/tables')
 
 describe('glPeriodStats', () => {
   beforeEach(() => {
@@ -45,5 +47,48 @@ describe('glPeriodStats', () => {
   it('rejects a table name that is not a GL table', async () => {
     await expect(glPeriodStats({ periodeId: '7', tableName: 'coa; x' })).rejects.toThrow('Unknown GL table name')
     expect(rowsMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('glPeriodStatsShared', () => {
+  beforeEach(() => {
+    clearCache()
+    rowsMock.mockReset()
+    hasCanceledMock.mockReset()
+    hasCanceledMock.mockResolvedValue(true)
+    rowsMock.mockResolvedValue([{ journals: '12', maxGlId: '3456', posted: '11', canceled: '1' }])
+  })
+
+  it('asks the ERP once for the same period, however many steps check it', async () => {
+    const first = await glPeriodStatsShared({ periodeId: '7', tableName: 'gl' })
+    const second = await glPeriodStatsShared({ periodeId: '7', tableName: 'gl' })
+    expect(second).toEqual(first)
+    expect(rowsMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps periods apart, also across GL tables', async () => {
+    await glPeriodStatsShared({ periodeId: '7', tableName: 'gl' })
+    await glPeriodStatsShared({ periodeId: '8', tableName: 'gl' })
+    await glPeriodStatsShared({ periodeId: '7', tableName: 'gl_2020' })
+    expect(rowsMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('asks again after the cycle forgets the counts (a manual refresh)', async () => {
+    await glPeriodStatsShared({ periodeId: '7', tableName: 'gl' })
+    clearCache(PERIOD_STATS_CACHE_PREFIX)
+    await glPeriodStatsShared({ periodeId: '7', tableName: 'gl' })
+    expect(rowsMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not remember a failed read', async () => {
+    rowsMock.mockRejectedValueOnce(new Error('connection lost'))
+    await expect(glPeriodStatsShared({ periodeId: '7', tableName: 'gl' })).rejects.toThrow('connection lost')
+    await expect(glPeriodStatsShared({ periodeId: '7', tableName: 'gl' })).resolves.toMatchObject({ journals: '12' })
+  })
+
+  it('is not what a build reads: the plain function always asks the ERP', async () => {
+    await glPeriodStats({ periodeId: '7', tableName: 'gl' })
+    await glPeriodStats({ periodeId: '7', tableName: 'gl' })
+    expect(rowsMock).toHaveBeenCalledTimes(2)
   })
 })

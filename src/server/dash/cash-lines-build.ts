@@ -1,43 +1,20 @@
 import '@tanstack/react-start/server-only'
-import { refreshPool } from '~/server/db/refresh-pool'
 import { toInt } from '~/server/db/convert'
-import { chunk } from '~/server/db/chunk'
 import { glTablesOf } from '~/server/db/gl-tables'
 import { glTableHasCanceledDate } from '~/server/db/gl-columns'
 import { hashIds } from '~/server/cache'
-import { listPeriods } from '~/server/repo/master-data/periods.repo'
 import { glPeriodStats } from '~/server/repo/gl/gl-period-stats.repo'
-import {
-  NEWEST_CLOSED_PERIODS,
-  periodKey,
-  statsKey,
-  verifyDecision,
-  type BuiltPeriodState,
-} from '~/lib/finance/period/period-fingerprint'
+import { periodKey, statsKey } from '~/lib/finance/period/period-fingerprint'
 import type { Id, Period } from '~/lib/core/types'
 import { CASH_LINES_MAX_ACCOUNTS, DASH_TABLES, SNAPSHOT_SEGMENT_COLUMN, dashTable } from './tables'
 import { dashLog } from './log'
+import { refreshClosedPeriods, type ClosedPeriodRefreshResult } from './closed-period-refresh'
+import type { RefreshConnection } from './refresh-connection'
 
 export type CashLinesRefreshResult =
-  | { ran: true; built: number; rebuilt: number; removed: number; durationMs: number }
-  | { ran: false; reason: 'locked' | 'nothing-to-do' | 'no-cash-accounts' | 'too-many-accounts' }
+  ClosedPeriodRefreshResult | { ran: false; reason: 'no-cash-accounts' | 'too-many-accounts' }
 
-type Conn = Awaited<ReturnType<typeof refreshPool.getConnection>>
-
-type BuiltRow = {
-  id: string
-  periodKey: string | null
-  statsKey: string | null
-  cashHash: string | null
-  builtAt: string | null
-  checkedAt: string | null
-}
-
-const toMs = (iso: string | null): number | null => {
-  if (!iso) return null
-  const ms = Date.parse(iso)
-  return Number.isNaN(ms) ? null : ms
-}
+type Conn = RefreshConnection
 
 /**
  * Keeps dash_snap_cash_lines in step with the ERP, for the given cash accounts (cash, bank and deposit baskets):
@@ -55,99 +32,17 @@ export async function refreshCashLinesSnapshot(cashCoaIds: Id[]): Promise<CashLi
   }
   const cashHash = hashIds(cashCoaIds)
 
-  const started = Date.now()
-  const conn = await refreshPool.getConnection()
-  let locked = false
-  try {
-    await conn.query('SET SESSION max_execution_time = 0').catch(() => {})
-    await conn.query('SET SESSION max_statement_time = 0').catch(() => {})
-    const [lockRows] = await conn.query("SELECT GET_LOCK('dash_refresh_cash', 0) AS got")
-    locked = Number((lockRows as Array<{ got: number }>)[0]?.got) === 1
-    if (!locked) return { ran: false, reason: 'locked' }
-
-    const periods = await listPeriods()
-    const closed = periods.filter((p) => p.status === 'Closed')
-    const closedIds = new Set(closed.map((p) => p.periodeId))
-
-    const [builtRows] = await conn.query(
-      `SELECT CAST(period_id AS CHAR) AS id, period_key AS periodKey, stats_key AS statsKey, cash_hash AS cashHash,
-              DATE_FORMAT(built_at, '%Y-%m-%dT%H:%i:%sZ') AS builtAt,
-              DATE_FORMAT(checked_at, '%Y-%m-%dT%H:%i:%sZ') AS checkedAt
-       FROM ??`,
-      [dashTable(DASH_TABLES.cashPeriods)],
-    )
-    const builtById = new Map((builtRows as BuiltRow[]).map((r) => [String(r.id), r] as const))
-
-    // A period that is no longer Closed was re-opened: its lines may be outdated.
-    const stale = Array.from(builtById.keys()).filter((id) => !closedIds.has(id))
-    for (const slice of chunk(stale)) {
-      await conn.query('DELETE FROM ?? WHERE period_id IN (?)', [dashTable(DASH_TABLES.cashLines), slice])
-      await conn.query('DELETE FROM ?? WHERE period_id IN (?)', [dashTable(DASH_TABLES.cashPeriods), slice])
-    }
-
-    const newestFirst = [...closed].sort((a, b) => b.startDate.localeCompare(a.startDate))
-    const newestIds = new Set(newestFirst.slice(0, NEWEST_CLOSED_PERIODS).map((p) => p.periodeId))
-    const nowMs = Date.now()
-
-    const toBuild: Period[] = []
-    const replaced = new Set<string>()
-    const unchanged: string[] = []
-    for (const period of newestFirst) {
-      const row = builtById.get(period.periodeId)
-      if (!row) {
-        toBuild.push(period)
-        continue
-      }
+  return refreshClosedPeriods(
+    {
+      label: 'cash lines snapshot',
+      lockName: 'dash_refresh_cash',
+      rowsTable: DASH_TABLES.cashLines,
+      markerTable: DASH_TABLES.cashPeriods,
       // Another cash account list (Settings changed) means other lines: rebuild whatever the fingerprint says.
-      if (row.cashHash !== cashHash) {
-        toBuild.push(period)
-        replaced.add(period.periodeId)
-        continue
-      }
-      const state: BuiltPeriodState = {
-        periodKey: row.periodKey,
-        statsKey: row.statsKey,
-        builtAtMs: toMs(row.builtAt),
-        checkedAtMs: toMs(row.checkedAt),
-      }
-      let decision = verifyDecision({ period, built: state, isNewest: newestIds.has(period.periodeId), nowMs })
-      if (decision === 'check-stats') {
-        decision = statsKey(await glPeriodStats(period)) === row.statsKey ? 'keep' : 'rebuild'
-        if (decision === 'keep') unchanged.push(period.periodeId)
-      }
-      if (decision === 'rebuild') {
-        toBuild.push(period)
-        replaced.add(period.periodeId)
-      }
-    }
-
-    for (const [index, period] of toBuild.entries()) {
-      const t0 = Date.now()
-      await buildPeriod(conn, period, cashCoaIds, cashHash)
-      dashLog.info(
-        `cash lines snapshot ${index + 1}/${toBuild.length}: ${period.name}${replaced.has(period.periodeId) ? ' (rebuilt)' : ''} (${Math.round((Date.now() - t0) / 1000)}s)`,
-      )
-    }
-
-    for (const slice of chunk(unchanged)) {
-      await conn.query('UPDATE ?? SET checked_at = UTC_TIMESTAMP() WHERE period_id IN (?)', [
-        dashTable(DASH_TABLES.cashPeriods),
-        slice,
-      ])
-    }
-
-    if (toBuild.length === 0 && stale.length === 0) return { ran: false, reason: 'nothing-to-do' }
-    return {
-      ran: true,
-      built: toBuild.length,
-      rebuilt: replaced.size,
-      removed: stale.length,
-      durationMs: Date.now() - started,
-    }
-  } finally {
-    if (locked) await conn.query("SELECT RELEASE_LOCK('dash_refresh_cash')").catch(() => {})
-    conn.release()
-  }
+      extra: { column: 'cash_hash', expected: cashHash },
+    },
+    (conn, period) => buildPeriod(conn, period, cashCoaIds, cashHash),
+  )
 }
 
 /** One period: its lines and its marker are written in one transaction, so readers never see half a period. */

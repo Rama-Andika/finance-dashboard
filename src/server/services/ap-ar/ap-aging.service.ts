@@ -37,9 +37,10 @@ const payables = createAgingMetric({
       new Map((await listVendors(ids)).map((v) => [v.vendorId, { code: v.code, name: v.name }])),
     compute: ({ open, unallocated, asOf, names, tree }) =>
       calculateApAging({ partA: open, partB: unallocated, asOf, vendors: names, tree }),
-    aggregates: (asOf, locationIds) => agingAggregates('ap', asOf, locationIds),
-    computeFromAggregates: ({ aggregates, names, tree }) =>
-      computeApAgingFromAggregates({ aggregates, vendors: names, tree }),
+    aggregate: {
+      load: (asOf, locationIds) => agingAggregates('ap', asOf, locationIds),
+      compute: ({ aggregates, names, tree }) => computeApAgingFromAggregates({ aggregates, vendors: names, tree }),
+    },
   },
   toResult: ({ meta, computed, compareTotal, reconciliation }): ApAgingResult => ({
     meta,

@@ -7,6 +7,7 @@ import { chunk } from '~/server/db/chunk'
 import { addDays } from '~/lib/format/date'
 import { DASH_INSERT_BATCH_SIZE, DASH_MAX_ERROR_LENGTH, DASH_TABLES, SNAPSHOT_AP_AR, dashTable, ints } from './tables'
 import { dashLog } from './log'
+import { prepareRefreshConnection, tryLock, unlock } from './refresh-connection'
 import { errorText } from '~/server/log'
 
 export type Row = unknown[]
@@ -28,6 +29,7 @@ export const UNALLOC_COLUMNS = ['card_id', 'module_type', 'party_id', 'location_
 
 /** Even when the ERP tables look unchanged, rebuild at least this often (edits do not change the fingerprint). */
 const FORCE_REBUILD_MS = 60 * 60_000
+const LOCK_NAME = 'dash_refresh_ap_ar'
 
 const day = (v: unknown): string => {
   const s = v ? String(v).slice(0, 10) : ''
@@ -227,12 +229,8 @@ export async function refreshApArSnapshot(today: string, options: { force?: bool
   const started = Date.now()
   let locked = false
   try {
-    // Long scans are expected here; the per-connection limit meant for report queries does not apply.
-    await conn.query('SET SESSION max_execution_time = 0').catch(() => {})
-    await conn.query('SET SESSION max_statement_time = 0').catch(() => {})
-
-    const [lockRows] = await conn.query("SELECT GET_LOCK('dash_refresh_ap_ar', 0) AS got")
-    locked = Number((lockRows as Array<{ got: number }>)[0]?.got) === 1
+    await prepareRefreshConnection(conn)
+    locked = await tryLock(conn, LOCK_NAME)
     if (!locked) return { ran: false, reason: 'locked' }
 
     const previous = await readMeta(conn)
@@ -284,7 +282,7 @@ export async function refreshApArSnapshot(today: string, options: { force?: bool
       await setMeta(conn, { status: 'failed', error: message.slice(0, DASH_MAX_ERROR_LENGTH) }).catch(() => {})
     throw error
   } finally {
-    if (locked) await conn.query("SELECT RELEASE_LOCK('dash_refresh_ap_ar')").catch(() => {})
+    if (locked) await unlock(conn, LOCK_NAME)
     conn.release()
   }
 }

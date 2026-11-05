@@ -20,7 +20,7 @@ import { agingDueTotals, apOpenInvoices, arOpenInvoices } from '~/server/repo/ap
 import { listActivePlanStatuses } from '~/server/repo/ap-ar/payment-plan.repo'
 import { listVendors } from '~/server/repo/ap-ar/party.repo'
 import { unsettledByChannel, settlementLag } from '~/server/repo/cash/bank-payment.repo'
-import { planStatus } from '~/lib/finance/ap-ar/aging'
+import { invoicesByPlanStatus, planStatus, voucherStatusesByInvoice } from '~/lib/finance/ap-ar/aging'
 import {
   buildPaymentPlan,
   type ApItemForPlan,
@@ -135,12 +135,7 @@ async function computePaymentPlanUncached(
   // Bills due after the horizon change nothing in the plan, so they are left out here.
   const apPositive = rawAp.filter((a) => D(a.balance).gt(0) && (a.dueDate || a.txDate) <= lastDay)
 
-  const statusMap = new Map<Id, string[]>()
-  for (const r of statusRows) {
-    const list = statusMap.get(r.invoiceId) ?? []
-    list.push(r.status)
-    statusMap.set(r.invoiceId, list)
-  }
+  const statusMap = voucherStatusesByInvoice(statusRows)
 
   const apItems: ApItemForPlan[] = apPositive.map((a) => ({
     invoiceId: a.invoiceId,
@@ -231,19 +226,8 @@ async function computePaymentPlanSummaryUncached(
   }
 
   // A bill with a live voucher is "approved" or "submitted" (the rule of planStatus); every other bill is "not submitted".
-  const statusMap = new Map<Id, string[]>()
-  for (const r of statusRows) {
-    const list = statusMap.get(r.invoiceId) ?? []
-    list.push(r.status)
-    statusMap.set(r.invoiceId, list)
-  }
-  const approvedIds: Id[] = []
-  const submittedIds: Id[] = []
-  for (const [invoiceId, statuses] of statusMap) {
-    const status = planStatus(statuses)
-    if (status === 'approved') approvedIds.push(invoiceId)
-    else if (status === 'submitted') submittedIds.push(invoiceId)
-  }
+  const statusMap = voucherStatusesByInvoice(statusRows)
+  const { approved: approvedIds, submitted: submittedIds } = invoicesByPlanStatus(statusMap)
   const [approved, submitted] = await Promise.all([
     agingDueTotals('ap', today, filter.locationIds, {
       maxDue: lastDay,

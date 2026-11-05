@@ -1,5 +1,5 @@
 import { diffDays } from '~/lib/format/date'
-import type { IsoDate } from '../../core/types'
+import type { Id, IsoDate } from '../../core/types'
 
 export type AgingBucket =
   'overdue0_30' | 'overdue31_60' | 'overdue61_90' | 'overdue90plus' | 'due1_30' | 'due31_60' | 'due61_90' | 'due90plus'
@@ -80,3 +80,26 @@ export function planStatus(voucherStatuses: string[]): PlanStatus {
 
 /** Voucher statuses that make a bill "submitted" or "approved"; any other status means "not submitted". */
 export const ACTIVE_VOUCHER_STATUSES = ['Posted', 'Partialy Paid', 'Not Posted'] as const
+
+/** The live voucher statuses of every invoice that has at least one voucher, from the rows `listActivePlanStatuses` gives. */
+export function voucherStatusesByInvoice(rows: ReadonlyArray<{ invoiceId: Id; status: string }>): Map<Id, string[]> {
+  const byInvoice = new Map<Id, string[]>()
+  for (const row of rows) {
+    const list = byInvoice.get(row.invoiceId) ?? []
+    list.push(row.status)
+    byInvoice.set(row.invoiceId, list)
+  }
+  return byInvoice
+}
+
+/** The invoices whose plan status is "approved" and "submitted"; every invoice not listed is "not submitted". */
+export function invoicesByPlanStatus(statuses: ReadonlyMap<Id, string[]>): { approved: Id[]; submitted: Id[] } {
+  const approved: Id[] = []
+  const submitted: Id[] = []
+  for (const [invoiceId, list] of statuses) {
+    const status = planStatus(list)
+    if (status === 'approved') approved.push(invoiceId)
+    else if (status === 'submitted') submitted.push(invoiceId)
+  }
+  return { approved, submitted }
+}

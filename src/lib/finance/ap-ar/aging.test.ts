@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bucketOf, planStatus } from './aging'
+import { bucketOf, invoicesByPlanStatus, planStatus, voucherStatusesByInvoice } from './aging'
 import { addDays } from '~/lib/format/date'
 
 describe('aging buckets and thresholds', () => {
@@ -69,5 +69,39 @@ describe('plan status priority', () => {
     expect(planStatus([])).toBe('notSubmitted')
     expect(planStatus(['Paid'])).toBe('notSubmitted')
     expect(planStatus(['Canceled'])).toBe('notSubmitted')
+  })
+})
+
+describe('voucher statuses of the payment plan', () => {
+  it('groups the live voucher statuses by invoice, keeping every status of an invoice', () => {
+    const grouped = voucherStatusesByInvoice([
+      { invoiceId: '1', status: 'Not Posted' },
+      { invoiceId: '2', status: 'Posted' },
+      { invoiceId: '1', status: 'Posted' },
+    ])
+    expect(Array.from(grouped)).toEqual([
+      ['1', ['Not Posted', 'Posted']],
+      ['2', ['Posted']],
+    ])
+  })
+
+  it('has no entry for an invoice without a voucher', () => {
+    expect(voucherStatusesByInvoice([]).size).toBe(0)
+  })
+
+  it('splits the invoices into approved and submitted by the same rule as planStatus', () => {
+    const statuses = new Map<string, string[]>([
+      ['1', ['Not Posted']], // submitted
+      ['2', ['Posted']], // approved
+      ['3', ['Not Posted', 'Partialy Paid']], // a posted voucher wins: approved
+      ['4', ['something else']], // no live status: left out, so not submitted
+    ])
+    expect(invoicesByPlanStatus(statuses)).toEqual({ approved: ['2', '3'], submitted: ['1'] })
+    for (const [id, list] of statuses) {
+      const status = planStatus(list)
+      const { approved, submitted } = invoicesByPlanStatus(statuses)
+      expect(approved.includes(id)).toBe(status === 'approved')
+      expect(submitted.includes(id)).toBe(status === 'submitted')
+    }
   })
 })
