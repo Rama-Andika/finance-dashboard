@@ -169,3 +169,55 @@ describe('reading aggregates', () => {
     expect(rowsMock).not.toHaveBeenCalled()
   })
 })
+
+describe('index hint on whole-side reads', () => {
+  const HINT = 'FORCE INDEX (PRIMARY)'
+
+  it('is on the open table when nothing narrows the read', () => {
+    expect(compile(itemsAggregateQuery(snapshotSource, 'ap', '2026-06-15', undefined)).sql).toContain(HINT)
+    expect(
+      compile(
+        dueTotalsQuery(snapshotSource, 'ap', undefined, undefined, {
+          maxDue: '2026-06-21',
+        }),
+      ).sql,
+    ).toContain(HINT)
+  })
+
+  it('is left out when a location slice or an invoice slice narrows the read', () => {
+    expect(compile(itemsAggregateQuery(snapshotSource, 'ap', '2026-06-15', ['1'])).sql).not.toContain('FORCE INDEX')
+    expect(
+      compile(
+        dueTotalsQuery(snapshotSource, 'ap', ['1'], undefined, {
+          maxDue: '2026-06-21',
+        }),
+      ).sql,
+    ).not.toContain('FORCE INDEX')
+    expect(
+      compile(
+        dueTotalsQuery(snapshotSource, 'ap', undefined, ['5'], {
+          maxDue: '2026-06-21',
+        }),
+      ).sql,
+    ).not.toContain('FORCE INDEX')
+  })
+
+  it('is left out for a month-end history and for the payments table', () => {
+    expect(compile(itemsAggregateQuery(historySource('2026-05-31'), 'ap', '2026-05-31', undefined)).sql).not.toContain(
+      'FORCE INDEX',
+    )
+    expect(compile(paymentsAggregateQuery(snapshotSource, 'ap', '2026-06-15', undefined)).sql).not.toContain(
+      'FORCE INDEX',
+    )
+  })
+
+  it('reaches the account-list query of the open table only', async () => {
+    rowsMock.mockResolvedValue([])
+    await snapshotAgingAggregates('ap', '2026-06-15', 'all')
+    const texts = rowsMock.mock.calls.map((call) => compile(call[0] as SQL).sql)
+    const coaOfOpen = texts.find((t) => t.includes('DISTINCT') && t.includes('dash_snap_ap_ar_open'))
+    const coaOfUnallocated = texts.find((t) => t.includes('DISTINCT') && t.includes('dash_snap_ap_ar_unallocated'))
+    expect(coaOfOpen).toContain('FORCE INDEX (PRIMARY)')
+    expect(coaOfUnallocated).not.toContain('FORCE INDEX')
+  })
+})

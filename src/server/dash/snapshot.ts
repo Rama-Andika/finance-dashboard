@@ -1,6 +1,11 @@
 import '@tanstack/react-start/server-only'
 import { toInt } from '~/server/db/convert'
-import { toAgingInvoice, toAgingUnallocated, type AgingInvoiceDbRow, type AgingUnallocatedDbRow } from '~/server/repo/ap-ar/rows'
+import {
+  toAgingInvoice,
+  toAgingUnallocated,
+  type AgingInvoiceDbRow,
+  type AgingUnallocatedDbRow,
+} from '~/server/repo/ap-ar/rows'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { AGING_SIDES, type AgingSide } from '~/server/db/erp-codes'
@@ -10,6 +15,7 @@ import type { AgingInvoice, AgingUnallocated } from '~/server/repo/ap-ar/types'
 import { env } from '~/server/env'
 import type { SnapshotProblem } from '~/lib/finance/ap-ar/snapshot-state'
 import { DASH_TABLES, SNAPSHOT_AP_AR } from './tables'
+import { FULL_SCAN_HINT } from '~/server/dash/scan-hint'
 import { dashLog } from './log'
 import { errorText } from '~/server/log'
 
@@ -68,7 +74,9 @@ export async function apArSnapshotInfo(): Promise<SnapshotInfo | null> {
       tablesMissing = true
       if (!warnedMissing) {
         warnedMissing = true
-        dashLog.warn(`snapshot tables are not available (${errorText(error)}); using the slow live ERP queries. Run "npm run db:dash:migrate".`)
+        dashLog.warn(
+          `snapshot tables are not available (${errorText(error)}); using the slow live ERP queries. Run "npm run db:dash:migrate".`,
+        )
       }
       return null
     }
@@ -96,18 +104,24 @@ const SNAPSHOT_MEMO_TTL_MS = 6 * 60 * 60 * 1000
 
 type Side = AgingSide
 
-async function readOpenInvoices<K extends 'vendorId' | 'customerId'>(side: Side, partyKey: K): Promise<Array<Omit<AgingInvoice, 'partyId'> & Record<K, Id>>> {
+async function readOpenInvoices<K extends 'vendorId' | 'customerId'>(
+  side: Side,
+  partyKey: K,
+): Promise<Array<Omit<AgingInvoice, 'partyId'> & Record<K, Id>>> {
   const res = await rows<AgingInvoiceDbRow>(sql`
     SELECT card_id AS invoiceId, party_id AS partyId, location_id AS locationId, coa_id AS coaId,
            tx_date AS txDate, due_date AS dueDate, item_type AS itemType,
            invoice_number AS invoiceNumber, original_amount AS originalAmount, balance AS balance
-    FROM ${sql.identifier(DASH_TABLES.apArOpen)}
+    FROM ${sql.identifier(DASH_TABLES.apArOpen)} ${FULL_SCAN_HINT}
     WHERE module_type = ${AGING_SIDES[side].module}
   `)
   return res.map((r) => toAgingInvoice(r, partyKey))
 }
 
-async function readUnallocated<K extends 'vendorId' | 'customerId'>(side: Side, partyKey: K): Promise<Array<Omit<AgingUnallocated, 'partyId'> & Record<K, Id>>> {
+async function readUnallocated<K extends 'vendorId' | 'customerId'>(
+  side: Side,
+  partyKey: K,
+): Promise<Array<Omit<AgingUnallocated, 'partyId'> & Record<K, Id>>> {
   const res = await rows<AgingUnallocatedDbRow>(sql`
     SELECT card_id AS cardId, party_id AS partyId, location_id AS locationId, coa_id AS coaId,
            tx_date AS txDate, balance AS balance
@@ -131,7 +145,9 @@ export async function snapshotOpenInvoices<K extends 'vendorId' | 'customerId'>(
 ): Promise<Array<Omit<AgingInvoice, 'partyId'> & Record<K, Id>>> {
   if (locIds !== 'all' && locIds.length === 0) return []
   const info = await apArSnapshotInfo()
-  const all = await memo(`snap:open:${side}:${partyKey}:${info?.refreshedAt ?? 'none'}`, SNAPSHOT_MEMO_TTL_MS, () => readOpenInvoices(side, partyKey))
+  const all = await memo(`snap:open:${side}:${partyKey}:${info?.refreshedAt ?? 'none'}`, SNAPSHOT_MEMO_TTL_MS, () =>
+    readOpenInvoices(side, partyKey),
+  )
   return byLocation(all, locIds)
 }
 
@@ -142,7 +158,9 @@ export async function snapshotUnallocated<K extends 'vendorId' | 'customerId'>(
 ): Promise<Array<Omit<AgingUnallocated, 'partyId'> & Record<K, Id>>> {
   if (locIds !== 'all' && locIds.length === 0) return []
   const info = await apArSnapshotInfo()
-  const all = await memo(`snap:unalloc:${side}:${partyKey}:${info?.refreshedAt ?? 'none'}`, SNAPSHOT_MEMO_TTL_MS, () => readUnallocated(side, partyKey))
+  const all = await memo(`snap:unalloc:${side}:${partyKey}:${info?.refreshedAt ?? 'none'}`, SNAPSHOT_MEMO_TTL_MS, () =>
+    readUnallocated(side, partyKey),
+  )
   return byLocation(all, locIds)
 }
 

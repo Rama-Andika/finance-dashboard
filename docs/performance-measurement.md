@@ -166,14 +166,14 @@ Satu proses, tiga tahap berurutan. Beban "halaman Summary" = lima metrik sekalig
 
 Probe sementara (sudah dihapus), tiga putaran per angka, tanpa dev server. Tanggal acuan = hari snapshot AP/AR (2026-11-05), supaya yang dilayani snapshot, bukan query langsung ke ERP. "Jalur lama" = memuat daftar tagihan lalu menghitung di Node; "dingin" = daftar belum ada di memori (server baru menyala), "hangat" = daftar sudah di memori (keadaan setelah `warmApArSnapshot`). Milidetik, angka tengah:
 
-| Bagian | Jalur lama dingin | Jalur lama hangat | Jalur agregat (SQL) |
-| --- | --- | --- | --- |
-| Aging AP, semua entitas | 6.986 | 715 | **15.665** |
-| Aging AP, satu entitas | 5.357 | 11 | **31** |
-| Aging AR, semua entitas | 85 | 7 | 35 |
-| Aging AR, satu entitas | 92 | 0 | 4 |
-| Ringkasan Payment Plan, semua entitas (total, tanpa cache metrik) | 10.139 | 526 | 9.911 (hangat: **6.028**) |
-| Ringkasan Payment Plan, satu entitas | 7.850 | 25 | 3.254 (hangat: 251) |
+| Bagian                                                            | Jalur lama dingin | Jalur lama hangat | Jalur agregat (SQL)       |
+| ----------------------------------------------------------------- | ----------------- | ----------------- | ------------------------- |
+| Aging AP, semua entitas                                           | 6.986             | 715               | **15.665**                |
+| Aging AP, satu entitas                                            | 5.357             | 11                | **31**                    |
+| Aging AR, semua entitas                                           | 85                | 7                 | 35                        |
+| Aging AR, satu entitas                                            | 92                | 0                 | 4                         |
+| Ringkasan Payment Plan, semua entitas (total, tanpa cache metrik) | 10.139            | 526               | 9.911 (hangat: **6.028**) |
+| Ringkasan Payment Plan, satu entitas                              | 7.850             | 25                | 3.254 (hangat: 251)       |
 
 - **Untuk filter semua entitas, jalur agregat lebih lambat daripada jalur lama yang hangat** (aging AP 15,7 detik lawan 0,7 detik; Payment Plan hangat 6,0 detik lawan 0,5 detik). Angkanya stabil antar-putaran (14,4 sampai 17,4 detik), jadi bukan noise. Penyebabnya bukan jumlah query atau tabel turunan, tetapi pilihan indeks (lihat §11.1).
 - **Untuk satu entitas jalur agregat jauh lebih cepat dari jalur lama dingin** (aging AP 5,4 detik menjadi 31 milidetik; Payment Plan 7,9 detik menjadi 3,3 detik, sisanya posisi kas) karena memakai indeks `module_type, location_id, due_date`.
@@ -185,13 +185,13 @@ Probe sementara (sudah dihapus), tiga putaran per angka, tanpa dev server. Tangg
 
 Tabel `dash_snap_ap_ar_open`, sisi AP: sekitar 155 ribu baris. Query tanpa filter entitas (`WHERE module_type = ?` saja) dijalankan sendiri-sendiri, tiga kali, milidetik (median). `EXPLAIN` menunjukkan optimizer memilih indeks `idx_dash_open_mod_party` (`type: ref`, perkiraan 65.780 baris) yang tidak mencakup kolom lain, sehingga tiap baris diambil lewat kunci utama satu per satu. Dengan `IGNORE INDEX` ia memindai tabel berurutan (`type: ALL`).
 
-| Query | Indeks default | Dengan `IGNORE INDEX` |
-| --- | --- | --- |
-| Pindai polos (`SUM(balance)`) | 4.199 | **345** |
-| Pembaca daftar tagihan jalur lama (162.865 baris, semua kolom) | 4.804 | **750** |
-| Aging AP per pihak (bucket dengan batas tanggal) | 10.945 | **1.682** |
-| Total per tanggal jatuh tempo | 4.599 | **664** |
-| Daftar akun kontrol (`DISTINCT coa_id`) | 4.229 | **403** |
+| Query                                                          | Indeks default | Dengan `IGNORE INDEX` |
+| -------------------------------------------------------------- | -------------- | --------------------- |
+| Pindai polos (`SUM(balance)`)                                  | 4.199          | **345**               |
+| Pembaca daftar tagihan jalur lama (162.865 baris, semua kolom) | 4.804          | **750**               |
+| Aging AP per pihak (bucket dengan batas tanggal)               | 10.945         | **1.682**             |
+| Total per tanggal jatuh tempo                                  | 4.599          | **664**               |
+| Daftar akun kontrol (`DISTINCT coa_id`)                        | 4.229          | **403**               |
 
 - **Biaya utama adalah pengambilan baris lewat indeks yang salah**, bukan perhitungan: pindai polos saja sudah 4,2 detik (sekitar 6,7 detik sisanya untuk bucket pada query aging). Menulis bucket sebagai batas tanggal (tanpa `DATEDIFF`) tidak mengubah apa pun pada indeks default (10,9 detik lawan 10,8 detik), jadi `DATEDIFF` bukan penyebab. Tabel turunan juga bukan penyebabnya (versi tanpa tabel turunan 13,2 detik, sedikit lebih lambat).
 - **Pembaca jalur lama ikut terkena**: memuat daftar tagihan (dipakai `warmApArSnapshot`, tabel tagihan, drill-down) memakan 4,8 detik dan turun ke 0,75 detik dengan petunjuk yang sama. Jadi temuan ini berlaku di luar Phase 4.
@@ -199,22 +199,75 @@ Tabel `dash_snap_ap_ar_open`, sisi AP: sekitar 155 ribu baris. Query tanpa filte
 - Empat query aging yang berjalan bersamaan memakan 13,0 detik (bukan jumlah 22 detik; sebagian tumpang tindih). Setelah petunjuk indeks, perkiraan total aging AP semua entitas sekitar 2 detik. Itu **perkiraan dari angka di atas, belum diukur**, dan masih di atas 0,7 detik jalur lama hangat; selisihnya dibayar sekali per snapshot karena hasilnya di-cache selama snapshot yang sama.
 - Batas: MariaDB 10.4 pada satu mesin; MySQL 5.7 produksi mungkin sudah memilih pemindaian tabel sendiri, atau tidak. `IGNORE INDEX` sah di kedua versi dan membuat pilihan itu pasti, tetapi nama indeks harus tetap sama dengan skema. Tabel riwayat (`dash_snap_ap_ar_hist_*`) belum diperiksa.
 
+## 12. Hasil sesudah petunjuk indeks (Phase 5), DB lokal `demo`, 2026-11-05
+
+Probe sementara (sudah dihapus), tiga putaran per angka, tanggal acuan hari snapshot (2026-11-05). Tes paritas `ap-ar-aggregate` tetap lulus (hasil identik) dan turun dari 97 detik menjadi 6 detik.
+
+**Bentuk petunjuk (sisi AP, semua entitas, milidetik):**
+
+| Query                                  | Indeks default | `FORCE INDEX (PRIMARY)` | `IGNORE INDEX (sekunder)` |
+| -------------------------------------- | -------------- | ----------------------- | ------------------------- |
+| Pindai polos                           | 3.538          | **386**                 | 393                       |
+| Pembaca daftar tagihan (162.865 baris) | 4.293          | **761**                 | 735                       |
+
+`FORCE INDEX (PRIMARY)` sama cepatnya dengan `IGNORE INDEX` dan `EXPLAIN` menunjukkan `type: ALL` (pemindaian tabel). Bentuk `PRIMARY` yang dipakai kode sudah terbukti.
+
+**Sebelum (§11) dan sesudah Phase 5, milidetik, angka tengah:**
+
+| Bagian                                        | Jalur lama dingin | Jalur lama hangat | Agregat SQL sebelum  | Agregat SQL sesudah      |
+| --------------------------------------------- | ----------------- | ----------------- | -------------------- | ------------------------ |
+| Aging AP, semua entitas                       | 6.986 → **1.411** | 715 → 583         | 15.665               | **2.236**                |
+| Aging AP, satu entitas                        | 5.357 → 875       | 11 → 5            | 31                   | 9                        |
+| Ringkasan Payment Plan, semua entitas (total) | 10.139 → 3.718    | 526 → 361         | 9.911 (hangat 6.028) | 3.889 (hangat **1.711**) |
+| Ringkasan Payment Plan, satu entitas          | 7.850 → 3.262     | 25 → 12           | 3.254 (hangat 251)   | 2.608 (hangat 126)       |
+
+- **Petunjuk bekerja seperti diperkirakan.** Agregat aging AP semua entitas turun sekitar 7 kali (15,7 menjadi 2,2 detik), pembaca daftar tagihan sekitar 5,6 kali (4,3 menjadi 0,76 detik), pindai polos sekitar 9 kali. Ringkasan Payment Plan hangat turun sekitar 3,5 kali (6,0 menjadi 1,7 detik); sisanya adalah tiga pemindaian ditambah AR.
+- **Jalur lama ikut menjadi lebih cepat** karena pembaca daftarnya sama: memuat daftar tagihan sekarang sekitar 1,4 detik, bukan 7 detik. Itu juga mempercepat `warmApArSnapshot` setelah tiap refresh.
+- **Untuk semua entitas agregat SQL tetap lebih lambat daripada jalur lama yang hangat** (aging AP 2,2 detik lawan 0,6 detik; Payment Plan hangat 1,7 detik lawan 0,4 detik). Selisihnya dibayar sekali per snapshot (aging di-cache selama snapshot yang sama) atau sekali per masa cache metrik (Payment Plan). Untuk satu entitas agregat sudah setara atau lebih cepat (aging AP 9 ms).
+- **Yang masih tidak terukur:** memori. Agregat SQL baru menghemat memori bila `warmApArSnapshot` berhenti memuat keempat daftar tagihan; selama masih dimuat, memori tidak berkurang dan jalur agregat hanya membuat permintaan semua entitas sedikit lebih lambat daripada jalur lama hangat. Pada data sebesar produksi (jutaan baris) hitungan itu bisa berbalik, karena memuat daftar penuh makin mahal; ini belum diukur.
+- Batas: satu mesin, MariaDB 10.4; MySQL 5.7 produksi bisa memilih rencana lain (petunjuk membuat pilihannya pasti). Tabel riwayat tidak diubah dan tidak diukur.
+
+## 13. Biaya `warmApArSnapshot`: memori dan jeda event loop, DB lokal `demo`, 2026-11-05
+
+Probe sementara (sudah dihapus), Node dengan `--expose-gc` supaya heap diukur sesudah pembersihan memori. Empat daftar yang dimuat `warmApArSnapshot` setelah tiap snapshot dibangun. Jeda event loop diukur dengan `monitorEventLoopDelay` (resolusi 5 ms) selama warm-up berjalan.
+
+| Daftar                      | Baris   | Waktu muat | Heap                                   |
+| --------------------------- | ------- | ---------- | -------------------------------------- |
+| Tagihan terbuka AP          | 162.865 | 725 ms     | **+78,9 MB**                           |
+| Pembayaran tanpa alokasi AP | 145     | 5 ms       | kecil                                  |
+| Tagihan terbuka AR          | 1.467   | 358 ms     | +0,8 MB                                |
+| Pembayaran tanpa alokasi AR | 41      | 3 ms       | kecil                                  |
+| **Keempatnya tersimpan**    |         |            | **78 MB** (dasar 18 MB sebelum dimuat) |
+
+| Warm-up penuh (tiga putaran) | Lama   | Jeda event loop maks / p99 |
+| ---------------------------- | ------ | -------------------------- |
+| 1                            | 600 ms | 13 ms / 11 ms              |
+| 2                            | 601 ms | 26 ms / 12 ms              |
+| 3                            | 689 ms | 12 ms / 11 ms              |
+
+- **Waktunya murah.** Warm-up penuh sekitar 0,6 sampai 0,7 detik dan event loop tidak terblokir lama (jeda terbesar 26 ms). Jadi warm-up bukan penyebab request melambat; biaya yang nyata adalah memori.
+- **Memori: sekitar 0,49 KB per baris tagihan** (78,9 MB untuk 162.865 baris). Angka kecil di baris pembayaran bukan pengukuran yang sahih (selisih heap bisa negatif karena sampah dari langkah sebelumnya ikut terbersihkan).
+- **Ekstrapolasi linear, belum diukur:** satu juta baris tagihan AP sekitar 0,5 GB, lima juta sekitar 2,4 GB, ditambah bobot cache metrik dan daftar tagihan Payment Plan (`plan.bills`) yang dibangun darinya, yang tidak diukur di sini. Batas heap Node (`--max-old-space-size`) dan batas bobot memo (1,5 juta baris untuk seluruh cache) menentukan titik tak aman; keduanya perlu dicek terhadap volume klien sebenarnya.
+- Batas: satu mesin, satu bentuk data demo (hampir semua baris AP, AR sangat kecil); jumlah entitas dan kolom teks panjang pada data klien bisa mengubah ukuran per baris.
+
 ## Riwayat Perubahan
 
-| Tanggal    | Perubahan                                                                                                                                                                                                                                                                |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2026-11-04 | Dokumen dibuat bersama alat ukur: `PERF_LOG`, `SLOW_QUERY_MS`, probe Summary                                                                                                                                                                                             |
-| 2026-11-04 | §7: hasil pengukuran pertama di DB lokal `demo` (probe Summary, tiga preset)                                                                                                                                                                                             |
-| 2026-11-04 | Phase 1A: snapshot GL memakai sidik jari periode dan pembangunan ulang otomatis bila periode dibuka-tutup ulang                                                                                                                                                          |
-| 2026-11-04 | Phase 1B: snapshot baris jurnal kas (dash_snap_cash_lines) untuk mempercepat runway dan Cash Flow                                                                                                                                                                        |
-| 2026-11-04 | Phase 2: cache SWR (`METRIC_FRESH_SECONDS`, `METRIC_STALE_SECONDS`), Summary bertahap, dan pelacakan via PERF_LOG                                                                                                                                                        |
-| 2026-11-04 | Default `METRIC_STALE_SECONDS` diturunkan dari 600 ke 180 detik: angka yang dijawab dari cache paling lama sekitar 4 menit lebih tua (60 detik segar + 180 detik masa basi), sehingga selisih kartu dan drill-down lebih kecil. Tidak ada rumus atau query yang berubah. |
-| 2026-11-04 | §9: hasil probe sesudah Phase 1B dan Phase 2 (`last-month` dan `ytd`): `ytd` hangat 177 → 56 detik, `ytd` Cash Flow dingin 180 → 87 detik, `runway` 55 → 33–36 detik; `last-month` Cash Flow dingin tidak membaik (15,8 vs 9–11 detik); target milidetik belum tercapai. |
-| 2026-11-04 | §9: volume snapshot kas diukur (5,09 juta baris, 146–178 ribu baris per bulan); dugaan "jutaan baris dipindahkan" dikoreksi: kecepatan baca hanya 20–40 ribu baris per detik, dugaan baru adalah join `DISTINCT` yang tidak perlu untuk filter semua entitas.            |
-| 2026-11-04 | §9: hasil sesudah join `DISTINCT` dihapus untuk filter semua entitas: query baca snapshot kas 2–3 kali lebih cepat, Cash Flow `ytd` dingin 87 → 61 detik, `runway` 33–36 → 23 detik, total hangat `ytd` tetap 56 detik (sisa waktu ada di pengolahan Node).              |
-| 2026-11-04 | §9: hasil sesudah jalur cepat uang dua desimal di pembacaan snapshot kas: `ytd` hangat 56 → 33 detik, Cash Flow `ytd` dingin 62 → 32 detik, `runway` 23 → 18 detik; dibanding baseline Phase 0 sekitar 3–6 kali lebih cepat.                                             |
-| 2026-11-05 | Phase 3: pool koneksi terpisah untuk refresh snapshot (`DASH_POOL_SIZE`, default 2), tidak lagi menahan koneksi pool utama                                                                                                                                               |
-| 2026-11-05 | §10: uji A/B pool refresh terpisah: median beban halaman saat refresh 27,6 detik (terpisah) vs 28,9 detik (bersama) vs 25,8 detik tanpa refresh; efek kecil (sekitar 4–5%), antrean koneksi hampir sama (45 vs 48).                                                      |
-| 2026-11-05 | Phase 4: aging AP/AR dan ringkasan Payment Plan diagregasi langsung di SQL (`dash_snap_ap_ar_*` dan `dash_snap_ap_ar_hist_*`); memori Node tidak lagi memuat 160k+ baris tagihan terbuka; tes paritas unit dan integrasi (D47).                                          |
-| 2026-11-05 | §11: pengukuran Phase 4 (agregasi AP/AR di SQL): satu entitas jauh lebih cepat (aging AP 5,4 detik menjadi 31 ms), tetapi semua entitas lebih lambat daripada jalur lama yang hangat (15,7 detik lawan 0,7 detik); penyebab belum dibuktikan. |
-| 2026-11-05 | §11.1: diagnosis Phase 4: penyebab lambatnya agregasi semua entitas adalah optimizer memilih indeks sekunder yang tidak mencakup kolom (pindai 4,2 detik lawan 0,35 detik dengan `IGNORE INDEX`); pembaca daftar tagihan jalur lama ikut terkena (4,8 detik lawan 0,75 detik). Belum ada kode yang diubah. |
+| Tanggal    | Perubahan                                                                                                                                                                                                                                                                                                                       |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-04 | Dokumen dibuat bersama alat ukur: `PERF_LOG`, `SLOW_QUERY_MS`, probe Summary                                                                                                                                                                                                                                                    |
+| 2026-11-04 | §7: hasil pengukuran pertama di DB lokal `demo` (probe Summary, tiga preset)                                                                                                                                                                                                                                                    |
+| 2026-11-04 | Phase 1A: snapshot GL memakai sidik jari periode dan pembangunan ulang otomatis bila periode dibuka-tutup ulang                                                                                                                                                                                                                 |
+| 2026-11-04 | Phase 1B: snapshot baris jurnal kas (dash_snap_cash_lines) untuk mempercepat runway dan Cash Flow                                                                                                                                                                                                                               |
+| 2026-11-04 | Phase 2: cache SWR (`METRIC_FRESH_SECONDS`, `METRIC_STALE_SECONDS`), Summary bertahap, dan pelacakan via PERF_LOG                                                                                                                                                                                                               |
+| 2026-11-04 | Default `METRIC_STALE_SECONDS` diturunkan dari 600 ke 180 detik: angka yang dijawab dari cache paling lama sekitar 4 menit lebih tua (60 detik segar + 180 detik masa basi), sehingga selisih kartu dan drill-down lebih kecil. Tidak ada rumus atau query yang berubah.                                                        |
+| 2026-11-04 | §9: hasil probe sesudah Phase 1B dan Phase 2 (`last-month` dan `ytd`): `ytd` hangat 177 → 56 detik, `ytd` Cash Flow dingin 180 → 87 detik, `runway` 55 → 33–36 detik; `last-month` Cash Flow dingin tidak membaik (15,8 vs 9–11 detik); target milidetik belum tercapai.                                                        |
+| 2026-11-04 | §9: volume snapshot kas diukur (5,09 juta baris, 146–178 ribu baris per bulan); dugaan "jutaan baris dipindahkan" dikoreksi: kecepatan baca hanya 20–40 ribu baris per detik, dugaan baru adalah join `DISTINCT` yang tidak perlu untuk filter semua entitas.                                                                   |
+| 2026-11-04 | §9: hasil sesudah join `DISTINCT` dihapus untuk filter semua entitas: query baca snapshot kas 2–3 kali lebih cepat, Cash Flow `ytd` dingin 87 → 61 detik, `runway` 33–36 → 23 detik, total hangat `ytd` tetap 56 detik (sisa waktu ada di pengolahan Node).                                                                     |
+| 2026-11-04 | §9: hasil sesudah jalur cepat uang dua desimal di pembacaan snapshot kas: `ytd` hangat 56 → 33 detik, Cash Flow `ytd` dingin 62 → 32 detik, `runway` 23 → 18 detik; dibanding baseline Phase 0 sekitar 3–6 kali lebih cepat.                                                                                                    |
+| 2026-11-05 | Phase 3: pool koneksi terpisah untuk refresh snapshot (`DASH_POOL_SIZE`, default 2), tidak lagi menahan koneksi pool utama                                                                                                                                                                                                      |
+| 2026-11-05 | §10: uji A/B pool refresh terpisah: median beban halaman saat refresh 27,6 detik (terpisah) vs 28,9 detik (bersama) vs 25,8 detik tanpa refresh; efek kecil (sekitar 4–5%), antrean koneksi hampir sama (45 vs 48).                                                                                                             |
+| 2026-11-05 | Phase 4: aging AP/AR dan ringkasan Payment Plan diagregasi langsung di SQL (`dash_snap_ap_ar_*` dan `dash_snap_ap_ar_hist_*`); memori Node tidak lagi memuat 160k+ baris tagihan terbuka; tes paritas unit dan integrasi (D47).                                                                                                 |
+| 2026-11-05 | §11: pengukuran Phase 4 (agregasi AP/AR di SQL): satu entitas jauh lebih cepat (aging AP 5,4 detik menjadi 31 ms), tetapi semua entitas lebih lambat daripada jalur lama yang hangat (15,7 detik lawan 0,7 detik); penyebab belum dibuktikan.                                                                                   |
+| 2026-11-05 | §11.1: diagnosis Phase 4: penyebab lambatnya agregasi semua entitas adalah optimizer memilih indeks sekunder yang tidak mencakup kolom (pindai 4,2 detik lawan 0,35 detik dengan `IGNORE INDEX`); pembaca daftar tagihan jalur lama ikut terkena (4,8 detik lawan 0,75 detik). Belum ada kode yang diubah.                      |
+| 2026-11-05 | §12: hasil Phase 5 (petunjuk indeks): `FORCE INDEX (PRIMARY)` sama cepatnya dengan `IGNORE INDEX`; aging AP semua entitas 15,7 menjadi 2,2 detik, pembaca daftar tagihan 4,3 menjadi 0,76 detik, Payment Plan hangat 6,0 menjadi 1,7 detik; agregat semua entitas masih lebih lambat daripada jalur lama hangat. Paritas lulus. |
+| 2026-11-05 | §13: biaya `warmApArSnapshot`: sekitar 0,6 sampai 0,7 detik, jeda event loop maksimum 26 ms; memori sekitar 79 MB untuk 162.865 baris tagihan AP (sekitar 0,49 KB per baris), ekstrapolasi linear belum diukur.                                                                                                                 |

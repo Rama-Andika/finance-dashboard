@@ -11,6 +11,7 @@ import { AGING_BUCKETS, AGING_BUCKET_DAYS, NON_TRADE_ITEM_TYPE, type AgingBucket
 import { mergeAgingAggregates, type AgingAggregates, type BucketAmounts } from '~/lib/finance/ap-ar/aging-aggregate'
 import type { Id, IsoDate, Money } from '~/lib/core/types'
 import { DASH_TABLES } from './tables'
+import { fullScanHint } from './scan-hint'
 
 /**
  * Aging figures and due-date totals summed by the database from the snapshot tables, so a request never has to load
@@ -59,7 +60,7 @@ export function itemsAggregateQuery(
     FROM (
       SELECT party_id AS partyId, balance AS balance, item_type AS itemType,
              DATEDIFF(${asOf}, COALESCE(due_date, tx_date)) AS days
-      FROM ${sql.identifier(source.open)}
+      FROM ${sql.identifier(source.open)} ${fullScanHint(source.day, locSlice !== undefined)}
       WHERE module_type = ${AGING_SIDES[side].module}
         ${dayFilter(source)}
         ${locationSlice(locSlice)}
@@ -92,7 +93,7 @@ export function paymentsAggregateQuery(
 function coaIdsQuery(table: string, source: AggregateSource, side: AgingSide, locSlice: Id[] | undefined): SQL {
   return sql`
     SELECT DISTINCT coa_id AS coaId
-    FROM ${sql.identifier(table)}
+    FROM ${sql.identifier(table)} ${table === source.open ? fullScanHint(source.day, locSlice !== undefined) : sql``}
     WHERE module_type = ${AGING_SIDES[side].module}
       AND coa_id IS NOT NULL
       ${dayFilter(source)}
@@ -189,7 +190,7 @@ export function dueTotalsQuery(
     SELECT t.dueDate AS dueDate, SUM(t.balance) AS total
     FROM (
       SELECT COALESCE(due_date, tx_date) AS dueDate, balance AS balance
-      FROM ${sql.identifier(source.open)}
+      FROM ${sql.identifier(source.open)} ${fullScanHint(source.day, locSlice !== undefined || idSlice !== undefined)}
       WHERE module_type = ${AGING_SIDES[side].module}
         AND balance > 0
         ${dayFilter(source)}

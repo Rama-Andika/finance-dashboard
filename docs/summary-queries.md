@@ -311,11 +311,13 @@ Urutan sumber data (`agingInvoices` / `agingUnallocated`):
 
 `src/server/dash/snapshot.ts` · `readOpenInvoices`. Seluruh sisi AP dibaca sekali per generasi snapshot, lalu disaring entitas di memori.
 
+Petunjuk indeks: untuk membaca seluruh satu sisi tabel tanpa filter entitas, database dipaksa memindai tabel berurutan (`FORCE INDEX (PRIMARY)`) karena optimizer sebaliknya memilih indeks sekunder non-covering yang membuat pembacaan 6 sampai 10 kali lebih lambat. Bila ada filter entitas atau id tagihan, petunjuk ini tidak dipakai agar indeks sekunder dapat bekerja normal.
+
 ```sql
 SELECT card_id AS cardId, party_id AS partyId, location_id AS locationId, coa_id AS coaId,
        tx_date AS txDate, due_date AS dueDate, item_type AS itemType,
        invoice_number AS invoiceNumber, original_amount AS originalAmount, balance AS balance
-FROM dash_snap_ap_ar_open
+FROM dash_snap_ap_ar_open FORCE INDEX (PRIMARY)
 WHERE module_type = 0;          -- 0 = AP, 1 = AR
 ```
 
@@ -353,7 +355,7 @@ SELECT a.partyId AS partyId,
 FROM (
   SELECT party_id AS partyId, balance AS balance, item_type AS itemType,
          DATEDIFF(:asOf, COALESCE(due_date, tx_date)) AS days
-  FROM dash_snap_ap_ar_open
+  FROM dash_snap_ap_ar_open FORCE INDEX (PRIMARY)
   WHERE module_type = 0  -- 0 = AP, 1 = AR
     -- AND as_of_date = :day (untuk tabel riwayat hist)
     -- AND location_id IN (:locSlice)
@@ -387,7 +389,7 @@ Query akun kontrol (`src/server/dash/snapshot-aggregate.ts` · `coaIdsQuery`):
 
 ```sql
 SELECT DISTINCT coa_id AS coaId
-FROM dash_snap_ap_ar_open
+FROM dash_snap_ap_ar_open FORCE INDEX (PRIMARY)
 WHERE module_type = 0
   AND coa_id IS NOT NULL
   -- AND as_of_date = :day
@@ -400,7 +402,7 @@ Query total per tanggal jatuh tempo (Payment Plan, `src/server/dash/snapshot-agg
 SELECT t.dueDate AS dueDate, SUM(t.balance) AS total
 FROM (
   SELECT COALESCE(due_date, tx_date) AS dueDate, balance AS balance
-  FROM dash_snap_ap_ar_open
+  FROM dash_snap_ap_ar_open FORCE INDEX (PRIMARY)
   WHERE module_type = 0
     AND balance > 0
     -- AND as_of_date = :day
@@ -876,3 +878,4 @@ WHERE table_schema = DATABASE()
 | 2026-11-04 | Default `METRIC_STALE_SECONDS` diturunkan dari 600 ke 180 detik: angka yang dijawab dari cache paling lama sekitar 4 menit lebih tua (60 detik segar + 180 detik masa basi), sehingga selisih kartu dan drill-down lebih kecil. Tidak ada rumus atau query yang berubah.                                                                                                                                                                                                                                                                                                                                        |
 | 2026-11-04 | Snapshot kas: untuk filter semua entitas, query baca `dash_snap_cash_lines` tidak lagi memakai join `DISTINCT` (setiap jurnal di snapshot sudah pasti punya baris kas); join tetap dipakai untuk filter entitas. Hasil sama; SQL di bagian Q20 diperbarui.                                                                                                                                                                                                                                                                                                                                                      |
 | 2026-11-05 | Phase 4 performa: subbagian "Aging dijumlahkan di SQL dari snapshot" ditambahkan (`itemsAggregateQuery`, `paymentsAggregateQuery`, `coaIdsQuery`, `dueTotalsQuery`). Aging AP/AR dan ringkasan Payment Plan dijumlahkan langsung oleh database dari tabel snapshot (`dash_snap_ap_ar_*` dan `dash_snap_ap_ar_hist_*`) dengan query pivot per pihak dan per tanggal jatuh tempo berbasis `AGING_BUCKET_DAYS`; memori Node tidak lagi memuat ratusan ribu baris tagihan terbuka; fallback otomatis ke cara lama bila tanggal di luar cakupan snapshot; Summary tidak lagi menjalankan Payment Plan sejak Phase 2. |
+| 2026-11-05 | Phase 5 performa: petunjuk indeks `FORCE INDEX (PRIMARY)` ditambahkan pada pembacaan penuh satu sisi `dash_snap_ap_ar_open` tanpa filter (Q14, `itemsAggregateQuery`, `coaIdsQuery`, `dueTotalsQuery`); mencegah optimizer memilih indeks sekunder non-covering yang lambat; query dengan filter entitas/id tagihan dan tabel riwayat tetap tanpa petunjuk (D48).                                                                                                                                                                                                                                               |
