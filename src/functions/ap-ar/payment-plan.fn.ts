@@ -1,14 +1,8 @@
 import { createServerFn } from '@tanstack/react-start'
 import { authMiddleware } from '~/functions/middleware'
-import {
-  metricInputSchema,
-  paymentPlanSearchSchema,
-} from '~/lib/filters/search-schema'
+import { metricInputSchema, paymentPlanSearchSchema } from '~/lib/filters/search-schema'
 import { resolveFilter } from '~/server/context'
-import {
-  computePaymentPlan,
-  type PaymentPlanResult,
-} from '~/server/services/ap-ar/payment-plan.service'
+import { computePaymentPlanSummary, type PaymentPlanResult } from '~/server/services/ap-ar/payment-plan.service'
 
 const inputSchema = metricInputSchema.extend(paymentPlanSearchSchema.shape)
 
@@ -23,9 +17,8 @@ export const getPaymentPlanFn = createServerFn({ method: 'GET' })
   .validator((d: unknown) => inputSchema.parse(d))
   .handler(async ({ data }): Promise<PaymentPlanSummary> => {
     const filter = await resolveFilter(data)
-    const { bills: _bills, ...summary } = await computePaymentPlan(filter, {
+    return computePaymentPlanSummary(filter, {
       horizon: data.horizon,
       inflow: data.inflow,
     })
-    return summary
   })

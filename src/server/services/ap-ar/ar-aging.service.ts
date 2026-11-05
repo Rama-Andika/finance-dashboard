@@ -1,14 +1,12 @@
 import '@tanstack/react-start/server-only'
 import type { Id, MetricMeta, Money } from '~/lib/core/types'
 import type { AppContextFilter } from '~/server/context'
-import { arOpenInvoices, arUnallocatedReceipts } from '~/server/repo/ap-ar/aging.repo'
+import { agingAggregates, arOpenInvoices, arUnallocatedReceipts } from '~/server/repo/ap-ar/aging.repo'
 import { listCustomers } from '~/server/repo/ap-ar/party.repo'
 import { createAgingMetric } from '~/server/services/ap-ar/aging-metric'
 import type { AgingReconciliation } from '~/lib/finance/ap-ar/aging-reconciliation'
-import {
-  computeArAging as calculateArAging,
-  type CustomerAgingSummary,
-} from '~/lib/finance/ap-ar/apar'
+import { computeArAging as calculateArAging, type CustomerAgingSummary } from '~/lib/finance/ap-ar/apar'
+import { computeArAgingFromAggregates } from '~/lib/finance/ap-ar/aging-aggregate'
 import type { AgingBucket } from '~/lib/finance/ap-ar/aging'
 
 export type ArAgingResult = {
@@ -38,6 +36,9 @@ const receivables = createAgingMetric({
       new Map((await listCustomers(ids)).map((c) => [c.customerId, { code: c.code, name: c.name }])),
     compute: ({ open, unallocated, asOf, names, tree }) =>
       calculateArAging({ partA: open, partB: unallocated, asOf, customers: names, tree }),
+    aggregates: (asOf, locationIds) => agingAggregates('ar', asOf, locationIds),
+    computeFromAggregates: ({ aggregates, names, tree }) =>
+      computeArAgingFromAggregates({ aggregates, customers: names, tree }),
   },
   toResult: ({ meta, computed, compareTotal, reconciliation }): ArAgingResult => ({
     meta,

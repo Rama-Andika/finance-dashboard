@@ -151,16 +151,53 @@ Pembaca snapshot kas kini mempertahankan teks uang yang sudah berbentuk dua desi
 
 Satu proses, tiga tahap berurutan. Beban "halaman Summary" = lima metrik sekaligus (posisi kas, Revenue, P&L, Cash Flow, runway) untuk rentang 2025-01-01 sampai 2025-09-30, cache dikosongkan tiap putaran. Tahap refresh: refresh AP/AR dipaksa (`force`) berjalan bersamaan dengan beban itu, diulang sampai refresh selesai. "Hari ini" dipin ke tanggal sungguhan. Tes sementara, sudah dihapus.
 
-| Tahap | Beban halaman: median / p90 / maks (detik) | Query mengantre koneksi | Lama refresh |
-| --- | --- | --- | --- |
-| Kontrol (tanpa refresh), 3 putaran | 25,8 / – / 26,5 | – | – |
-| Pool refresh terpisah (Phase 3), 23 putaran | **27,6** / 29,9 / 30,7 | 45 | 647 detik |
-| Pool bersama (sebelum Phase 3), 24 putaran | **28,9** / 30,5 / 30,8 | 48 | 692 detik |
+| Tahap                                       | Beban halaman: median / p90 / maks (detik) | Query mengantre koneksi | Lama refresh |
+| ------------------------------------------- | ------------------------------------------ | ----------------------- | ------------ |
+| Kontrol (tanpa refresh), 3 putaran          | 25,8 / – / 26,5                            | –                       | –            |
+| Pool refresh terpisah (Phase 3), 23 putaran | **27,6** / 29,9 / 30,7                     | 45                      | 647 detik    |
+| Pool bersama (sebelum Phase 3), 24 putaran  | **28,9** / 30,5 / 30,8                     | 48                      | 692 detik    |
 
 - **Arahnya benar tetapi kecil.** Dengan pool terpisah, refresh menambah median beban halaman 1,8 detik (+7%) dibanding kontrol; dengan pool bersama 3,1 detik (+12%). Selisih kedua skenario sekitar 1,3 detik (sekitar 4–5%) dan refresh sendiri selesai 45 detik lebih cepat. Urutan uji sengaja menaruh baseline kedua (pemanasan cache database menguntungkannya), jadi arahnya tidak bisa dijelaskan oleh pemanasan, tetapi ini **satu kali jalan per tahap**, tanpa pengulangan: bacalah sebagai petunjuk, bukan bukti kuat.
 - **Antrean koneksi hampir sama (45 vs 48).** Beban halaman itu sendiri sudah menjenuhkan 5 koneksi pengguna (sekitar 2 antrean per putaran) dengan atau tanpa refresh; yang dihilangkan Phase 3 hanya satu koneksi yang ditahan refresh.
 - **Sisa perlambatan berasal dari server database, bukan dari pool.** Walau refresh memakai koneksi sendiri, beban halaman tetap 7% lebih lambat daripada kontrol: refresh dan pengguna berbagi CPU dan disk database yang sama. Pool terpisah tidak bisa menghilangkannya.
 - **Dampak Phase 3 di produksi** bergantung pada ukuran server database dan jumlah pengguna; angka di atas dari satu mesin lokal dengan MariaDB 10.4 dan satu "pengguna" yang memuat beban berat terus-menerus.
+
+## 11. Hasil agregasi AP/AR di SQL (Phase 4), DB lokal `demo`, 2026-11-05
+
+Probe sementara (sudah dihapus), tiga putaran per angka, tanpa dev server. Tanggal acuan = hari snapshot AP/AR (2026-11-05), supaya yang dilayani snapshot, bukan query langsung ke ERP. "Jalur lama" = memuat daftar tagihan lalu menghitung di Node; "dingin" = daftar belum ada di memori (server baru menyala), "hangat" = daftar sudah di memori (keadaan setelah `warmApArSnapshot`). Milidetik, angka tengah:
+
+| Bagian | Jalur lama dingin | Jalur lama hangat | Jalur agregat (SQL) |
+| --- | --- | --- | --- |
+| Aging AP, semua entitas | 6.986 | 715 | **15.665** |
+| Aging AP, satu entitas | 5.357 | 11 | **31** |
+| Aging AR, semua entitas | 85 | 7 | 35 |
+| Aging AR, satu entitas | 92 | 0 | 4 |
+| Ringkasan Payment Plan, semua entitas (total, tanpa cache metrik) | 10.139 | 526 | 9.911 (hangat: **6.028**) |
+| Ringkasan Payment Plan, satu entitas | 7.850 | 25 | 3.254 (hangat: 251) |
+
+- **Untuk filter semua entitas, jalur agregat lebih lambat daripada jalur lama yang hangat** (aging AP 15,7 detik lawan 0,7 detik; Payment Plan hangat 6,0 detik lawan 0,5 detik). Angkanya stabil antar-putaran (14,4 sampai 17,4 detik), jadi bukan noise. Penyebabnya bukan jumlah query atau tabel turunan, tetapi pilihan indeks (lihat §11.1).
+- **Untuk satu entitas jalur agregat jauh lebih cepat dari jalur lama dingin** (aging AP 5,4 detik menjadi 31 milidetik; Payment Plan 7,9 detik menjadi 3,3 detik, sisanya posisi kas) karena memakai indeks `module_type, location_id, due_date`.
+- **Jalur lama dingin hampir tidak terjadi di produksi**, karena `warmApArSnapshot` memuat keempat daftar setelah tiap refresh, dan Phase 4 sengaja tidak mengubahnya (tabel tagihan dan drill-down masih butuh daftar). Pembanding yang adil untuk pengguna adalah kolom "lama hangat".
+- **Yang tidak diukur:** pemakaian memori. Manfaat Phase 4 (tidak lagi memuat ratusan ribu baris per permintaan) hanya terwujud penuh bila `warmApArSnapshot` juga tidak perlu memuatnya; selama masih dimuat, memori tidak berkurang.
+- Batas: satu mesin, MariaDB 10.4 (MySQL 5.7 produksi bisa memilih rencana query berbeda), data demo; satu pola filter.
+
+### 11.1 Diagnosis: pilihan indeks, bukan agregasinya (DB lokal `demo`, MariaDB 10.4.32, 2026-11-05)
+
+Tabel `dash_snap_ap_ar_open`, sisi AP: sekitar 155 ribu baris. Query tanpa filter entitas (`WHERE module_type = ?` saja) dijalankan sendiri-sendiri, tiga kali, milidetik (median). `EXPLAIN` menunjukkan optimizer memilih indeks `idx_dash_open_mod_party` (`type: ref`, perkiraan 65.780 baris) yang tidak mencakup kolom lain, sehingga tiap baris diambil lewat kunci utama satu per satu. Dengan `IGNORE INDEX` ia memindai tabel berurutan (`type: ALL`).
+
+| Query | Indeks default | Dengan `IGNORE INDEX` |
+| --- | --- | --- |
+| Pindai polos (`SUM(balance)`) | 4.199 | **345** |
+| Pembaca daftar tagihan jalur lama (162.865 baris, semua kolom) | 4.804 | **750** |
+| Aging AP per pihak (bucket dengan batas tanggal) | 10.945 | **1.682** |
+| Total per tanggal jatuh tempo | 4.599 | **664** |
+| Daftar akun kontrol (`DISTINCT coa_id`) | 4.229 | **403** |
+
+- **Biaya utama adalah pengambilan baris lewat indeks yang salah**, bukan perhitungan: pindai polos saja sudah 4,2 detik (sekitar 6,7 detik sisanya untuk bucket pada query aging). Menulis bucket sebagai batas tanggal (tanpa `DATEDIFF`) tidak mengubah apa pun pada indeks default (10,9 detik lawan 10,8 detik), jadi `DATEDIFF` bukan penyebab. Tabel turunan juga bukan penyebabnya (versi tanpa tabel turunan 13,2 detik, sedikit lebih lambat).
+- **Pembaca jalur lama ikut terkena**: memuat daftar tagihan (dipakai `warmApArSnapshot`, tabel tagihan, drill-down) memakan 4,8 detik dan turun ke 0,75 detik dengan petunjuk yang sama. Jadi temuan ini berlaku di luar Phase 4.
+- **Dengan filter entitas indeks itu memang berguna** (aging AP satu entitas 31 ms), jadi petunjuk hanya masuk akal bila tidak ada filter lokasi.
+- Empat query aging yang berjalan bersamaan memakan 13,0 detik (bukan jumlah 22 detik; sebagian tumpang tindih). Setelah petunjuk indeks, perkiraan total aging AP semua entitas sekitar 2 detik. Itu **perkiraan dari angka di atas, belum diukur**, dan masih di atas 0,7 detik jalur lama hangat; selisihnya dibayar sekali per snapshot karena hasilnya di-cache selama snapshot yang sama.
+- Batas: MariaDB 10.4 pada satu mesin; MySQL 5.7 produksi mungkin sudah memilih pemindaian tabel sendiri, atau tidak. `IGNORE INDEX` sah di kedua versi dan membuat pilihan itu pasti, tetapi nama indeks harus tetap sama dengan skema. Tabel riwayat (`dash_snap_ap_ar_hist_*`) belum diperiksa.
 
 ## Riwayat Perubahan
 
@@ -177,4 +214,7 @@ Satu proses, tiga tahap berurutan. Beban "halaman Summary" = lima metrik sekalig
 | 2026-11-04 | §9: hasil sesudah join `DISTINCT` dihapus untuk filter semua entitas: query baca snapshot kas 2–3 kali lebih cepat, Cash Flow `ytd` dingin 87 → 61 detik, `runway` 33–36 → 23 detik, total hangat `ytd` tetap 56 detik (sisa waktu ada di pengolahan Node).              |
 | 2026-11-04 | §9: hasil sesudah jalur cepat uang dua desimal di pembacaan snapshot kas: `ytd` hangat 56 → 33 detik, Cash Flow `ytd` dingin 62 → 32 detik, `runway` 23 → 18 detik; dibanding baseline Phase 0 sekitar 3–6 kali lebih cepat.                                             |
 | 2026-11-05 | Phase 3: pool koneksi terpisah untuk refresh snapshot (`DASH_POOL_SIZE`, default 2), tidak lagi menahan koneksi pool utama                                                                                                                                               |
-| 2026-11-05 | §10: uji A/B pool refresh terpisah: median beban halaman saat refresh 27,6 detik (terpisah) vs 28,9 detik (bersama) vs 25,8 detik tanpa refresh; efek kecil (sekitar 4–5%), antrean koneksi hampir sama (45 vs 48). |
+| 2026-11-05 | §10: uji A/B pool refresh terpisah: median beban halaman saat refresh 27,6 detik (terpisah) vs 28,9 detik (bersama) vs 25,8 detik tanpa refresh; efek kecil (sekitar 4–5%), antrean koneksi hampir sama (45 vs 48).                                                      |
+| 2026-11-05 | Phase 4: aging AP/AR dan ringkasan Payment Plan diagregasi langsung di SQL (`dash_snap_ap_ar_*` dan `dash_snap_ap_ar_hist_*`); memori Node tidak lagi memuat 160k+ baris tagihan terbuka; tes paritas unit dan integrasi (D47).                                          |
+| 2026-11-05 | §11: pengukuran Phase 4 (agregasi AP/AR di SQL): satu entitas jauh lebih cepat (aging AP 5,4 detik menjadi 31 ms), tetapi semua entitas lebih lambat daripada jalur lama yang hangat (15,7 detik lawan 0,7 detik); penyebab belum dibuktikan. |
+| 2026-11-05 | §11.1: diagnosis Phase 4: penyebab lambatnya agregasi semua entitas adalah optimizer memilih indeks sekunder yang tidak mencakup kolom (pindai 4,2 detik lawan 0,35 detik dengan `IGNORE INDEX`); pembaca daftar tagihan jalur lama ikut terkena (4,8 detik lawan 0,75 detik). Belum ada kode yang diubah. |

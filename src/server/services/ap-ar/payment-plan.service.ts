@@ -13,21 +13,13 @@ import { D } from '~/lib/core/money'
 import { buildEntityOwners, ownerNameOfLocation } from '~/lib/finance/entity/entity-owner'
 import { addDays } from '~/lib/format/date'
 import type { Id, MetricMeta, Money } from '~/lib/core/types'
-import {
-  type AppContextFilter,
-  buildMetricMeta,
-  getCachedCoaTree,
-  getCachedEntities,
-} from '~/server/context'
+import { type AppContextFilter, buildMetricMeta, getCachedCoaTree, getCachedEntities } from '~/server/context'
 import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
 import { computeCashPosition } from '~/server/services/cash/cash-position.service'
-import { apOpenInvoices, arOpenInvoices } from '~/server/repo/ap-ar/aging.repo'
+import { agingDueTotals, apOpenInvoices, arOpenInvoices } from '~/server/repo/ap-ar/aging.repo'
 import { listActivePlanStatuses } from '~/server/repo/ap-ar/payment-plan.repo'
 import { listVendors } from '~/server/repo/ap-ar/party.repo'
-import {
-  unsettledByChannel,
-  settlementLag,
-} from '~/server/repo/cash/bank-payment.repo'
+import { unsettledByChannel, settlementLag } from '~/server/repo/cash/bank-payment.repo'
 import { planStatus } from '~/lib/finance/ap-ar/aging'
 import {
   buildPaymentPlan,
@@ -36,6 +28,7 @@ import {
   type PaymentPlanDay,
   type UnsettledBankForPlan,
 } from '~/lib/finance/ap-ar/payment-plan'
+import { apItemsFromDueTotals, arItemsFromDueTotals } from '~/lib/finance/ap-ar/payment-plan-aggregate'
 
 export type { PaymentPlanBill }
 
@@ -54,34 +47,69 @@ export type PaymentPlanOptions = {
   inflow: boolean
 }
 
-export function computePaymentPlan(
-  filter: AppContextFilter,
-  opts: PaymentPlanOptions,
-): Promise<PaymentPlanResult> {
+export function computePaymentPlan(filter: AppContextFilter, opts: PaymentPlanOptions): Promise<PaymentPlanResult> {
   return memoMetric('paymentPlan', { filter, opts }, () => computePaymentPlanUncached(filter, opts))
 }
 
-type Inflows = { arItems: ArItemForPlan[]; unsettled: UnsettledBankForPlan[]; settlementLags: Map<Id, number> }
+type Inflows = {
+  arItems: ArItemForPlan[]
+  unsettled: UnsettledBankForPlan[]
+  settlementLags: Map<Id, number>
+}
 
-/** Expected inflows: open AR invoices, and the receipts still in a settlement channel with that channel's usual lag. */
-async function loadInflows(filter: AppContextFilter, asOfPlusOne: string): Promise<Inflows> {
-  const today = filter.today
+type BankInflows = {
+  unsettled: UnsettledBankForPlan[]
+  settlementLags: Map<Id, number>
+}
+
+/** Money still in a settlement channel, and each channel's usual settlement lag. */
+async function loadBankInflows(filter: AppContextFilter): Promise<BankInflows> {
   const tree = await getCachedCoaTree()
   const resolved = await loadResolvedBaskets(tree)
   const inTransitIds = resolved.inTransit
+  if (inTransitIds.length === 0) return { unsettled: [], settlementLags: new Map() }
 
-  const [rawAr, unsettledRows, lagRows] = await Promise.all([
-    arOpenInvoices(asOfPlusOne, filter.locationIds),
-    inTransitIds.length > 0
-      ? unsettledByChannel(today, inTransitIds, filter.segmentDetailIds, filter.entitySegmentColumn)
-      : Promise.resolve([]),
-    inTransitIds.length > 0 ? settlementLag(today, inTransitIds) : Promise.resolve([]),
+  const [unsettledRows, lagRows] = await Promise.all([
+    unsettledByChannel(filter.today, inTransitIds, filter.segmentDetailIds, filter.entitySegmentColumn),
+    settlementLag(filter.today, inTransitIds),
   ])
-
   return {
-    arItems: rawAr.filter((a) => D(a.balance).gt(0)).map((a) => ({ dueDate: a.dueDate || a.txDate, balance: a.balance })),
-    unsettled: unsettledRows.map((u) => ({ coaId: u.coaId, txDate: u.txDate, amount: u.amount })),
+    unsettled: unsettledRows.map((u) => ({
+      coaId: u.coaId,
+      txDate: u.txDate,
+      amount: u.amount,
+    })),
     settlementLags: new Map(lagRows.map((l) => [l.coaId, l.avgLag])),
+  }
+}
+
+/** Expected inflows: open AR invoices, and the receipts still in a settlement channel with that channel's usual lag. */
+async function loadInflows(filter: AppContextFilter, asOfPlusOne: string): Promise<Inflows> {
+  const [rawAr, bank] = await Promise.all([arOpenInvoices(asOfPlusOne, filter.locationIds), loadBankInflows(filter)])
+  return {
+    arItems: rawAr
+      .filter((a) => D(a.balance).gt(0))
+      .map((a) => ({ dueDate: a.dueDate || a.txDate, balance: a.balance })),
+    unsettled: bank.unsettled,
+    settlementLags: bank.settlementLags,
+  }
+}
+
+/** The same inflows with the receivables summed per due date by the database (only dates the plan can use). */
+async function loadInflowTotals(filter: AppContextFilter, lastDay: string): Promise<Inflows> {
+  const [arTotals, bank] = await Promise.all([
+    agingDueTotals('ar', filter.today, filter.locationIds, {
+      minDue: filter.today,
+      maxDue: lastDay,
+    }),
+    loadBankInflows(filter),
+  ])
+  // Neither the snapshot nor a month-end history covers today: read the invoices as before.
+  if (arTotals === null) return loadInflows(filter, addDays(filter.today, 1))
+  return {
+    arItems: arItemsFromDueTotals(arTotals),
+    unsettled: bank.unsettled,
+    settlementLags: bank.settlementLags,
   }
 }
 
@@ -163,6 +191,94 @@ async function computePaymentPlanUncached(
     overdue: res.overdue,
     days: res.days,
     bills,
+    planStatusInUse: statusRows.length > 0,
+  }
+}
+
+export type PaymentPlanSummaryResult = Omit<PaymentPlanResult, 'bills'>
+
+/**
+ * The plan without its list of bills (what the Payment Plan page shows): the totals per due date and per voucher
+ * status are summed by the database from the snapshot, so no list of invoices is loaded. Falls back to the
+ * per-invoice plan when the snapshot cannot answer for today.
+ */
+export function computePaymentPlanSummary(
+  filter: AppContextFilter,
+  opts: PaymentPlanOptions,
+): Promise<PaymentPlanSummaryResult> {
+  return memoMetric('paymentPlanSummary', { filter, opts }, () => computePaymentPlanSummaryUncached(filter, opts))
+}
+
+async function computePaymentPlanSummaryUncached(
+  filter: AppContextFilter,
+  opts: PaymentPlanOptions,
+): Promise<PaymentPlanSummaryResult> {
+  const meta = buildMetricMeta(filter)
+  const today = filter.today
+  const horizon = Number(opts.horizon) || 7
+  const lastDay = addDays(today, horizon - 1)
+
+  // Opening cash, the bills due by the last day of the plan (overdue included) and the live payment vouchers are independent.
+  const [cashPos, statusRows, apTotals] = await Promise.all([
+    computeCashPosition({ ...filter, asOf: today }, { includeByEntity: false, includeCompare: false }),
+    listActivePlanStatuses(),
+    agingDueTotals('ap', today, filter.locationIds, { maxDue: lastDay }),
+  ])
+
+  if (apTotals === null) {
+    const { bills: _bills, ...summary } = await computePaymentPlan(filter, opts)
+    return summary
+  }
+
+  // A bill with a live voucher is "approved" or "submitted" (the rule of planStatus); every other bill is "not submitted".
+  const statusMap = new Map<Id, string[]>()
+  for (const r of statusRows) {
+    const list = statusMap.get(r.invoiceId) ?? []
+    list.push(r.status)
+    statusMap.set(r.invoiceId, list)
+  }
+  const approvedIds: Id[] = []
+  const submittedIds: Id[] = []
+  for (const [invoiceId, statuses] of statusMap) {
+    const status = planStatus(statuses)
+    if (status === 'approved') approvedIds.push(invoiceId)
+    else if (status === 'submitted') submittedIds.push(invoiceId)
+  }
+  const [approved, submitted] = await Promise.all([
+    agingDueTotals('ap', today, filter.locationIds, {
+      maxDue: lastDay,
+      invoiceIds: approvedIds,
+    }),
+    agingDueTotals('ap', today, filter.locationIds, {
+      maxDue: lastDay,
+      invoiceIds: submittedIds,
+    }),
+  ])
+  const apItems = apItemsFromDueTotals({
+    total: apTotals,
+    approved: approved ?? new Map(),
+    submitted: submitted ?? new Map(),
+  })
+
+  const { arItems, unsettled, settlementLags } = opts.inflow
+    ? await loadInflowTotals(filter, lastDay)
+    : { arItems: [], unsettled: [], settlementLags: new Map<Id, number>() }
+
+  const res = buildPaymentPlan({
+    today,
+    horizon,
+    inflow: opts.inflow,
+    openingCash: cashPos.cashPosition,
+    apItems,
+    arItems,
+    unsettled,
+    settlementLags,
+  })
+  return {
+    meta,
+    openingBalance: res.openingBalance,
+    overdue: res.overdue,
+    days: res.days,
     planStatusInUse: statusRows.length > 0,
   }
 }

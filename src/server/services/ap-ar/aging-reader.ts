@@ -2,6 +2,7 @@ import '@tanstack/react-start/server-only'
 import { addDays } from '~/lib/format/date'
 import type { Id, IsoDate, Money } from '~/lib/core/types'
 import type { CoaTree } from '~/lib/finance/coa/coa-tree'
+import type { AgingAggregates } from '~/lib/finance/ap-ar/aging-aggregate'
 import { type AppContextFilter, getCachedCoaTree } from '~/server/context'
 import { memoBySnapshot } from '~/server/dash/snapshot'
 import { agingCompareIsAvailable, distinctIds } from '~/server/services/ap-ar/aging-helpers'
@@ -24,6 +25,13 @@ export type AgingSource<Open, Unallocated, Computed extends { total: Money }> = 
     names: PartyNames
     tree: CoaTree
   }) => Computed
+  /**
+   * Optional shortcut: the same figures already summed per party by the database. Returns null when the snapshot and
+   * the month-end history cannot answer for that date; the list of invoices (`openItems`) is used then.
+   * Both fields must be given together.
+   */
+  aggregates?: (asOf: IsoDate, locationIds: Id[] | 'all') => Promise<AgingAggregates | null>
+  computeFromAggregates?: (input: { aggregates: AgingAggregates; names: PartyNames; tree: CoaTree }) => Computed
 }
 
 /**
@@ -33,6 +41,12 @@ export type AgingSource<Open, Unallocated, Computed extends { total: Money }> = 
 export function createAgingReader<Open, Unallocated, Computed extends { total: Money }>(
   source: AgingSource<Open, Unallocated, Computed>,
 ) {
+  /** The per-party sums for `asOf`, or null when this source has none or cannot answer for that date. */
+  async function sums(asOf: IsoDate, locationIds: Id[] | 'all'): Promise<AgingAggregates | null> {
+    if (!source.aggregates || !source.computeFromAggregates) return null
+    return source.aggregates(asOf, locationIds)
+  }
+
   /**
    * All open items of the selected entities, the party names and the aging buckets.
    * Cached for as long as the snapshot it was built from; it needs no GL read, so the party table can use it alone.
@@ -40,8 +54,24 @@ export function createAgingReader<Open, Unallocated, Computed extends { total: M
   function core(filter: AppContextFilter) {
     return memoBySnapshot(source.cacheName, { loc: filter.locationIds, asOf: filter.asOf }, async () => {
       const tree = await getCachedCoaTree()
-      const asOfPlusOne = addDays(filter.asOf, 1)
 
+      // Summed by the database: no list of invoices is loaded at all.
+      const aggregates = await sums(filter.asOf, filter.locationIds)
+      if (aggregates && source.computeFromAggregates) {
+        const names = await source.loadPartyNames(
+          distinctIds(
+            aggregates.items.map((row) => row.partyId),
+            aggregates.payments.map((row) => row.partyId),
+          ),
+        )
+        return {
+          computed: source.computeFromAggregates({ aggregates, names, tree }),
+          names,
+          tree,
+        }
+      }
+
+      const asOfPlusOne = addDays(filter.asOf, 1)
       const [open, unallocated] = await Promise.all([
         source.openItems(asOfPlusOne, filter.locationIds),
         source.unallocatedItems(asOfPlusOne, filter.locationIds),
@@ -50,7 +80,13 @@ export function createAgingReader<Open, Unallocated, Computed extends { total: M
       const names = await source.loadPartyNames(
         distinctIds(open.map(source.openPartyId), unallocated.map(source.unallocatedPartyId)),
       )
-      const computed = source.compute({ open, unallocated, asOf: filter.asOf, names, tree })
+      const computed = source.compute({
+        open,
+        unallocated,
+        asOf: filter.asOf,
+        names,
+        tree,
+      })
       return { computed, names, tree }
     })
   }
@@ -59,6 +95,12 @@ export function createAgingReader<Open, Unallocated, Computed extends { total: M
   async function compareTotal(filter: AppContextFilter, names: PartyNames, tree: CoaTree): Promise<Money | null> {
     if (!filter.compare || !filter.compare.asOf) return null
     if (!(await agingCompareIsAvailable(filter.compare.asOf))) return null
+
+    const aggregates = await sums(filter.compare.asOf, filter.locationIds)
+    if (aggregates && source.computeFromAggregates) {
+      return source.computeFromAggregates({ aggregates, names, tree }).total
+    }
+
     const asOfPlusOne = addDays(filter.compare.asOf, 1)
     const [open, unallocated] = await Promise.all([
       source.openItems(asOfPlusOne, filter.locationIds),

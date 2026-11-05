@@ -1,17 +1,28 @@
 import '@tanstack/react-start/server-only'
-import { toAgingInvoice, toAgingUnallocated, type AgingInvoiceDbRow, type AgingInvoiceOf, type AgingUnallocatedDbRow, type AgingUnallocatedOf } from '~/server/repo/ap-ar/rows'
+import {
+  toAgingInvoice,
+  toAgingUnallocated,
+  type AgingInvoiceDbRow,
+  type AgingInvoiceOf,
+  type AgingUnallocatedDbRow,
+  type AgingUnallocatedOf,
+} from '~/server/repo/ap-ar/rows'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { SLICE_CONCURRENCY, chunkOrAll, mapLimit } from '~/server/db/chunk'
-import {
-  AGING_SIDES,
-  IN_OUT_VALUES,
-  intList,
-} from '~/server/db/erp-codes'
+import { AGING_SIDES, IN_OUT_VALUES, intList } from '~/server/db/erp-codes'
 import { memo } from '~/server/cache'
 import { addDays } from '~/lib/format/date'
 import { apArSnapshotCovers, snapshotOpenInvoices, snapshotUnallocated } from '~/server/dash/snapshot'
 import { apArHistCovers, histOpenInvoices, histUnallocated } from '~/server/dash/snapshot-hist'
+import {
+  histAgingAggregates,
+  histDueTotals,
+  snapshotAgingAggregates,
+  snapshotDueTotals,
+  type DueTotalsOptions,
+} from '~/server/dash/snapshot-aggregate'
+import { emptyAggregates, type AgingAggregates } from '~/lib/finance/ap-ar/aging-aggregate'
 import { locKeyOf, locationFilter } from '~/server/repo/ap-ar/shared'
 import type { AgingInvoice, AgingSide, AgingUnallocated } from '~/server/repo/ap-ar/types'
 import type { Id, IsoDate, Money } from '~/lib/core/types'
@@ -35,7 +46,8 @@ async function agingInvoices<K extends 'vendorId' | 'customerId'>(
   // The current state is read from the snapshot table (small, indexed); only other dates hit the ERP tables.
   if (await apArSnapshotCovers(addDays(asOfPlusOne, -1))) return snapshotOpenInvoices(side, locIds, partyKey)
   // A past month-end that the background job has already built
-  if (await apArHistCovers(addDays(asOfPlusOne, -1))) return histOpenInvoices(side, addDays(asOfPlusOne, -1), locIds, partyKey)
+  if (await apArHistCovers(addDays(asOfPlusOne, -1)))
+    return histOpenInvoices(side, addDays(asOfPlusOne, -1), locIds, partyKey)
   return liveAgingInvoices(side, asOfPlusOne, locIds, partyKey)
 }
 
@@ -95,7 +107,8 @@ async function agingUnallocated<K extends 'vendorId' | 'customerId'>(
 ): Promise<Array<Omit<AgingUnallocated, 'partyId'> & Record<K, Id>>> {
   if (locIds !== 'all' && locIds.length === 0) return []
   if (await apArSnapshotCovers(addDays(asOfPlusOne, -1))) return snapshotUnallocated(side, locIds, partyKey)
-  if (await apArHistCovers(addDays(asOfPlusOne, -1))) return histUnallocated(side, addDays(asOfPlusOne, -1), locIds, partyKey)
+  if (await apArHistCovers(addDays(asOfPlusOne, -1)))
+    return histUnallocated(side, addDays(asOfPlusOne, -1), locIds, partyKey)
   return liveAgingUnallocated(side, asOfPlusOne, locIds, partyKey)
 }
 
@@ -218,4 +231,36 @@ export async function cardSettlementHistory(invoiceId: Id): Promise<CardSettleme
     ORDER BY p.transaction_date, p.ap_ar_card_id
   `
   return rows<CardSettlementRow>(query)
+}
+
+/**
+ * The aging figures of one side already summed per party by the database, for the date `asOf`.
+ * Answered from today's snapshot or from the month-end history; `null` when neither covers `asOf`
+ * (then only the slow ERP query could answer, and the caller uses the list of invoices as before).
+ */
+export async function agingAggregates(
+  side: AgingSide,
+  asOf: IsoDate,
+  locIds: Id[] | 'all',
+): Promise<AgingAggregates | null> {
+  if (locIds !== 'all' && locIds.length === 0) return emptyAggregates()
+  if (await apArSnapshotCovers(asOf)) return snapshotAgingAggregates(side, asOf, locIds)
+  if (await apArHistCovers(asOf)) return histAgingAggregates(side, asOf, locIds)
+  return null
+}
+
+/**
+ * Open balances above zero of one side summed per due date (see `DueTotalsOptions`), for the date `asOf`.
+ * `null` when neither today's snapshot nor the month-end history covers `asOf`.
+ */
+export async function agingDueTotals(
+  side: AgingSide,
+  asOf: IsoDate,
+  locIds: Id[] | 'all',
+  opts: DueTotalsOptions,
+): Promise<Map<IsoDate, Money> | null> {
+  if (locIds !== 'all' && locIds.length === 0) return new Map()
+  if (await apArSnapshotCovers(asOf)) return snapshotDueTotals(side, locIds, opts)
+  if (await apArHistCovers(asOf)) return histDueTotals(side, asOf, locIds, opts)
+  return null
 }

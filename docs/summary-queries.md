@@ -14,7 +14,7 @@
 >
 > **Belum dijalankan.** Dokumen ini tidak dibuat dengan mengeksekusi query ke database.
 >
-> **Terakhir diperbarui:** 2026-11-04
+> **Terakhir diperbarui:** 2026-11-05
 
 ## Daftar isi
 
@@ -327,6 +327,96 @@ SELECT card_id AS cardId, party_id AS partyId, location_id AS locationId, coa_id
 FROM dash_snap_ap_ar_unallocated
 WHERE module_type = 0;
 ```
+
+### Aging dijumlahkan di SQL dari snapshot
+
+Sejak Phase 4, kartu Payables dan Receivables (serta halaman penuhnya) tidak lagi memuat ratusan ribu baris tagihan terbuka ke memori Node. Database langsung menjumlahkannya per pihak (`party_id`) menggunakan query pivot dari tabel snapshot (`dash_snap_ap_ar_*` untuk hari ini, atau `dash_snap_ap_ar_hist_*` untuk riwayat akhir bulan).
+
+Rentang 8 bucket umur diambil langsung dari definisi tunggal `AGING_BUCKET_DAYS` di `src/lib/finance/ap-ar/aging.ts` (`overdue0_30`: 0..30, `overdue31_60`: 31..60, `overdue61_90`: 61..90, `overdue90plus`: 91..100000000, `due1_30`: -30..-1, `due31_60`: -60..-31, `due61_90`: -90..-61, `due90plus`: -100000000..-91) sehingga definisi di TypeScript dan SQL tidak dapat berselisih.
+
+Query pivot per pihak (`src/server/dash/snapshot-aggregate.ts` · `itemsAggregateQuery`):
+
+```sql
+SELECT a.partyId AS partyId,
+       SUM(CASE WHEN a.days BETWEEN 0 AND 30 THEN a.balance ELSE 0 END) AS overdue0_30,
+       SUM(CASE WHEN a.days BETWEEN 31 AND 60 THEN a.balance ELSE 0 END) AS overdue31_60,
+       SUM(CASE WHEN a.days BETWEEN 61 AND 90 THEN a.balance ELSE 0 END) AS overdue61_90,
+       SUM(CASE WHEN a.days BETWEEN 91 AND 100000000 THEN a.balance ELSE 0 END) AS overdue90plus,
+       SUM(CASE WHEN a.days BETWEEN -30 AND -1 THEN a.balance ELSE 0 END) AS due1_30,
+       SUM(CASE WHEN a.days BETWEEN -60 AND -31 THEN a.balance ELSE 0 END) AS due31_60,
+       SUM(CASE WHEN a.days BETWEEN -90 AND -61 THEN a.balance ELSE 0 END) AS due61_90,
+       SUM(CASE WHEN a.days BETWEEN -100000000 AND -91 THEN a.balance ELSE 0 END) AS due90plus,
+       SUM(CASE WHEN a.balance > 0 THEN a.balance ELSE 0 END) AS positive,
+       SUM(CASE WHEN a.balance < 0 THEN a.balance ELSE 0 END) AS negative,
+       SUM(CASE WHEN a.itemType = 3 THEN a.balance ELSE 0 END) AS nonTrade,
+       SUM(CASE WHEN a.balance > 0 AND a.days >= 0 THEN a.balance ELSE 0 END) AS overdueBills
+FROM (
+  SELECT party_id AS partyId, balance AS balance, item_type AS itemType,
+         DATEDIFF(:asOf, COALESCE(due_date, tx_date)) AS days
+  FROM dash_snap_ap_ar_open
+  WHERE module_type = 0  -- 0 = AP, 1 = AR
+    -- AND as_of_date = :day (untuk tabel riwayat hist)
+    -- AND location_id IN (:locSlice)
+) a
+GROUP BY a.partyId;
+```
+
+Query pembayaran tanpa alokasi (`src/server/dash/snapshot-aggregate.ts` · `paymentsAggregateQuery`):
+
+```sql
+SELECT a.partyId AS partyId,
+       SUM(CASE WHEN a.days BETWEEN 0 AND 30 THEN a.balance ELSE 0 END) AS overdue0_30,
+       SUM(CASE WHEN a.days BETWEEN 31 AND 60 THEN a.balance ELSE 0 END) AS overdue31_60,
+       SUM(CASE WHEN a.days BETWEEN 61 AND 90 THEN a.balance ELSE 0 END) AS overdue61_90,
+       SUM(CASE WHEN a.days BETWEEN 91 AND 100000000 THEN a.balance ELSE 0 END) AS overdue90plus,
+       SUM(CASE WHEN a.days BETWEEN -30 AND -1 THEN a.balance ELSE 0 END) AS due1_30,
+       SUM(CASE WHEN a.days BETWEEN -60 AND -31 THEN a.balance ELSE 0 END) AS due31_60,
+       SUM(CASE WHEN a.days BETWEEN -90 AND -61 THEN a.balance ELSE 0 END) AS due61_90,
+       SUM(CASE WHEN a.days BETWEEN -100000000 AND -91 THEN a.balance ELSE 0 END) AS due90plus
+FROM (
+  SELECT party_id AS partyId, balance AS balance, DATEDIFF(:asOf, tx_date) AS days
+  FROM dash_snap_ap_ar_unallocated
+  WHERE module_type = 0  -- 0 = AP, 1 = AR
+    -- AND as_of_date = :day (untuk tabel riwayat hist)
+    -- AND location_id IN (:locSlice)
+) a
+GROUP BY a.partyId;
+```
+
+Query akun kontrol (`src/server/dash/snapshot-aggregate.ts` · `coaIdsQuery`):
+
+```sql
+SELECT DISTINCT coa_id AS coaId
+FROM dash_snap_ap_ar_open
+WHERE module_type = 0
+  AND coa_id IS NOT NULL
+  -- AND as_of_date = :day
+  -- AND location_id IN (:locSlice);
+```
+
+Query total per tanggal jatuh tempo (Payment Plan, `src/server/dash/snapshot-aggregate.ts` · `dueTotalsQuery`):
+
+```sql
+SELECT t.dueDate AS dueDate, SUM(t.balance) AS total
+FROM (
+  SELECT COALESCE(due_date, tx_date) AS dueDate, balance AS balance
+  FROM dash_snap_ap_ar_open
+  WHERE module_type = 0
+    AND balance > 0
+    -- AND as_of_date = :day
+    -- AND location_id IN (:locSlice)
+    -- AND card_id IN (:invoiceIds)
+) t
+WHERE t.dueDate <= :maxDue
+  -- AND t.dueDate >= :minDue
+GROUP BY t.dueDate;
+```
+
+Catatan:
+
+- Jalur lama (memuat daftar tagihan lewat `apOpenInvoices` / Q14 atau Q16) tetap dipakai otomatis sebagai fallback bila tanggal yang diminta tidak dilayani oleh snapshot hari ini maupun riwayat akhir bulan (`agingAggregates` mengembalikan `null`).
+- Tabel tagihan Payment Plan (`listPaymentPlanBills`) dan drill-down tetap memakai daftar tagihan terbuka karena membutuhkan rincian nomor invoice, entitas, dan pengurutan interaktif.
+- Summary sejak Phase 2 tidak lagi menjalankan Payment Plan (Payment Plan kini hanya dipanggil di halamannya sendiri).
 
 ### Q16 — Tagihan terbuka (ERP langsung)
 
@@ -716,7 +806,7 @@ Hasil ditulis ke tabel bayangan `dash_snap_ap_ar_open_new` / `dash_snap_ap_ar_un
 | Q19                            | 5 menit                                                                                                                                                                                                   | `payment-plan.repo.ts`      |
 | Q22 (giro/cek beredar)         | 60 detik                                                                                                                                                                                                  | `bank-payment.repo.ts`      |
 | Q24 (kolom `canceled_date`)    | 1 jam per tabel GL                                                                                                                                                                                        | `db/gl-columns.ts`          |
-| Hasil metrik (Revenue, P&L, …) | 60 detik segar + sampai 3 menit boleh basi (`memoMetric`, stale-while-revalidate; `METRIC_FRESH_SECONDS` / `METRIC_STALE_SECONDS`)                                                                                                                                                                                   | `server/cache.ts`           |
+| Hasil metrik (Revenue, P&L, …) | 60 detik segar + sampai 3 menit boleh basi (`memoMetric`, stale-while-revalidate; `METRIC_FRESH_SECONDS` / `METRIC_STALE_SECONDS`)                                                                        | `server/cache.ts`           |
 | Hasil turunan snapshot AP      | selama snapshot yang sama (maks 6 jam)                                                                                                                                                                    | `dash/snapshot.ts`          |
 | Mutasi periode `Closed` (Q11)  | LRU (maks. 500 entri, kedaluwarsa 6 jam); kuncinya memuat versi build snapshot (Q13), jadi periode yang dibangun ulang tidak dijawab dari cache lama; periode `Open` / `Pre Closed` tidak pernah di-cache | `gl.repo.ts`                |
 
@@ -762,26 +852,27 @@ WHERE table_schema = DATABASE()
 
 ## 11. Riwayat Perubahan
 
-| Tanggal    | Perubahan                                                                                                                                                                                                                                                                                                                                                                                        |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2026-10-30 | Dokumen dibuat dari pembacaan kode (belum ada perubahan pada halaman Summary).                                                                                                                                                                                                                                                                                                                   |
-| 2026-10-30 | Rencana gelombang 2: Q10 memakai aturan belum cair pada asOf; Q22 dan Q24 ditambahkan (Q23 dibatalkan); istilah Pengakuan Biaya.                                                                                                                                                                                                                                                                 |
-| 2026-10-30 | Disinkronkan dengan kode terbaru: tabel tagihan dua tab (`filterBillsByScope`, `planStatusInUse`), rekonsiliasi AP/AR (`reconcileAging`), `settledJournals`, `sliceCombos`, Q20 menandai kondisi `canceled_date` sebagai opsional, matriks dan tabel cache ditambah Q22 dan Q24. Tidak ada query yang berubah isinya.                                                                            |
-| 2026-10-30 | Fitur OCI dinonaktifkan (D39): akun OCI tidak lagi dikeluarkan dari baris P&L dan tidak ikut dibaca sebagai kelompok tersendiri di Q11/Q12.                                                                                                                                                                                                                                                      |
-| 2026-10-30 | Kartu Revenue by Entity memakai Q11 / Q12 yang sama (`byLocation`); tidak ada query baru. Ditambah baris rumus "Revenue per entitas" dan baris matriks.                                                                                                                                                                                                                                          |
-| 2026-10-30 | Tidak ada query yang berubah isinya: pembacaan Q9 / Q20 / daftar jurnal per tabel GL kini paralel (hasil sama, urutan tabel dijaga), dan pemuatan AP/AR memakai satu pembaca bersama (`ap-ar/aging-reader.ts`).                                                                                                                                                                                  |
-| 2026-10-30 | Kartu Payables tidak lagi menampilkan persentase terhadap Overdue; tidak ada query yang berubah.                                                                                                                                                                                                                                                                                                 |
-| 2026-10-30 | Perbaikan warna teks keterangan di halaman; tidak ada query yang berubah.                                                                                                                                                                                                                                                                                                                        |
-| 2026-10-31 | Keterangan entitas pada tabel tagihan memakai kolom `location_id` yang sudah dibaca Q14/Q16 dan daftar entitas Q4; tidak ada query Summary yang berubah. (Di drill-down baris jurnal, query daftar jurnal mendapat satu kolom segmen tambahan di `SELECT`/`GROUP BY`/`ORDER BY` hanya saat lebih dari 1 entitas dipilih; query itu bukan bagian dari katalog Summary.)                           |
-| 2026-10-31 | Q18 (nama vendor) berjalan lebih jarang: nama diingat per id selama 10 menit dan potongan 1.000 id dibaca bersamaan; isi query tidak berubah. Urutan tabel tagihan di-cache per hasil rencana (tidak ada query baru).                                                                                                                                                                            |
-| 2026-11-03 | Donut Composition: tab Expense memakai baris P&L (HPP + Beban Operasional) dan tab Fixed Cost memakai pembacaan Biaya Tetap yang sudah ada; tidak ada query yang berubah atau ditambahkan.                                                                                                                                                                                                       |
-| 2026-11-03 | Penataan struktur folder src (tahap 4): hanya lokasi berkas yang berubah dan rujukan jalur di dokumen ini disesuaikan (entity-owner pindah ke lib/finance/entity); tidak ada query yang berubah.                                                                                                                                                                                                 |
-| 2026-11-03 | Penataan struktur folder src (tahap 5): file repo dipindah ke subfolder per domain (ap-ar, cash, gl, master-data, pnl) dan jalur di dokumen ini disesuaikan; tidak ada query yang berubah.                                                                                                                                                                                                       |
-| 2026-11-03 | Penataan struktur folder src (tahap 6): file service dipindah ke subfolder per domain (ap-ar, cash, pnl, drill) dan jalur di dokumen ini disesuaikan; dua file helper berganti nama tanpa akhiran .helper; tidak ada query yang berubah.                                                                                                                                                         |
-| 2026-11-04 | Phase 1A performa: Q13 kini juga membaca waktu build dan jumlah baris (versi build ikut kunci cache mutasi periode Closed); bagian 7 "Snapshot GL bulanan" memuat kolom sidik jari, query penghitung `stats_key`, dan aturan pembangunan ulang otomatis; baris cache mutasi Closed diperbarui (LRU 500 entri, 6 jam, kunci memuat versi build). Angka tidak berubah bila data ERP tidak berubah. |
-| 2026-11-04 | Phase 1B performa: subbagian sumber alternatif snapshot `dash_snap_cash_lines` ditambahkan pada Q20 (Cash Flow dan Runway); periode Closed yang ada di snapshot dibaca dari tabel dash_* dan periode lain query langsung.                                                                                                                                                                        |
-| 2026-11-04 | Query pembangun snapshot GL bulanan: jumlah debet dan kredit dibungkus `COALESCE(..., 0)` supaya kolom `NOT NULL` tidak menolak baris saat kolom `gl_detail` bernilai `NULL` pada mode SQL ketat (default MySQL 5.7); hasil sama dengan query langsung, yang membaca nilai kosong sebagai 0.                                                                                                     |
-| 2026-11-04 | Phase 2 performa: Summary dibagi tiga bagian (head, charts, mini); query Payment Plan 7 hari tidak lagi dijalankan oleh Summary (hanya oleh tabel tagihan); SWR untuk metrik (D45). Bagian 1 diperbarui.                                                                                                                                                                                         |
-| 2026-11-04 | Tabel cache bagian 9: baris "Hasil metrik" kini 60 detik segar + sampai 10 menit boleh basi (_stale-while-revalidate_, dapat diatur lewat env). SQL tidak berubah. |
-| 2026-11-04 | Default `METRIC_STALE_SECONDS` diturunkan dari 600 ke 180 detik: angka yang dijawab dari cache paling lama sekitar 4 menit lebih tua (60 detik segar + 180 detik masa basi), sehingga selisih kartu dan drill-down lebih kecil. Tidak ada rumus atau query yang berubah. |
-| 2026-11-04 | Snapshot kas: untuk filter semua entitas, query baca `dash_snap_cash_lines` tidak lagi memakai join `DISTINCT` (setiap jurnal di snapshot sudah pasti punya baris kas); join tetap dipakai untuk filter entitas. Hasil sama; SQL di bagian Q20 diperbarui. |
+| Tanggal    | Perubahan                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-30 | Dokumen dibuat dari pembacaan kode (belum ada perubahan pada halaman Summary).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 2026-10-30 | Rencana gelombang 2: Q10 memakai aturan belum cair pada asOf; Q22 dan Q24 ditambahkan (Q23 dibatalkan); istilah Pengakuan Biaya.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 2026-10-30 | Disinkronkan dengan kode terbaru: tabel tagihan dua tab (`filterBillsByScope`, `planStatusInUse`), rekonsiliasi AP/AR (`reconcileAging`), `settledJournals`, `sliceCombos`, Q20 menandai kondisi `canceled_date` sebagai opsional, matriks dan tabel cache ditambah Q22 dan Q24. Tidak ada query yang berubah isinya.                                                                                                                                                                                                                                                                                           |
+| 2026-10-30 | Fitur OCI dinonaktifkan (D39): akun OCI tidak lagi dikeluarkan dari baris P&L dan tidak ikut dibaca sebagai kelompok tersendiri di Q11/Q12.                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 2026-10-30 | Kartu Revenue by Entity memakai Q11 / Q12 yang sama (`byLocation`); tidak ada query baru. Ditambah baris rumus "Revenue per entitas" dan baris matriks.                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 2026-10-30 | Tidak ada query yang berubah isinya: pembacaan Q9 / Q20 / daftar jurnal per tabel GL kini paralel (hasil sama, urutan tabel dijaga), dan pemuatan AP/AR memakai satu pembaca bersama (`ap-ar/aging-reader.ts`).                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 2026-10-30 | Kartu Payables tidak lagi menampilkan persentase terhadap Overdue; tidak ada query yang berubah.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 2026-10-30 | Perbaikan warna teks keterangan di halaman; tidak ada query yang berubah.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 2026-10-31 | Keterangan entitas pada tabel tagihan memakai kolom `location_id` yang sudah dibaca Q14/Q16 dan daftar entitas Q4; tidak ada query Summary yang berubah. (Di drill-down baris jurnal, query daftar jurnal mendapat satu kolom segmen tambahan di `SELECT`/`GROUP BY`/`ORDER BY` hanya saat lebih dari 1 entitas dipilih; query itu bukan bagian dari katalog Summary.)                                                                                                                                                                                                                                          |
+| 2026-10-31 | Q18 (nama vendor) berjalan lebih jarang: nama diingat per id selama 10 menit dan potongan 1.000 id dibaca bersamaan; isi query tidak berubah. Urutan tabel tagihan di-cache per hasil rencana (tidak ada query baru).                                                                                                                                                                                                                                                                                                                                                                                           |
+| 2026-11-03 | Donut Composition: tab Expense memakai baris P&L (HPP + Beban Operasional) dan tab Fixed Cost memakai pembacaan Biaya Tetap yang sudah ada; tidak ada query yang berubah atau ditambahkan.                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 2026-11-03 | Penataan struktur folder src (tahap 4): hanya lokasi berkas yang berubah dan rujukan jalur di dokumen ini disesuaikan (entity-owner pindah ke lib/finance/entity); tidak ada query yang berubah.                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 2026-11-03 | Penataan struktur folder src (tahap 5): file repo dipindah ke subfolder per domain (ap-ar, cash, gl, master-data, pnl) dan jalur di dokumen ini disesuaikan; tidak ada query yang berubah.                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 2026-11-03 | Penataan struktur folder src (tahap 6): file service dipindah ke subfolder per domain (ap-ar, cash, pnl, drill) dan jalur di dokumen ini disesuaikan; dua file helper berganti nama tanpa akhiran .helper; tidak ada query yang berubah.                                                                                                                                                                                                                                                                                                                                                                        |
+| 2026-11-04 | Phase 1A performa: Q13 kini juga membaca waktu build dan jumlah baris (versi build ikut kunci cache mutasi periode Closed); bagian 7 "Snapshot GL bulanan" memuat kolom sidik jari, query penghitung `stats_key`, dan aturan pembangunan ulang otomatis; baris cache mutasi Closed diperbarui (LRU 500 entri, 6 jam, kunci memuat versi build). Angka tidak berubah bila data ERP tidak berubah.                                                                                                                                                                                                                |
+| 2026-11-04 | Phase 1B performa: subbagian sumber alternatif snapshot `dash_snap_cash_lines` ditambahkan pada Q20 (Cash Flow dan Runway); periode Closed yang ada di snapshot dibaca dari tabel dash_* dan periode lain query langsung.                                                                                                                                                                                                                                                                                                                                                                                       |
+| 2026-11-04 | Query pembangun snapshot GL bulanan: jumlah debet dan kredit dibungkus `COALESCE(..., 0)` supaya kolom `NOT NULL` tidak menolak baris saat kolom `gl_detail` bernilai `NULL` pada mode SQL ketat (default MySQL 5.7); hasil sama dengan query langsung, yang membaca nilai kosong sebagai 0.                                                                                                                                                                                                                                                                                                                    |
+| 2026-11-04 | Phase 2 performa: Summary dibagi tiga bagian (head, charts, mini); query Payment Plan 7 hari tidak lagi dijalankan oleh Summary (hanya oleh tabel tagihan); SWR untuk metrik (D45). Bagian 1 diperbarui.                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 2026-11-04 | Tabel cache bagian 9: baris "Hasil metrik" kini 60 detik segar + sampai 10 menit boleh basi (_stale-while-revalidate_, dapat diatur lewat env). SQL tidak berubah.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 2026-11-04 | Default `METRIC_STALE_SECONDS` diturunkan dari 600 ke 180 detik: angka yang dijawab dari cache paling lama sekitar 4 menit lebih tua (60 detik segar + 180 detik masa basi), sehingga selisih kartu dan drill-down lebih kecil. Tidak ada rumus atau query yang berubah.                                                                                                                                                                                                                                                                                                                                        |
+| 2026-11-04 | Snapshot kas: untuk filter semua entitas, query baca `dash_snap_cash_lines` tidak lagi memakai join `DISTINCT` (setiap jurnal di snapshot sudah pasti punya baris kas); join tetap dipakai untuk filter entitas. Hasil sama; SQL di bagian Q20 diperbarui.                                                                                                                                                                                                                                                                                                                                                      |
+| 2026-11-05 | Phase 4 performa: subbagian "Aging dijumlahkan di SQL dari snapshot" ditambahkan (`itemsAggregateQuery`, `paymentsAggregateQuery`, `coaIdsQuery`, `dueTotalsQuery`). Aging AP/AR dan ringkasan Payment Plan dijumlahkan langsung oleh database dari tabel snapshot (`dash_snap_ap_ar_*` dan `dash_snap_ap_ar_hist_*`) dengan query pivot per pihak dan per tanggal jatuh tempo berbasis `AGING_BUCKET_DAYS`; memori Node tidak lagi memuat ratusan ribu baris tagihan terbuka; fallback otomatis ke cara lama bila tanggal di luar cakupan snapshot; Summary tidak lagi menjalankan Payment Plan sejak Phase 2. |

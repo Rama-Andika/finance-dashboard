@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('~/server/env', () => ({ env: { APP_TODAY: '2026-10-15', APP_TIMEZONE: 'Asia/Jakarta' } }))
+vi.mock('~/server/env', () => ({
+  env: { APP_TODAY: '2026-10-15', APP_TIMEZONE: 'Asia/Jakarta' },
+}))
 vi.mock('~/server/context', () => ({ getCachedCoaTree: async () => ({ tree: true }) }))
 vi.mock('~/server/dash/snapshot', () => ({
   memoBySnapshot: (_name: string, _params: unknown, loader: () => Promise<unknown>) => loader(),
@@ -42,7 +44,10 @@ describe('createAgingReader', () => {
   beforeEach(() => {
     for (const m of [openItems, unallocatedItems, loadPartyNames, compute]) m.mockReset()
     compareAvailable = true
-    openItems.mockResolvedValue([{ partyId: 'a', amount: '10.00' }, { partyId: 'b', amount: '5.00' }])
+    openItems.mockResolvedValue([
+      { partyId: 'a', amount: '10.00' },
+      { partyId: 'b', amount: '5.00' },
+    ])
     unallocatedItems.mockResolvedValue([{ partyId: 'b', amount: '2.00' }])
     loadPartyNames.mockResolvedValue(new Map([['a', { code: 'A', name: 'Party A' }]]))
     compute.mockReturnValue({ total: '13.00' })
@@ -73,8 +78,77 @@ describe('createAgingReader', () => {
   })
 
   it('compareTotal is null without a comparison period', async () => {
-    const noCompare = { locationIds: 'all', asOf: '2026-10-15', compare: undefined } as never
+    const noCompare = {
+      locationIds: 'all',
+      asOf: '2026-10-15',
+      compare: undefined,
+    } as never
     expect(await reader.compareTotal(noCompare, new Map(), {} as never)).toBeNull()
     expect(openItems).not.toHaveBeenCalled()
+  })
+})
+
+describe('createAgingReader with aggregates', () => {
+  const aggregatesFn = vi.fn()
+  const computeFromAggregates = vi.fn()
+  const aggReader = createAgingReader({
+    cacheName: 'testAgingAggregateCore',
+    openItems: (d, l) => openItems(d, l),
+    unallocatedItems: (d, l) => unallocatedItems(d, l),
+    openPartyId: (item: Open) => item.partyId,
+    unallocatedPartyId: (item: Unallocated) => item.partyId,
+    loadPartyNames: (ids) => loadPartyNames(ids),
+    compute: (input) => compute(input) as { total: string },
+    aggregates: (asOf, loc) => aggregatesFn(asOf, loc),
+    computeFromAggregates: (input) => computeFromAggregates(input) as { total: string },
+  })
+
+  beforeEach(() => {
+    for (const m of [aggregatesFn, computeFromAggregates, openItems, unallocatedItems, loadPartyNames, compute])
+      m.mockReset()
+    compareAvailable = true
+    loadPartyNames.mockResolvedValue(new Map())
+    aggregatesFn.mockResolvedValue({
+      items: [{ partyId: 'a' }, { partyId: '' }],
+      payments: [{ partyId: 'b' }],
+      coaIds: [],
+    })
+    computeFromAggregates.mockReturnValue({ total: '42.00' })
+  })
+
+  it('uses the sums and never loads a list of invoices', async () => {
+    const { computed } = await aggReader.core(filter)
+    expect(aggregatesFn).toHaveBeenCalledWith('2026-10-15', 'all') // asOf itself, not the day after
+    expect(loadPartyNames).toHaveBeenCalledWith(['a', 'b']) // the empty party id is left out
+    expect(computed).toEqual({ total: '42.00' })
+    expect(openItems).not.toHaveBeenCalled()
+    expect(unallocatedItems).not.toHaveBeenCalled()
+    expect(compute).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the list of invoices when the sums are not available for that date', async () => {
+    aggregatesFn.mockResolvedValue(null)
+    openItems.mockResolvedValue([{ partyId: 'a', amount: '1.00' }])
+    unallocatedItems.mockResolvedValue([])
+    compute.mockReturnValue({ total: '1.00' })
+    const { computed } = await aggReader.core(filter)
+    expect(computed).toEqual({ total: '1.00' })
+    expect(openItems).toHaveBeenCalledWith('2026-10-16', 'all')
+    expect(computeFromAggregates).not.toHaveBeenCalled()
+  })
+
+  it('takes the comparison total from the sums too', async () => {
+    computeFromAggregates.mockReturnValue({ total: '7.00' })
+    expect(await aggReader.compareTotal(filter, new Map(), {} as never)).toBe('7.00')
+    expect(aggregatesFn).toHaveBeenCalledWith('2026-09-15', 'all')
+    expect(openItems).not.toHaveBeenCalled()
+  })
+
+  it('compares through the list of invoices when the sums are not available for the comparison date', async () => {
+    aggregatesFn.mockResolvedValue(null)
+    openItems.mockResolvedValue([])
+    unallocatedItems.mockResolvedValue([])
+    compute.mockReturnValue({ total: '3.00' })
+    expect(await aggReader.compareTotal(filter, new Map(), {} as never)).toBe('3.00')
   })
 })
