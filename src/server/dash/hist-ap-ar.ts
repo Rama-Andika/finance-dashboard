@@ -11,6 +11,7 @@ import { listPeriods } from '~/server/repo/master-data/periods.repo'
 import { DASH_INSERT_BATCH_SIZE, DASH_TABLES, dashTable } from './tables'
 import { dashLog } from './log'
 import { prepareRefreshConnection, tryLock, unlock } from './refresh-connection'
+import { createStepTimer, formatDuration, formatSteps, type StepTiming } from './step-timer'
 import { OPEN_COLUMNS, UNALLOC_COLUMNS, loadOpenInvoices, loadUnallocated, type Row } from './refresh-ap-ar'
 
 const LOCK_NAME = 'dash_refresh_ap_ar_hist'
@@ -71,9 +72,9 @@ export async function refreshApArHistSnapshots(
     for (const [index, asOfDate] of plan.build.entries()) {
       const t0 = Date.now()
       const isFinal = isFinalMonthEnd(wanted.indexOf(asOfDate), asOfDate, closedMonthEnds)
-      const rowCount = await buildMonth(conn, asOfDate, isFinal)
+      const { rowCount, steps } = await buildMonth(conn, asOfDate, isFinal)
       dashLog.info(
-        `AP/AR history ${index + 1}/${plan.build.length}: ${asOfDate} (${rowCount} rows, ${Math.round((Date.now() - t0) / 1000)}s)`,
+        `AP/AR history ${index + 1}/${plan.build.length}: ${asOfDate} (${rowCount} rows, ${formatDuration(Date.now() - t0)}): ${formatSteps(steps)}`,
       )
     }
 
@@ -102,7 +103,12 @@ async function removeMonth(conn: PoolConnection, asOfDate: IsoDate): Promise<voi
  * Builds one month-end. The rows are read first (long, no transaction); then the rows and the "built" marker are
  * written in one transaction, so readers never see half a month. Returns the number of rows written.
  */
-async function buildMonth(conn: PoolConnection, asOfDate: IsoDate, isFinal: boolean): Promise<number> {
+async function buildMonth(
+  conn: PoolConnection,
+  asOfDate: IsoDate,
+  isFinal: boolean,
+): Promise<{ rowCount: number; steps: StepTiming[] }> {
+  const timer = createStepTimer()
   const started = Date.now()
   const asOfPlusOne = addDays(asOfDate, 1)
 
@@ -110,8 +116,8 @@ async function buildMonth(conn: PoolConnection, asOfDate: IsoDate, isFinal: bool
   let openRows: Row[] = []
   let unallocRows: Row[] = []
   for (const side of ['ap', 'ar'] as const) {
-    openRows = openRows.concat(await loadOpenInvoices(conn, side, asOfPlusOne))
-    unallocRows = unallocRows.concat(await loadUnallocated(conn, side, asOfPlusOne))
+    openRows = openRows.concat(await loadOpenInvoices(conn, side, asOfPlusOne, timer))
+    unallocRows = unallocRows.concat(await loadUnallocated(conn, side, asOfPlusOne, timer))
   }
   const withDate = (list: Row[]): Row[] => list.map((r) => [asOfDate, ...r])
 
@@ -120,25 +126,27 @@ async function buildMonth(conn: PoolConnection, asOfDate: IsoDate, isFinal: bool
   const dates = dashTable(DASH_TABLES.apArHistDates)
   const rowCount = openRows.length + unallocRows.length
 
-  await conn.beginTransaction()
-  try {
-    await conn.query('DELETE FROM ?? WHERE as_of_date = ?', [open, asOfDate])
-    await conn.query('DELETE FROM ?? WHERE as_of_date = ?', [unallocated, asOfDate])
-    for (const batch of chunk(withDate(openRows), DASH_INSERT_BATCH_SIZE)) {
-      await conn.query('INSERT INTO ?? (??) VALUES ?', [open, ['as_of_date', ...OPEN_COLUMNS], batch])
-    }
-    for (const batch of chunk(withDate(unallocRows), DASH_INSERT_BATCH_SIZE)) {
-      await conn.query('INSERT INTO ?? (??) VALUES ?', [unallocated, ['as_of_date', ...UNALLOC_COLUMNS], batch])
-    }
-    await conn.query(
-      `INSERT INTO ?? (as_of_date, built_at, row_count, duration_ms, is_final) VALUES (?, UTC_TIMESTAMP(), ?, ?, ?)
+  await timer.time('write rows', async () => {
+    await conn.beginTransaction()
+    try {
+      await conn.query('DELETE FROM ?? WHERE as_of_date = ?', [open, asOfDate])
+      await conn.query('DELETE FROM ?? WHERE as_of_date = ?', [unallocated, asOfDate])
+      for (const batch of chunk(withDate(openRows), DASH_INSERT_BATCH_SIZE)) {
+        await conn.query('INSERT INTO ?? (??) VALUES ?', [open, ['as_of_date', ...OPEN_COLUMNS], batch])
+      }
+      for (const batch of chunk(withDate(unallocRows), DASH_INSERT_BATCH_SIZE)) {
+        await conn.query('INSERT INTO ?? (??) VALUES ?', [unallocated, ['as_of_date', ...UNALLOC_COLUMNS], batch])
+      }
+      await conn.query(
+        `INSERT INTO ?? (as_of_date, built_at, row_count, duration_ms, is_final) VALUES (?, UTC_TIMESTAMP(), ?, ?, ?)
        ON DUPLICATE KEY UPDATE built_at = VALUES(built_at), row_count = VALUES(row_count), duration_ms = VALUES(duration_ms), is_final = VALUES(is_final)`,
-      [dates, asOfDate, rowCount, Date.now() - started, isFinal ? 1 : 0],
-    )
-    await conn.commit()
-  } catch (error) {
-    await conn.rollback().catch(() => {})
-    throw error
-  }
-  return rowCount
+        [dates, asOfDate, rowCount, Date.now() - started, isFinal ? 1 : 0],
+      )
+      await conn.commit()
+    } catch (error) {
+      await conn.rollback().catch(() => {})
+      throw error
+    }
+  })
+  return { rowCount, steps: timer.steps }
 }

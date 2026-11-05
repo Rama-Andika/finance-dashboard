@@ -739,21 +739,23 @@ Batas yang diketahui (keputusan D43): koreksi angka di dalam jurnal periode lama
 
 ### Snapshot AP/AR
 
-`src/server/dash/refresh-ap-ar.ts`. Dibangun dari tiga pemindaian sederhana (satu join besar memakan ±10 menit pada data demo), gabungannya dikerjakan di JavaScript. Dijalankan per sisi (`module_type` 0 dan 1).
+`src/server/dash/refresh-ap-ar.ts`. Dibangun dari pemindaian terpisah yang digabung di server aplikasi, dijalankan per sisi (`module_type` 0 dan 1). Pelunasan tidak lagi dijumlahkan oleh database (`JOIN ... GROUP BY invoice_id`) karena hampir setiap baris detail adalah kelompok tagihannya sendiri, yang membuat join dan grouping memakan waktu 80–95 detik pada 2 juta baris kartu. Dua pemindaian sederhana (kartu pelunasan, lalu baris detail) dibaca berurutan dan digabung di server aplikasi dengan presisi `decimal.js` (`loadSettlementSums`); pemindaian detail memakai indeks penutup jika tersedia (tanpa petunjuk indeks agar tidak gagal bila indeks belum dipasang). Pemindaian tagihan dan kartu pelunasan memakai `FORCE INDEX (PRIMARY)`. Hasilnya sama persis.
 
 ```sql
--- (a) total pelunasan per tagihan  (di-stream, disimpan dalam Map)
-SELECT d.invoice_id, SUM(d.amount)
-FROM ap_ar_card_detail d
-JOIN ap_ar_card p ON p.ap_ar_card_id = d.ap_ar_card_id
+-- (a1) kartu pelunasan (di-stream, id disimpan dalam Set; petunjuk FORCE INDEX (PRIMARY) untuk pemindaian tabel berurutan)
+SELECT p.ap_ar_card_id
+FROM ap_ar_card p FORCE INDEX (PRIMARY)
 WHERE p.module_type = :module AND p.transaction_type IN (:settlementTypes)
-  AND p.in_out IN (-1, 1) AND p.transaction_date < :asOfPlusOne
-GROUP BY d.invoice_id;
+  AND p.in_out IN (-1, 1) AND p.transaction_date < :asOfPlusOne;
 
--- (b) semua tagihan (di-stream); yang saldonya ≠ 0 disimpan
+-- (a2) baris detail pelunasan tanpa join (di-stream; dijumlahkan per tagihan di JavaScript untuk kartu di a1)
+SELECT d.invoice_id, d.ap_ar_card_id, d.amount
+FROM ap_ar_card_detail d;
+
+-- (b) semua tagihan (di-stream, dengan FORCE INDEX (PRIMARY)); yang saldonya ≠ 0 disimpan
 --     saldo = amount × in_out + SUM dari (a)
 SELECT i.ap_ar_card_id, i.amount * i.in_out
-FROM ap_ar_card i
+FROM ap_ar_card i FORCE INDEX (PRIMARY)
 WHERE i.module_type = :module AND i.transaction_type IN (:invoiceTypes)
   AND i.in_out IN (-1, 1) AND i.transaction_date < :asOfPlusOne;
 
@@ -881,3 +883,4 @@ WHERE table_schema = DATABASE()
 | 2026-11-05 | Phase 4 performa: subbagian "Aging dijumlahkan di SQL dari snapshot" ditambahkan (`itemsAggregateQuery`, `paymentsAggregateQuery`, `coaIdsQuery`, `dueTotalsQuery`). Aging AP/AR dan ringkasan Payment Plan dijumlahkan langsung oleh database dari tabel snapshot (`dash_snap_ap_ar_*` dan `dash_snap_ap_ar_hist_*`) dengan query pivot per pihak dan per tanggal jatuh tempo berbasis `AGING_BUCKET_DAYS`; memori Node tidak lagi memuat ratusan ribu baris tagihan terbuka; fallback otomatis ke cara lama bila tanggal di luar cakupan snapshot; Summary tidak lagi menjalankan Payment Plan sejak Phase 2. |
 | 2026-11-05 | Phase 5 performa: petunjuk indeks `FORCE INDEX (PRIMARY)` ditambahkan pada pembacaan penuh satu sisi `dash_snap_ap_ar_open` tanpa filter (Q14, `itemsAggregateQuery`, `coaIdsQuery`, `dueTotalsQuery`); mencegah optimizer memilih indeks sekunder non-covering yang lambat; query dengan filter entitas/id tagihan dan tabel riwayat tetap tanpa petunjuk (D48).                                                                                                                                                                                                                                               |
 | 2026-11-05 | Perapian kode snapshot: langkah snapshot GL dan snapshot kas memakai satu mesin refresh periode, dan hitungan jurnal per periode dipakai bersama selama 60 detik dalam satu siklus (aturan 6 pada "Sidik jari periode"). Tidak ada query, rumus, atau angka yang berubah.                                                                                                                                                                                                                                                                                                                                       |
+| 2026-11-05 | Phase 6 performa: rebuild AP/AR membaca ap_ar_card dengan FORCE INDEX (PRIMARY) dan menghitung pelunasan dari dua pemindaian sederhana tanpa join di Node (loadSettlementSums); query detail tanpa petunjuk indeks (D50).                                                                                                                                                                                                                                                                                                                                                                                       |

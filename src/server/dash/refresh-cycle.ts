@@ -5,6 +5,7 @@ import { todayIn } from '~/lib/format/date'
 import { clearCache } from '~/server/cache'
 import { dashLog } from './log'
 import { PERIOD_STATS_CACHE_PREFIX } from './tables'
+import { createStepTimer, formatDuration, formatSteps, type StepTiming } from './step-timer'
 import { dashMigrationStatus } from './migrate'
 import { refreshApArSnapshot } from './refresh-ap-ar'
 import { refreshGlMonthlySnapshot } from './gl-snapshot'
@@ -32,6 +33,17 @@ export type RefreshCycleOutcome =
 // Module state lives on globalThis so a hot reload does not create a second job state (`var` is required to declare it).
 declare global {
   var __dashRefreshJob: RefreshJobState | undefined
+}
+
+/** A run that did nothing in a few seconds is not worth a line; a manual one (somebody is waiting) always is. */
+const SUMMARY_MIN_MS = 5_000
+
+/** One line per run worth reading: where the time went, step by step. */
+function logCycleSummary(source: RefreshSource, steps: readonly StepTiming[], totalMs: number, ok: boolean): void {
+  if (source !== 'manual' && ok && totalMs < SUMMARY_MIN_MS) return
+  dashLog.info(
+    `refresh cycle (${source}) ${ok ? 'finished' : 'finished with errors'} in ${formatDuration(totalMs)}: ${formatSteps(steps)}`,
+  )
 }
 
 /** Month-end AP/AR history: months built per run, so the regular refresh is never held up for long. */
@@ -67,6 +79,11 @@ export async function runRefreshCycle(
   if (job.running) return { ran: false, reason: 'already-running' }
   job.running = true
 
+  const startedAt = Date.now()
+  // A manual run has somebody waiting for it: say which step is running, so the log shows where a long wait is.
+  const timer = createStepTimer(
+    source === 'manual' ? { onStart: (name) => dashLog.info(`manual refresh: ${name} started`) } : {},
+  )
   let migrationsPending = false
   let ok = true
   try {
@@ -78,10 +95,15 @@ export async function runRefreshCycle(
       )
     } else {
       if (source === 'manual') dashLog.info('manual snapshot refresh started')
-      const result = await refreshApArSnapshot(today(), { force: options.force })
-      await warmApArSnapshot()
+      const result = await timer.time('AP/AR snapshot', () => refreshApArSnapshot(today(), { force: options.force }))
+      if (result.ran) {
+        dashLog.info(
+          `AP/AR snapshot refreshed in ${formatDuration(result.durationMs)} (${result.openRows} open invoices, ${result.unallocatedRows} unallocated): ${formatSteps(result.steps)}`,
+        )
+      }
+      await timer.time('warm invoice lists', () => warmApArSnapshot())
       // Closed GL periods: cheap when nothing is new, a few seconds to minutes per new period otherwise
-      const gl = await refreshGlMonthlySnapshot()
+      const gl = await timer.time('GL snapshot', () => refreshGlMonthlySnapshot())
       if (gl.ran) {
         dashLog.info(
           `GL snapshot built ${gl.built} period(s) (${gl.rebuilt} rebuilt), removed ${gl.removed} in ${Math.round(gl.durationMs / 1000)}s`,
@@ -92,7 +114,9 @@ export async function runRefreshCycle(
       // Lines of the cash journals of Closed periods (feeds Cash Flow, Runway and Expense Paid).
       // A failure here is recorded but does not stop the steps after it: the live ERP query still answers, only slower.
       try {
-        const cash = await refreshCashLinesSnapshot(await currentCashAccountIds())
+        const cash = await timer.time('cash lines snapshot', async () =>
+          refreshCashLinesSnapshot(await currentCashAccountIds()),
+        )
         if (cash.ran) {
           dashLog.info(
             `cash lines snapshot built ${cash.built} period(s) (${cash.rebuilt} rebuilt), removed ${cash.removed} in ${Math.round(cash.durationMs / 1000)}s`,
@@ -104,16 +128,13 @@ export async function runRefreshCycle(
         dashLog.error(`cash lines snapshot failed (the live query is used meanwhile): ${errorText(error)}`)
       }
       // Month-end AP/AR history: one month per run (the first fill takes a few runs; `npm run dash:refresh-hist` does it at once)
-      const hist = await refreshApArHistSnapshots(today(), { maxBuilds: HIST_MAX_BUILDS_PER_RUN })
+      const hist = await timer.time('AP/AR history', () =>
+        refreshApArHistSnapshots(today(), { maxBuilds: HIST_MAX_BUILDS_PER_RUN }),
+      )
       if (hist.ran) {
         clearCache('dash:ap-ar:hist')
         dashLog.info(
           `AP/AR history built ${hist.built.length} month(s), removed ${hist.pruned} in ${Math.round(hist.durationMs / 1000)}s`,
-        )
-      }
-      if (result.ran) {
-        dashLog.info(
-          `AP/AR snapshot refreshed in ${Math.round(result.durationMs / 1000)}s (${result.openRows} open invoices, ${result.unallocatedRows} unallocated)`,
         )
       }
       // The person who pressed "Refresh now" expects fresh numbers, not an answer kept for the stale window.
@@ -128,6 +149,7 @@ export async function runRefreshCycle(
     dashLog.error(`snapshot refresh failed: ${errorText(error)}`)
   } finally {
     job.running = false
+    if (!migrationsPending) logCycleSummary(source, timer.steps, Date.now() - startedAt, ok)
     if (!migrationsPending) {
       job.lastOk = ok
       job.finishedRuns += 1

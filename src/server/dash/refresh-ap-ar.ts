@@ -6,8 +6,11 @@ import { openBalance } from '~/lib/finance/ap-ar/open-invoices'
 import { chunk } from '~/server/db/chunk'
 import { addDays } from '~/lib/format/date'
 import { DASH_INSERT_BATCH_SIZE, DASH_MAX_ERROR_LENGTH, DASH_TABLES, SNAPSHOT_AP_AR, dashTable, ints } from './tables'
+import { FULL_SCAN_HINT_TEXT } from './scan-hint'
+import { createSettlementSums } from '~/lib/finance/ap-ar/settlement-sums'
 import { dashLog } from './log'
 import { prepareRefreshConnection, tryLock, unlock } from './refresh-connection'
+import { createStepTimer, untimed, type StepTimer, type StepTiming } from './step-timer'
 import { errorText } from '~/server/log'
 
 export type Row = unknown[]
@@ -50,83 +53,131 @@ function streamRows(conn: PoolConnection, sql: string, params: unknown[]): Async
 }
 
 /**
- * Open invoices of one side (AP or AR) at the end of `asOf`, built from plain scans instead of one big join:
- * 1. what was paid per invoice (kept in a map), 2. every invoice, streamed, keeping only those with a balance,
- * 3. the descriptive columns of the open ones by primary key.
- * (One join with GROUP BY over 12 columns took ~10 minutes on the demo DB.)
+ * What was paid per invoice (the sum of the amounts that settlement cards allocated to it), as of `asOf`.
+ * Two plain scans joined here instead of one SQL join with GROUP BY: nearly every detail row is its own invoice group,
+ * so the join and the grouping took 80–95 s on 2 million cards, the two scans together about 11 s (docs/performance-measurement.md §14.3).
+ * 1. the settlement cards of this side (the date filter lives on the card), 2. every detail row, keeping the ones of those cards.
+ * The detail scan carries no index hint: the covering index of dashboard-indexes.sql is used when it exists, and naming it would
+ * fail the whole refresh on a database that does not have it.
  */
-export async function loadOpenInvoices(conn: PoolConnection, side: AgingSide, asOfPlusOne: string): Promise<Row[]> {
+export async function loadSettlementSums(
+  conn: PoolConnection,
+  side: AgingSide,
+  asOfPlusOne: string,
+  timer: StepTimer = untimed,
+): Promise<Map<string, string>> {
   const cfg = AGING_SIDES[side]
   const inOut = ints(IN_OUT_VALUES)
 
-  const payments = new Map<string, string>()
-  for await (const r of streamRows(
-    conn,
-    `SELECT d.invoice_id, SUM(d.amount) FROM ap_ar_card_detail d
-     JOIN ap_ar_card p ON p.ap_ar_card_id = d.ap_ar_card_id
-     WHERE p.module_type = ${cfg.module} AND p.transaction_type IN (${ints(cfg.settlementTypes)})
-       AND p.in_out IN (${inOut}) AND p.transaction_date < ?
-     GROUP BY d.invoice_id`,
-    [asOfPlusOne],
-  )) {
-    payments.set(String(r[0]), String(r[1]))
-  }
+  const settlementCards = new Set<string>()
+  await timer.time(`${side}: settlement cards`, async () => {
+    for await (const r of streamRows(
+      conn,
+      `SELECT p.ap_ar_card_id FROM ap_ar_card p ${FULL_SCAN_HINT_TEXT}
+       WHERE p.module_type = ${cfg.module} AND p.transaction_type IN (${ints(cfg.settlementTypes)})
+         AND p.in_out IN (${inOut}) AND p.transaction_date < ?`,
+      [asOfPlusOne],
+    )) {
+      settlementCards.add(String(r[0]))
+    }
+  })
+
+  const sums = createSettlementSums(settlementCards)
+  await timer.time(`${side}: settlement details`, async () => {
+    for await (const r of streamRows(
+      conn,
+      'SELECT d.invoice_id, d.ap_ar_card_id, d.amount FROM ap_ar_card_detail d',
+      [],
+    )) {
+      sums.add(r[0], r[1], r[2])
+    }
+  })
+  return sums.result()
+}
+
+/**
+ * Open invoices of one side (AP or AR) at the end of `asOf`, built from plain scans instead of one big join:
+ * 1. what was paid per invoice (`loadSettlementSums`), 2. every invoice, streamed, keeping only those with a balance,
+ * 3. the descriptive columns of the open ones by primary key.
+ * (One join with grouping over 12 columns took ~10 minutes on the demo DB.)
+ */
+export async function loadOpenInvoices(
+  conn: PoolConnection,
+  side: AgingSide,
+  asOfPlusOne: string,
+  timer: StepTimer = untimed,
+): Promise<Row[]> {
+  const cfg = AGING_SIDES[side]
+  const inOut = ints(IN_OUT_VALUES)
+
+  const payments = await loadSettlementSums(conn, side, asOfPlusOne, timer)
 
   const open = new Map<string, { original: string; balance: string }>()
-  for await (const r of streamRows(
-    conn,
-    `SELECT i.ap_ar_card_id, i.amount * i.in_out FROM ap_ar_card i
+  await timer.time(`${side}: invoices scan`, async () => {
+    for await (const r of streamRows(
+      conn,
+      `SELECT i.ap_ar_card_id, i.amount * i.in_out FROM ap_ar_card i ${FULL_SCAN_HINT_TEXT}
      WHERE i.module_type = ${cfg.module} AND i.transaction_type IN (${ints(cfg.invoiceTypes)})
        AND i.in_out IN (${inOut}) AND i.transaction_date < ?`,
-    [asOfPlusOne],
-  )) {
-    const id = String(r[0])
-    const m = openBalance(String(r[1]), payments.get(id))
-    if (m) open.set(id, m)
-  }
+      [asOfPlusOne],
+    )) {
+      const id = String(r[0])
+      const m = openBalance(String(r[1]), payments.get(id))
+      if (m) open.set(id, m)
+    }
+  })
   payments.clear()
 
   const out: Row[] = []
-  for (const ids of chunk(Array.from(open.keys()))) {
-    const detail = await query(
-      conn,
-      `SELECT ap_ar_card_id, owner_id, location_id, coa_id, DATE(transaction_date), due_date, transaction_type,
+  await timer.time(`${side}: invoice details`, async () => {
+    for (const ids of chunk(Array.from(open.keys()))) {
+      const detail = await query(
+        conn,
+        `SELECT ap_ar_card_id, owner_id, location_id, coa_id, DATE(transaction_date), due_date, transaction_type,
               COALESCE(NULLIF(invoice_number, ''), transaction_number, '')
        FROM ap_ar_card WHERE ap_ar_card_id IN (?)`,
-      [ids],
-    )
-    for (const r of detail) {
-      const m = open.get(String(r[0]))
-      if (!m) continue
-      out.push([
-        String(r[0]),
-        cfg.module,
-        idOrNull(r[1]),
-        idOrNull(r[2]),
-        idOrNull(r[3]),
-        day(r[4]),
-        r[5] ? day(r[5]) : null,
-        Number(r[6]) || 0,
-        String(r[7] ?? ''),
-        m.original,
-        m.balance,
-      ])
+        [ids],
+      )
+      for (const r of detail) {
+        const m = open.get(String(r[0]))
+        if (!m) continue
+        out.push([
+          String(r[0]),
+          cfg.module,
+          idOrNull(r[1]),
+          idOrNull(r[2]),
+          idOrNull(r[3]),
+          day(r[4]),
+          r[5] ? day(r[5]) : null,
+          Number(r[6]) || 0,
+          String(r[7] ?? ''),
+          m.original,
+          m.balance,
+        ])
+      }
     }
-  }
+  })
   return out
 }
 
 /** Payments / credit notes with no allocation to any invoice. */
-export async function loadUnallocated(conn: PoolConnection, side: AgingSide, asOfPlusOne: string): Promise<Row[]> {
+export async function loadUnallocated(
+  conn: PoolConnection,
+  side: AgingSide,
+  asOfPlusOne: string,
+  timer: StepTimer = untimed,
+): Promise<Row[]> {
   const cfg = AGING_SIDES[side]
-  const rows = await query(
-    conn,
-    `SELECT p.ap_ar_card_id, p.owner_id, p.location_id, p.coa_id, DATE(p.transaction_date), p.amount * p.in_out
+  const rows = await timer.time(`${side}: unallocated payments`, () =>
+    query(
+      conn,
+      `SELECT p.ap_ar_card_id, p.owner_id, p.location_id, p.coa_id, DATE(p.transaction_date), p.amount * p.in_out
      FROM ap_ar_card p
      WHERE p.module_type = ${cfg.module} AND p.transaction_type IN (${ints(cfg.unallocatedTypes)})
        AND p.in_out IN (${ints(IN_OUT_VALUES)}) AND p.transaction_date < ?
        AND NOT EXISTS (SELECT 1 FROM ap_ar_card_detail d WHERE d.ap_ar_card_id = p.ap_ar_card_id)`,
-    [asOfPlusOne],
+      [asOfPlusOne],
+    ),
   )
   return rows.map((r) => [
     String(r[0]),
@@ -216,7 +267,15 @@ async function setMeta(
 }
 
 export type RefreshResult =
-  | { ran: true; asOfDate: string; openRows: number; unallocatedRows: number; durationMs: number }
+  | {
+      ran: true
+      asOfDate: string
+      openRows: number
+      unallocatedRows: number
+      durationMs: number
+      /** Where the time went: the scans per side, then writing the two tables */
+      steps: StepTiming[]
+    }
   | { ran: false; reason: 'locked' | 'unchanged' }
 
 /**
@@ -255,16 +314,19 @@ export async function refreshApArSnapshot(today: string, options: { force?: bool
     await setMeta(conn, { status: 'running' })
     const asOfPlusOne = addDays(today, 1)
 
+    const timer = createStepTimer()
     // concat, not push(...rows): spreading ~160k rows as arguments overflows the call stack
     let openRows: Row[] = []
     let unallocRows: Row[] = []
     for (const side of ['ap', 'ar'] as const) {
-      openRows = openRows.concat(await loadOpenInvoices(conn, side, asOfPlusOne))
-      unallocRows = unallocRows.concat(await loadUnallocated(conn, side, asOfPlusOne))
+      openRows = openRows.concat(await loadOpenInvoices(conn, side, asOfPlusOne, timer))
+      unallocRows = unallocRows.concat(await loadUnallocated(conn, side, asOfPlusOne, timer))
     }
 
-    await replaceTable(conn, DASH_TABLES.apArOpen, OPEN_COLUMNS, openRows)
-    await replaceTable(conn, DASH_TABLES.apArUnallocated, UNALLOC_COLUMNS, unallocRows)
+    await timer.time('write open invoices', () => replaceTable(conn, DASH_TABLES.apArOpen, OPEN_COLUMNS, openRows))
+    await timer.time('write unallocated payments', () =>
+      replaceTable(conn, DASH_TABLES.apArUnallocated, UNALLOC_COLUMNS, unallocRows),
+    )
 
     const durationMs = Date.now() - started
     await setMeta(conn, {
@@ -274,7 +336,14 @@ export async function refreshApArSnapshot(today: string, options: { force?: bool
       durationMs,
       fingerprint,
     })
-    return { ran: true, asOfDate: today, openRows: openRows.length, unallocatedRows: unallocRows.length, durationMs }
+    return {
+      ran: true,
+      asOfDate: today,
+      openRows: openRows.length,
+      unallocatedRows: unallocRows.length,
+      durationMs,
+      steps: timer.steps,
+    }
   } catch (error) {
     const message = errorText(error)
     dashLog.error(`AP/AR snapshot refresh failed: ${message}`)

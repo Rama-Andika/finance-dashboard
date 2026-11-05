@@ -2,6 +2,7 @@
 import { env } from '../src/server/env'
 import { todayIn } from '../src/lib/format/date'
 import { refreshApArSnapshot } from '../src/server/dash/refresh-ap-ar'
+import { formatDuration } from '../src/server/dash/step-timer'
 import { pool } from '../src/server/db/client'
 import { refreshPool } from '../src/server/db/refresh-pool'
 
@@ -11,8 +12,9 @@ try {
   const result = await refreshApArSnapshot(today, { force: process.argv.includes('--force') })
   if (result.ran) {
     console.log(
-      `Done in ${Math.round(result.durationMs / 1000)}s: ${result.openRows} open invoices, ${result.unallocatedRows} unallocated`,
+      `Done in ${formatDuration(result.durationMs)}: ${result.openRows} open invoices, ${result.unallocatedRows} unallocated`,
     )
+    for (const step of result.steps) console.log(`  ${step.name}: ${formatDuration(step.ms)}`)
   } else if (result.reason === 'unchanged') {
     console.log('The ERP data has not changed since the last refresh (use --force to rebuild anyway).')
   } else {

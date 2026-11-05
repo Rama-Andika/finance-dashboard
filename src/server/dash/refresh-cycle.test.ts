@@ -10,11 +10,12 @@ const mocks = vi.hoisted(() => ({
   currentCashAccountIds: vi.fn(),
   clearCache: vi.fn(),
   clearCachesAfterPeriodChange: vi.fn(),
+  logInfo: vi.fn(),
 }))
 
 vi.mock('~/server/env', () => ({ env: { APP_TODAY: '2026-10-15', APP_TIMEZONE: 'Asia/Jakarta' } }))
 vi.mock('~/server/cache', () => ({ clearCache: mocks.clearCache }))
-vi.mock('./log', () => ({ dashLog: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
+vi.mock('./log', () => ({ dashLog: { info: mocks.logInfo, warn: vi.fn(), error: vi.fn() } }))
 vi.mock('./migrate', () => ({ dashMigrationStatus: mocks.dashMigrationStatus }))
 vi.mock('./refresh-ap-ar', () => ({ refreshApArSnapshot: mocks.refreshApArSnapshot }))
 vi.mock('./gl-snapshot', () => ({ refreshGlMonthlySnapshot: mocks.refreshGlMonthlySnapshot }))
@@ -188,5 +189,79 @@ describe('runRefreshCycle', () => {
     mocks.clearCache.mockClear()
     await runRefreshCycle('scheduler', { force: false })
     expect(mocks.clearCache).not.toHaveBeenCalledWith('dash:period-stats:')
+  })
+})
+
+describe('timing of the steps', () => {
+  const infoLines = () => mocks.logInfo.mock.calls.map((call) => String(call[0]))
+
+  it('says which step a manual refresh is in, and sums up where the time went', async () => {
+    await runRefreshCycle('manual', { force: true })
+
+    const lines = infoLines()
+    for (const step of [
+      'AP/AR snapshot',
+      'warm invoice lists',
+      'GL snapshot',
+      'cash lines snapshot',
+      'AP/AR history',
+    ]) {
+      expect(lines).toContain(`manual refresh: ${step} started`)
+    }
+    const summary = lines.find((line) => line.startsWith('refresh cycle (manual) finished in'))
+    expect(summary).toBeDefined()
+    for (const step of [
+      'AP/AR snapshot',
+      'warm invoice lists',
+      'GL snapshot',
+      'cash lines snapshot',
+      'AP/AR history',
+    ]) {
+      expect(summary).toContain(step)
+    }
+  })
+
+  it('stays quiet about a scheduled run that finished at once', async () => {
+    await runRefreshCycle('scheduler', { force: false })
+
+    expect(infoLines().filter((line) => line.startsWith('refresh cycle') || line.startsWith('manual refresh'))).toEqual(
+      [],
+    )
+  })
+
+  it('reports a scheduled run that failed, with the steps up to the failure', async () => {
+    mocks.refreshApArSnapshot.mockRejectedValue(new Error('connection lost'))
+
+    await runRefreshCycle('scheduler', { force: false })
+
+    const summary = infoLines().find((line) => line.startsWith('refresh cycle (scheduler) finished with errors'))
+    expect(summary).toContain('AP/AR snapshot')
+    expect(summary).not.toContain('GL snapshot')
+  })
+
+  it('logs the AP/AR rebuild right after it, with its own steps, not at the end of the run', async () => {
+    const order: string[] = []
+    mocks.refreshApArSnapshot.mockResolvedValue({
+      ran: true,
+      asOfDate: '2026-10-15',
+      openRows: 3,
+      unallocatedRows: 1,
+      durationMs: 670_000,
+      steps: [{ name: 'ap: invoices scan', ms: 120_000 }],
+    })
+    mocks.refreshGlMonthlySnapshot.mockImplementation(async () => {
+      order.push('gl')
+      return { ran: false, reason: 'nothing-to-do' }
+    })
+    mocks.logInfo.mockImplementation((line: string) => {
+      if (line.startsWith('AP/AR snapshot refreshed')) order.push('ap-ar logged')
+    })
+
+    await runRefreshCycle('scheduler', { force: false })
+
+    expect(order).toEqual(['ap-ar logged', 'gl'])
+    expect(infoLines()).toContain(
+      'AP/AR snapshot refreshed in 11m 10s (3 open invoices, 1 unallocated): ap: invoices scan 2m 0s',
+    )
   })
 })

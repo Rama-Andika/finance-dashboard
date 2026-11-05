@@ -6,12 +6,13 @@ Tujuan: tahu **bagian mana yang lambat dan seberapa lambat** sebelum mengoptimal
 
 ## 1. Alat ukur yang tersedia
 
-| Alat             | Cara menyalakan                                | Yang tampil di log server                                                                                                                                                                            |
-| ---------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Waktu per metrik | `PERF_LOG=1`                                   | `perf: metric revenue 842ms` — satu baris tiap metrik yang benar-benar dihitung (cache hit tidak dicatat). Metrik bersarang tumpang tindih: `metric summary` sudah mencakup semua metrik di dalamnya |
-| Menunggu koneksi | `PERF_LOG=1`                                   | `perf: a query is waiting for a free connection (pool is full)` — muncul saat semua koneksi pool sedang dipakai (hanya pool utama; refresh snapshot memakai pool sendiri)                            |
-| Query lambat     | `SLOW_QUERY_MS=1000` (default; `0` = mati)     | `perf: slow query 5320ms: SELECT STRAIGHT_JOIN ...` — teks SQL dengan placeholder `?`, **tanpa nilai parameter** (aman untuk data sensitif). Waktunya termasuk menunggu koneksi pool                 |
-| Probe Summary    | `PERF_PROBE=1 npm run test:db -- perf-summary` | Waktu **dingin** (cache kosong, seperti login pertama atau restart server) dan **hangat** untuk `this-month`, `last-month`, dan `ytd`, semua entitas                                                 |
+| Alat                      | Cara menyalakan                                | Yang tampil di log server                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Waktu per metrik          | `PERF_LOG=1`                                   | `perf: metric revenue 842ms` — satu baris tiap metrik yang benar-benar dihitung (cache hit tidak dicatat). Metrik bersarang tumpang tindih: `metric summary` sudah mencakup semua metrik di dalamnya                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Menunggu koneksi          | `PERF_LOG=1`                                   | `perf: a query is waiting for a free connection (pool is full)` — muncul saat semua koneksi pool sedang dipakai (hanya pool utama; refresh snapshot memakai pool sendiri)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Query lambat              | `SLOW_QUERY_MS=1000` (default; `0` = mati)     | `perf: slow query 5320ms: SELECT STRAIGHT_JOIN ...` — teks SQL dengan placeholder `?`, **tanpa nilai parameter** (aman untuk data sensitif). Waktunya termasuk menunggu koneksi pool                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Probe Summary             | `PERF_PROBE=1 npm run test:db -- perf-summary` | Waktu **dingin** (cache kosong, seperti login pertama atau restart server) dan **hangat** untuk `this-month`, `last-month`, dan `ytd`, semua entitas                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Waktu per langkah refresh | selalu menyala                                 | Satu baris per siklus: `refresh cycle (manual) finished in 11m 52s: AP/AR snapshot 11m 10s, warm invoice lists 0.6s, GL snapshot 1.2s, ...`. Muncul untuk siklus manual ("Refresh now"), siklus terjadwal yang memakan 5 detik atau lebih, dan siklus yang gagal. Siklus manual juga mencatat awal tiap langkah (`manual refresh: GL snapshot started`), jadi log menunjukkan langkah mana yang sedang berjalan saat tombol masih "Memperbarui...". Rebuild AP/AR mencatat rinciannya per sisi (`ap: settlements scan`, `ap: invoices scan`, `ap: invoice details`, penulisan tabel), begitu pula pembangunan satu bulan riwayat; `npm run dash:refresh` mencetak rincian yang sama |
 
 Semuanya mati atau tak berbiaya saat `PERF_LOG=0`. `SLOW_QUERY_MS` boleh tetap menyala di produksi untuk menemukan query yang melambat saat data tumbuh.
 
@@ -250,6 +251,103 @@ Probe sementara (sudah dihapus), Node dengan `--expose-gc` supaya heap diukur se
 - **Ekstrapolasi linear, belum diukur:** satu juta baris tagihan AP sekitar 0,5 GB, lima juta sekitar 2,4 GB, ditambah bobot cache metrik dan daftar tagihan Payment Plan (`plan.bills`) yang dibangun darinya, yang tidak diukur di sini. Batas heap Node (`--max-old-space-size`) dan batas bobot memo (1,5 juta baris untuk seluruh cache) menentukan titik tak aman; keduanya perlu dicek terhadap volume klien sebenarnya.
 - Batas: satu mesin, satu bentuk data demo (hampir semua baris AP, AR sangat kecil); jumlah entitas dan kolom teks panjang pada data klien bisa mengubah ukuran per baris.
 
+## 14. Rincian waktu rebuild AP/AR paksa, DB lokal `demo`, 2026-11-05
+
+`npm run dash:refresh -- --force` (rebuild penuh yang juga dikerjakan tombol "Refresh now"), tanpa dev server dan tanpa beban halaman, satu kali jalan. Rincian dicetak oleh log waktu per langkah (`step-timer.ts`). Hasil: 164.332 tagihan terbuka dan 186 pembayaran tanpa alokasi (sama dengan jumlah sebelumnya: AP 162.865 + AR 1.467, dan 145 + 41).
+
+| Langkah                                                                                        | Waktu      | Bagian dari 3m 28s |
+| ---------------------------------------------------------------------------------------------- | ---------- | ------------------ |
+| AP: pemindaian pelunasan (join `ap_ar_card_detail` dengan `ap_ar_card`, `GROUP BY invoice_id`) | 1m 19s     | sekitar 38%        |
+| AP: pemindaian seluruh tagihan (di-stream, saldo dihitung di Node)                             | 1m 30s     | sekitar 43%        |
+| AP: detail tagihan terbuka (per 1000 id, berurutan)                                            | 13,3 detik | sekitar 6%         |
+| AP: pembayaran tanpa alokasi                                                                   | 7,1 detik  | sekitar 3%         |
+| AR: keempat langkah di atas                                                                    | 2,4 detik  | sekitar 1%         |
+| Tulis tabel tagihan terbuka (batch 1000 baris, lalu tukar nama)                                | 12,2 detik | sekitar 6%         |
+| Tulis tabel pembayaran tanpa alokasi                                                           | 58 ms      |                    |
+
+- **Tanpa beban, rebuild paksa 3m 28s**, bukan 11 menit. Angka 647 sampai 692 detik di §10 diukur saat mesin juga melayani beban halaman terus-menerus; selisihnya adalah persaingan sumber daya database, bukan biaya rebuild sendiri.
+- **Dua pemindaian penuh `ap_ar_card` memakan sekitar 81% waktu** (pelunasan 79 detik, tagihan 90 detik). Pencarian detail berurutan (yang sempat dicurigai) hanya 6%, jadi bukan sasaran pertama. Penyebab lambatnya dua pemindaian itu belum diperiksa (`EXPLAIN` belum dijalankan); bisa jadi pilihan indeks, seperti temuan §11.1 pada tabel snapshot.
+- Waktu rebuild naik mengikuti jumlah baris `ap_ar_card` seluruhnya, bukan hanya tagihan terbuka, karena kedua pemindaian membaca semuanya (lihat catatan volume data).
+- **Belum diukur:** pembangunan satu bulan riwayat (memakai pemindaian yang sama), langkah GL dan kas, dan total siklus manual lengkap.
+- Batas: satu kali jalan, satu mesin, MariaDB 10.4.
+
+### 14.1 EXPLAIN dua pemindaian besar (DB lokal `demo`, MariaDB 10.4.32, hanya membaca, 2026-11-05)
+
+Ukuran tabel (perkiraan `information_schema`): `ap_ar_card` sekitar 1,99 juta baris (552 MB data, 772 MB indeks), `ap_ar_card_detail` sekitar 1,88 juta baris (219 MB data, 375 MB indeks). Jadi data demo sudah berjuta-juta baris di tabel kartu; yang 163 ribu hanyalah tagihan **terbuka**. Indeks `idx_dash_*` dari `docs/sql/dashboard-indexes.sql` terpasang di DB lokal ini.
+
+| Pemindaian                                   | Rencana yang dipilih optimizer                                                                                                                                                                                         | Artinya                                                                                                                                                                                                      |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Semua tagihan AP (`invoices scan`, 90 detik) | Indeks `idx_dash_apar_mod_loc_date` (`module_type`, `location_id`, `transaction_date`), `ref` hanya pada `module_type`, perkiraan **994.032 baris**, `Using index condition; Using where`                              | Indeks itu tidak memuat `transaction_type`, `in_out`, dan `amount`, jadi hampir satu juta baris diambil satu per satu lewat kunci utama (pola yang sama dengan temuan §11.1, tetapi pada tabel 2 juta baris) |
+| Pelunasan AP (`settlements scan`, 79 detik)  | Tabel `p` (`ap_ar_card`) lewat indeks `trans_type`, perkiraan 104.558 baris, lalu `ap_ar_card_detail` lewat `ap_arcard_id` (sekitar 11 baris per kartu); `Using temporary; Using filesort` untuk `GROUP BY invoice_id` | Pengambilan baris `p` satu per satu, lalu tabel sementara dan pengurutan di database. Indeks penutup `idx_dash_apard_inv_card_amt` (`invoice_id`, `ap_ar_card_id`, `amount`) ada, tetapi tidak dipilih       |
+
+- **Ini dugaan yang kuat, belum terbukti.** `EXPLAIN` menunjukkan rencana dan perkiraan, bukan waktu. Pembuktiannya dengan mengukur varian (mis. `FORCE INDEX (PRIMARY)` untuk pemindaian tagihan, atau urutan join yang dimulai dari indeks penutup untuk pelunasan).
+- Hasil rencana bergantung pada versi database dan statistik tabel. MySQL 5.7 produksi bisa memilih rencana lain, dan indeks `idx_dash_*` mungkin belum dipasang di DB klien.
+
+### 14.2 Varian dua pemindaian besar (DB lokal `demo`, MariaDB 10.4.32, hanya membaca, satu kali jalan, 2026-11-05)
+
+Sisi AP, tanggal acuan 2026-11-06. Hasil semua varian dibandingkan dan **identik** (jumlah baris, jumlah saldo, dan checksum id sama).
+
+**Pemindaian semua tagihan** (2.043.179 baris AP, hanya dihitung dan dijumlahkan, jadi biaya database murni):
+
+| Varian                                                         | Rencana                                                                                 | Waktu                                       |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Sekarang (rencana optimizer)                                   | `idx_dash_apar_mod_loc_date`, `ref`, perkiraan 994.032 baris, pengambilan satu per satu | 129 detik                                   |
+| `FORCE INDEX (PRIMARY)`                                        | `type: ALL`, pemindaian tabel berurutan                                                 | **5,3 detik** (sekitar 24 kali lebih cepat) |
+| `FORCE INDEX (PRIMARY)`, semua 2.043.179 baris dikirim ke Node | sama                                                                                    | 6,5 detik                                   |
+
+**Pemindaian pelunasan** (1.884.944 kelompok `invoice_id`, hampir satu baris detail per kelompok):
+
+| Varian                                                   | Rencana                                                                                         | Waktu                                    |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| S0: sekarang                                             | kartu lewat indeks `trans_type`, lalu detail lewat `ap_arcard_id`, tabel sementara dan filesort | 95,6 detik                               |
+| S2: kartu dipindai berurutan dulu, lalu detail per kartu | `FORCE INDEX (PRIMARY)` pada kartu, tabel sementara dan filesort                                | 78,2 detik                               |
+| S1: indeks penutup detail dulu, kartu lewat kunci utama  | `idx_dash_apard_inv_card_amt` (`Using index`), `eq_ref` ke kartu, tanpa tabel sementara         | **66,9 detik** (sekitar 30% lebih cepat) |
+
+- **Pemindaian tagihan: kemenangan besar dan murah.** Satu petunjuk indeks mengubah 129 detik menjadi 5,3 detik tanpa mengubah hasil, pola yang sama dengan Phase 5. `FORCE INDEX (PRIMARY)` tidak bergantung pada indeks `idx_dash_*`, jadi tetap bekerja di DB yang belum memasangnya.
+- **Pemindaian pelunasan: perbaikan urutan join hanya kecil.** Pekerjaan intinya (sekitar 1,9 juta pengambilan kartu dan 1,9 juta kelompok) tetap 67 sampai 96 detik. Karena hampir setiap baris detail membentuk kelompoknya sendiri, `GROUP BY invoice_id` di database nyaris tidak meringkas apa pun.
+- **Belum diukur:** dua pemindaian sederhana (kartu pelunasan saja, lalu detail lewat indeks penutup saja) dengan penggabungan di Node; perkiraan kasar beberapa detik per pemindaian, tetapi itu belum terbukti.
+- Taksiran dampak ke rebuild (3m 28s): pemindaian tagihan 90 detik menjadi sekitar 6 sampai 10 detik, sehingga rebuild sekitar 2 menit; bukan pengukuran ujung ke ujung.
+- Batas: MariaDB 10.4 pada satu mesin, satu kali jalan per varian. Jumlah baris dari statistik `information_schema` (§14.1) lebih kecil daripada hitungan nyata (2.043.179 baris AP saja), jadi perkiraan ukuran tabel itu kasar.
+
+### 14.3 Pemindaian pelunasan sebagai dua pemindaian sederhana (DB lokal `demo`, hanya membaca, satu kali jalan, 2026-11-05)
+
+Varian S3: tanpa join dan tanpa `GROUP BY` di database. (1) Pindai `ap_ar_card` berurutan (`FORCE INDEX (PRIMARY)`) untuk kartu pelunasan AP; (2) pindai `ap_ar_card_detail` lewat indeks penutup `idx_dash_apard_inv_card_amt` (hanya `invoice_id`, `ap_ar_card_id`, `amount`); (3) di Node, jumlahkan per tagihan hanya baris yang kartunya termasuk langkah 1 (jumlah desimal eksak dengan `decimal.js`).
+
+| Langkah                       | Waktu          | Isi               |
+| ----------------------------- | -------------- | ----------------- |
+| 1. Kartu pelunasan            | 3,9 detik      | 57.370 kartu      |
+| 2. Baris detail ke Node       | 3,3 detik      | 1.912.599 baris   |
+| 3. Jumlah per tagihan di Node | 3,1 detik      | 1.884.944 tagihan |
+| **Total S3**                  | **11,2 detik** |                   |
+
+Pembanding (§14.2): S0 (join di database sekarang) 95,6 detik, varian database terbaik S1 66,9 detik. **S3 sekitar 8,5 kali lebih cepat dari S0 dan 6 kali lebih cepat dari S1.** Hasil **identik**: jumlah kelompok 1.884.944, jumlah total -1.215.525.426.940,97, dan checksum id sama dengan S0.
+
+- **Taksiran rebuild AP/AR paksa dengan kedua perubahan** (petunjuk indeks untuk pemindaian tagihan, S3 untuk pelunasan): dari 3m 28s menjadi sekitar 1 menit (pemindaian tagihan sekitar 6 sampai 12 detik, pelunasan sekitar 11 detik, ditambah detail 13 detik, tanpa alokasi 7 detik, penulisan 12 detik). **Taksiran, bukan pengukuran ujung ke ujung.**
+- **Memori Node belum diukur.** Probe menyimpan 1,9 juta `Decimal` dan butuh heap besar (dijalankan dengan 6 GB). Untuk implementasi, hampir setiap tagihan hanya punya satu baris detail, jadi cukup menyimpan angkanya sebagai teks dan membuat `Decimal` hanya bila ada baris kedua untuk tagihan yang sama.
+- Catatan kebenaran yang harus dijaga saat implementasi: `SUM` di SQL mengabaikan `amount` NULL, dan `GROUP BY` mengelompokkan `invoice_id` NULL jadi satu kelompok; versi Node harus berperilaku sama. Pemindaian detail memuat semua modul, jadi sisi AR bisa memakai satu pemindaian detail yang sama.
+- Batas: MariaDB 10.4 pada satu mesin, satu kali jalan. Indeks `idx_dash_apard_inv_card_amt` berasal dari `docs/sql/dashboard-indexes.sql`; tanpa indeks itu langkah 2 tidak lagi pemindaian indeks saja dan waktunya akan berbeda.
+
+## 15. Hasil Phase 6: rebuild AP/AR sesudah dua perubahan pemindaian, DB lokal `demo`, 2026-11-05
+
+`npm run dash:refresh -- --force`, tanpa dev server dan tanpa beban halaman, satu kali jalan. Hasil: **45,2 detik** (sebelumnya 3m 28s, §14), dengan jumlah baris yang sama: 164.332 tagihan terbuka dan 186 pembayaran tanpa alokasi.
+
+| Langkah                      | Sebelum (§14)                  | Sesudah                                                |
+| ---------------------------- | ------------------------------ | ------------------------------------------------------ |
+| AP: pelunasan                | 79 detik (join dan `GROUP BY`) | **7,0 detik** (kartu 3,9 + detail 3,1)                 |
+| AP: semua tagihan            | 90 detik                       | **6,0 detik**                                          |
+| AP: detail tagihan terbuka   | 13,3 detik                     | 5,0 detik                                              |
+| AP: pembayaran tanpa alokasi | 7,1 detik                      | 6,5 detik                                              |
+| AR: semua langkah            | 2,4 detik                      | 8,5 detik (kartu 2,6 + detail 2,7 + tagihan 3,0 + 0,3) |
+| Tulis tabel tagihan terbuka  | 12,2 detik                     | 8,7 detik                                              |
+| **Total**                    | **3m 28s (208 detik)**         | **45,2 detik** (sekitar 4,6 kali lebih cepat)          |
+
+- **Paritas terbukti pada data demo.** Tes integrasi baru (`ap-ar-settlement-sums`) membandingkan jumlah pelunasan per tagihan antara query join lama (disalin sebagai acuan) dan `loadSettlementSums` untuk kedua sisi dan dua tanggal (hari ini dan 2025-06-01): keempat kasus lulus (jumlah kelompok sama, setiap jumlah sama secara numerik). Tes snapshot, riwayat, dan paritas agregat juga lulus sesudah rebuild (7 tes) dan **tidak dilewati**: tidak ada peringatan "skipped", durasi tes sesuai pekerjaan nyata.
+- **Pemindaian detail tanpa petunjuk indeks cukup cepat:** 3,1 detik (AP) dan 2,7 detik (AR) dalam rebuild, setara dengan 3,3 detik yang terukur dengan `FORCE INDEX (idx_dash_apard_inv_card_amt)`. Keputusan Phase 6 untuk tidak menyebut indeks `idx_dash_*` terbukti tidak merugikan di DB ini.
+- **Sisi AR sekarang lebih lambat (2,4 menjadi 8,5 detik)**: AR kecil, tetapi kini memindai seluruh tabel kartu dan seluruh tabel detail seperti AP. Untung bersih besar (AP turun sekitar 160 detik). Ide lanjutan: satu pemindaian detail dan satu pemindaian kartu untuk kedua sisi sekaligus.
+- **Belum diukur:** pembangunan satu bulan riwayat dengan kode baru (memakai fungsi yang sama), siklus manual lengkap, dan data klien yang lebih besar. Tes riwayat yang lulus memeriksa isi riwayat yang dibangun sebelumnya, bukan bulan yang dibangun ulang dengan kode baru.
+- Catatan yang belum dijelaskan: dalam tes agregat sesudah rebuild, query `SELECT DISTINCT coa_id ... FROM dash_snap_ap_ar_open ... location_id IN (...)` memakan 8,8 detik (log `slow query`), jauh lebih lama dari sebelumnya untuk filter entitas. Mungkin cache dingin sesudah tabel baru dibangun; belum diperiksa.
+- Batas: MariaDB 10.4 pada satu mesin, satu kali jalan.
+
 ## Riwayat Perubahan
 
 | Tanggal    | Perubahan                                                                                                                                                                                                                                                                                                                       |
@@ -271,3 +369,9 @@ Probe sementara (sudah dihapus), Node dengan `--expose-gc` supaya heap diukur se
 | 2026-11-05 | §11.1: diagnosis Phase 4: penyebab lambatnya agregasi semua entitas adalah optimizer memilih indeks sekunder yang tidak mencakup kolom (pindai 4,2 detik lawan 0,35 detik dengan `IGNORE INDEX`); pembaca daftar tagihan jalur lama ikut terkena (4,8 detik lawan 0,75 detik). Belum ada kode yang diubah.                      |
 | 2026-11-05 | §12: hasil Phase 5 (petunjuk indeks): `FORCE INDEX (PRIMARY)` sama cepatnya dengan `IGNORE INDEX`; aging AP semua entitas 15,7 menjadi 2,2 detik, pembaca daftar tagihan 4,3 menjadi 0,76 detik, Payment Plan hangat 6,0 menjadi 1,7 detik; agregat semua entitas masih lebih lambat daripada jalur lama hangat. Paritas lulus. |
 | 2026-11-05 | §13: biaya `warmApArSnapshot`: sekitar 0,6 sampai 0,7 detik, jeda event loop maksimum 26 ms; memori sekitar 79 MB untuk 162.865 baris tagihan AP (sekitar 0,49 KB per baris), ekstrapolasi linear belum diukur.                                                                                                                 |
+| 2026-11-05 | §1: log waktu per langkah siklus refresh dan rincian rebuild AP/AR (untuk mencari penyebab refresh manual yang lama). Hanya log, tidak ada angka atau perilaku yang berubah.                                                                                                                                                    |
+| 2026-11-05 | §14: rincian rebuild AP/AR paksa tanpa beban: 3m 28s; dua pemindaian penuh `ap_ar_card` sekitar 81%, pencarian detail 6%, penulisan 6%.                                                                                                                                                                                         |
+| 2026-11-05 | §14.1: EXPLAIN dua pemindaian rebuild AP/AR: pemindaian tagihan membaca sekitar 994 ribu baris lewat indeks yang tidak mencakup kolom (pola §11.1), pelunasan memakai tabel sementara dan filesort; ukuran `ap_ar_card` sekitar 1,99 juta baris. Varian belum diukur.                                                           |
+| 2026-11-05 | §14.2: varian pemindaian rebuild AP/AR (hanya membaca, hasil identik): pemindaian tagihan 129 detik menjadi 5,3 detik dengan `FORCE INDEX (PRIMARY)`; pemindaian pelunasan hanya turun ke 67 detik dengan urutan join dari indeks penutup.                                                                                      |
+| 2026-11-05 | §14.3: pemindaian pelunasan sebagai dua pemindaian sederhana digabung di Node: 11,2 detik lawan 95,6 detik (join di database), hasil identik; taksiran rebuild AP/AR sekitar 1 menit dengan dua perubahan (belum diukur ujung ke ujung).                                                                                        |
+| 2026-11-05 | §15: hasil Phase 6: rebuild AP/AR paksa 45,2 detik (sebelumnya 3m 28s), jumlah baris sama; paritas terbukti (tes integrasi baru dan tes snapshot lulus, tidak dilewati); sisi AR melambat dari 2,4 ke 8,5 detik.                                                                                                                |
