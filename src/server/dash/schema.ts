@@ -111,6 +111,8 @@ export const dashSnapApArHistDates = mysqlTable('dash_snap_ap_ar_hist_dates', {
   durationMs: int('duration_ms').default(0),
   /** 1 = built when the month could no longer change; 0 = provisional, rebuilt later (see ap-ar-hist-plan.ts) */
   isFinal: tinyint('is_final').notNull().default(0),
+  /** The `AP_AR_FORMULA_VERSION` the month was built with; a month built with an older formula is rebuilt (ap-ar-hist-plan.ts). */
+  formulaVersion: tinyint('formula_version').notNull().default(1),
 })
 
 /** Payments / credit notes that are not allocated to any invoice. */

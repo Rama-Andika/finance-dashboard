@@ -7,6 +7,13 @@ export const PROVISIONAL_MONTHS = 2
 export const PROVISIONAL_MAX_AGE_HOURS = 24
 
 /**
+ * Version of the formula behind the month-end AP/AR rows. Raise it whenever a change makes old rows wrong
+ * (2: AR direct returns that a settlement card already used are left out). A month built with an older
+ * version is rebuilt even when it is final; the old rows stay readable until the new ones replace them.
+ */
+export const AP_AR_FORMULA_VERSION = 2
+
+/**
  * Last day of each of the `count` most recent COMPLETED months before `today`, newest first.
  * The month that `today` is in is not completed, so it is never included.
  * Example: today 2026-10-29 and count 3 give ['2026-09-30', '2026-08-31', '2026-07-31'].
@@ -34,6 +41,8 @@ export type HistBuilt = {
   asOfDate: IsoDate
   /** Whether the snapshot was built when the month was final */
   isFinal: boolean
+  /** Formula version it was built with */
+  formulaVersion: number
   /** Hours since it was built */
   ageHours: number
 }
@@ -46,12 +55,14 @@ export type HistPlanInput = {
   closedMonthEnds: ReadonlySet<IsoDate>
   /** What is in the history tables now */
   built: readonly HistBuilt[]
+  /** The formula version a month must have; older ones are rebuilt */
+  formulaVersion: number
   /** At most this many month-ends are returned in `build` */
   maxBuilds: number
 }
 
 export type HistPlan = {
-  /** Month-ends to build now: missing ones first (newest first), then outdated provisional ones */
+  /** Month-ends to build now: missing ones first (newest first), then outdated ones (older formula or old provisional) */
   build: IsoDate[]
   /** Built month-ends that are no longer wanted (older than `months`, or history is switched off) */
   prune: IsoDate[]
@@ -67,6 +78,10 @@ export function planHistBuilds(input: HistPlanInput): HistPlan {
     const existing = builtBy.get(monthEnd)
     if (!existing) {
       missing.push(monthEnd)
+      return
+    }
+    if (existing.formulaVersion < input.formulaVersion) {
+      outdated.push(monthEnd)
       return
     }
     if (existing.isFinal) return

@@ -55,6 +55,13 @@ export const AGING_SIDES: Record<
     settlementTypes: readonly number[]
     /** Card types that can sit unallocated (no detail rows) and reduce the party balance. */
     unallocatedTypes: readonly number[]
+    /**
+     * True when a card of `unallocatedTypes` can still be used up later: a settlement card names it as the
+     * `invoice_id` of one of its detail rows. Its balance is then `-amount + those allocations`, and a card that
+     * is fully used is left out. AR direct returns work this way (the AR return is not an invoice item).
+     * AP payments without allocation never get such detail rows, so they keep their full amount.
+     */
+    unallocatedAllocatedLater: boolean
   }
 > = {
   ap: {
@@ -62,11 +69,13 @@ export const AGING_SIDES: Record<
     invoiceTypes: AP_INVOICE_TYPES,
     settlementTypes: AP_PAYMENT_TYPES,
     unallocatedTypes: AP_PAYMENT_TYPES,
+    unallocatedAllocatedLater: false,
   },
   ar: {
     module: MODULE_TYPE.AR,
     invoiceTypes: AR_INVOICE_TYPES,
     settlementTypes: AR_SETTLEMENT_TYPES,
     unallocatedTypes: [AR_UNALLOCATED_CREDIT_TYPE],
+    unallocatedAllocatedLater: true,
   },
 }

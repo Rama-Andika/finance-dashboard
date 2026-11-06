@@ -12,6 +12,6 @@ export function locKeyOf(locIds: Id[] | 'all'): string {
 }
 
 /** `AND <alias>.location_id IN (...)` for one location slice, or nothing when the slice is "all". */
-export function locationFilter(alias: 'i' | 'p', slice: string[] | undefined): SQL {
+export function locationFilter(alias: 'i' | 'p' | 'r', slice: string[] | undefined): SQL {
   return slice ? sql`AND ${sql.identifier(alias)}.location_id IN (${inList(slice)})` : sql``
 }

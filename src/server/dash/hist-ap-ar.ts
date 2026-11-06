@@ -5,14 +5,20 @@ import { refreshPool } from '~/server/db/refresh-pool'
 import { env } from '~/server/env'
 import { chunk } from '~/server/db/chunk'
 import { addDays } from '~/lib/format/date'
-import { isFinalMonthEnd, monthEndsBefore, planHistBuilds, type HistBuilt } from '~/lib/finance/ap-ar/ap-ar-hist-plan'
+import {
+  AP_AR_FORMULA_VERSION,
+  isFinalMonthEnd,
+  monthEndsBefore,
+  planHistBuilds,
+  type HistBuilt,
+} from '~/lib/finance/ap-ar/ap-ar-hist-plan'
 import type { IsoDate } from '~/lib/core/types'
 import { listPeriods } from '~/server/repo/master-data/periods.repo'
 import { DASH_INSERT_BATCH_SIZE, DASH_TABLES, dashTable } from './tables'
 import { dashLog } from './log'
 import { prepareRefreshConnection, tryLock, unlock } from './refresh-connection'
 import { createStepTimer, formatDuration, formatSteps, type StepTiming } from './step-timer'
-import { OPEN_COLUMNS, UNALLOC_COLUMNS, loadOpenInvoices, loadUnallocated, type Row } from './refresh-ap-ar'
+import { OPEN_COLUMNS, UNALLOC_COLUMNS, loadSideRows, type Row } from './refresh-ap-ar'
 
 const LOCK_NAME = 'dash_refresh_ap_ar_hist'
 
@@ -20,7 +26,12 @@ export type HistRefreshResult =
   | { ran: true; built: IsoDate[]; pruned: number; durationMs: number }
   | { ran: false; reason: 'locked' | 'nothing-to-do' }
 
-type BuiltRow = { asOfDate: string; isFinal: number | string; ageHours: number | string | null }
+type BuiltRow = {
+  asOfDate: string
+  isFinal: number | string
+  formulaVersion: number | string
+  ageHours: number | string | null
+}
 
 /**
  * Keeps the month-end AP/AR history up to date: builds missing month-ends (and provisional ones that are outdated),
@@ -47,6 +58,7 @@ export async function refreshApArHistSnapshots(
 
     const [builtRows] = await conn.query(
       `SELECT DATE_FORMAT(as_of_date, '%Y-%m-%d') AS asOfDate, is_final AS isFinal,
+              formula_version AS formulaVersion,
               TIMESTAMPDIFF(HOUR, built_at, UTC_TIMESTAMP()) AS ageHours
        FROM ??`,
       [dashTable(DASH_TABLES.apArHistDates)],
@@ -54,6 +66,7 @@ export async function refreshApArHistSnapshots(
     const built: HistBuilt[] = (builtRows as BuiltRow[]).map((r) => ({
       asOfDate: String(r.asOfDate),
       isFinal: Number(r.isFinal) === 1,
+      formulaVersion: Number(r.formulaVersion),
       ageHours: r.ageHours === null ? Number.POSITIVE_INFINITY : Number(r.ageHours),
     }))
 
@@ -62,6 +75,7 @@ export async function refreshApArHistSnapshots(
       months,
       closedMonthEnds,
       built,
+      formulaVersion: AP_AR_FORMULA_VERSION,
       maxBuilds: options.maxBuilds ?? Number.POSITIVE_INFINITY,
     })
     if (plan.build.length === 0 && plan.prune.length === 0) return { ran: false, reason: 'nothing-to-do' }
@@ -116,8 +130,9 @@ async function buildMonth(
   let openRows: Row[] = []
   let unallocRows: Row[] = []
   for (const side of ['ap', 'ar'] as const) {
-    openRows = openRows.concat(await loadOpenInvoices(conn, side, asOfPlusOne, timer))
-    unallocRows = unallocRows.concat(await loadUnallocated(conn, side, asOfPlusOne, timer))
+    const rows = await loadSideRows(conn, side, asOfPlusOne, timer)
+    openRows = openRows.concat(rows.open)
+    unallocRows = unallocRows.concat(rows.unallocated)
   }
   const withDate = (list: Row[]): Row[] => list.map((r) => [asOfDate, ...r])
 
@@ -138,9 +153,9 @@ async function buildMonth(
         await conn.query('INSERT INTO ?? (??) VALUES ?', [unallocated, ['as_of_date', ...UNALLOC_COLUMNS], batch])
       }
       await conn.query(
-        `INSERT INTO ?? (as_of_date, built_at, row_count, duration_ms, is_final) VALUES (?, UTC_TIMESTAMP(), ?, ?, ?)
-       ON DUPLICATE KEY UPDATE built_at = VALUES(built_at), row_count = VALUES(row_count), duration_ms = VALUES(duration_ms), is_final = VALUES(is_final)`,
-        [dates, asOfDate, rowCount, Date.now() - started, isFinal ? 1 : 0],
+        `INSERT INTO ?? (as_of_date, built_at, row_count, duration_ms, is_final, formula_version) VALUES (?, UTC_TIMESTAMP(), ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE built_at = VALUES(built_at), row_count = VALUES(row_count), duration_ms = VALUES(duration_ms), is_final = VALUES(is_final), formula_version = VALUES(formula_version)`,
+        [dates, asOfDate, rowCount, Date.now() - started, isFinal ? 1 : 0, AP_AR_FORMULA_VERSION],
       )
       await conn.commit()
     } catch (error) {

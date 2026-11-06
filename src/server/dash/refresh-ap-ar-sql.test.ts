@@ -27,6 +27,22 @@ describe('SQL of the AP/AR rebuild scans', () => {
 
   it('no longer runs the join with grouping inside loadOpenInvoices', () => {
     expect(invoices).not.toMatch(/GROUP BY|SUM\(d\.amount\)/)
-    expect(invoices).toContain('loadSettlementSums(')
+    expect(invoices).not.toContain('loadSettlementSums(')
+  })
+
+  it('reads the settlement sums once per side and shares them', () => {
+    const sideRows = between('export async function loadSideRows', 'export async function erpFingerprint')
+    expect(sideRows.match(/loadSettlementSums\(/g)).toHaveLength(1)
+    expect(sideRows).toContain('loadOpenInvoices(conn, side, asOfPlusOne, allocated, timer)')
+    expect(sideRows).toContain('loadUnallocated(conn, side, asOfPlusOne, allocated, timer)')
+  })
+
+  it('loads the unallocated cards with the same NOT EXISTS scan and reduces AR direct returns by their allocations', () => {
+    const unallocated = between('export async function loadUnallocated', 'export async function loadSideRows')
+    expect(unallocated).toContain(
+      'NOT EXISTS (SELECT 1 FROM ap_ar_card_detail d WHERE d.ap_ar_card_id = p.ap_ar_card_id)',
+    )
+    expect(unallocated).toContain('unallocatedAllocatedLater')
+    expect(unallocated).toContain('openBalance(')
   })
 })

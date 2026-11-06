@@ -1,0 +1,1 @@
+ALTER TABLE `dash_snap_ap_ar_hist_dates` ADD `formula_version` tinyint DEFAULT 1 NOT NULL;

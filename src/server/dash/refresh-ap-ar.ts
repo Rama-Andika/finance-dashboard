@@ -97,7 +97,7 @@ export async function loadSettlementSums(
 
 /**
  * Open invoices of one side (AP or AR) at the end of `asOf`, built from plain scans instead of one big join:
- * 1. what was paid per invoice (`loadSettlementSums`), 2. every invoice, streamed, keeping only those with a balance,
+ * 1. what was paid per invoice (given by the caller, see `loadSideRows`), 2. every invoice, streamed, keeping only those with a balance,
  * 3. the descriptive columns of the open ones by primary key.
  * (One join with grouping over 12 columns took ~10 minutes on the demo DB.)
  */
@@ -105,12 +105,11 @@ export async function loadOpenInvoices(
   conn: PoolConnection,
   side: AgingSide,
   asOfPlusOne: string,
+  payments: ReadonlyMap<string, string>,
   timer: StepTimer = untimed,
 ): Promise<Row[]> {
   const cfg = AGING_SIDES[side]
   const inOut = ints(IN_OUT_VALUES)
-
-  const payments = await loadSettlementSums(conn, side, asOfPlusOne, timer)
 
   const open = new Map<string, { original: string; balance: string }>()
   await timer.time(`${side}: invoices scan`, async () => {
@@ -126,7 +125,6 @@ export async function loadOpenInvoices(
       if (m) open.set(id, m)
     }
   })
-  payments.clear()
 
   const out: Row[] = []
   await timer.time(`${side}: invoice details`, async () => {
@@ -160,15 +158,21 @@ export async function loadOpenInvoices(
   return out
 }
 
-/** Payments / credit notes with no allocation to any invoice. */
+/**
+ * Cards of the side without any detail row of their own: AP payments (full amount) and AR direct returns.
+ * An AR direct return is used up when a settlement card allocates to it (its detail row names the return as
+ * `invoice_id`): the balance is `-amount + allocations`, and a fully used return is left out.
+ */
 export async function loadUnallocated(
   conn: PoolConnection,
   side: AgingSide,
   asOfPlusOne: string,
+  allocated: ReadonlyMap<string, string>,
   timer: StepTimer = untimed,
 ): Promise<Row[]> {
   const cfg = AGING_SIDES[side]
-  const rows = await timer.time(`${side}: unallocated payments`, () =>
+  const label = cfg.unallocatedAllocatedLater ? 'direct returns' : 'unallocated payments'
+  const rows = await timer.time(`${side}: ${label}`, () =>
     query(
       conn,
       `SELECT p.ap_ar_card_id, p.owner_id, p.location_id, p.coa_id, DATE(p.transaction_date), p.amount * p.in_out
@@ -179,15 +183,36 @@ export async function loadUnallocated(
       [asOfPlusOne],
     ),
   )
-  return rows.map((r) => [
-    String(r[0]),
-    cfg.module,
-    idOrNull(r[1]),
-    idOrNull(r[2]),
-    idOrNull(r[3]),
-    day(r[4]),
-    String(r[5]),
-  ])
+
+  const out: Row[] = []
+  for (const r of rows) {
+    const original = String(r[5])
+    let balance = original
+    if (cfg.unallocatedAllocatedLater) {
+      const open = openBalance(original, allocated.get(String(r[0])))
+      if (!open) continue // fully used by a settlement card
+      balance = open.balance
+    }
+    out.push([String(r[0]), cfg.module, idOrNull(r[1]), idOrNull(r[2]), idOrNull(r[3]), day(r[4]), balance])
+  }
+  return out
+}
+
+/**
+ * Everything one side (AP or AR) puts into the snapshot: the open invoices and the unallocated cards.
+ * The per-invoice settlement sums are read once and shared by both (they are the slow scans), then released.
+ */
+export async function loadSideRows(
+  conn: PoolConnection,
+  side: AgingSide,
+  asOfPlusOne: string,
+  timer: StepTimer = untimed,
+): Promise<{ open: Row[]; unallocated: Row[] }> {
+  const allocated = await loadSettlementSums(conn, side, asOfPlusOne, timer)
+  const open = await loadOpenInvoices(conn, side, asOfPlusOne, allocated, timer)
+  const unallocated = await loadUnallocated(conn, side, asOfPlusOne, allocated, timer)
+  allocated.clear()
+  return { open, unallocated }
 }
 
 /**
@@ -319,8 +344,9 @@ export async function refreshApArSnapshot(today: string, options: { force?: bool
     let openRows: Row[] = []
     let unallocRows: Row[] = []
     for (const side of ['ap', 'ar'] as const) {
-      openRows = openRows.concat(await loadOpenInvoices(conn, side, asOfPlusOne, timer))
-      unallocRows = unallocRows.concat(await loadUnallocated(conn, side, asOfPlusOne, timer))
+      const rows = await loadSideRows(conn, side, asOfPlusOne, timer)
+      openRows = openRows.concat(rows.open)
+      unallocRows = unallocRows.concat(rows.unallocated)
     }
 
     await timer.time('write open invoices', () => replaceTable(conn, DASH_TABLES.apArOpen, OPEN_COLUMNS, openRows))
