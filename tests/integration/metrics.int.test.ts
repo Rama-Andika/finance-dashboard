@@ -208,7 +208,7 @@ describe('Metrics DB integration (demo data window)', () => {
   it('Data checks run and use the documented codes', { timeout: TEST_TIMEOUT }, async () => {
     const checks = await computeDataChecks(entityFilter)
     expect(Array.isArray(checks)).toBe(true)
-    for (const c of checks) expect(['warning', 'danger']).toContain(c.level)
+    for (const c of checks) expect(['warning', 'danger', 'info']).toContain(c.level)
     const { entities } = await getCachedEntities()
     expect(entities.length).toBeGreaterThan(0)
     expect(entityCode).not.toBe('')

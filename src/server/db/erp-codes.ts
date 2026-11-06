@@ -19,8 +19,10 @@ export const PAYMENT_STATUS_PAID = 2
 export const AR_INVOICE_TYPES = [0, 3, 4, 5] as const
 /** AR receipt and credit-note types (settle invoices). */
 export const AR_SETTLEMENT_TYPES = [1, 2] as const
+/** AR customer payment (type 1) with no detail row: the ERP AR Aging report ignores it, so it is not counted (decisions D25); only reported by the data check AR_PAYMENT_UNALLOC. */
 export const AR_UNALLOCATED_RECEIPT_TYPE = 1
-export const AR_UNALLOCATED_CREDIT_TYPE = 2
+/** ap_ar_card.transaction_type of an AR return; one without detail rows of its own is a "direct return" (balance until a settlement card uses it). */
+export const AR_DIRECT_RETURN_TYPE = 2
 
 /** bank_payment.type: customer receipts that sit in a settlement channel. */
 export const BANK_PAYMENT_CHANNEL_TYPES = [1, 2] as const
@@ -53,7 +55,7 @@ export const AGING_SIDES: Record<
     invoiceTypes: readonly number[]
     /** Card types that settle an invoice through ap_ar_card_detail. */
     settlementTypes: readonly number[]
-    /** Card types that can sit unallocated (no detail rows) and reduce the party balance. */
+    /** Card types that can sit without any detail row of their own: AP payments (unallocated payments) and AR returns (direct returns). */
     unallocatedTypes: readonly number[]
     /**
      * True when a card of `unallocatedTypes` can still be used up later: a settlement card names it as the
@@ -75,7 +77,7 @@ export const AGING_SIDES: Record<
     module: MODULE_TYPE.AR,
     invoiceTypes: AR_INVOICE_TYPES,
     settlementTypes: AR_SETTLEMENT_TYPES,
-    unallocatedTypes: [AR_UNALLOCATED_CREDIT_TYPE],
+    unallocatedTypes: [AR_DIRECT_RETURN_TYPE],
     unallocatedAllocatedLater: true,
   },
 }

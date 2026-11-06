@@ -1,7 +1,7 @@
 import '@tanstack/react-start/server-only'
 import type { PoolConnection } from 'mysql2/promise'
 import { refreshPool } from '~/server/db/refresh-pool'
-import { AGING_SIDES, IN_OUT_VALUES, type AgingSide } from '~/server/db/erp-codes'
+import { AGING_SIDES, AR_UNALLOCATED_RECEIPT_TYPE, IN_OUT_VALUES, type AgingSide } from '~/server/db/erp-codes'
 import { openBalance } from '~/lib/finance/ap-ar/open-invoices'
 import { chunk } from '~/server/db/chunk'
 import { addDays } from '~/lib/format/date'
@@ -28,7 +28,16 @@ export const OPEN_COLUMNS = [
   'original_amount',
   'balance',
 ]
-export const UNALLOC_COLUMNS = ['card_id', 'module_type', 'party_id', 'location_id', 'coa_id', 'tx_date', 'balance']
+export const UNALLOC_COLUMNS = [
+  'card_id',
+  'module_type',
+  'party_id',
+  'location_id',
+  'coa_id',
+  'tx_date',
+  'balance',
+  'kind',
+]
 
 /** Even when the ERP tables look unchanged, rebuild at least this often (edits do not change the fingerprint). */
 const FORCE_REBUILD_MS = 60 * 60_000
@@ -193,7 +202,33 @@ export async function loadUnallocated(
       if (!open) continue // fully used by a settlement card
       balance = open.balance
     }
-    out.push([String(r[0]), cfg.module, idOrNull(r[1]), idOrNull(r[2]), idOrNull(r[3]), day(r[4]), balance])
+    out.push([String(r[0]), cfg.module, idOrNull(r[1]), idOrNull(r[2]), idOrNull(r[3]), day(r[4]), balance, 'counted'])
+  }
+
+  if (cfg.unallocatedAllocatedLater) {
+    const receipts = await timer.time(`${side}: customer payments without allocation`, () =>
+      query(
+        conn,
+        `SELECT p.ap_ar_card_id, p.owner_id, p.location_id, p.coa_id, DATE(p.transaction_date), p.amount * p.in_out
+       FROM ap_ar_card p
+       WHERE p.module_type = ${cfg.module} AND p.transaction_type = ${AR_UNALLOCATED_RECEIPT_TYPE}
+         AND p.in_out IN (${ints(IN_OUT_VALUES)}) AND p.amount <> 0 AND p.transaction_date < ?
+         AND NOT EXISTS (SELECT 1 FROM ap_ar_card_detail d WHERE d.ap_ar_card_id = p.ap_ar_card_id)`,
+        [asOfPlusOne],
+      ),
+    )
+    for (const r of receipts) {
+      out.push([
+        String(r[0]),
+        cfg.module,
+        idOrNull(r[1]),
+        idOrNull(r[2]),
+        idOrNull(r[3]),
+        day(r[4]),
+        String(r[5]),
+        'ignored',
+      ])
+    }
   }
   return out
 }

@@ -6,7 +6,8 @@ const clean: DataCheckInputs = {
   transitRegister: { count: 0, amount: '0.00' },
   cashPositionReconciliation: { inSync: true, diff: '0.00' },
   apReconciliation: { inSync: true, diff: '0.00' },
-  arUnallocatedReturns: '0.00',
+  arPaymentsWithoutAllocation: { count: 0, amount: '0.00' },
+  directReturnsOpen: { count: 0, amount: '0.00' },
   paidWithoutDetail: { count: 0, amount: '0.00' },
   cardsWithoutParty: 0,
   cardsWithInvalidLocation: 0,
@@ -23,7 +24,11 @@ describe('buildDataChecks', () => {
   })
 
   it('puts the cash-flow identity failure first, as a danger', () => {
-    const checks = buildDataChecks({ ...clean, cashFlow: { ...clean.cashFlow!, identityOk: false }, unpostedJournals: 3 })
+    const checks = buildDataChecks({
+      ...clean,
+      cashFlow: { ...clean.cashFlow!, identityOk: false },
+      unpostedJournals: 3,
+    })
     expect(checks[0]).toMatchObject({ code: 'CF_IDENTITY', level: 'danger', link: '/cash-flow' })
     expect(checks.map((c) => c.code)).toEqual(['CF_IDENTITY', 'UNPOSTED'])
   })
@@ -31,9 +36,19 @@ describe('buildDataChecks', () => {
   it('sums unclassified cash-flow rows and flags the fallback classification', () => {
     const unclassified = buildDataChecks({
       ...clean,
-      cashFlow: { identityOk: true, source: 'setup', drawers: [{ rows: [{ amount: '5.50', unclassified: true }, { amount: '4.50', unclassified: true }, { amount: '9.00' }] }] },
+      cashFlow: {
+        identityOk: true,
+        source: 'setup',
+        drawers: [
+          {
+            rows: [{ amount: '5.50', unclassified: true }, { amount: '4.50', unclassified: true }, { amount: '9.00' }],
+          },
+        ],
+      },
     })
-    expect(unclassified).toEqual([{ code: 'CF_UNCLASSIFIED', level: 'warning', count: 1, amount: '10.00', link: '/cash-flow' }])
+    expect(unclassified).toEqual([
+      { code: 'CF_UNCLASSIFIED', level: 'warning', count: 1, amount: '10.00', link: '/cash-flow' },
+    ])
     expect(codes({ cashFlow: { identityOk: true, source: 'fallback', drawers: [] } })).toEqual(['CF_UNCLASSIFIED'])
   })
 
@@ -43,11 +58,50 @@ describe('buildDataChecks', () => {
       cashPositionReconciliation: { inSync: false, diff: '5000.00' },
       apReconciliation: { inSync: false, diff: '-12.00' },
     })
-    expect(checks.map((c) => [c.code, c.amount])).toEqual([['REC_TRANSIT', '5000.00'], ['REC_AP', '-12.00']])
+    expect(checks.map((c) => [c.code, c.amount])).toEqual([
+      ['REC_TRANSIT', '5000.00'],
+      ['REC_AP', '-12.00'],
+    ])
+  })
+
+  it('reports AR payments without allocation as a warning', () => {
+    const checks = buildDataChecks({
+      ...clean,
+      arPaymentsWithoutAllocation: { count: 2, amount: '300.00' },
+    })
+    expect(checks).toEqual([
+      { code: 'AR_PAYMENT_UNALLOC', level: 'warning', count: 2, amount: '300.00', link: '/receivables' },
+    ])
+  })
+
+  it('reports direct returns open as info, placed last after other warnings', () => {
+    const checks = buildDataChecks({
+      ...clean,
+      unpostedJournals: 1,
+      directReturnsOpen: { count: 3, amount: '-120.00' },
+    })
+    expect(checks.map((c) => c.code)).toEqual(['UNPOSTED', 'DIRECT_RETURN_OPEN'])
+    expect(checks.find((c) => c.code === 'DIRECT_RETURN_OPEN')).toEqual({
+      code: 'DIRECT_RETURN_OPEN',
+      level: 'info',
+      count: 3,
+      amount: '-120.00',
+      link: '/payables',
+    })
+  })
+
+  it('reports nothing when direct returns open is null or count 0', () => {
+    expect(codes({ directReturnsOpen: null })).toEqual([])
+    expect(codes({ directReturnsOpen: { count: 0, amount: '0.00' } })).toEqual([])
   })
 
   it('skips sub-checks that failed and reports them once as CHECK_FAILED', () => {
-    const checks = buildDataChecks({ ...clean, cashFlow: null, unpostedJournals: null, failedChecks: ['cashFlow', 'unposted'] })
+    const checks = buildDataChecks({
+      ...clean,
+      cashFlow: null,
+      unpostedJournals: null,
+      failedChecks: ['cashFlow', 'unposted'],
+    })
     expect(checks).toEqual([{ code: 'CHECK_FAILED', level: 'warning', count: 2, amount: null, link: '/summary' }])
   })
 

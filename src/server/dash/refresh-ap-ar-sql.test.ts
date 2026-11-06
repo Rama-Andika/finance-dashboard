@@ -44,5 +44,13 @@ describe('SQL of the AP/AR rebuild scans', () => {
     )
     expect(unallocated).toContain('unallocatedAllocatedLater')
     expect(unallocated).toContain('openBalance(')
+    expect(unallocated).toContain('AR_UNALLOCATED_RECEIPT_TYPE')
+    expect(unallocated).toContain("'ignored'")
+  })
+
+  it('includes kind as the last column of UNALLOC_COLUMNS', () => {
+    // The list may span several lines once formatted: read up to its closing bracket.
+    const unallocCols = between('export const UNALLOC_COLUMNS =', ']')
+    expect(unallocCols.replace(/\s+/g, '')).toMatch(/'kind',?$/)
   })
 })

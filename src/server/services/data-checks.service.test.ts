@@ -8,7 +8,10 @@ const checkCardsWithoutParty = vi.fn()
 const checkCardsWithInvalidLocation = vi.fn()
 const checkTransitOverdue = vi.fn()
 const checkUnpostedJournals = vi.fn()
+const checkArPaymentsWithoutAllocation = vi.fn()
 const getMappingRow = vi.fn()
+const computeApAgingMock = vi.fn()
+const computeArAgingMock = vi.fn()
 
 vi.mock('~/server/repo/data-checks.repo', () => ({
   checkApPaidWithoutPayment: (...a: unknown[]) => checkApPaidWithoutPayment(...a),
@@ -16,6 +19,7 @@ vi.mock('~/server/repo/data-checks.repo', () => ({
   checkCardsWithInvalidLocation: (...a: unknown[]) => checkCardsWithInvalidLocation(...a),
   checkTransitOverdue: (...a: unknown[]) => checkTransitOverdue(...a),
   checkUnpostedJournals: (...a: unknown[]) => checkUnpostedJournals(...a),
+  checkArPaymentsWithoutAllocation: (...a: unknown[]) => checkArPaymentsWithoutAllocation(...a),
 }))
 vi.mock('~/server/repo/settings.repo', () => ({ getMappingRow: (...a: unknown[]) => getMappingRow(...a) }))
 vi.mock('~/server/services/cash/cash-position.service', () => ({
@@ -25,10 +29,10 @@ vi.mock('~/server/services/cash/cash-flow.service', () => ({
   computeCashFlow: async () => ({ identityOk: true, drawers: [], source: 'setup' }),
 }))
 vi.mock('~/server/services/ap-ar/ap-aging.service', () => ({
-  computeApAging: async () => ({ reconciliation: { inSync: true, diff: '0.00' } }),
+  computeApAging: (...a: unknown[]) => computeApAgingMock(...a),
 }))
 vi.mock('~/server/services/ap-ar/ar-aging.service', () => ({
-  computeArAging: async () => ({ unallocatedReturns: '0.00' }),
+  computeArAging: (...a: unknown[]) => computeArAgingMock(...a),
 }))
 
 const { computeDataChecks } = await import('./data-checks.service')
@@ -58,11 +62,55 @@ describe('computeDataChecks', () => {
     checkCardsWithInvalidLocation.mockResolvedValue(0)
     checkTransitOverdue.mockResolvedValue({ count: 0, amount: '0.00' })
     checkUnpostedJournals.mockResolvedValue(0)
+    checkArPaymentsWithoutAllocation.mockResolvedValue({ count: 0, amount: '0.00' })
     getMappingRow.mockResolvedValue({ sysmainId: '1', valueprop: '{}' })
+    computeApAgingMock.mockResolvedValue({
+      reconciliation: { inSync: true, diff: '0.00' },
+      directReturns: '0.00',
+      directReturnCount: 0,
+    })
+    computeArAgingMock.mockResolvedValue({
+      directReturns: '0.00',
+      directReturnCount: 0,
+    })
   })
 
   it('reports nothing when every check passes', async () => {
     expect(await computeDataChecks(filter)).toEqual([])
+  })
+
+  it('reports direct returns still open as level info', async () => {
+    computeApAgingMock.mockResolvedValue({
+      reconciliation: { inSync: true, diff: '0.00' },
+      directReturns: '-100.00',
+      directReturnCount: 2,
+    })
+    computeArAgingMock.mockResolvedValue({
+      directReturns: '-50.00',
+      directReturnCount: 1,
+    })
+    const checks = await computeDataChecks({ ...filter, asOf: '2026-10-18' })
+    const directReturn = checks.find((c) => c.code === 'DIRECT_RETURN_OPEN')
+    expect(directReturn).toEqual({
+      code: 'DIRECT_RETURN_OPEN',
+      level: 'info',
+      count: 3,
+      amount: '-150.00',
+      link: '/payables',
+    })
+  })
+
+  it('reports customer payments without allocation as warning', async () => {
+    checkArPaymentsWithoutAllocation.mockResolvedValue({ count: 2, amount: '300.00' })
+    const checks = await computeDataChecks({ ...filter, asOf: '2026-10-19' })
+    const unalloc = checks.find((c) => c.code === 'AR_PAYMENT_UNALLOC')
+    expect(unalloc).toEqual({
+      code: 'AR_PAYMENT_UNALLOC',
+      level: 'warning',
+      count: 2,
+      amount: '300.00',
+      link: '/receivables',
+    })
   })
 
   it('a slow or failing query check does not hide the other checks', async () => {

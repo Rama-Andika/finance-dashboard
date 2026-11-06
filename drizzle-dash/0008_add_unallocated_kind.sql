@@ -1,0 +1,2 @@
+ALTER TABLE `dash_snap_ap_ar_hist_unallocated` ADD `kind` varchar(10) DEFAULT 'counted' NOT NULL;--> statement-breakpoint
+ALTER TABLE `dash_snap_ap_ar_unallocated` ADD `kind` varchar(10) DEFAULT 'counted' NOT NULL;

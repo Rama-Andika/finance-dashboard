@@ -236,10 +236,6 @@
       "title": "In-transit funds delayed > 7 days or dated in future",
       "body": "{{count}} records (IDR {{amount}}) unreleased over 7 days or dated in the future."
     },
-    "AR_UNALLOC": {
-      "title": "Unallocated customer receipts",
-      "body": "Customer receipts totaling IDR {{amount}} have not been allocated to specific invoices."
-    },
     "CF_UNCLASSIFIED": {
       "title": "Unclassified cash transactions",
       "body": "IDR {{amount}} in cash movements has not been mapped to operating, investing, or financing."
@@ -267,6 +263,14 @@
     "CHECK_FAILED": {
       "title": "This check could not be run",
       "body": "{{count}} — The data behind this check failed to load. See the server log."
+    },
+    "AR_PAYMENT_UNALLOC": {
+      "title": "Customer payments not allocated to invoices",
+      "body": "{{count}} customer payments (IDR {{amount}}) have no allocation to any invoice. They are not counted in Receivables, the same as the ERP AR Aging report."
+    },
+    "DIRECT_RETURN_OPEN": {
+      "title": "Direct returns still open",
+      "body": "{{count}} direct returns (IDR {{amount}}) have not been used against an invoice or a payment yet."
     }
   },
   "planStatus": {
@@ -345,7 +349,8 @@
       "payableByVendor": "Payable by Vendor",
       "overdue": "Overdue",
       "reconciliationDiff": "Discrepancy between GL control and AP cards: {{amount}}.",
-      "reconciliationDetail": "GL: {{gl}} · Cards: {{cards}}"
+      "reconciliationDetail": "GL: {{gl}} · Cards: {{cards}}",
+      "directReturnsHint": "Direct returns {{amount}}"
     },
     "paymentPlan": {
       "date": "Date",
@@ -396,7 +401,8 @@
       "receivablesByCustomer": "Receivables by Customer",
       "overdue": "Overdue",
       "reconciliationDiff": "Discrepancy between GL control and AR cards: {{amount}}.",
-      "reconciliationDetail": "GL: {{gl}} · Cards: {{cards}}"
+      "reconciliationDetail": "GL: {{gl}} · Cards: {{cards}}",
+      "directReturnsHint": "Direct returns {{amount}}"
     },
     "revenue": {
       "categoryFolder": "Category / Folder",

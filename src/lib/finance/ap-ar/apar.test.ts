@@ -2,12 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { computeApAging, computeArAging } from './apar'
 import { planStatus } from './aging'
 import { buildCoaTree, type CoaRow } from '../coa/coa-tree'
-import {
-  mockApPartA,
-  mockApPartB,
-  mockArPartA,
-  mockArPartB,
-} from '../../../../tests/fixtures/apar.fixture'
+import { mockApPartA, mockApPartB, mockArPartA, mockArPartB } from '../../../../tests/fixtures/apar.fixture'
 
 const mockCoa: CoaRow[] = [
   {
@@ -108,6 +103,41 @@ describe('ap aging calculations', () => {
     const status = planStatus(['Posted'])
     expect(status).toBe('approved')
   })
+
+  it('identifies direct returns among AP items', () => {
+    const res = computeApAging({
+      partA: [
+        {
+          invoiceId: 'inv_100',
+          vendorId: 'v1',
+          locationId: 'loc1',
+          coaId: '2110',
+          txDate: '2026-10-01',
+          dueDate: '2026-10-15',
+          itemType: 0,
+          balance: '100.00',
+        },
+        {
+          invoiceId: 'ret_20',
+          vendorId: 'v1',
+          locationId: 'loc1',
+          coaId: '2110',
+          txDate: '2026-10-01',
+          dueDate: '2026-10-15',
+          itemType: 2,
+          balance: '-20.00',
+        },
+      ],
+      partB: [],
+      asOf,
+      vendors,
+      tree,
+    })
+    expect(res.directReturns).toBe('-20.00')
+    expect(res.directReturnCount).toBe(1)
+    expect(res.vendorCredits).toBe('-20.00')
+    expect(res.total).toBe('80.00')
+  })
 })
 
 describe('ar aging calculations', () => {
@@ -118,7 +148,7 @@ describe('ar aging calculations', () => {
     ['c2', { code: 'C02', name: 'Customer Two' }],
   ])
 
-  it('calculates net total, unpaid invoices, unallocated returns, and non-trade receivables', () => {
+  it('calculates net total, unpaid invoices, direct returns, and non-trade receivables', () => {
     const res = computeArAging({
       partA: mockArPartA,
       partB: mockArPartB,
@@ -129,8 +159,9 @@ describe('ar aging calculations', () => {
 
     // Unpaid invoices = 1500 + 300 = 1800.00
     expect(res.unpaidInvoices).toBe('1800.00')
-    // Unallocated returns = -100.00
-    expect(res.unallocatedReturns).toBe('-100.00')
+    // Direct returns = -100.00
+    expect(res.directReturns).toBe('-100.00')
+    expect(res.directReturnCount).toBe(1)
     // Non-trade receivable = 300.00
     expect(res.nonTrade).toBe('300.00')
     // Net total = 1800 - 100 = 1700.00

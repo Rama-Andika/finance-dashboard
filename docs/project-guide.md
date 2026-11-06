@@ -281,83 +281,86 @@ Tampilan memakai **rupiah (IDR) saja**. Kolom `debet`/`credit` di ERP sudah dala
 
 Istilah teknis dan istilah finance yang dipakai di dokumen dan di layar. "Lihat" menunjuk ke bab tempat penjelasannya.
 
-| Istilah                               | Arti sederhana                                                                                                                    | Lihat  |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| **Account Mapping**                   | Halaman Settings tempat admin memilih akun mana yang dihitung sebagai Kas, Bank, Deposito, Dana dalam pencairan, dan Biaya Tetap. | 8.10   |
-| **Accrual**                           | Pencatatan pendapatan/biaya saat terjadi, bukan saat uang bergerak.                                                               | 2.5    |
-| **Aging / Umur**                      | Pengelompokan tagihan menurut berapa hari terlambat dari jatuh tempo.                                                             | 8.7    |
-| **AP**                                | _Accounts Payable_, utang usaha.                                                                                                  | 2.8    |
-| **AR**                                | _Accounts Receivable_, piutang usaha.                                                                                             | 2.8    |
-| **`asOf` (tanggal acuan)**            | Tanggal yang dipakai untuk angka potret. Ditentukan filter periode, maksimal hari ini.                                            | 6.1    |
-| **`ap_ar_card`**                      | Tabel ERP berisi tagihan dan pembayaran utang/piutang.                                                                            | 4.4    |
-| **Bank Payment PO**                   | Alur pembayaran utang di ERP (voucher → pembayaran).                                                                              | 4.6    |
-| **Basket / Keranjang akun**           | Kumpulan akun yang dihitung sebagai satu kelompok (Kas, Bank, Deposito, Dana dalam pencairan, Biaya Tetap).                       | 6.6    |
-| **Bucket**                            | Satu kelompok umur dalam aging (mis. 31–60 hari).                                                                                 | 8.7    |
-| **Budget vs Actual**                  | Anggaran dibandingkan realisasi.                                                                                                  | 8.6    |
-| **Burn (laju bakar)**                 | Rata-rata uang bersih yang keluar per bulan. Dipakai untuk Runway.                                                                | 8.4.6  |
-| **Cash Flow (arus kas)**              | Uang yang benar-benar masuk dan keluar selama periode.                                                                            | 8.4    |
-| **Cash Position**                     | Saldo Kas + Bank pada tanggal acuan.                                                                                              | 8.3    |
-| **Closed / Open / Pre Closed**        | Status periode akuntansi.                                                                                                         | 2.6    |
-| **CoA**                               | _Chart of Accounts_, daftar akun berbentuk pohon.                                                                                 | 2.2    |
-| **Cost Of Sales (HPP)**               | Harga pokok penjualan, biaya langsung barang yang terjual.                                                                        | 2.3    |
-| **Current Ratio**                     | Aset lancar ÷ kewajiban lancar. Ukuran kemampuan membayar utang jangka pendek.                                                    | 8.4.6  |
-| **`dash_*`**                          | Tabel milik dashboard (salinan hasil hitung).                                                                                     | 5      |
-| **Dana dalam pencairan (in transit)** | Uang pembayaran kartu/QRIS/e-wallet yang sudah dibayar pelanggan tetapi belum masuk rekening bank.                                | 8.3    |
-| **Data as of**                        | Kartu di sidebar yang menunjukkan kapan tabel `dash_*` terakhir dibangun.                                                         | 10.4   |
-| **Debit / Kredit**                    | Dua sisi pencatatan jurnal.                                                                                                       | 2.1    |
-| **Deposito**                          | Simpanan berjangka. Baris terpisah di Cash Position, tidak masuk angka utama.                                                     | 8.3    |
-| **Draft**                             | Jurnal yang belum diposting. Tidak dihitung.                                                                                      | 2.7    |
-| **Drill-down**                        | Membuka rincian sebuah angka sampai baris jurnal.                                                                                 | 8.12   |
-| **EDC**                               | Mesin gesek kartu di kasir. Pembayarannya termasuk dana dalam pencairan.                                                          | 8.3    |
-| **Eliminasi intercompany**            | Menghapus transaksi antar-entitas dalam satu grup agar tidak terhitung dua kali. **Tidak dilakukan** di dashboard.                | 2.9    |
-| **Entitas**                           | Satu lokasi (`pos_location`), mewakili satu anak perusahaan/cabang.                                                               | 2.9    |
-| **ERP**                               | Sistem pencatatan transaksi klien yang menjadi sumber data.                                                                       | 1.1    |
-| **Expense Paid**                      | Biaya operasional yang sudah dibayar kas.                                                                                         | 8.4.7  |
-| **Fingerprint (sidik jari)**          | Ringkasan kecil kondisi data ERP yang disimpan bersama snapshot. Bila berubah, snapshot dibangun ulang.                           | 5.1    |
-| **Fixed Cost (Biaya Tetap)**          | Biaya tetap bulanan; akunnya dipilih di Account Mapping.                                                                          | 8.5    |
-| **Flow**                              | Angka yang mengalir selama periode.                                                                                               | 2.4    |
-| **`gl`, `gl_detail`**                 | Kepala dan baris jurnal buku besar di ERP.                                                                                        | 4.3    |
-| **Giro / Cek beredar**                | Pembayaran dengan giro/cek yang sudah dicatat tetapi belum dicairkan bank. Hanya informasi di Cash Position.                      | 8.3    |
-| **Gross Profit / Margin**             | Laba kotor (Revenue − HPP) dan rasionya terhadap Revenue.                                                                         | 2.3    |
-| **HEADER / POSTABLE**                 | Akun folder / akun tempat jurnal dicatat.                                                                                         | 2.2    |
-| **HPP**                               | Harga pokok penjualan (Cost Of Sales).                                                                                            | 2.3    |
-| **`in_out`**                          | Kolom kartu utang/piutang: `1` menambah saldo, `-1` mengurangi, `0` abaikan.                                                      | 4.4    |
-| **Jatuh tempo (`due_date`)**          | Tanggal tagihan harus dibayar.                                                                                                    | 8.7    |
-| **Jurnal pembalik (reversal)**        | Jurnal yang membatalkan jurnal lain. Dihitung bersama aslinya.                                                                    | 6.2    |
-| **Konsinyasi**                        | Barang titipan; hutangnya muncul dari penjualan (nomor `…/SLS/…`).                                                                | 4.4    |
-| **Konsolidasi**                       | Penjumlahan banyak entitas.                                                                                                       | 2.9    |
-| **Laba Rugi (P&L)**                   | Laporan untung/rugi selama periode.                                                                                               | 2.3    |
-| **MDR**                               | Biaya yang dipotong penyedia pembayaran dari transaksi kartu/QRIS. Kolomnya tidak dipakai.                                        | 4.5    |
-| **NBAL (non-balancing)**              | Segmen Lokasi tidak memaksa jurnal seimbang per lokasi, jadi saldo kas/utang per entitas bisa terlihat janggal.                   | 6.4    |
-| **Neraca**                            | Laporan posisi harta, utang, modal pada satu tanggal.                                                                             | 2.3    |
-| **Net Profit / Margin**               | Laba bersih dan rasionya terhadap Revenue.                                                                                        | 2.3    |
-| **OCI**                               | _Other Comprehensive Income_. Fitur **dinonaktifkan sementara** (D39, O4).                                                        | 8.5    |
-| **Operating Profit**                  | Laba usaha: Laba Kotor − Beban Operasional.                                                                                       | 2.3    |
-| **Other Revenue / Other Expense**     | Pendapatan/beban di luar usaha utama (jasa giro, bunga, selisih kurs). Tidak masuk Revenue.                                       | 2.3    |
-| **Overdue**                           | Tagihan yang sudah lewat jatuh tempo. Kartu Payables memakai tagihan positif saja; halaman Payables memakai neto per bucket.      | 8.7    |
-| **Payment Plan**                      | Rencana pembayaran harian ke depan (7/14/30 hari).                                                                                | 8.9    |
-| **Pembayaran belum dialokasikan**     | Pembayaran/retur yang belum dikaitkan ke tagihan; mengurangi utang.                                                               | 8.7    |
-| **Pengakuan Biaya**                   | Dokumen ERP (`bankpo_payment` tipe 0) saat tagihan diseleksi untuk dibayar. Sering disebut "voucher" di dokumen lama.             | 4.6    |
-| **Periode 13**                        | Periode tambahan akhir tahun untuk penyesuaian/audit.                                                                             | 2.6    |
-| **`period_id`**                       | Periode pencatatan sebuah jurnal. Dasar angka bulanan.                                                                            | 6.3    |
-| **Posted**                            | Jurnal yang sudah diposting. Hanya ini yang dihitung.                                                                             | 2.7    |
-| **`pos_location`**                    | Tabel ERP berisi lokasi = entitas.                                                                                                | 4.2    |
-| **Preset periode**                    | Pilihan cepat filter: Bulan ini, Bulan lalu, Kuartal ini, YTD, 12 bulan.                                                          | 6.1    |
-| **QRIS / e-wallet**                   | Pembayaran non-tunai; termasuk dana dalam pencairan.                                                                              | 8.3    |
-| **Realisasi (Actual)**                | Angka sebenarnya dari jurnal, lawan dari anggaran.                                                                                | 8.6    |
-| **Refresh now (Perbarui sekarang)**   | Tombol di sidebar untuk membangun ulang tabel `dash_*` sekarang.                                                                  | 10.4   |
-| **Repo / Service / Server function**  | Lapisan kode: repo = SQL, service = merangkai repo dan rumus, server function = pintu masuk dari browser.                         | 1.3    |
-| **Revenue (Pendapatan)**              | Pendapatan usaha utama (grup akun Revenue, bukan Other Revenue).                                                                  | 8.2    |
-| **Runway**                            | Berapa bulan kas bertahan bila laju bakar tetap.                                                                                  | 8.4.6  |
-| **`segment1_id` / segmen**            | Kolom baris jurnal yang menunjuk lokasi.                                                                                          | 4.2    |
-| **Seleksi Invoice**                   | Menu ERP untuk memilih tagihan yang akan dibayar; menghasilkan Pengakuan Biaya.                                                   | 4.6    |
-| **Snapshot**                          | (1) potret angka pada satu tanggal; (2) tabel `dash_snap_*` berisi salinan hasil hitung.                                          | 2.4, 5 |
-| **SWR (_stale-while-revalidate_)**    | Menampilkan angka lama seketika sambil menghitung ulang di belakang layar.                                                        | 9      |
-| **`sysuser`**                         | Tabel akun ERP yang dipakai login dashboard.                                                                                      | 4.7    |
-| **`system_main`**                     | Tabel pengaturan ERP; menyimpan Account Mapping.                                                                                  | 4.7    |
-| **Tanpa entitas**                     | Baris pendapatan/jurnal yang tidak punya lokasi.                                                                                  | 8.2    |
-| **`trans_date`**                      | Tanggal transaksi jurnal. Dasar angka harian.                                                                                     | 6.3    |
-| **YTD**                               | _Year To Date_, dari Januari sampai sekarang.                                                                                     | 6.1    |
+| Istilah                               | Arti sederhana                                                                                                                      | Lihat    |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| **Account Mapping**                   | Halaman Settings tempat admin memilih akun mana yang dihitung sebagai Kas, Bank, Deposito, Dana dalam pencairan, dan Biaya Tetap.   | 8.10     |
+| **Accrual**                           | Pencatatan pendapatan/biaya saat terjadi, bukan saat uang bergerak.                                                                 | 2.5      |
+| **Aging / Umur**                      | Pengelompokan tagihan menurut berapa hari terlambat dari jatuh tempo.                                                               | 8.7      |
+| **AP**                                | _Accounts Payable_, utang usaha.                                                                                                    | 2.8      |
+| **AR**                                | _Accounts Receivable_, piutang usaha.                                                                                               | 2.8      |
+| **`asOf` (tanggal acuan)**            | Tanggal yang dipakai untuk angka potret. Ditentukan filter periode, maksimal hari ini.                                              | 6.1      |
+| **`ap_ar_card`**                      | Tabel ERP berisi tagihan dan pembayaran utang/piutang.                                                                              | 4.4      |
+| **Bank Payment PO**                   | Alur pembayaran utang di ERP (voucher → pembayaran).                                                                                | 4.6      |
+| **Basket / Keranjang akun**           | Kumpulan akun yang dihitung sebagai satu kelompok (Kas, Bank, Deposito, Dana dalam pencairan, Biaya Tetap).                         | 6.6      |
+| **Bucket**                            | Satu kelompok umur dalam aging (mis. 31–60 hari).                                                                                   | 8.7      |
+| **Budget vs Actual**                  | Anggaran dibandingkan realisasi.                                                                                                    | 8.6      |
+| **Burn (laju bakar)**                 | Rata-rata uang bersih yang keluar per bulan. Dipakai untuk Runway.                                                                  | 8.4.6    |
+| **Cash Flow (arus kas)**              | Uang yang benar-benar masuk dan keluar selama periode.                                                                              | 8.4      |
+| **Cash Position**                     | Saldo Kas + Bank pada tanggal acuan.                                                                                                | 8.3      |
+| **Closed / Open / Pre Closed**        | Status periode akuntansi.                                                                                                           | 2.6      |
+| **CoA**                               | _Chart of Accounts_, daftar akun berbentuk pohon.                                                                                   | 2.2      |
+| **Cost Of Sales (HPP)**               | Harga pokok penjualan, biaya langsung barang yang terjual.                                                                          | 2.3      |
+| **Current Ratio**                     | Aset lancar ÷ kewajiban lancar. Ukuran kemampuan membayar utang jangka pendek.                                                      | 8.4.6    |
+| **`dash_*`**                          | Tabel milik dashboard (salinan hasil hitung).                                                                                       | 5        |
+| **Dana dalam pencairan (in transit)** | Uang pembayaran kartu/QRIS/e-wallet yang sudah dibayar pelanggan tetapi belum masuk rekening bank.                                  | 8.3      |
+| **Data as of**                        | Kartu di sidebar yang menunjukkan kapan tabel `dash_*` terakhir dibangun.                                                           | 10.4     |
+| **Debit / Kredit**                    | Dua sisi pencatatan jurnal.                                                                                                         | 2.1      |
+| **Deposito**                          | Simpanan berjangka. Baris terpisah di Cash Position, tidak masuk angka utama.                                                       | 8.3      |
+| **Draft**                             | Jurnal yang belum diposting. Tidak dihitung.                                                                                        | 2.7      |
+| **Drill-down**                        | Membuka rincian sebuah angka sampai baris jurnal.                                                                                   | 8.12     |
+| **EDC**                               | Mesin gesek kartu di kasir. Pembayarannya termasuk dana dalam pencairan.                                                            | 8.3      |
+| **Eliminasi intercompany**            | Menghapus transaksi antar-entitas dalam satu grup agar tidak terhitung dua kali. **Tidak dilakukan** di dashboard.                  | 2.9      |
+| **Entitas**                           | Satu lokasi (`pos_location`), mewakili satu anak perusahaan/cabang.                                                                 | 2.9      |
+| **ERP**                               | Sistem pencatatan transaksi klien yang menjadi sumber data.                                                                         | 1.1      |
+| **Expense Paid**                      | Biaya operasional yang sudah dibayar kas.                                                                                           | 8.4.7    |
+| **Fingerprint (sidik jari)**          | Ringkasan kecil kondisi data ERP yang disimpan bersama snapshot. Bila berubah, snapshot dibangun ulang.                             | 5.1      |
+| **Fixed Cost (Biaya Tetap)**          | Biaya tetap bulanan; akunnya dipilih di Account Mapping.                                                                            | 8.5      |
+| **Flow**                              | Angka yang mengalir selama periode.                                                                                                 | 2.4      |
+| **`gl`, `gl_detail`**                 | Kepala dan baris jurnal buku besar di ERP.                                                                                          | 4.3      |
+| **Giro / Cek beredar**                | Pembayaran dengan giro/cek yang sudah dicatat tetapi belum dicairkan bank. Hanya informasi di Cash Position.                        | 8.3      |
+| **Gross Profit / Margin**             | Laba kotor (Revenue − HPP) dan rasionya terhadap Revenue.                                                                           | 2.3      |
+| **HEADER / POSTABLE**                 | Akun folder / akun tempat jurnal dicatat.                                                                                           | 2.2      |
+| **HPP**                               | Harga pokok penjualan (Cost Of Sales).                                                                                              | 2.3      |
+| **`in_out`**                          | Kolom kartu utang/piutang: `1` menambah saldo, `-1` mengurangi, `0` abaikan.                                                        | 4.4      |
+| **Jatuh tempo (`due_date`)**          | Tanggal tagihan harus dibayar.                                                                                                      | 8.7      |
+| **Jurnal pembalik (reversal)**        | Jurnal yang membatalkan jurnal lain. Dihitung bersama aslinya.                                                                      | 6.2      |
+| **Konsinyasi**                        | Barang titipan; hutangnya muncul dari penjualan (nomor `…/SLS/…`).                                                                  | 4.4      |
+| **Konsolidasi**                       | Penjumlahan banyak entitas.                                                                                                         | 2.9      |
+| **Kredit vendor**                     | Semua item AP yang sisanya negatif: retur, memo kredit, kelebihan bayar. Memotong utang.                                            | 8.7      |
+| **Laba Rugi (P&L)**                   | Laporan untung/rugi selama periode.                                                                                                 | 2.3      |
+| **MDR**                               | Biaya yang dipotong penyedia pembayaran dari transaksi kartu/QRIS. Kolomnya tidak dipakai.                                          | 4.5      |
+| **NBAL (non-balancing)**              | Segmen Lokasi tidak memaksa jurnal seimbang per lokasi, jadi saldo kas/utang per entitas bisa terlihat janggal.                     | 6.4      |
+| **Neraca**                            | Laporan posisi harta, utang, modal pada satu tanggal.                                                                               | 2.3      |
+| **Net Profit / Margin**               | Laba bersih dan rasionya terhadap Revenue.                                                                                          | 2.3      |
+| **OCI**                               | _Other Comprehensive Income_. Fitur **dinonaktifkan sementara** (D39, O4).                                                          | 8.5      |
+| **Operating Profit**                  | Laba usaha: Laba Kotor − Beban Operasional.                                                                                         | 2.3      |
+| **Other Revenue / Other Expense**     | Pendapatan/beban di luar usaha utama (jasa giro, bunga, selisih kurs). Tidak masuk Revenue.                                         | 2.3      |
+| **Overdue**                           | Tagihan yang sudah lewat jatuh tempo. Kartu Payables memakai tagihan positif saja; halaman Payables memakai neto per bucket.        | 8.7      |
+| **Payment Plan**                      | Rencana pembayaran harian ke depan (7/14/30 hari).                                                                                  | 8.9      |
+| **Pembayaran belum dialokasikan**     | Hanya AP: kartu pelunasan (tipe 7–14) tanpa detail sama sekali; mengurangi utang.                                                   | 8.7      |
+| **Pengakuan Biaya**                   | Dokumen ERP (`bankpo_payment` tipe 0) tempat finance memilih beberapa tagihan satu vendor untuk dibayar bersamaan. Bukan "voucher". | 4.6      |
+| **Periode 13**                        | Periode tambahan akhir tahun untuk penyesuaian/audit.                                                                               | 2.6      |
+| **`period_id`**                       | Periode pencatatan sebuah jurnal. Dasar angka bulanan.                                                                              | 6.3      |
+| **Posted**                            | Jurnal yang sudah diposting. Hanya ini yang dihitung.                                                                               | 2.7      |
+| **`pos_location`**                    | Tabel ERP berisi lokasi = entitas.                                                                                                  | 4.2      |
+| **Preset periode**                    | Pilihan cepat filter: Bulan ini, Bulan lalu, Kuartal ini, YTD, 12 bulan.                                                            | 6.1      |
+| **QRIS / e-wallet**                   | Pembayaran non-tunai; termasuk dana dalam pencairan.                                                                                | 8.3      |
+| **Realisasi (Actual)**                | Angka sebenarnya dari jurnal, lawan dari anggaran.                                                                                  | 8.6      |
+| **Retur dengan nota**                 | Retur AR yang langsung menunjuk faktur (kartu retur memegang detailnya sendiri). Sudah selesai saat dibuat.                         | 8.8      |
+| **Retur langsung**                    | Kartu retur tanpa baris detail sendiri: berdiri sendiri, belum dikaitkan ke tagihan. Terpakai bila ada alokasi pelunasan.           | 8.7, 8.8 |
+| **Refresh now (Perbarui sekarang)**   | Tombol di sidebar untuk membangun ulang tabel `dash_*` sekarang.                                                                    | 10.4     |
+| **Repo / Service / Server function**  | Lapisan kode: repo = SQL, service = merangkai repo dan rumus, server function = pintu masuk dari browser.                           | 1.3      |
+| **Revenue (Pendapatan)**              | Pendapatan usaha utama (grup akun Revenue, bukan Other Revenue).                                                                    | 8.2      |
+| **Runway**                            | Berapa bulan kas bertahan bila laju bakar tetap.                                                                                    | 8.4.6    |
+| **`segment1_id` / segmen**            | Kolom baris jurnal yang menunjuk lokasi.                                                                                            | 4.2      |
+| **Seleksi Invoice**                   | Menu ERP untuk memilih tagihan yang akan dibayar; menghasilkan Pengakuan Biaya.                                                     | 4.6      |
+| **Snapshot**                          | (1) potret angka pada satu tanggal; (2) tabel `dash_snap_*` berisi salinan hasil hitung.                                            | 2.4, 5   |
+| **SWR (_stale-while-revalidate_)**    | Menampilkan angka lama seketika sambil menghitung ulang di belakang layar.                                                          | 9        |
+| **`sysuser`**                         | Tabel akun ERP yang dipakai login dashboard.                                                                                        | 4.7      |
+| **`system_main`**                     | Tabel pengaturan ERP; menyimpan Account Mapping.                                                                                    | 4.7      |
+| **Tanpa entitas**                     | Baris pendapatan/jurnal yang tidak punya lokasi.                                                                                    | 8.2      |
+| **`trans_date`**                      | Tanggal transaksi jurnal. Dasar angka harian.                                                                                       | 6.3      |
+| **YTD**                               | _Year To Date_, dari Januari sampai sekarang.                                                                                       | 6.1      |
 
 ---
 
@@ -611,17 +614,20 @@ FROM dash_snap_meta WHERE name = 'ap_ar' LIMIT 1
 - **Dibaca oleh:** `src/server/dash/snapshot.ts` (daftar tagihan), `snapshot-aggregate.ts` (penjumlahan aging dan jatuh tempo langsung di SQL). Pembacaan satu sisi penuh memakai `FORCE INDEX (PRIMARY)` (`scan-hint.ts`, D48) karena tanpa itu optimizer memilih indeks sekunder yang 6–10 kali lebih lambat.
 - **Cakupan:** hanya "hari ini". Untuk tanggal sebelum `as_of_date` snapshot tidak bisa dipakai (`apArSnapshotCovers`).
 
-#### 5.3.3 `dash_snap_ap_ar_unallocated`: pembayaran/retur belum dialokasikan
+#### 5.3.3 `dash_snap_ap_ar_unallocated`: retur langsung (AR) dan pembayaran belum dialokasikan (AP)
 
-- **Tujuan:** kartu pelunasan (pembayaran, retur) yang **tidak punya baris detail** sama sekali, sehingga belum dikaitkan ke tagihan. Mengurangi utang/piutang pihak itu tetapi tidak menempel ke tagihan tertentu.
-- **Kolom:** `card_id`, `module_type`, `party_id`, `location_id`, `coa_id`, `tx_date`, `balance` (bertanda; untuk AP = nominal penuh `amount × in_out`, untuk AR = **sisa** retur langsung setelah pelunasan yang menunjuk ke retur).
+- **Tujuan:** kartu pelunasan (pembayaran AP, retur langsung AR) yang **tidak punya baris detail sendiri**, sehingga belum dikaitkan ke tagihan. Mengurangi utang/piutang pihak itu tetapi tidak menempel ke tagihan tertentu. Nama tabel `dash_snap_ap_ar_unallocated` tetap dipertahankan demi stabilitas basis kode (K2).
+- **Kolom:** `card_id`, `module_type`, `party_id`, `location_id`, `coa_id`, `tx_date`, `balance` (bertanda; untuk AP = nominal penuh `amount × in_out`, untuk AR = **sisa** retur langsung setelah pelunasan yang menunjuk ke retur), dan `kind` (`varchar(10)`: `'counted'` atau `'ignored'`).
 - **Indeks:** `idx_dash_unalloc_mod_loc (module_type, location_id)`.
-- **Tipe yang ikut:** AP = semua tipe pelunasan (7, 8, 9, 10, 11, 13, 14); AR = hanya tipe 2 (retur) dengan sisa setelah pelunasan. Pembayaran pelanggan AR tipe 1 tanpa alokasi **tidak dihitung**, sama dengan ERP (D25).
+- **Tipe dan kolom `kind`:**
+  - AP (`module_type = 0`): semua tipe pelunasan (7, 8, 9, 10, 11, 13, 14), selalu berstatus `kind = 'counted'`.
+  - AR (`module_type = 1`): retur langsung (tipe 2) berstatus `kind = 'counted'`. Pembayaran pelanggan AR tipe 1 tanpa alokasi disimpan dengan `kind = 'ignored'` (tidak pernah dijumlahkan ke saldo piutang agar selalu sama dengan laporan AR Aging ERP; dipantau khusus oleh data check `AR_PAYMENT_UNALLOC`).
+- **Aturan pembaca:** semua query yang membaca tabel ini untuk perhitungan angka wajib menyaring `AND kind = 'counted'`.
 
 #### 5.3.4 `dash_snap_ap_ar_hist_dates`, `…_hist_open`, `…_hist_unallocated`: riwayat akhir bulan
 
 - **Tujuan:** potret utang/piutang pada **akhir setiap bulan yang sudah selesai** (default 13 bulan terakhir, diatur `DASH_AP_AR_HIST_MONTHS`). Dipakai untuk "Bulan lalu", pembanding periode, dan tanggal lampau yang tepat jatuh di akhir bulan.
-- **Kolom:** sama dengan tabel hari ini, ditambah `as_of_date` di depan kunci utama (`as_of_date, card_id`). `…_hist_dates` mencatat tiap akhir bulan yang **lengkap** (`as_of_date`, `built_at`, `row_count`, `duration_ms`, `is_final`, `formula_version`).
+- **Kolom:** sama dengan tabel hari ini (termasuk kolom `kind`), ditambah `as_of_date` di depan kunci utama (`as_of_date, card_id`). Hanya baris dengan `kind = 'counted'` yang dijumlahkan ke riwayat piutang/utang. `…_hist_dates` mencatat tiap akhir bulan yang **lengkap** (`as_of_date`, `built_at`, `row_count`, `duration_ms`, `is_final`, `formula_version`).
 - **Aturan:** satu bulan dibangun per siklus refresh. Dua bulan terbaru ("provisional") dibangun ulang bila umurnya ≥ 24 jam, sampai periode ERP-nya Closed atau umurnya lewat dua bulan ("final", `is_final = 1`) ✅ (`ap-ar-hist-plan.ts`). Bulan yang dibangun dengan versi rumus lebih lama dari `AP_AR_FORMULA_VERSION` (sekarang 2) dibangun ulang, juga yang berstatus final; satu bulan per siklus, terbaru dulu; baris lama tetap terbaca sampai diganti. Bulan yang lebih lama dari jumlah bulan yang diminta dihapus.
 - **Penulisan:** satu bulan ditulis dalam **satu transaksi** bersama penandanya di `…_hist_dates`, jadi pembaca tidak pernah melihat bulan setengah jadi.
 - **Urutan baca:** snapshot hari ini → riwayat akhir bulan (hanya bila `asOf` tepat akhir bulan yang ada di `…_hist_dates`) → query langsung ke ERP (lambat; untuk tanggal lampau lain).
@@ -2045,15 +2051,16 @@ Halaman Receivables (8.8) memakai kode yang sama (`createAgingMetric`), hanya be
 - Peringatan merah bila saldo kartu (buku pembantu) berbeda ≥ Rp1 dengan saldo GL akun kontrol (rekonsiliasi).
 - **Bilah umur** (AgingBar): delapan bucket.
 - **Tabel per vendor** (dapat dicari dan diurutkan): total dan delapan bucket per vendor; klik membuka drill-down.
+- Kartu **Kredit vendor** menampilkan teks pendamping "Retur langsung (IDR ...)" bila ada retur langsung AP yang bersisa negatif.
 
 #### 8.7.2 Data yang diambil
 
-| Data                                | Tabel                                                                   | Dipakai untuk                  |
-| ----------------------------------- | ----------------------------------------------------------------------- | ------------------------------ |
-| Tagihan AP yang masih punya sisa    | `ap_ar_card` + `ap_ar_card_detail` (dibaca dari `dash_snap_ap_ar_open`) | Bagian A                       |
-| Pembayaran/retur belum dialokasikan | `ap_ar_card` (dibaca dari `dash_snap_ap_ar_unallocated`)                | Bagian B                       |
-| Nama vendor                         | `vendor` (hanya id, kode, nama; diingat 10 menit per id)                | Tabel vendor                   |
-| Akun kontrol utang                  | `coa` + GL (Q7–Q9)                                                      | Rekonsiliasi dengan buku besar |
+| Data                               | Tabel                                                                   | Dipakai untuk                  |
+| ---------------------------------- | ----------------------------------------------------------------------- | ------------------------------ |
+| Tagihan AP yang masih punya sisa   | `ap_ar_card` + `ap_ar_card_detail` (dibaca dari `dash_snap_ap_ar_open`) | Bagian A                       |
+| Pembayaran belum dialokasikan (AP) | `ap_ar_card` (dibaca dari `dash_snap_ap_ar_unallocated`)                | Bagian B                       |
+| Nama vendor                        | `vendor` (hanya id, kode, nama; diingat 10 menit per id)                | Tabel vendor                   |
+| Akun kontrol utang                 | `coa` + GL (Q7–Q9)                                                      | Rekonsiliasi dengan buku besar |
 
 #### 8.7.3 Urutan sumber data
 
@@ -2096,13 +2103,13 @@ GROUP BY a.partyId
 SELECT a.partyId AS partyId, (delapan SUM bucket seperti di atas)
 FROM (SELECT party_id AS partyId, balance AS balance, DATEDIFF(:asOf, tx_date) AS days
       FROM dash_snap_ap_ar_unallocated
-      WHERE module_type = :modul [AND location_id IN (:lokasi)]) a
+      WHERE module_type = :modul AND kind = 'counted' [AND location_id IN (:lokasi)]) a
 GROUP BY a.partyId
 
 -- A3: akun kontrol (untuk rekonsiliasi), pada tabel tagihan dan tabel belum-dialokasikan
 SELECT DISTINCT coa_id AS coaId FROM dash_snap_ap_ar_open
 WHERE module_type = :modul AND coa_id IS NOT NULL [AND location_id IN (:lokasi)]
--- dan idem untuk dash_snap_ap_ar_unallocated
+-- dan idem untuk dash_snap_ap_ar_unallocated (dengan tambahan AND kind = 'counted')
 ```
 
 Batas bucket hanya didefinisikan di satu tempat (`AGING_BUCKET_DAYS` di `src/lib/finance/ap-ar/aging.ts`) dan dipakai baik oleh SQL maupun oleh fungsi `bucketOf` di JavaScript (dijaga tes). Penjelasan: `days` = tanggal acuan − jatuh tempo (`due_date`; bila kosong, tanggal transaksi). `days ≥ 0` = sudah jatuh tempo, `days < 0` = belum.
@@ -2194,7 +2201,8 @@ Tipe yang dihitung (mengikuti AP Aging ERP): **tagihan AP** = tipe 0, 1, 2, 3, 4
 
 ```text
 Bagian A  (tagihan terbuka)         : Σ sisa semua tagihan; sisa > 0 = tagihan, sisa < 0 = kredit vendor
-Bagian B  (belum dialokasikan)      : Σ (nominal × arah) kartu pelunasan tanpa detail; negatif = mengurangi utang
+Bagian B  (pembayaran belum dialokasikan AP) : Σ (nominal × arah) kartu pelunasan tanpa detail (kind = 'counted'); negatif = mengurangi utang
+Retur langsung AP                   = Σ sisa negatif item tipe 2 (sudah termasuk Kredit vendor)
 Utang usaha (neto) "total"          = A(tagihan) + A(kredit vendor) + B
 Tagihan belum dibayar "unpaidBills" = Σ sisa > 0
 Kredit vendor "vendorCredits"       = Σ sisa < 0
@@ -2234,33 +2242,35 @@ overdueBills (kartu Summary) = 100 + 60       = 160 jt       → hanya tagihan p
 
 #### 8.7.7 Perlu dikonfirmasi
 
-| Kode  | Pertanyaan                                                                                                                                                                                  | Default sementara                                       |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| KF-38 | Total Payables sama dengan laporan **AP Aging ERP** pada tanggal yang sama?                                                                                                                 | Dirancang sama (D24), belum dicocokkan ke data klien ⚠️ |
-| KF-39 | Overdue di kartu Summary hanya menghitung tagihan **positif** (tidak dinetto kredit vendor dan pembayaran belum dialokasikan), sedangkan halaman Payables memakai overdue **neto**. Sesuai? | Dua definisi berbeda (D37) ⚠️                           |
-| KF-40 | Tagihan yang sudah masuk Pengakuan Biaya tetapi belum dibayar tetap dihitung sebagai utang (`payment_status` tidak dipercaya). Benar?                                                       | Ya (D16) ⚠️                                             |
-| KF-41 | Apakah ada pembayaran vendor **belum dialokasikan** dalam jumlah besar (mengurangi utang)? Siapa yang menanganinya di ERP?                                                                  | Dihitung sebagai pengurang ⚠️                           |
-| KF-42 | 77 tagihan AP non-dagang lama (2021–2024) berstatus lunas tanpa catatan pelunasan (`AP_PAID_NO_PAYMENT`, O12): dibersihkan lewat jurnal GL, atau memang masih utang?                        | Dihitung sebagai utang lama ⚠️                          |
-| KF-43 | Tagihan dengan `due_date` sebelum tanggal transaksi (±5 ribu di data demo): perlu diperbaiki di ERP?                                                                                        | Dihitung apa adanya ⚠️                                  |
-| KF-44 | Pembanding Payables hanya muncul bila tanggal pembanding ada di snapshot atau riwayat; untuk tanggal lampau lainnya pembanding dilewati (kalau tidak, halaman menunggu menit). Diterima?    | Pembanding dilewati ⚠️                                  |
+| Kode  | Pertanyaan                                                                                                                                                                                                     | Default sementara                                       |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| KF-38 | Total Payables sama dengan laporan **AP Aging ERP** pada tanggal yang sama?                                                                                                                                    | Dirancang sama (D24), belum dicocokkan ke data klien ⚠️ |
+| KF-39 | Overdue di kartu Summary hanya menghitung tagihan **positif** (tidak dinetto kredit vendor dan pembayaran belum dialokasikan), sedangkan halaman Payables memakai overdue **neto**. Sesuai?                    | Dua definisi berbeda (D37) ⚠️                           |
+| KF-40 | Tagihan yang sudah masuk Pengakuan Biaya tetapi belum dibayar tetap dihitung sebagai utang (`payment_status` tidak dipercaya). Benar?                                                                          | Ya (D16) ⚠️                                             |
+| KF-41 | Apakah ada pembayaran vendor **belum dialokasikan** dalam jumlah besar (mengurangi utang)? Siapa yang menanganinya di ERP?                                                                                     | Dihitung sebagai pengurang ⚠️                           |
+| KF-42 | 77 tagihan AP non-dagang lama (2021–2024) berstatus lunas tanpa catatan pelunasan (`AP_PAID_NO_PAYMENT`, O12): dibersihkan lewat jurnal GL, atau memang masih utang?                                           | Dihitung sebagai utang lama ⚠️                          |
+| KF-43 | Tagihan dengan `due_date` sebelum tanggal transaksi (±5 ribu di data demo): perlu diperbaiki di ERP?                                                                                                           | Dihitung apa adanya ⚠️                                  |
+| KF-44 | Pembanding Payables hanya muncul bila tanggal pembanding ada di snapshot atau riwayat; untuk tanggal lampau lainnya pembanding dilewati (kalau tidak, halaman menunggu menit). Diterima?                       | Pembanding dilewati ⚠️                                  |
+| KF-63 | Retur atau memo yang terpakai melebihi nilainya sehingga sisanya positif (sekitar 18 retur / +1,43 miliar di Client 1; kini tampil sebagai "tagihan belum dibayar"): salah input, atau memang kelebihan?       | Dihitung apa adanya ⚠️                                  |
+| KF-65 | Kredit vendor yang sangat lama (79% lebih dari 90 hari; di luar retur sekitar 30,4 miliar; hutang aset tipe 3 dibayar berlebih sekitar 10,5 miliar dari 2 item di Client 1): diklaim, dihapus, atau dibiarkan? | Dihitung sebagai kredit vendor yang mengurangi utang ⚠️ |
 
 ---
 
 ### 8.8 Halaman Receivables (Piutang usaha, AR Aging)
 
-Rute `/receivables` · service `ar-aging.service.ts` · kode sama dengan 8.7. Kartu: **Piutang usaha (neto)**, **Faktur belum dibayar**, **Total lewat jatuh tempo**, **Piutang non-dagang**; tabel per pelanggan. Query, bucket, snapshot, dan rekonsiliasi sama dengan 8.7 (`module_type = 1`).
+Rute `/receivables` · service `ar-aging.service.ts` · kode sama dengan 8.7. Kartu: **Piutang usaha (neto)** (dengan teks pendamping "Retur langsung (IDR ...)" bila ada retur langsung AR terbuka), **Faktur belum dibayar**, **Total lewat jatuh tempo**, **Piutang non-dagang**; tabel per pelanggan. Query, bucket, snapshot, dan rekonsiliasi sama dengan 8.7 (`module_type = 1`).
 
 **Perbedaan dengan Payables:**
 
-| Aspek                | Payables                | Receivables                                                                                                                            |
-| -------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Modul                | `module_type = 0`       | `module_type = 1`                                                                                                                      |
-| Tipe tagihan         | 0, 1, 2, 3, 4, 5, 6, 12 | 0, 3, 4, 5                                                                                                                             |
-| Tipe pelunasan       | 7, 8, 9, 10, 11, 13, 14 | 1, 2                                                                                                                                   |
-| Belum dialokasikan   | Semua tipe pelunasan    | Hanya retur langsung (tipe 2), sisanya setelah pelunasan yang menunjuk ke retur; pembayaran tipe 1 tanpa alokasi diabaikan seperti ERP |
-| Kartu tambahan       | Kredit vendor           | Piutang non-dagang (tipe 3)                                                                                                            |
-| Nama pihak           | `vendor`                | `customer`                                                                                                                             |
-| Status rencana bayar | Ada (Pengakuan Biaya)   | Tidak ada                                                                                                                              |
+| Aspek                | Payables                                             | Receivables                                                                                                                                                                   |
+| -------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Modul                | `module_type = 0`                                    | `module_type = 1`                                                                                                                                                             |
+| Tipe tagihan         | 0, 1, 2, 3, 4, 5, 6, 12                              | 0, 3, 4, 5                                                                                                                                                                    |
+| Tipe pelunasan       | 7, 8, 9, 10, 11, 13, 14                              | 1, 2                                                                                                                                                                          |
+| Retur langsung       | Pembayaran belum dialokasikan (semua tipe pelunasan) | Hanya retur langsung (tipe 2), sisanya setelah pelunasan yang menunjuk ke retur; pembayaran pelanggan tipe 1 tanpa alokasi disimpan sebagai ignored dan diabaikan seperti ERP |
+| Kartu tambahan       | Kredit vendor                                        | Piutang non-dagang (tipe 3)                                                                                                                                                   |
+| Nama pihak           | `vendor`                                             | `customer`                                                                                                                                                                    |
+| Status rencana bayar | Ada (Pengakuan Biaya)                                | Tidak ada                                                                                                                                                                     |
 
 #### Contoh angka retur langsung AR (data fiktif)
 
@@ -2276,12 +2286,14 @@ Hasil hitung:
 - Sisa retur langsung = −200.000 + 200.000 = **0** (tutup; dibuang dari daftar kartu belum dialokasikan).
 - Total piutang pelanggan = **0** (sebelum perbaikan: retur langsung tetap dihitung −200.000 sehingga total piutang −200.000, keliru).
 
+Pembayaran pelanggan tanpa alokasi dipantau lewat data check `AR_PAYMENT_UNALLOC` (warning). Retur langsung yang masih terbuka (baik di AP maupun AR) dipantau lewat data check `DIRECT_RETURN_OPEN` (tingkat `info`).
+
 **Perlu dikonfirmasi:**
 
-| Kode  | Pertanyaan                                                                                                                                                                                      | Default sementara                                                |
-| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| KF-45 | Total Receivables sama dengan laporan **AR Aging ERP**? Pembayaran pelanggan tanpa alokasi diabaikan seperti ERP (tampil di panel Data perlu dicek): apakah finance ingin angkanya dikurangkan? | Diabaikan (D25) ⚠️                                               |
-| KF-46 | Piutang non-dagang (tipe 3; ±Rp24,7 M di data demo): apakah tetap dalam total piutang, atau dipisah?                                                                                            | Tetap termasuk, dan ditampilkan juga sebagai angka tersendiri ⚠️ |
+| Kode  | Pertanyaan                                                                                                                                                                                                                                             | Default sementara                                                |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| KF-45 | Total Receivables sama dengan laporan **AR Aging ERP**? Pembayaran pelanggan tanpa alokasi diabaikan seperti ERP (dilaporkan data check AR_PAYMENT_UNALLOC, tingkat peringatan, di panel Data perlu dicek): apakah finance ingin angkanya dikurangkan? | Diabaikan (D25) ⚠️                                               |
+| KF-46 | Piutang non-dagang (tipe 3; ±Rp24,7 M di data demo): apakah tetap dalam total piutang, atau dipisah?                                                                                                                                                   | Tetap termasuk, dan ditampilkan juga sebagai angka tersendiri ⚠️ |
 
 ---
 
@@ -2410,7 +2422,8 @@ Panel ini ada di kerangka aplikasi (`AppShell`) dan menampilkan temuan yang memb
 | `CF_UNCLASSIFIED`       | Mutasi kas belum terklasifikasi (atau sumber klasifikasi memakai aturan cadangan) | Jumlah "Belum terklasifikasi" > 0, atau sumber = cadangan | Cash Flow     |
 | `REC_TRANSIT`           | Saldo GL dana dalam pencairan berbeda ≥ Rp1 dengan register                       | Tidak sinkron                                             | Cash Position |
 | `REC_AP`                | Saldo kartu utang berbeda ≥ Rp1 dengan akun kontrol GL                            | Tidak sinkron                                             | Payables      |
-| `AR_UNALLOC`            | Pembayaran pelanggan/retur tanpa alokasi                                          | Jumlah > 0                                                | Receivables   |
+| `AR_PAYMENT_UNALLOC`    | Pembayaran pelanggan tanpa alokasi ke faktur                                      | Jumlah > 0                                                | Receivables   |
+| `DIRECT_RETURN_OPEN`    | Retur langsung masih terbuka (AP + AR; tingkat **info**)                          | Jumlah > 0                                                | Payables      |
 | `AP_PAID_NO_PAYMENT`    | Tagihan AP **non-dagang** (tipe 1) berstatus lunas tanpa catatan pelunasan        | ≥ 1                                                       | Payables      |
 | `CARD_PARTY_MISSING`    | Vendor/pelanggan di kartu tidak ada di master                                     | ≥ 1                                                       | Payables      |
 | `CARD_LOCATION_INVALID` | Lokasi kartu tidak ada di master lokasi                                           | ≥ 1                                                       | Payables      |
@@ -2455,11 +2468,19 @@ WHERE bp.type IN (1, 2) AND bp.status = 0
   AND (bp.transaction_date < :asOf_minus_7 OR bp.transaction_date >= :asOf_plus_1)
   [AND bp.segment1_id IN (:segmen)]
 
+-- AR_PAYMENT_UNALLOC (dari snapshot hari ini, kind = 'ignored')
+SELECT COUNT(*) AS n, COALESCE(SUM(balance), 0) AS total
+FROM dash_snap_ap_ar_unallocated
+WHERE module_type = 1 AND kind = 'ignored'
+  [AND location_id IN (:lokasi)]
+
 -- UNPOSTED (per tabel GL dan per kelompok periode)
 SELECT COUNT(*) AS n FROM gl g WHERE g.posted_status = 0 AND g.period_id IN (:periode)
 ```
 
-Pemeriksaan lain (`CF_IDENTITY`, `CF_UNCLASSIFIED`, `REC_TRANSIT`, `REC_AP`, `AR_UNALLOC`, `SETTINGS`) memakai hasil metrik Cash Flow, Cash Position, AP/AR Aging, dan Q5 yang sudah ada (tanpa query baru).
+Tingkat pemeriksaan: **bahaya** (danger), **peringatan** (warning), dan **info**. Pemeriksaan bertingkat `info` (seperti `DIRECT_RETURN_OPEN`) ditampilkan dengan nada redup (muted) di panel dan **tidak menaikkan angka badge lonceng** di `AppShell`, karena retur langsung yang masih terbuka adalah hal wajar operasional yang sekadar perlu diketahui tanpa menuntut tindakan mendesak.
+
+Pemeriksaan lain (`CF_IDENTITY`, `CF_UNCLASSIFIED`, `REC_TRANSIT`, `REC_AP`, `AR_PAYMENT_UNALLOC`, `DIRECT_RETURN_OPEN`, `SETTINGS`) memakai hasil metrik Cash Flow, Cash Position, AP/AR Aging, dan snapshot hari ini yang sudah ada.
 
 > Catatan: `TRANSIT_OVERDUE` memakai ambang **7 hari** tetap, sedangkan tabel Dana dalam pencairan di Cash Position memakai `IN_TRANSIT_ALERT_DAYS` (bawaan 3). Keduanya sengaja berbeda.
 
@@ -2687,7 +2708,7 @@ Urutan pengecekan yang disarankan, dari penyebab paling umum:
 | 14  | **Arus kas per sub-baris berbeda dari laporan Arus Kas ERP:** jurnal campuran (alokasi proporsional) dan baris tak terpetakan                                          | Panel rekonsiliasi di halaman Cash Flow (8.4.4)                                                                          |
 | 15  | **Utang berbeda dari AP Aging ERP:** `payment_status` tidak dipercaya, pembayaran belum dialokasikan mengurangi utang, dua bug ERP tidak ditiru                        | 8.7.5; peringatan `REC_AP` bila selisih dengan GL                                                                        |
 | 16  | **Overdue di Summary lebih besar dari "Total lewat jatuh tempo" di Payables**                                                                                          | Kartu = tagihan positif; halaman = neto kredit dan pembayaran (KF-39)                                                    |
-| 17  | **Piutang berbeda dari AR Aging ERP:** pembayaran pelanggan tanpa alokasi diabaikan seperti ERP; retur langsung yang sudah dipakai pelunasan tidak dihitung lagi (D51) | `AR_UNALLOC` (8.8), D51                                                                                                  |
+| 17  | **Piutang berbeda dari AR Aging ERP:** pembayaran pelanggan tanpa alokasi diabaikan seperti ERP; retur langsung yang sudah dipakai pelunasan tidak dihitung lagi (D51) | `AR_PAYMENT_UNALLOC` (8.8), D51                                                                                          |
 | 18  | **Anggaran tampak jauh di atas realisasi pada bulan berjalan:** anggaran bulan penuh vs realisasi sampai hari ini                                                      | 8.6.3, KF-36                                                                                                             |
 | 19  | **Account Mapping baru diubah:** semua cache dikosongkan, snapshot kas dibangun ulang pada siklus berikutnya                                                           | Tunggu satu siklus atau tekan "Perbarui sekarang"                                                                        |
 | 20  | **Pembulatan:** folder Revenue bisa berbeda beberapa sen dari total bila ERP menyimpan lebih dari 2 desimal                                                            | 8.2.4                                                                                                                    |
@@ -2753,7 +2774,7 @@ Urutan pengecekan yang disarankan, dari penyebab paling umum:
 | KF-42 | S   | 8.7           | 77 tagihan non-dagang lama "lunas tanpa pembayaran" (O12): sudah dibersihkan lewat jurnal atau masih utang?                                                                                                                                                                         | Dihitung utang                                                                                                     | Belum                                       |                 |         |
 | KF-43 | R   | 8.7           | `due_date` sebelum tanggal transaksi: perlu diperbaiki di ERP?                                                                                                                                                                                                                      | Apa adanya                                                                                                         | Belum                                       |                 |         |
 | KF-44 | R   | 8.7           | Pembanding Payables dilewati bila tanggalnya di luar snapshot dan riwayat: diterima?                                                                                                                                                                                                | Dilewati                                                                                                           | Belum                                       |                 |         |
-| KF-45 | S   | 8.8           | Total Receivables sama dengan AR Aging ERP? Pembayaran pelanggan tanpa alokasi diabaikan seperti ERP: ingin dikurangkan?                                                                                                                                                            | Diabaikan (D25)                                                                                                    | Belum                                       |                 |         |
+| KF-45 | S   | 8.8           | Total Receivables sama dengan AR Aging ERP? Pembayaran pelanggan tanpa alokasi diabaikan seperti ERP (kini dilaporkan data check AR_PAYMENT_UNALLOC): ingin dikurangkan?                                                                                                            | Diabaikan (D25)                                                                                                    | Belum                                       |                 |         |
 | KF-46 | S   | 8.8           | Piutang non-dagang (tipe 3) tetap dalam total atau dipisah?                                                                                                                                                                                                                         | Tetap termasuk                                                                                                     | Belum                                       |                 |         |
 | KF-47 | R   | 8.9           | Label status rencana bayar sudah sesuai istilah finance (O16)?                                                                                                                                                                                                                      | Mengikuti menu ERP                                                                                                 | Belum                                       |                 |         |
 | KF-48 | S   | 8.9           | Kas awal Payment Plan = Kas + Bank hari ini, tanpa Deposito dan tanpa giro: sesuai (O15)?                                                                                                                                                                                           | Ya                                                                                                                 | Belum                                       |                 |         |
@@ -2771,6 +2792,8 @@ Urutan pengecekan yang disarankan, dari penyebab paling umum:
 | KF-60 | S   | 10            | Indeks tambahan `docs/sql/dashboard-indexes.sql` (O11) sudah dipasang di database klien? Ada read replica? (Rebuild snapshot tidak bergantung padanya, tetapi query langsung akan jauh lebih cepat.)                                                                                | Belum diketahui                                                                                                    | Belum                                       |                 |         |
 | KF-61 | S   | 6.9           | Versi **server** database klien memang MySQL 5.7.44 (`SELECT VERSION();`)? Angka 5.7.44 yang diketahui berasal dari program klien `mysql --version` (O9).                                                                                                                           | MySQL 5.7.44                                                                                                       | Belum                                       |                 |         |
 | KF-62 | T   | 8.8           | Apakah total AR Aging ERP mengurangi retur langsung yang sudah dipakai pelunasan (kartu pelunasan yang menunjuk kartu retur)?                                                                                                                                                       | Ya, dikurangi (cocok dengan layar AR Aging ERP pada data uji lokal 🟣; Client 1: 225 retur / 121,6 juta terdampak) | Belum                                       |                 |         |
+| KF-63 | S   | 8.7           | Retur atau memo yang terpakai melebihi nilainya sehingga sisanya positif (sekitar 18 retur / +1,43 miliar di Client 1; kini tampil sebagai "tagihan belum dibayar"): salah input, atau memang kelebihan?                                                                            | Dihitung apa adanya                                                                                                | Belum                                       |                 |         |
+| KF-65 | S   | 8.7           | Kredit vendor yang sangat lama (79% lebih dari 90 hari; di luar retur sekitar 30,4 miliar; hutang aset tipe 3 dibayar berlebih sekitar 10,5 miliar dari 2 item di Client 1): diklaim, dihapus, atau dibiarkan?                                                                      | Dihitung sebagai kredit vendor yang mengurangi utang                                                               | Belum                                       |                 |         |
 
 ### 12.3 Hasil pengecekan ke database lokal (2026-11-05)
 
@@ -2819,6 +2842,7 @@ Pengecekan memakai **tujuh query `SELECT` (hanya baca)** ke database lokal `demo
 | 2026-11-05 | **Dokumen dibuat.** Menggantikan `summary-page.md`, `summary-queries.md`, `revenue-page.md`, dan `revenue-queries.md` (dihapus). Memuat dasar akuntansi, glosarium, tabel ERP dan `dash_*`, aturan umum, katalog query, penjelasan semua halaman, cache, operasional, FAQ selisih, dan tabel konfirmasi `KF-01…KF-61`. Isi dibaca dari kode (penanda ✅) dan dicek ke database lokal `demo` dengan tujuh `SELECT` hanya-baca (penanda 🔵, bab 12.3). Temuan baru: tanda `detailSum` pada Expense Paid kemungkinan terbalik (KF-24, terbukti dari data demo: alokasi pembayaran bernilai negatif); `budget_type = 2` tidak dibaca kode (KF-37); batas status login 0/1/2 (KF-10); `cash_flow_setup` database demo seluruhnya tidak cocok dengan `coa` sehingga aturan cadangan dipakai (8.4.4). |
 | 2026-11-05 | Expense Paid: `ap_ar_card_detail.amount` pada kartu pembayaran bernilai negatif, jadi total "Pembayaran tagihan AP" dan angka per entitas kini menegasikannya (`expense-paid.ts`, `expense-paid.service.ts`); sebelumnya tampil negatif dan berbeda dari drill-down (KF-24). Bagian 8.4.7 dan bab 12 diperbarui; tes unit disesuaikan. Angka Expense Paid berubah tanda dibanding versi sebelumnya.                                                                                                                                                                                                                                                                                                                                                                                            |
 | 2026-11-05 | Format angka singkat (kartu, sumbu grafik) kini menulis angka negatif dalam kurung seperti tabel, mis. "IDR (29.19B)", bukan dengan tanda minus (`src/lib/format/number.ts`). Bab 6.8 diperbarui. Contoh angka negatif di dokumen ini sebagian masih memakai tanda minus.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 2026-11-06 | Istilah "Retur langsung" (AR) menggantikan "belum dialokasikan"; data check AR_UNALLOC diganti AR_PAYMENT_UNALLOC dan DIRECT_RETURN_OPEN (level info baru); teks pendamping Retur langsung di kartu Payables/Receivables; hasil agregat directReturns/directReturnCount (bagian 3, 5.3.3, 8.7, 8.8, 8.11; D52, KF-63, KF-65).                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 ### 14.1 Riwayat ringkas dokumen yang digantikan
 

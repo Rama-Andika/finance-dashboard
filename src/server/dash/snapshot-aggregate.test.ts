@@ -26,6 +26,8 @@ describe('itemsAggregateQuery', () => {
     expect(text).toContain('dash_snap_ap_ar_open')
     expect(text).toContain('GROUP BY a.partyId')
     expect(text).toContain('DATEDIFF(?, COALESCE(due_date, tx_date))')
+    expect(text).toContain('directReturns')
+    expect(text).toContain('directReturnCount')
     expect(text.match(/BETWEEN \? AND \?/g)).toHaveLength(AGING_BUCKETS.length)
     for (const bucket of AGING_BUCKETS) expect(text).toContain(`\`${bucket}\``)
     expect(text).not.toMatch(/\bOVER\s*\(/i)
@@ -50,11 +52,13 @@ describe('itemsAggregateQuery', () => {
 })
 
 describe('paymentsAggregateQuery', () => {
-  it('ages payments by their own date from the unallocated table', () => {
+  it('ages payments by their own date from the unallocated table and counts cards', () => {
     const { sql: text } = compile(paymentsAggregateQuery(snapshotSource, 'ap', '2026-06-15', undefined))
     expect(text).toContain('dash_snap_ap_ar_unallocated')
     expect(text).toContain('DATEDIFF(?, tx_date)')
     expect(text).toContain('GROUP BY a.partyId')
+    expect(text).toContain('COUNT(*) AS paymentCount')
+    expect(text).toContain("kind = 'counted'")
   })
 })
 
@@ -116,6 +120,8 @@ describe('reading aggregates', () => {
             negative: '0',
             nonTrade: '0',
             overdueBills: '10',
+            directReturns: '0',
+            directReturnCount: '0',
           },
           {
             partyId: 7,
@@ -124,10 +130,12 @@ describe('reading aggregates', () => {
             negative: '0',
             nonTrade: '5.5',
             overdueBills: '5.5',
+            directReturns: '-3',
+            directReturnCount: '2',
           },
         ]
       }
-      return [{ partyId: '7', ...bucketRow('2') }]
+      return [{ partyId: '7', ...bucketRow('2'), paymentCount: '4' }]
     })
   }
 
@@ -139,9 +147,11 @@ describe('reading aggregates', () => {
       positive: '5.50',
       nonTrade: '5.50',
       overdueBills: '5.50',
+      directReturns: '-3.00',
+      directReturnCount: 2,
     })
     expect(result.items.find((r) => r.partyId === '')?.buckets.overdue0_30).toBe('10.00')
-    expect(result.payments).toEqual([expect.objectContaining({ partyId: '7' })])
+    expect(result.payments).toEqual([expect.objectContaining({ partyId: '7', count: 4 })])
     expect(result.coaIds).toEqual(['21', '22'])
   })
 
@@ -218,6 +228,8 @@ describe('index hint on whole-side reads', () => {
     const coaOfOpen = texts.find((t) => t.includes('DISTINCT') && t.includes('dash_snap_ap_ar_open'))
     const coaOfUnallocated = texts.find((t) => t.includes('DISTINCT') && t.includes('dash_snap_ap_ar_unallocated'))
     expect(coaOfOpen).toContain('FORCE INDEX (PRIMARY)')
+    expect(coaOfOpen).not.toContain("kind = 'counted'")
     expect(coaOfUnallocated).not.toContain('FORCE INDEX')
+    expect(coaOfUnallocated).toContain("kind = 'counted'")
   })
 })

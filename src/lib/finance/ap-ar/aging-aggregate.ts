@@ -23,10 +23,14 @@ export type ItemAggregate = {
   nonTrade: Money
   /** Sum of the balances above zero that are past due */
   overdueBills: Money
+  /** Sum of the balances below zero of return items (AP direct returns still open) */
+  directReturns: Money
+  /** How many return items have a balance below zero */
+  directReturnCount: number
 }
 
-/** Payments without allocation of one party, aged by their own date. */
-export type PaymentAggregate = { partyId: Id; buckets: BucketAmounts }
+/** Payments without allocation of one party, aged by their own date. count = number of cards. */
+export type PaymentAggregate = { partyId: Id; buckets: BucketAmounts; count: number }
 
 export type AgingAggregates = {
   items: ItemAggregate[]
@@ -51,9 +55,11 @@ export function mergeAgingAggregates(parts: readonly AgingAggregates[]): AgingAg
     negative: Decimal
     nonTrade: Decimal
     overdueBills: Decimal
+    directReturns: Decimal
+    directReturnCount: number
   }
   const items = new Map<Id, ItemAcc>()
-  const payments = new Map<Id, Record<AgingBucket, Decimal>>()
+  const payments = new Map<Id, { buckets: Record<AgingBucket, Decimal>; count: number }>()
   const coaIds = new Set<Id>()
 
   for (const part of parts) {
@@ -66,6 +72,8 @@ export function mergeAgingAggregates(parts: readonly AgingAggregates[]): AgingAg
           negative: D(0),
           nonTrade: D(0),
           overdueBills: D(0),
+          directReturns: D(0),
+          directReturnCount: 0,
         }
         items.set(row.partyId, acc)
       }
@@ -74,14 +82,17 @@ export function mergeAgingAggregates(parts: readonly AgingAggregates[]): AgingAg
       acc.negative = acc.negative.plus(D(row.negative))
       acc.nonTrade = acc.nonTrade.plus(D(row.nonTrade))
       acc.overdueBills = acc.overdueBills.plus(D(row.overdueBills))
+      acc.directReturns = acc.directReturns.plus(D(row.directReturns))
+      acc.directReturnCount += row.directReturnCount
     }
     for (const row of part.payments) {
       let acc = payments.get(row.partyId)
       if (!acc) {
-        acc = initBuckets()
+        acc = { buckets: initBuckets(), count: 0 }
         payments.set(row.partyId, acc)
       }
-      addBuckets(acc, row.buckets)
+      addBuckets(acc.buckets, row.buckets)
+      acc.count += row.count
     }
     for (const id of part.coaIds) coaIds.add(id)
   }
@@ -94,10 +105,13 @@ export function mergeAgingAggregates(parts: readonly AgingAggregates[]): AgingAg
       negative: a.negative.toFixed(2),
       nonTrade: a.nonTrade.toFixed(2),
       overdueBills: a.overdueBills.toFixed(2),
+      directReturns: a.directReturns.toFixed(2),
+      directReturnCount: a.directReturnCount,
     })),
     payments: Array.from(payments, ([partyId, b]) => ({
       partyId,
-      buckets: formatBuckets(b),
+      buckets: formatBuckets(b.buckets),
+      count: b.count,
     })),
     coaIds: Array.from(coaIds),
   }
@@ -112,6 +126,9 @@ function accumulateAggregates(aggregates: AgingAggregates, tree: CoaTree) {
   let unallocated = D(0)
   let nonTrade = D(0)
   let overdueBills = D(0)
+  let itemReturns = D(0)
+  let itemReturnCount = 0
+  let unallocatedCount = 0
   const buckets = initBuckets()
   const parties = new Map<Id, PartyAccum>()
 
@@ -129,6 +146,8 @@ function accumulateAggregates(aggregates: AgingAggregates, tree: CoaTree) {
     credits = credits.plus(D(row.negative))
     nonTrade = nonTrade.plus(D(row.nonTrade))
     overdueBills = overdueBills.plus(D(row.overdueBills))
+    itemReturns = itemReturns.plus(D(row.directReturns))
+    itemReturnCount += row.directReturnCount
     const party = partyOf(row.partyId)
     for (const b of AGING_BUCKETS) {
       const amount = D(row.buckets[b])
@@ -139,6 +158,7 @@ function accumulateAggregates(aggregates: AgingAggregates, tree: CoaTree) {
   }
 
   for (const row of aggregates.payments) {
+    unallocatedCount += row.count
     const party = partyOf(row.partyId)
     for (const b of AGING_BUCKETS) {
       const amount = D(row.buckets[b])
@@ -162,6 +182,9 @@ function accumulateAggregates(aggregates: AgingAggregates, tree: CoaTree) {
     credits,
     unallocated,
     nonTrade,
+    itemReturns,
+    itemReturnCount,
+    unallocatedCount,
     total: unpaid.plus(credits).plus(unallocated),
     overdueSubtotal,
     overdueBills,
@@ -183,6 +206,8 @@ export function computeApAgingFromAggregates(input: {
     unpaidBills: r.unpaid.toFixed(2),
     vendorCredits: r.credits.toFixed(2),
     unallocatedPayments: r.unallocated.toFixed(2),
+    directReturns: r.itemReturns.toFixed(2),
+    directReturnCount: r.itemReturnCount,
     buckets: formatBuckets(r.buckets),
     overdueSubtotal: r.overdueSubtotal.toFixed(2),
     overdueBills: r.overdueBills.toFixed(2),
@@ -211,7 +236,8 @@ export function computeArAgingFromAggregates(input: {
     total: r.total.toFixed(2),
     unpaidInvoices: r.unpaid.toFixed(2),
     customerCredits: r.credits.toFixed(2),
-    unallocatedReturns: r.unallocated.toFixed(2),
+    directReturns: r.unallocated.toFixed(2),
+    directReturnCount: r.unallocatedCount,
     nonTrade: r.nonTrade.toFixed(2),
     buckets: formatBuckets(r.buckets),
     overdueSubtotal: r.overdueSubtotal.toFixed(2),

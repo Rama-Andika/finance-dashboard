@@ -1,7 +1,7 @@
 import '@tanstack/react-start/server-only'
 import type { Id, MetricMeta, Money } from '~/lib/core/types'
 import type { AppContextFilter } from '~/server/context'
-import { agingAggregates, arOpenInvoices, arUnallocatedReceipts } from '~/server/repo/ap-ar/aging.repo'
+import { agingAggregates, arOpenInvoices, arDirectReturns } from '~/server/repo/ap-ar/aging.repo'
 import { listCustomers } from '~/server/repo/ap-ar/party.repo'
 import { createAgingMetric } from '~/server/services/ap-ar/aging-metric'
 import type { AgingReconciliation } from '~/lib/finance/ap-ar/aging-reconciliation'
@@ -14,7 +14,8 @@ export type ArAgingResult = {
   total: Money
   unpaidInvoices: Money
   customerCredits: Money
-  unallocatedReturns: Money
+  directReturns: Money
+  directReturnCount: number
   nonTrade: Money
   compareTotal: Money | null
   buckets: Record<AgingBucket, Money>
@@ -29,7 +30,7 @@ const receivables = createAgingMetric({
   source: {
     cacheName: 'arAgingCore',
     openItems: (asOfPlusOne, locationIds) => arOpenInvoices(asOfPlusOne, locationIds),
-    unallocatedItems: (asOfPlusOne, locationIds) => arUnallocatedReceipts(asOfPlusOne, locationIds),
+    unallocatedItems: (asOfPlusOne, locationIds) => arDirectReturns(asOfPlusOne, locationIds),
     openPartyId: (item) => item.customerId,
     unallocatedPartyId: (item) => item.customerId,
     loadPartyNames: async (ids) =>
@@ -46,7 +47,8 @@ const receivables = createAgingMetric({
     total: computed.total,
     unpaidInvoices: computed.unpaidInvoices,
     customerCredits: computed.customerCredits,
-    unallocatedReturns: computed.unallocatedReturns,
+    directReturns: computed.directReturns,
+    directReturnCount: computed.directReturnCount,
     nonTrade: computed.nonTrade,
     compareTotal,
     buckets: computed.buckets,

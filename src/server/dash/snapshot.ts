@@ -8,9 +8,12 @@ import {
 } from '~/server/repo/ap-ar/rows'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
-import { AGING_SIDES, type AgingSide } from '~/server/db/erp-codes'
+import { AGING_SIDES, MODULE_TYPE, type AgingSide } from '~/server/db/erp-codes'
 import { clearCache, memo, memoMetric } from '~/server/cache'
-import type { Id, IsoDate } from '~/lib/core/types'
+import type { Id, IsoDate, Money } from '~/lib/core/types'
+import { inList } from '~/server/db/in-list'
+import { D } from '~/lib/core/money'
+import { SLICE_CONCURRENCY, chunkOrAll, mapLimit } from '~/server/db/chunk'
 import type { AgingInvoice, AgingUnallocated } from '~/server/repo/ap-ar/types'
 import { env } from '~/server/env'
 import type { SnapshotProblem } from '~/lib/finance/ap-ar/snapshot-state'
@@ -127,6 +130,7 @@ async function readUnallocated<K extends 'vendorId' | 'customerId'>(
            tx_date AS txDate, balance AS balance
     FROM ${sql.identifier(DASH_TABLES.apArUnallocated)}
     WHERE module_type = ${AGING_SIDES[side].module}
+      AND kind = 'counted'
   `)
   return res.map((r) => toAgingUnallocated(r, partyKey))
 }
@@ -188,4 +192,25 @@ export async function warmApArSnapshot(): Promise<void> {
     snapshotOpenInvoices('ar', 'all', 'customerId'),
     snapshotUnallocated('ar', 'all', 'customerId'),
   ])
+}
+
+/** Customer payments without allocation (kind 'ignored') of today's snapshot, for the data check AR_PAYMENT_UNALLOC. */
+export async function snapshotIgnoredReceipts(locIds: Id[] | 'all'): Promise<{ count: number; amount: Money }> {
+  if (locIds !== 'all' && locIds.length === 0) return { count: 0, amount: '0.00' }
+  const parts = await mapLimit(chunkOrAll(locIds), SLICE_CONCURRENCY, async (locSlice) => {
+    const res = await rows<{ n: number | string; total: number | string | null }>(sql`
+      SELECT COUNT(*) AS n, COALESCE(SUM(balance), 0) AS total
+      FROM ${sql.identifier(DASH_TABLES.apArUnallocated)}
+      WHERE module_type = ${MODULE_TYPE.AR} AND kind = 'ignored'
+        ${locSlice ? sql`AND location_id IN (${inList(locSlice)})` : sql``}
+    `)
+    return { count: toInt(res[0]?.n), amount: D(res[0]?.total ?? 0) }
+  })
+  let totalCount = 0
+  let totalAmount = D(0)
+  for (const p of parts) {
+    totalCount += p.count
+    totalAmount = totalAmount.plus(p.amount)
+  }
+  return { count: totalCount, amount: totalAmount.toFixed(2) }
 }

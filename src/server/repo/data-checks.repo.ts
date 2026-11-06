@@ -1,4 +1,5 @@
 import '@tanstack/react-start/server-only'
+import { apArSnapshotCovers, snapshotIgnoredReceipts } from '~/server/dash/snapshot'
 import { toInt } from '~/server/db/convert'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
@@ -160,4 +161,10 @@ export async function checkUnpostedJournals(periods: Period[]): Promise<number> 
     }),
   )
   return counts.reduce((total, result) => total + toInt(result[0]?.n), 0)
+}
+
+/** AR_PAYMENT_UNALLOC: customer payments with no allocation, from today's snapshot; null when the snapshot does not cover today. */
+export async function checkArPaymentsWithoutAllocation(locIds: Id[] | 'all', today: IsoDate): Promise<CheckSummary | null> {
+  if (!(await apArSnapshotCovers(today))) return null
+  return snapshotIgnoredReceipts(locIds)
 }

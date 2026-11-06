@@ -1,7 +1,7 @@
-import { CircleCheck, TriangleAlert } from 'lucide-react'
+import { CircleCheck, Info, TriangleAlert } from 'lucide-react'
 import { cn } from '~/lib/cn'
 
-export type NoticeTone = 'warning' | 'danger' | 'success'
+export type NoticeTone = 'warning' | 'danger' | 'success' | 'info'
 
 export interface NoticeProps {
   tone: NoticeTone
@@ -16,13 +16,19 @@ export interface NoticeProps {
 
 export function Notice({ tone, title, body, action, className }: NoticeProps) {
   const isDanger = tone === 'danger'
-  const Icon = tone === 'success' ? CircleCheck : TriangleAlert
+  const Icon = tone === 'success' ? CircleCheck : tone === 'info' ? Info : TriangleAlert
   const role = isDanger ? 'alert' : 'status'
 
   return (
     <div
       role={role}
-      className={cn('nr-notice', isDanger && 'nr-notice-danger', tone === 'success' && 'nr-notice-success', className)}
+      className={cn(
+        'nr-notice',
+        isDanger && 'nr-notice-danger',
+        tone === 'success' && 'nr-notice-success',
+        tone === 'info' && 'nr-notice-info',
+        className,
+      )}
     >
       <Icon className="nr-icon" size={18} strokeWidth={1.75} aria-hidden="true" />
       <div>

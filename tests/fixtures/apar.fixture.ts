@@ -2,7 +2,7 @@ import type {
   ApOpenInvoiceRow,
   ApUnallocatedPaymentRow,
   ArOpenInvoiceRow,
-  ArUnallocatedReceiptRow,
+  ArDirectReturnRow,
 } from '~/server/repo/ap-ar/aging.repo'
 
 export const mockApPartA: ApOpenInvoiceRow[] = [
@@ -83,8 +83,8 @@ export const mockArPartA: ArOpenInvoiceRow[] = [
   },
 ]
 
-export const mockArPartB: ArUnallocatedReceiptRow[] = [
-  // Unallocated customer return: -100.00
+export const mockArPartB: ArDirectReturnRow[] = [
+  // Direct return of a customer: -100.00
   {
     cardId: 'ar_ret_unalloc',
     customerId: 'c1',

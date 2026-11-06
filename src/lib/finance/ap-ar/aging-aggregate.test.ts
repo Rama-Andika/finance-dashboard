@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { addDays, diffDays } from '~/lib/format/date'
 import { D } from '../../core/money'
 import type { CoaTree } from '../coa/coa-tree'
-import { NON_TRADE_ITEM_TYPE, bucketOf, type AgingBucket } from './aging'
+import { NON_TRADE_ITEM_TYPE, RETURN_ITEM_TYPE, bucketOf, type AgingBucket } from './aging'
 import {
   computeApAging,
   computeArAging,
@@ -76,6 +76,8 @@ type ItemAcc = {
   negative: Decimal
   nonTrade: Decimal
   overdueBills: Decimal
+  directReturns: Decimal
+  directReturnCount: number
 }
 
 /** What the SQL does, written with bucketOf: one row per party with the bucket sums and the extra sums. */
@@ -88,6 +90,8 @@ function aggregateLikeSql(items: ApOpenInvoiceRow[], payments: ApUnallocatedPaym
       negative: D(0),
       nonTrade: D(0),
       overdueBills: D(0),
+      directReturns: D(0),
+      directReturnCount: 0,
     }
     itemMap.set(i.vendorId, acc)
     const due = i.dueDate ?? i.txDate
@@ -97,14 +101,19 @@ function aggregateLikeSql(items: ApOpenInvoiceRow[], payments: ApUnallocatedPaym
     if (bal.gt(0)) acc.positive = acc.positive.plus(bal)
     if (bal.lt(0)) acc.negative = acc.negative.plus(bal)
     if (i.itemType === NON_TRADE_ITEM_TYPE) acc.nonTrade = acc.nonTrade.plus(bal)
+    if (i.itemType === RETURN_ITEM_TYPE && bal.lt(0)) {
+      acc.directReturns = acc.directReturns.plus(bal)
+      acc.directReturnCount += 1
+    }
     if (bal.gt(0) && diffDays(ASOF, due) >= 0) acc.overdueBills = acc.overdueBills.plus(bal)
   }
-  const paymentMap = new Map<string, Record<AgingBucket, Decimal>>()
+  const paymentMap = new Map<string, { buckets: Record<AgingBucket, Decimal>; count: number }>()
   for (const p of payments) {
-    const acc = paymentMap.get(p.vendorId) ?? initBuckets()
+    const acc = paymentMap.get(p.vendorId) ?? { buckets: initBuckets(), count: 0 }
     paymentMap.set(p.vendorId, acc)
     const bucket = bucketOf(ASOF, p.txDate)
-    acc[bucket] = acc[bucket].plus(D(p.balance))
+    acc.buckets[bucket] = acc.buckets[bucket].plus(D(p.balance))
+    acc.count += 1
   }
   return {
     items: Array.from(itemMap, ([partyId, a]): ItemAggregate => ({
@@ -114,8 +123,14 @@ function aggregateLikeSql(items: ApOpenInvoiceRow[], payments: ApUnallocatedPaym
       negative: a.negative.toFixed(2),
       nonTrade: a.nonTrade.toFixed(2),
       overdueBills: a.overdueBills.toFixed(2),
+      directReturns: a.directReturns.toFixed(2),
+      directReturnCount: a.directReturnCount,
     })),
-    payments: Array.from(paymentMap, ([partyId, b]): PaymentAggregate => ({ partyId, buckets: formatBuckets(b) })),
+    payments: Array.from(paymentMap, ([partyId, b]): PaymentAggregate => ({
+      partyId,
+      buckets: formatBuckets(b.buckets),
+      count: b.count,
+    })),
     coaIds: Array.from(new Set([...items.map((i) => i.coaId), ...payments.map((p) => p.coaId)])),
   }
 }
@@ -181,6 +196,50 @@ describe('aging from per-party sums equals aging from every invoice', () => {
       expect(normalizeAr(fresh)).toEqual(normalizeAr(old))
     })
   }
+
+  it('aggregates direct returns correctly', () => {
+    const items: ApOpenInvoiceRow[] = [
+      {
+        invoiceId: 'i1',
+        vendorId: 'p1',
+        locationId: 'l1',
+        coaId: 'c1',
+        txDate: '2026-06-01',
+        dueDate: '2026-06-10',
+        itemType: RETURN_ITEM_TYPE,
+        balance: '-45.00',
+      },
+      {
+        invoiceId: 'i2',
+        vendorId: 'p1',
+        locationId: 'l1',
+        coaId: 'c1',
+        txDate: '2026-06-01',
+        dueDate: '2026-06-10',
+        itemType: 1,
+        balance: '100.00',
+      },
+    ]
+    const payments: ApUnallocatedPaymentRow[] = [
+      {
+        cardId: 'p1',
+        vendorId: 'p1',
+        locationId: 'l1',
+        coaId: 'c1',
+        txDate: '2026-06-01',
+        balance: '-10.00',
+      },
+    ]
+    const agg = aggregateLikeSql(items, payments)
+    expect(agg.items[0]?.directReturns).toBe('-45.00')
+    expect(agg.items[0]?.directReturnCount).toBe(1)
+    expect(agg.payments[0]?.count).toBe(1)
+
+    const fresh = computeApAgingFromAggregates({ aggregates: agg, vendors: names, tree })
+    expect(fresh.directReturns).toBe('-45.00')
+    expect(fresh.directReturnCount).toBe(1)
+    expect(fresh.total).toBe('45.00')
+  })
 
   it('is all zeros and empty for no data', () => {
     const fresh = computeApAgingFromAggregates({

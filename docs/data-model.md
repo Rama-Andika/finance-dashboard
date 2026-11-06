@@ -392,14 +392,14 @@ Kolom "Di data" = pemakaian nyata di DB `demo` (Des 2021 – Okt 2025).
 
 **AR (`module_type = 1`)**
 
-| Kode | Arti               | Peran                                                                                       | Di data               |
-| ---- | ------------------ | ------------------------------------------------------------------------------------------- | --------------------- |
-| 0    | Piutang penjualan  | Item (`+1`)                                                                                 | ±1.300                |
-| 1    | Pembayaran piutang | **Kartu pelunasan** (`due_date` kosong)                                                     | ±4.100                |
-| 2    | Retur              | **Kartu pelunasan** bila punya detail; bila tidak → saldo kredit tersendiri (§6.7 bagian B) | ±70                   |
-| 3    | Piutang non-dagang | Item (`+1`; sedikit `-1`)                                                                   | ±6.500                |
-| 4    | Delivery order     | —                                                                                           | **Tidak ada** di data |
-| 5    | AR memo            | Item, dua arah                                                                              | ±830                  |
+| Kode | Arti               | Peran                                                                                                                                                                                                         | Di data               |
+| ---- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| 0    | Piutang penjualan  | Item (`+1`)                                                                                                                                                                                                   | ±1.300                |
+| 1    | Pembayaran piutang | **Kartu pelunasan** (`due_date` kosong)                                                                                                                                                                       | ±4.100                |
+| 2    | Retur              | Retur dengan nota (bila punya detail sendiri, memotong faktur) / Retur langsung (bila tanpa detail sendiri, menjadi saldo kredit tersendiri sampai ada kartu pelunasan yang menunjuk ke retur; §6.7 bagian B) | ±70                   |
+| 3    | Piutang non-dagang | Item (`+1`; sedikit `-1`)                                                                                                                                                                                     | ±6.500                |
+| 4    | Delivery order     | —                                                                                                                                                                                                             | **Tidak ada** di data |
+| 5    | AR memo            | Item, dua arah                                                                                                                                                                                                | ±830                  |
 
 ### 3.2 `ap_ar_card.in_out` & `payment_status`
 
@@ -934,10 +934,10 @@ selisih = asOf − due_date   (hari)
 
 > **Mengikuti laporan AR Aging ERP** (`web/fin/ar/ar_aging.jsp` → `SessApArCard.listAgingAr`), decisions.md D25. Polanya sama dengan AP (§6.6), **dengan tiga perbedaan** yang ditandai ⚠️.
 
-| Bagian                          | Baris `ap_ar_card` (`module_type = 1`, `DATE(transaction_date) ≤ asOf`)            | Nilai                                                                                                                                                                              |
-| ------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **A. Item**                     | `transaction_type ∈ {0, 3, 4, 5}` (penjualan, non-dagang, delivery order, AR memo) | `amount × in_out` **+** Σ `ap_ar_card_detail.amount` yang `invoice_id` = item **dan** kartu pemilik detail ber-`transaction_type ∈ {1, 2}` (pembayaran, retur) bertanggal ≤ `asOf` |
-| **B. Retur belum dialokasikan** | `transaction_type = 2` (retur) yang **tidak punya** baris `ap_ar_card_detail`      | sisa setelah pelunasan: `-nominal + jumlah detail yang invoice_id-nya = kartu retur` (kartu pelunasan tipe 1/2 bertanggal ≤ `asOf`); sisa 0 dibuang                                |
+| Bagian                | Baris `ap_ar_card` (`module_type = 1`, `DATE(transaction_date) ≤ asOf`)            | Nilai                                                                                                                                                                              |
+| --------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A. Item**           | `transaction_type ∈ {0, 3, 4, 5}` (penjualan, non-dagang, delivery order, AR memo) | `amount × in_out` **+** Σ `ap_ar_card_detail.amount` yang `invoice_id` = item **dan** kartu pemilik detail ber-`transaction_type ∈ {1, 2}` (pembayaran, retur) bertanggal ≤ `asOf` |
+| **B. Retur langsung** | `transaction_type = 2` (retur) yang **tidak punya** baris `ap_ar_card_detail`      | sisa setelah pelunasan: `-nominal + jumlah detail yang invoice_id-nya = kartu retur` (kartu pelunasan tipe 1/2 bertanggal ≤ `asOf`); sisa 0 dibuang                                |
 
 - ⚠️ **Retur (type 2) punya dua peran:** bila punya detail → menjadi **kartu pelunasan** (memotong tagihan); bila tidak (retur langsung) → masuk bagian B dengan sisa setelah pelunasan yang menunjuk ke kartu retur (D51). Retur **bukan** item di bagian A.
 - ⚠️ **Pembayaran pelanggan (type 1) yang belum dialokasikan TIDAK dihitung** oleh ERP (berbeda dengan AP bagian B). DB `demo`: tidak ada baris seperti ini, jadi belum berdampak — tetapi bila muncul di klien lain, dashboard menampilkannya di panel "Data perlu dicek", **tidak** memasukkannya ke saldo (supaya total tetap sama dengan ERP).
@@ -951,10 +951,10 @@ selisih = asOf − due_date   (hari)
 AR Outstanding (angka utama) = Σ saldo (A + B)           ← NETO, sama dengan total AR Aging ERP
   ├ Piutang belum lunas      = Σ saldo A yang > 0
   ├ Kredit pelanggan         = Σ saldo A yang < 0        (AR memo kredit, kelebihan bayar)
-  └ Retur belum dialokasikan = Σ saldo B
+  └ Retur langsung           = Σ saldo B
 ```
 
-> DB `demo` (semua tanggal, sebelum filter saldo ≠ 0): penjualan type 0 ±Rp348 jt, **non-dagang type 3 ±Rp24,7 M** (komponen terbesar), AR memo type 5 −Rp3,2 M, retur belum dialokasikan −Rp35 jt (41 baris). Piutang non-dagang perlu tampil sebagai kategori sendiri karena nilainya jauh lebih besar daripada piutang dagang.
+> DB `demo` (semua tanggal, sebelum filter saldo ≠ 0): penjualan type 0 ±Rp348 jt, **non-dagang type 3 ±Rp24,7 M** (komponen terbesar), AR memo type 5 −Rp3,2 M, retur langsung −Rp35 jt (41 baris). Piutang non-dagang perlu tampil sebagai kategori sendiri karena nilainya jauh lebih besar daripada piutang dagang.
 
 **Kerangka SQL** sama dengan §6.6, dengan pengganti:
 

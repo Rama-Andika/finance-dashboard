@@ -25,7 +25,7 @@ export type AgingPageData = {
   reconciliation: { gl: Money; subledger: Money; diff: Money; inSync: boolean }
 }
 
-export type AgingKpi = { label: string; value: Money; higherIsBetter: boolean }
+export type AgingKpi = { label: string; value: Money; higherIsBetter: boolean; hint?: string }
 
 /** Warns when the subledger total differs from the general ledger control accounts. */
 function ReconciliationNotice({ data, cfg, lang }: { data: AgingPageData; cfg: SideConfig; lang: Lang }) {
@@ -100,6 +100,7 @@ export function AgingPage({
             value={kpi.value}
             higherIsBetter={kpi.higherIsBetter}
             {...(i === 0 ? { compareValue: data.compareTotal, compareLabel } : {})}
+            {...(kpi.hint ? { hint: kpi.hint } : {})}
           />
         ))}
       </div>

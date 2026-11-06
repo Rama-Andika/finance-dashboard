@@ -3,7 +3,7 @@ import type { Money } from '../../core/types'
 
 export type DataCheckItem = {
   code: string
-  level: 'warning' | 'danger'
+  level: 'warning' | 'danger' | 'info'
   count: number
   amount: Money | null
   link: string
@@ -20,7 +20,10 @@ export type DataCheckInputs = {
   transitRegister: { count: number; amount: Money | null } | null
   cashPositionReconciliation: { inSync: boolean; diff: Money } | null
   apReconciliation: { inSync: boolean; diff: Money } | null
-  arUnallocatedReturns: Money | null
+  /** Customer payments (AR type 1) with no detail row: the ERP AR Aging report ignores them, so Receivables does not count them. */
+  arPaymentsWithoutAllocation: { count: number; amount: Money | null } | null
+  /** Direct returns (AP and AR) that no payment has used yet; open credits that wait for a payment. */
+  directReturnsOpen: { count: number; amount: Money | null } | null
   /** Non-trade AP cards marked paid without any detail row. */
   paidWithoutDetail: { count: number; amount: Money | null } | null
   cardsWithoutParty: number | null
@@ -31,7 +34,13 @@ export type DataCheckInputs = {
   failedChecks: readonly string[]
 }
 
-function item(code: string, level: DataCheckItem['level'], link: string, count = 1, amount: Money | null = null): DataCheckItem {
+function item(
+  code: string,
+  level: DataCheckItem['level'],
+  link: string,
+  count = 1,
+  amount: Money | null = null,
+): DataCheckItem {
   return { code, level, count, amount, link }
 }
 
@@ -91,9 +100,12 @@ const cashFlowUnclassified: Check = (i) => {
   return item('CF_UNCLASSIFIED', 'warning', '/cash-flow', 1, hasUnclassified ? unclassified : null)
 }
 
-const arUnallocatedReturns: Check = (i) =>
-  i.arUnallocatedReturns !== null && D(i.arUnallocatedReturns).gt(0)
-    ? item('AR_UNALLOC', 'warning', '/receivables', 1, i.arUnallocatedReturns)
+const arPaymentsUnallocated = registerCheck('AR_PAYMENT_UNALLOC', '/receivables', (i) => i.arPaymentsWithoutAllocation)
+
+// Direct returns wait for the next payment, so this is information, not a warning.
+const directReturnsOpen: Check = (i) =>
+  i.directReturnsOpen && i.directReturnsOpen.count > 0
+    ? item('DIRECT_RETURN_OPEN', 'info', '/payables', i.directReturnsOpen.count, i.directReturnsOpen.amount)
     : null
 
 // A mapping read that failed is already reported as CHECK_FAILED; only report "missing" when the read worked.
@@ -112,13 +124,14 @@ const CHECKS: readonly Check[] = [
   cashFlowUnclassified,
   reconciliationCheck('REC_TRANSIT', '/cash-position', (i) => i.cashPositionReconciliation),
   reconciliationCheck('REC_AP', '/payables', (i) => i.apReconciliation),
-  arUnallocatedReturns,
+  arPaymentsUnallocated,
   registerCheck('AP_PAID_NO_PAYMENT', '/payables', (i) => i.paidWithoutDetail),
   countCheck('CARD_PARTY_MISSING', '/payables', (i) => i.cardsWithoutParty),
   countCheck('CARD_LOCATION_INVALID', '/payables', (i) => i.cardsWithInvalidLocation),
   countCheck('UNPOSTED', '/summary', (i) => i.unpostedJournals),
   settingsMissing,
   failedChecks,
+  directReturnsOpen,
 ]
 
 /** Turns the sub-check results into the list the Data Checks panel shows, in the order of `CHECKS`. */

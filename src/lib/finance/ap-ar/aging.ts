@@ -38,6 +38,9 @@ export const AGING_BUCKET_DAYS: Record<AgingBucket, { min: number; max: number }
 /** Item type of the AR "non-trade" invoices (the value `apar.ts` compares with). */
 export const NON_TRADE_ITEM_TYPE = 3
 
+/** Item type of an AP return (`ap_ar_card.transaction_type = 2`): while its balance is negative it is an unused direct return. */
+export const RETURN_ITEM_TYPE = 2
+
 /**
  * Assigns an invoice to an aging bucket based on asOf - dueDate.
  * days = diffDays(asOf, dueDate)

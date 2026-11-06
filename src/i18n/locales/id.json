@@ -236,10 +236,6 @@
       "title": "Dana belum cair tertahan > 7 hari atau di masa depan",
       "body": "{{count}} transaksi (IDR {{amount}}) berstatus belum cair dengan umur lebih dari 7 hari atau tanggal di masa depan."
     },
-    "AR_UNALLOC": {
-      "title": "Pembayaran pelanggan tanpa alokasi",
-      "body": "Penerimaan kas sebesar IDR {{amount}} belum dialokasikan ke faktur pelanggan tertentu."
-    },
     "CF_UNCLASSIFIED": {
       "title": "Mutasi kas belum terklasifikasi",
       "body": "Sebesar IDR {{amount}} mutasi kas belum dipetakan ke aktivitas operasi, investasi, atau pendanaan."
@@ -267,6 +263,14 @@
     "CHECK_FAILED": {
       "title": "Pemeriksaan ini gagal dijalankan",
       "body": "{{count}} — Data untuk pemeriksaan ini gagal dimuat. Lihat log server."
+    },
+    "AR_PAYMENT_UNALLOC": {
+      "title": "Pembayaran pelanggan belum dialokasikan ke faktur",
+      "body": "{{count}} pembayaran pelanggan (IDR {{amount}}) belum dialokasikan ke faktur mana pun. Tidak dihitung di Piutang, sama dengan laporan AR Aging ERP."
+    },
+    "DIRECT_RETURN_OPEN": {
+      "title": "Retur langsung masih terbuka",
+      "body": "{{count}} retur langsung (IDR {{amount}}) belum dipakai untuk mengurangi tagihan atau pembayaran."
     }
   },
   "planStatus": {
@@ -345,7 +349,8 @@
       "payableByVendor": "Rincian Utang per Vendor",
       "overdue": "Lewat tempo",
       "reconciliationDiff": "Selisih saldo kontrol GL dan kartu utang: {{amount}}.",
-      "reconciliationDetail": "GL: {{gl}} · Kartu: {{cards}}"
+      "reconciliationDetail": "GL: {{gl}} · Kartu: {{cards}}",
+      "directReturnsHint": "Retur langsung {{amount}}"
     },
     "paymentPlan": {
       "date": "Tanggal",
@@ -396,7 +401,8 @@
       "receivablesByCustomer": "Rincian Piutang per Pelanggan",
       "overdue": "Lewat tempo",
       "reconciliationDiff": "Selisih saldo kontrol GL dan kartu piutang: {{amount}}.",
-      "reconciliationDetail": "GL: {{gl}} · Kartu: {{cards}}"
+      "reconciliationDetail": "GL: {{gl}} · Kartu: {{cards}}",
+      "directReturnsHint": "Retur langsung {{amount}}"
     },
     "revenue": {
       "categoryFolder": "Kategori / Folder",

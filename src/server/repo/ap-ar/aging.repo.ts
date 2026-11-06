@@ -209,7 +209,7 @@ export type ArOpenInvoiceRow = {
   balance: Money
 }
 
-export type ArUnallocatedReceiptRow = {
+export type ArDirectReturnRow = {
   cardId: Id
   customerId: Id
   locationId: Id
@@ -232,7 +232,7 @@ export function arOpenInvoices(asOfPlusOne: IsoDate, locIds: Id[] | 'all'): Prom
   return agingInvoices('ar', asOfPlusOne, locIds, 'customerId')
 }
 
-export function arUnallocatedReceipts(asOfPlusOne: IsoDate, locIds: Id[] | 'all'): Promise<ArUnallocatedReceiptRow[]> {
+export function arDirectReturns(asOfPlusOne: IsoDate, locIds: Id[] | 'all'): Promise<ArDirectReturnRow[]> {
   return agingUnallocated('ar', asOfPlusOne, locIds, 'customerId')
 }
 

@@ -7,7 +7,13 @@ import { SLICE_CONCURRENCY, chunkOrAll, mapLimit, sliceCombos } from '~/server/d
 import { AGING_SIDES, type AgingSide } from '~/server/db/erp-codes'
 import { idOrEmpty } from '~/server/repo/ap-ar/shared'
 import { D } from '~/lib/core/money'
-import { AGING_BUCKETS, AGING_BUCKET_DAYS, NON_TRADE_ITEM_TYPE, type AgingBucket } from '~/lib/finance/ap-ar/aging'
+import {
+  AGING_BUCKETS,
+  AGING_BUCKET_DAYS,
+  NON_TRADE_ITEM_TYPE,
+  RETURN_ITEM_TYPE,
+  type AgingBucket,
+} from '~/lib/finance/ap-ar/aging'
 import { mergeAgingAggregates, type AgingAggregates, type BucketAmounts } from '~/lib/finance/ap-ar/aging-aggregate'
 import type { Id, IsoDate, Money } from '~/lib/core/types'
 import { DASH_TABLES } from './tables'
@@ -56,6 +62,8 @@ export function itemsAggregateQuery(
            SUM(CASE WHEN a.balance > 0 THEN a.balance ELSE 0 END) AS positive,
            SUM(CASE WHEN a.balance < 0 THEN a.balance ELSE 0 END) AS negative,
            SUM(CASE WHEN a.itemType = ${NON_TRADE_ITEM_TYPE} THEN a.balance ELSE 0 END) AS nonTrade,
+           SUM(CASE WHEN a.itemType = ${RETURN_ITEM_TYPE} AND a.balance < 0 THEN a.balance ELSE 0 END) AS directReturns,
+           SUM(CASE WHEN a.itemType = ${RETURN_ITEM_TYPE} AND a.balance < 0 THEN 1 ELSE 0 END) AS directReturnCount,
            SUM(CASE WHEN a.balance > 0 AND a.days >= 0 THEN a.balance ELSE 0 END) AS overdueBills
     FROM (
       SELECT party_id AS partyId, balance AS balance, item_type AS itemType,
@@ -78,11 +86,13 @@ export function paymentsAggregateQuery(
 ): SQL {
   return sql`
     SELECT a.partyId AS partyId,
-           ${bucketSums()}
+           ${bucketSums()},
+           COUNT(*) AS paymentCount
     FROM (
       SELECT party_id AS partyId, balance AS balance, DATEDIFF(${asOf}, tx_date) AS days
       FROM ${sql.identifier(source.unallocated)}
       WHERE module_type = ${AGING_SIDES[side].module}
+        AND kind = 'counted'
         ${dayFilter(source)}
         ${locationSlice(locSlice)}
     ) a
@@ -96,6 +106,7 @@ function coaIdsQuery(table: string, source: AggregateSource, side: AgingSide, lo
     FROM ${sql.identifier(table)} ${table === source.open ? fullScanHint(source.day, locSlice !== undefined) : sql``}
     WHERE module_type = ${AGING_SIDES[side].module}
       AND coa_id IS NOT NULL
+      ${table === source.unallocated ? sql`AND kind = 'counted'` : sql``}
       ${dayFilter(source)}
       ${locationSlice(locSlice)}
   `
@@ -108,8 +119,10 @@ type ItemDbRow = BucketColumns & {
   negative: string | number | null
   nonTrade: string | number | null
   overdueBills: string | number | null
+  directReturns: string | number | null
+  directReturnCount: string | number | null
 }
-type PaymentDbRow = BucketColumns & { partyId: string | null }
+type PaymentDbRow = BucketColumns & { partyId: string | null; paymentCount: string | number | null }
 
 const money = (v: string | number | null | undefined): Money => D(v ?? 0).toFixed(2)
 
@@ -140,10 +153,13 @@ async function readAggregates(
         negative: money(r.negative),
         nonTrade: money(r.nonTrade),
         overdueBills: money(r.overdueBills),
+        directReturns: money(r.directReturns),
+        directReturnCount: Number(r.directReturnCount ?? 0),
       })),
       payments: payments.map((r) => ({
         partyId: idOrEmpty(r.partyId),
         buckets: bucketAmounts(r),
+        count: Number(r.paymentCount ?? 0),
       })),
       coaIds: Array.from(new Set([...itemCoas, ...paymentCoas].map((r) => String(r.coaId)))),
     }

@@ -34,10 +34,7 @@ export function AppShell({ children, user }: AppShellProps) {
       </aside>
 
       {/* Mobile Drawer */}
-      <MobileDrawer
-        open={mobileDrawerOpen}
-        onOpenChange={setMobileDrawerOpen}
-      />
+      <MobileDrawer open={mobileDrawerOpen} onOpenChange={setMobileDrawerOpen} />
 
       {/* Main Content Area */}
       <div className="flex-1 min-w-0 flex flex-col p-4 md:p-6 max-w-(--content-max) mx-auto gap-4 md:gap-6">
@@ -45,11 +42,9 @@ export function AppShell({ children, user }: AppShellProps) {
           user={user}
           onOpenMobileMenu={() => setMobileDrawerOpen(true)}
           onOpenDataChecks={() => setDataChecksOpen(true)}
-          dataChecksCount={checks?.length ?? 0}
+          dataChecksCount={checks?.filter((c) => c.level !== 'info').length ?? 0}
         />
-        <main className="flex-1 min-w-0">
-          {children}
-        </main>
+        <main className="flex-1 min-w-0">{children}</main>
         <AppFooter />
       </div>
 
@@ -57,10 +52,7 @@ export function AppShell({ children, user }: AppShellProps) {
       <DrillSheet />
 
       {/* Data Checks Side Sheet */}
-      <DataChecksPanel
-        open={dataChecksOpen}
-        onOpenChange={setDataChecksOpen}
-      />
+      <DataChecksPanel open={dataChecksOpen} onOpenChange={setDataChecksOpen} />
     </div>
   )
 }

@@ -66,7 +66,7 @@ async function readHistUnallocated<K extends 'vendorId' | 'customerId'>(
     SELECT card_id AS cardId, party_id AS partyId, location_id AS locationId, coa_id AS coaId,
            tx_date AS txDate, balance AS balance
     FROM ${sql.identifier(DASH_TABLES.apArHistUnallocated)}
-    WHERE as_of_date = ${asOf} AND module_type = ${AGING_SIDES[side].module}
+    WHERE as_of_date = ${asOf} AND module_type = ${AGING_SIDES[side].module} AND kind = 'counted'
   `)
   return res.map((r) => toAgingUnallocated(r, partyKey))
 }

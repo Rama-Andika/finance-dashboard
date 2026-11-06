@@ -1,11 +1,6 @@
 import Decimal from 'decimal.js'
 import { D } from '../../core/money'
-import {
-  type AgingBucket,
-  AGING_BUCKETS,
-  OVERDUE_BUCKETS,
-  bucketOf,
-} from './aging'
+import { type AgingBucket, AGING_BUCKETS, OVERDUE_BUCKETS, RETURN_ITEM_TYPE, bucketOf } from './aging'
 import type { Id, IsoDate, Money } from '../../core/types'
 import type { CoaTree } from '../coa/coa-tree'
 
@@ -29,7 +24,7 @@ type AgingPaymentBase = {
 export type ApOpenInvoiceRow = AgingItemBase & { vendorId: Id }
 export type ApUnallocatedPaymentRow = AgingPaymentBase & { vendorId: Id }
 export type ArOpenInvoiceRow = AgingItemBase & { customerId: Id }
-export type ArUnallocatedReceiptRow = AgingPaymentBase & { customerId: Id }
+export type ArDirectReturnRow = AgingPaymentBase & { customerId: Id }
 
 export type VendorAgingSummary = {
   vendorId: Id
@@ -60,9 +55,7 @@ export function initBuckets(): Record<AgingBucket, Decimal> {
   }
 }
 
-export function formatBuckets(
-  buckets: Record<AgingBucket, Decimal>,
-): Record<AgingBucket, Money> {
+export function formatBuckets(buckets: Record<AgingBucket, Decimal>): Record<AgingBucket, Money> {
   const result: Partial<Record<AgingBucket, Money>> = {}
   for (const b of AGING_BUCKETS) {
     result[b] = (buckets[b] ?? D(0)).toFixed(2)
@@ -86,6 +79,10 @@ function accumulateAging(input: {
   unallocated: Decimal
   /** Sum of items with the AR "non-trade" transaction type (3). */
   nonTrade: Decimal
+  /** Sum of negative return items (AP direct returns still open). */
+  itemReturns: Decimal
+  itemReturnCount: number
+  unallocatedCount: number
   total: Decimal
   overdueSubtotal: Decimal
   /** Sum of POSITIVE open items that are past due: bills only, without vendor credits and unallocated payments. */
@@ -100,6 +97,8 @@ function accumulateAging(input: {
   let credits = D(0)
   let unallocated = D(0)
   let nonTrade = D(0)
+  let itemReturns = D(0)
+  let itemReturnCount = 0
   let overdueBills = D(0)
   const buckets = initBuckets()
   const parties = new Map<Id, PartyAccum>()
@@ -123,6 +122,10 @@ function accumulateAging(input: {
     else credits = credits.plus(bal)
 
     if (a.itemType === 3) nonTrade = nonTrade.plus(bal)
+    if (a.itemType === RETURN_ITEM_TYPE && bal.lt(0)) {
+      itemReturns = itemReturns.plus(bal)
+      itemReturnCount += 1
+    }
 
     // Bucket calculation: use dueDate or txDate if dueDate is null
     const bucket = bucketOf(asOf, a.dueDate || a.txDate)
@@ -155,6 +158,9 @@ function accumulateAging(input: {
     credits,
     unallocated,
     nonTrade,
+    itemReturns,
+    itemReturnCount,
+    unallocatedCount: payments.length,
     total: unpaid.plus(credits).plus(unallocated),
     overdueSubtotal,
     overdueBills,
@@ -175,6 +181,8 @@ export function computeApAging(input: {
   unpaidBills: Money
   vendorCredits: Money
   unallocatedPayments: Money
+  directReturns: Money
+  directReturnCount: number
   buckets: Record<AgingBucket, Money>
   overdueSubtotal: Money
   overdueBills: Money
@@ -193,6 +201,8 @@ export function computeApAging(input: {
     unpaidBills: r.unpaid.toFixed(2),
     vendorCredits: r.credits.toFixed(2),
     unallocatedPayments: r.unallocated.toFixed(2),
+    directReturns: r.itemReturns.toFixed(2),
+    directReturnCount: r.itemReturnCount,
     buckets: formatBuckets(r.buckets),
     overdueSubtotal: r.overdueSubtotal.toFixed(2),
     overdueBills: r.overdueBills.toFixed(2),
@@ -212,7 +222,7 @@ export function computeApAging(input: {
 
 export function computeArAging(input: {
   partA: ArOpenInvoiceRow[]
-  partB: ArUnallocatedReceiptRow[]
+  partB: ArDirectReturnRow[]
   asOf: IsoDate
   customers: Map<Id, { code: string; name: string }>
   tree: CoaTree
@@ -220,7 +230,8 @@ export function computeArAging(input: {
   total: Money
   unpaidInvoices: Money
   customerCredits: Money
-  unallocatedReturns: Money
+  directReturns: Money
+  directReturnCount: number
   nonTrade: Money
   buckets: Record<AgingBucket, Money>
   overdueSubtotal: Money
@@ -238,7 +249,8 @@ export function computeArAging(input: {
     total: r.total.toFixed(2),
     unpaidInvoices: r.unpaid.toFixed(2),
     customerCredits: r.credits.toFixed(2),
-    unallocatedReturns: r.unallocated.toFixed(2),
+    directReturns: r.unallocated.toFixed(2),
+    directReturnCount: r.unallocatedCount,
     nonTrade: r.nonTrade.toFixed(2),
     buckets: formatBuckets(r.buckets),
     overdueSubtotal: r.overdueSubtotal.toFixed(2),

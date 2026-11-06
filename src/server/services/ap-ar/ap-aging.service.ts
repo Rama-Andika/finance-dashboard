@@ -15,6 +15,8 @@ export type ApAgingResult = {
   unpaidBills: Money
   vendorCredits: Money
   unallocatedPayments: Money
+  directReturns: Money
+  directReturnCount: number
   compareTotal: Money | null
   buckets: Record<AgingBucket, Money>
   overdueSubtotal: Money
@@ -48,6 +50,8 @@ const payables = createAgingMetric({
     unpaidBills: computed.unpaidBills,
     vendorCredits: computed.vendorCredits,
     unallocatedPayments: computed.unallocatedPayments,
+    directReturns: computed.directReturns,
+    directReturnCount: computed.directReturnCount,
     compareTotal,
     buckets: computed.buckets,
     overdueSubtotal: computed.overdueSubtotal,

@@ -4,8 +4,10 @@ import { memoMetric } from '~/server/cache'
 import { createLogger, errorText } from '~/server/log'
 import { buildDataChecks, type DataCheckItem } from '~/lib/finance/checks/data-checks'
 import { type AppContextFilter, getCachedPeriods } from '~/server/context'
+import { D } from '~/lib/core/money'
 import {
   checkApPaidWithoutPayment,
+  checkArPaymentsWithoutAllocation,
   checkCardsWithInvalidLocation,
   checkCardsWithoutParty,
   checkTransitOverdue,
@@ -53,6 +55,7 @@ async function computeDataChecksUncached(filter: AppContextFilter): Promise<Data
     cfResult,
     apResult,
     arResult,
+    arPaymentsWithoutAllocation,
   ] = await Promise.all([
     settle('apPaidWithoutPayment', checkApPaidWithoutPayment(filter.locationIds), failures),
     settle('cardsWithoutParty', checkCardsWithoutParty(filter.locationIds), failures),
@@ -68,6 +71,7 @@ async function computeDataChecksUncached(filter: AppContextFilter): Promise<Data
     settle('cashFlow', computeCashFlow(filter), failures),
     settle('apAging', computeApAging(filter), failures),
     settle('arAging', computeArAging(filter), failures),
+    settle('arPaymentsWithoutAllocation', checkArPaymentsWithoutAllocation(filter.locationIds, filter.today), failures),
   ])
 
   return buildDataChecks({
@@ -75,7 +79,14 @@ async function computeDataChecksUncached(filter: AppContextFilter): Promise<Data
     transitRegister: transitOverdue,
     cashPositionReconciliation: cpResult?.reconciliation ?? null,
     apReconciliation: apResult?.reconciliation ?? null,
-    arUnallocatedReturns: arResult?.unallocatedReturns ?? null,
+    arPaymentsWithoutAllocation,
+    directReturnsOpen:
+      apResult && arResult
+        ? {
+            count: apResult.directReturnCount + arResult.directReturnCount,
+            amount: D(apResult.directReturns).plus(D(arResult.directReturns)).toFixed(2),
+          }
+        : null,
     paidWithoutDetail: apPaidWithoutPayment,
     cardsWithoutParty,
     cardsWithInvalidLocation,

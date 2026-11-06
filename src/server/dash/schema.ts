@@ -96,6 +96,8 @@ export const dashSnapApArHistUnallocated = mysqlTable(
     coaId: bigint('coa_id', { mode: 'string' }),
     txDate: date('tx_date', { mode: 'string' }).notNull(),
     balance: decimal('balance', { precision: 22, scale: 2 }).notNull().default('0.00'),
+    /** 'counted' = part of the figures; 'ignored' = AR customer payment without allocation (reported by a data check, never summed) */
+    kind: varchar('kind', { length: 10 }).notNull().default('counted'),
   },
   (t) => [
     primaryKey({ columns: [t.asOfDate, t.cardId] }),
@@ -126,6 +128,8 @@ export const dashSnapApArUnallocated = mysqlTable(
     coaId: bigint('coa_id', { mode: 'string' }),
     txDate: date('tx_date', { mode: 'string' }).notNull(),
     balance: decimal('balance', { precision: 22, scale: 2 }).notNull().default('0.00'),
+    /** 'counted' = part of the figures; 'ignored' = AR customer payment without allocation (reported by a data check, never summed) */
+    kind: varchar('kind', { length: 10 }).notNull().default('counted'),
   },
   (t) => [index('idx_dash_unalloc_mod_loc').on(t.moduleType, t.locationId)],
 )

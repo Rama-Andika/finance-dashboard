@@ -57,6 +57,13 @@
       "when": 1793949742404,
       "tag": "0007_add_hist_formula_version",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1793952453738,
+      "tag": "0008_add_unallocated_kind",
+      "breakpoints": true
     }
   ]
 }
