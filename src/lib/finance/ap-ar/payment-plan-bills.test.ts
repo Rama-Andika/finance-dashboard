@@ -17,6 +17,7 @@ const bill = (over: Partial<PaymentPlanBill>): PaymentPlanBill => ({
   balance: '100.00',
   status: 'approved',
   overdue: false,
+  kind: 'bill',
   ...over,
 })
 
@@ -65,6 +66,17 @@ describe('bill scopes', () => {
   it('counts and totals each scope', () => {
     expect(summarizeBillScopes(bills)).toEqual({
       due: { count: 1, total: '100.00' },
+      overdue: { count: 2, total: '50.00' },
+    })
+  })
+
+  it('credit rows reduce total without increasing bill count', () => {
+    const withCredit: PaymentPlanBill[] = [
+      ...bills,
+      bill({ invoiceId: 'credit:1', dueDate: '2026-10-31', balance: '-10.00', overdue: false, kind: 'credit' }),
+    ]
+    expect(summarizeBillScopes(withCredit)).toEqual({
+      due: { count: 1, total: '90.00' },
       overdue: { count: 2, total: '50.00' },
     })
   })

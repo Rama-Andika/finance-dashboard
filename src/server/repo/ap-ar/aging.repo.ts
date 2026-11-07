@@ -17,9 +17,12 @@ import { apArSnapshotCovers, snapshotOpenInvoices, snapshotUnallocated } from '~
 import { apArHistCovers, histOpenInvoices, histUnallocated } from '~/server/dash/snapshot-hist'
 import {
   histAgingAggregates,
+  histCreditData,
   histDueTotals,
   snapshotAgingAggregates,
+  snapshotCreditData,
   snapshotDueTotals,
+  type CreditData,
   type DueTotalsOptions,
 } from '~/server/dash/snapshot-aggregate'
 import { emptyAggregates, type AgingAggregates } from '~/lib/finance/ap-ar/aging-aggregate'
@@ -288,5 +291,21 @@ export async function agingDueTotals(
   if (locIds !== 'all' && locIds.length === 0) return new Map()
   if (await apArSnapshotCovers(asOf)) return snapshotDueTotals(side, locIds, opts)
   if (await apArHistCovers(asOf)) return histDueTotals(side, asOf, locIds, opts)
+  return null
+}
+
+/**
+ * Credits (open items below zero) per party and entity, and the open bills of those parties due by `maxDue`, for the date `asOf`.
+ * `null` when neither today's snapshot nor the month-end history covers `asOf`.
+ */
+export async function agingCreditData(
+  side: AgingSide,
+  asOf: IsoDate,
+  locIds: Id[] | 'all',
+  maxDue: IsoDate,
+): Promise<CreditData | null> {
+  if (locIds !== 'all' && locIds.length === 0) return { pools: [], bills: [] }
+  if (await apArSnapshotCovers(asOf)) return snapshotCreditData(side, locIds, maxDue)
+  if (await apArHistCovers(asOf)) return histCreditData(side, asOf, locIds, maxDue)
   return null
 }

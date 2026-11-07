@@ -10,7 +10,7 @@
 >
 > **Bila dokumen ini berbeda dengan `docs/decisions.md` atau `docs/data-model.md`, kedua dokumen itu yang menang** (lalu perbaiki dokumen ini). Keduanya tetap menjadi sumber keputusan (D#, O#) dan rincian kolom per tabel ERP.
 >
-> **Terakhir diperbarui:** 2026-11-06
+> **Terakhir diperbarui:** 2026-11-07
 
 ## Daftar isi
 
@@ -1359,12 +1359,13 @@ Tiga tab; irisan: **4 terbesar + "Lainnya"**; klik irisan membuka halaman terkai
 
 #### 8.1.6 Tabel tagihan (dua tab)
 
-- **Data:** tagihan AP bagian A dengan sisa > 0. **Tanggal acuan = hari ini** (bukan filter periode); filter entitas tetap berlaku. Dihitung oleh `computePaymentPlan` (horizon 7 hari, tanpa proyeksi penerimaan) sehingga angka dan status mengikuti 8.9.
+- **Data:** tagihan AP bagian A dengan sisa > 0 dikurangi kolam kredit vendor (D53). **Tanggal acuan = hari ini** (bukan filter periode); filter entitas tetap berlaku. Dihitung oleh `computePaymentPlan` (horizon 7 hari, tanpa proyeksi penerimaan) sehingga angka dan status mengikuti 8.9.
   - **Jatuh tempo ≤ 7 hari:** jatuh tempo dari hari ini sampai hari ini + 6 hari.
   - **Lewat jatuh tempo:** jatuh tempo (atau tanggal transaksi bila kosong) sebelum hari ini, seberapa pun lamanya.
+- **Baris kredit negatif:** bila vendor dan entitas memiliki kredit terbuka (retur, memo, kelebihan bayar), tagihan bruto tetap ditampilkan utuh, dan potongan kredit tampil sebagai **baris tersendiri bertanda negatif** dalam kurung (label "Kredit vendor" di bawah nama vendor dan di ekspor CSV, nomor tagihan kosong / "—", jatuh tempo dan status mengikuti tagihan yang dikurangi).
 - **Kolom:** Vendor (id, kode, nama), Nomor tagihan, Jatuh tempo, Sisa, **Status rencana bayar** (kolom disembunyikan bila tidak ada dokumen Pengakuan Biaya aktif, 8.9), dan keterangan kecil **entitas pemilik** (hanya bila lebih dari 1 entitas dalam filter; lokasi kosong/tak dikenal → "Tanpa entitas").
-- **Cara pakai:** dua tab dengan jumlah baris masing-masing (pindah tab kembali ke halaman 1); tabel dapat diurutkan (vendor, jatuh tempo, sisa, status) dan dibagi per halaman; tombol **ekspor CSV** memuat **seluruh** baris tab yang sedang dipilih, dengan urutan yang tampil (kolom status dan entitas ikut hanya bila tampil); klik baris membuka Payment Plan.
-- **Mengapa total tabel tidak sama dengan kartu Payables:** hanya tagihan positif yang jatuh tempo dalam 7 hari atau sudah lewat tempo. Kredit vendor tidak dinetto dan tagihan yang jatuh temponya lebih jauh tidak tampil.
+- **Cara pakai:** dua tab dengan jumlah tagihan masing-masing (hitungan tab `(N)` **hanya menghitung tagihan**, tidak menghitung baris kredit, sedangkan total nominal tab menjumlahkan seluruh baris termasuk pengurangan kredit; pindah tab kembali ke halaman 1); tabel dapat diurutkan (vendor, jatuh tempo, sisa, status) dan dibagi per halaman; tombol **ekspor CSV** memuat **seluruh** baris tab yang sedang dipilih, dengan urutan yang tampil (kolom status dan entitas ikut hanya bila tampil); klik baris membuka Payment Plan.
+- **Mengapa total tabel tidak sama dengan kartu Payables:** hanya tagihan yang jatuh tempo dalam 7 hari atau sudah lewat tempo (setelah dikurangi kredit vendor pasangan). Tagihan yang jatuh temponya lebih jauh tidak tampil.
 - **Kecepatan** (puluhan ribu tagihan): urutan tiap tab dan jumlah per tab dibuat sekali per hasil rencana (`createViewCache`), pembanding teks memakai satu `Intl.Collator`, dan nama vendor diingat 10 menit.
 
 #### 8.1.7 Kartu mini
@@ -2242,17 +2243,17 @@ overdueBills (kartu Summary) = 100 + 60       = 160 jt       → hanya tagihan p
 
 #### 8.7.7 Perlu dikonfirmasi
 
-| Kode  | Pertanyaan                                                                                                                                                                                                     | Default sementara                                       |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| KF-38 | Total Payables sama dengan laporan **AP Aging ERP** pada tanggal yang sama?                                                                                                                                    | Dirancang sama (D24), belum dicocokkan ke data klien ⚠️ |
-| KF-39 | Overdue di kartu Summary hanya menghitung tagihan **positif** (tidak dinetto kredit vendor dan pembayaran belum dialokasikan), sedangkan halaman Payables memakai overdue **neto**. Sesuai?                    | Dua definisi berbeda (D37) ⚠️                           |
-| KF-40 | Tagihan yang sudah masuk Pengakuan Biaya tetapi belum dibayar tetap dihitung sebagai utang (`payment_status` tidak dipercaya). Benar?                                                                          | Ya (D16) ⚠️                                             |
-| KF-41 | Apakah ada pembayaran vendor **belum dialokasikan** dalam jumlah besar (mengurangi utang)? Siapa yang menanganinya di ERP?                                                                                     | Dihitung sebagai pengurang ⚠️                           |
-| KF-42 | 77 tagihan AP non-dagang lama (2021–2024) berstatus lunas tanpa catatan pelunasan (`AP_PAID_NO_PAYMENT`, O12): dibersihkan lewat jurnal GL, atau memang masih utang?                                           | Dihitung sebagai utang lama ⚠️                          |
-| KF-43 | Tagihan dengan `due_date` sebelum tanggal transaksi (±5 ribu di data demo): perlu diperbaiki di ERP?                                                                                                           | Dihitung apa adanya ⚠️                                  |
-| KF-44 | Pembanding Payables hanya muncul bila tanggal pembanding ada di snapshot atau riwayat; untuk tanggal lampau lainnya pembanding dilewati (kalau tidak, halaman menunggu menit). Diterima?                       | Pembanding dilewati ⚠️                                  |
-| KF-63 | Retur atau memo yang terpakai melebihi nilainya sehingga sisanya positif (sekitar 18 retur / +1,43 miliar di Client 1; kini tampil sebagai "tagihan belum dibayar"): salah input, atau memang kelebihan?       | Dihitung apa adanya ⚠️                                  |
-| KF-65 | Kredit vendor yang sangat lama (79% lebih dari 90 hari; di luar retur sekitar 30,4 miliar; hutang aset tipe 3 dibayar berlebih sekitar 10,5 miliar dari 2 item di Client 1): diklaim, dihapus, atau dibiarkan? | Dihitung sebagai kredit vendor yang mengurangi utang ⚠️ |
+| Kode  | Pertanyaan                                                                                                                                                                                                     | Default sementara                                                                              |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| KF-38 | Total Payables sama dengan laporan **AP Aging ERP** pada tanggal yang sama?                                                                                                                                    | Dirancang sama (D24), belum dicocokkan ke data klien ⚠️                                        |
+| KF-39 | Overdue di kartu Summary hanya menghitung tagihan **positif** (tidak dinetto kredit vendor dan pembayaran belum dialokasikan), sedangkan halaman Payables memakai overdue **neto**. Sesuai?                    | Dua definisi berbeda (D37) ⚠️ (Catatan: Payment Plan memakai angka setelah kredit vendor, D53) |
+| KF-40 | Tagihan yang sudah masuk Pengakuan Biaya tetapi belum dibayar tetap dihitung sebagai utang (`payment_status` tidak dipercaya). Benar?                                                                          | Ya (D16) ⚠️                                                                                    |
+| KF-41 | Apakah ada pembayaran vendor **belum dialokasikan** dalam jumlah besar (mengurangi utang)? Siapa yang menanganinya di ERP?                                                                                     | Dihitung sebagai pengurang ⚠️                                                                  |
+| KF-42 | 77 tagihan AP non-dagang lama (2021–2024) berstatus lunas tanpa catatan pelunasan (`AP_PAID_NO_PAYMENT`, O12): dibersihkan lewat jurnal GL, atau memang masih utang?                                           | Dihitung sebagai utang lama ⚠️                                                                 |
+| KF-43 | Tagihan dengan `due_date` sebelum tanggal transaksi (±5 ribu di data demo): perlu diperbaiki di ERP?                                                                                                           | Dihitung apa adanya ⚠️                                                                         |
+| KF-44 | Pembanding Payables hanya muncul bila tanggal pembanding ada di snapshot atau riwayat; untuk tanggal lampau lainnya pembanding dilewati (kalau tidak, halaman menunggu menit). Diterima?                       | Pembanding dilewati ⚠️                                                                         |
+| KF-63 | Retur atau memo yang terpakai melebihi nilainya sehingga sisanya positif (sekitar 18 retur / +1,43 miliar di Client 1; kini tampil sebagai "tagihan belum dibayar"): salah input, atau memang kelebihan?       | Dihitung apa adanya ⚠️                                                                         |
+| KF-65 | Kredit vendor yang sangat lama (79% lebih dari 90 hari; di luar retur sekitar 30,4 miliar; hutang aset tipe 3 dibayar berlebih sekitar 10,5 miliar dari 2 item di Client 1): diklaim, dihapus, atau dibiarkan? | Dihitung sebagai kredit vendor yang mengurangi utang ⚠️                                        |
 
 ---
 
@@ -2310,13 +2311,14 @@ Rute `/payment-plan` · service `src/server/services/ap-ar/payment-plan.service.
 
 #### 8.9.2 Data dan query
 
-| Bagian                               | Sumber                                                                  | Query                                       |
-| ------------------------------------ | ----------------------------------------------------------------------- | ------------------------------------------- |
-| Kas awal                             | Cash Position pada **hari ini** (bukan `asOf` filter)                   | 8.3 (Q7–Q9)                                 |
-| Tagihan AP jatuh tempo               | Snapshot AP (jumlah per tanggal jatuh tempo di SQL) atau daftar tagihan | A-agregat di bawah, atau S1/Q16             |
-| Status rencana bayar                 | `bankpo_payment` tipe 0 + `bankpo_payment_detail`                       | Q19                                         |
-| Penerimaan piutang (opsional)        | Snapshot AR per tanggal jatuh tempo                                     | A-agregat di bawah                          |
-| Penerimaan dana pencairan (opsional) | `bank_payment`                                                          | Q10 dan rata-rata lama cair (8.3.3 butir 6) |
+| Bagian                               | Sumber                                                                          | Query                                       |
+| ------------------------------------ | ------------------------------------------------------------------------------- | ------------------------------------------- |
+| Kas awal                             | Cash Position pada **hari ini** (bukan `asOf` filter)                           | 8.3 (Q7–Q9)                                 |
+| Tagihan AP jatuh tempo               | Snapshot AP (jumlah per tanggal jatuh tempo di SQL) atau daftar tagihan         | A-agregat di bawah, atau S1/Q16             |
+| Kredit vendor & tagihan pasangan     | Snapshot AP (`snapshotCreditData`, `creditPoolsQuery` & `creditableBillsQuery`) | C1 & C2 di bawah                            |
+| Status rencana bayar                 | `bankpo_payment` tipe 0 + `bankpo_payment_detail`                               | Q19                                         |
+| Penerimaan piutang (opsional)        | Snapshot AR per tanggal jatuh tempo                                             | A-agregat di bawah                          |
+| Penerimaan dana pencairan (opsional) | `bank_payment`                                                                  | Q10 dan rata-rata lama cair (8.3.3 butir 6) |
 
 **Jumlah per tanggal jatuh tempo** (`dueTotalsQuery`; sama untuk riwayat):
 
@@ -2334,6 +2336,38 @@ GROUP BY t.dueDate
 
 Dipanggil: untuk AP semua tagihan sampai tanggal terakhir horizon (termasuk yang lewat tempo), lalu dua kali lagi dengan daftar id tagihan berstatus "disetujui" dan "diseleksi" untuk memecah menurut status. Untuk AR hanya tanggal hari ini sampai tanggal terakhir.
 
+**Query C1: Kolam kredit vendor AP per (vendor, entitas)** (`creditPoolsQuery` di `src/server/dash/snapshot-aggregate.ts`; sama untuk riwayat `dash_snap_ap_ar_hist_open`):
+
+```sql
+SELECT party_id AS partyId, location_id AS locationId, SUM(balance) AS total
+FROM dash_snap_ap_ar_open [FORCE INDEX (PRIMARY)]      -- petunjuk hanya bila tanpa filter entitas (hari ini)
+WHERE module_type = 0 AND balance < 0 AND party_id IS NOT NULL
+  [AND location_id IN (:lokasi)]
+GROUP BY party_id, location_id
+-- total bernilai negatif; kode mengubahnya menjadi jumlah kolam positif (-total) dan membuang pihak kosong
+```
+
+**Query C2: Tagihan positif pasangan berkredit** (`creditableBillsQuery` di `src/server/dash/snapshot-aggregate.ts`; sama untuk riwayat):
+
+```sql
+SELECT card_id AS invoiceId, party_id AS partyId, location_id AS locationId,
+       COALESCE(due_date, tx_date) AS dueDate, balance AS balance
+FROM dash_snap_ap_ar_open [FORCE INDEX (PRIMARY)]      -- petunjuk hanya bila tanpa filter entitas dan tanpa daftar vendor
+WHERE module_type = 0 AND balance > 0
+  [AND party_id IN (:partyIds)]                         -- hanya bila ada filter entitas (jalur 2 di bawah)
+  AND COALESCE(due_date, tx_date) <= :maxDue
+  [AND location_id IN (:lokasi)]
+```
+
+Dua jalur pembacaan (`readCreditData`):
+
+1. **Tanpa filter entitas:** satu pemindaian seluruh tagihan positif sisi AP dalam urutan kunci utama (tanpa `party_id IN`); vendor yang tidak punya kredit dibuang di Node. Dipilih karena hampir semua tagihan milik vendor berkredit: pada data demo (3.972 vendor berkredit, 146.852 tagihan sampai horizon) membaca lewat daftar vendor memakan 5,6 detik, pemindaian kunci utama 0,4 detik (🔵 diukur pada DB lokal, 2026-11-07).
+2. **Dengan filter entitas:** tagihan dibaca per potongan lokasi dan per kelompok 1.000 vendor (`party_id IN`), tanpa petunjuk indeks, karena filter menyempitkan pembacaan.
+
+Bila tidak ada kolam kredit sama sekali, tagihan tidak dibaca.
+
+Catatan: Pada jalur daftar `computePaymentPlan`, query C1 dan C2 tidak dipanggil karena semua baris AP terbuka (positif dan negatif) sudah dimuat oleh `apOpenInvoices`; kolam dan tagihan dipasangkan langsung di memori oleh `creditPoolsFromItems`.
+
 **Q19: Dokumen Pengakuan Biaya aktif** (`listActivePlanStatuses`; di-cache 5 menit):
 
 ```sql
@@ -2345,22 +2379,34 @@ WHERE b.type = 0 AND b.status IN ('Posted', 'Partialy Paid', 'Not Posted')
 
 Satu query untuk semua tagihan (bukan satu per tagihan). Untuk drill-down satu halaman tagihan dipakai varian dengan `bd.invoice_id IN (:id)` tanpa saringan status.
 
-#### 8.9.3 Rumus (✅ dari `payment-plan.ts`)
+#### 8.9.3 Rumus (✅ dari `payment-plan.ts` dan `payment-plan-credits.ts`)
 
 ```text
-Tagihan yang diperhitungkan : saldo > 0 saja (kredit vendor dan pembayaran belum dialokasikan TIDAK dinetto)
+Tagihan yang diperhitungkan : tagihan AP bersisa > 0 dikurangi kolam kredit vendor (D53)
+Aturan kolam kredit AP      : 1. Kolam kredit dihitung per pasangan (vendor, entitas/location_id).
+                              2. Kredit = semua item AP bersisa negatif (retur, memo kredit, kelebihan bayar),
+                                 tanpa batas umur (kredit lama tetap diperhitungkan).
+                              3. Kredit mengurangi tagihan pasangan tersebut dengan urutan jatuh tempo paling awal
+                                 dulu (due_date ASC, lalu invoiceId ASC).
+                              4. Potongan kredit tidak pernah melebihi total tagihan pasangan itu (pengeluaran vendor
+                                 tidak pernah bernilai negatif).
+                              5. Status rencana bayar potongan kredit mengikuti status tagihan yang dikurangi.
+                              6. Potongan kredit tampil sebagai baris tersendiri bertanda negatif di tabel tagihan
+                                 dan drill-down hari.
+                              7. Pembayaran AP belum dialokasikan (tanpa detail) saat ini tidak dimasukkan ke kolam.
 Jatuh tempo                 = due_date (kosong → tanggal transaksi)
 Status satu tagihan         : "Disetujui, menunggu bayar" bila ada dokumen Posted / Partialy Paid;
                               selain itu "Diseleksi, belum disetujui" bila ada dokumen Not Posted;
                               selain itu "Belum diseleksi"
-Lewat jatuh tempo (overdue) = Σ saldo tagihan dengan jatuh tempo < hari ini → semuanya dibebankan pada HARI KE-0
-Hari h (0…horizon−1)        : pengeluaran = Σ saldo tagihan jatuh tempo pada tanggal itu (+ overdue pada hari 0)
+Lewat jatuh tempo (overdue) = Σ (saldo tagihan − potongan kredit) dengan jatuh tempo < hari ini → dibebankan pada HARI KE-0
+Hari h (0…horizon−1)        : pengeluaran = Σ (saldo tagihan − potongan kredit) jatuh tempo pada tanggal itu (+ overdue pada hari 0)
                               penerimaan  = piutang jatuh tempo hari itu + dana pencairan yang diperkirakan cair hari itu
                               (hanya bila toggle penerimaan aktif)
                               kas akhir   = kas awal + penerimaan − pengeluaran;  kas awal hari berikutnya = kas akhir
 Perkiraan tanggal cair dana = tanggal transaksi + max(1, ceil(rata-rata lama cair channel 90 hari terakhir)),
                               tidak lebih awal dari BESOK (bila channel tak punya data: 1 hari)
 Total pengeluaran           = overdue + Σ pengeluaran harian
+Kredit terpakai             = creditsApplied = Σ potongan kredit pada tagihan yang masuk horizon atau overdue
 Saldo proyeksi terendah     = kas akhir terkecil (atau kas awal bila tidak ada yang lebih kecil)
 ```
 
@@ -2383,6 +2429,11 @@ Hari 18 Okt : pengeluaran = 300 jt;                     kas akhir = 1.630 − 30
 Total pengeluaran = 100 + 40 + 300 = 440 jt;  saldo terendah = 1.330 jt
 ```
 
+**Contoh pemotongan kredit vendor:**
+
+- Tagihan 22.200 dan retur 4.440 pada vendor dan entitas yang sama: tagihan dipotong 4.440 sehingga rencana bayar menjadi 17.760.
+- Contoh kolam kredit 150: Vendor V1 di entitas L1 memiliki kredit 150 dan tiga tagihan: Tagihan 1 (overdue, 60), Tagihan 2 (hari ke-2, 70), Tagihan 3 (hari ke-5, 50). Alokasi kolam 150: Tagihan 1 terpotong penuh 60 (sisa kredit 90), Tagihan 2 terpotong penuh 70 (sisa kredit 20), Tagihan 3 terpotong 20 (tersisa 30). Pengeluaran menjadi: Hari 0 (overdue) = 0, Hari ke-2 = 0, Hari ke-5 = 30. Kredit terpakai (creditsApplied) = 150.
+
 #### 8.9.5 Perlu dikonfirmasi
 
 | Kode  | Pertanyaan                                                                                                                                                                                  | Default sementara                            |
@@ -2391,6 +2442,9 @@ Total pengeluaran = 100 + 40 + 300 = 440 jt;  saldo terendah = 1.330 jt
 | KF-48 | Kas awal Payment Plan = Cash Position (Kas + Bank) hari ini, **tanpa** Deposito dan tanpa mengurangi giro beredar. Sesuai (O15)?                                                            | Ya ⚠️                                        |
 | KF-49 | Semua tagihan lewat jatuh tempo dibebankan ke hari pertama. Apakah tagihan sangat lama (mis. > 180 hari) perlu ditandai atau ditinjau terpisah?                                             | Tanpa penandaan ⚠️                           |
 | KF-50 | Proyeksi penerimaan memakai tanggal jatuh tempo piutang dan perkiraan lama cair dana per channel (rata-rata 90 hari). Apakah pola pembayaran pelanggan sebenarnya berbeda dari jatuh tempo? | Memakai jatuh tempo ⚠️                       |
+| KF-64 | 337 vendor dengan kredit persis sama dengan tagihan (sekitar 10,48 miliar di Client 1): kenapa tidak dipasangkan di ERP?                                                                    | Belum dipasangkan di ERP ⚠️                  |
+| KF-66 | Dokumen Pengakuan Biaya berstatus Not Posted yang berumur tahunan: masih berlaku atau draf mati? (memengaruhi label "Diseleksi")                                                            | Dihitung sebagai Diseleksi ⚠️                |
+| KF-67 | Setujukah finance bila Payment Plan AP mengurangi kredit vendor otomatis (aturan kolam D53)?                                                                                                | Mengurangi tagihan terawal ⚠️                |
 
 ---
 
@@ -2793,7 +2847,10 @@ Urutan pengecekan yang disarankan, dari penyebab paling umum:
 | KF-61 | S   | 6.9           | Versi **server** database klien memang MySQL 5.7.44 (`SELECT VERSION();`)? Angka 5.7.44 yang diketahui berasal dari program klien `mysql --version` (O9).                                                                                                                           | MySQL 5.7.44                                                                                                       | Belum                                       |                 |         |
 | KF-62 | T   | 8.8           | Apakah total AR Aging ERP mengurangi retur langsung yang sudah dipakai pelunasan (kartu pelunasan yang menunjuk kartu retur)?                                                                                                                                                       | Ya, dikurangi (cocok dengan layar AR Aging ERP pada data uji lokal 🟣; Client 1: 225 retur / 121,6 juta terdampak) | Belum                                       |                 |         |
 | KF-63 | S   | 8.7           | Retur atau memo yang terpakai melebihi nilainya sehingga sisanya positif (sekitar 18 retur / +1,43 miliar di Client 1; kini tampil sebagai "tagihan belum dibayar"): salah input, atau memang kelebihan?                                                                            | Dihitung apa adanya                                                                                                | Belum                                       |                 |         |
+| KF-64 | S   | 8.9           | 337 vendor dengan kredit persis sama dengan tagihan (sekitar 10,48 miliar di Client 1): kenapa tidak dipasangkan di ERP?                                                                                                                                                            | Belum dipasangkan                                                                                                  | Belum                                       |                 |         |
 | KF-65 | S   | 8.7           | Kredit vendor yang sangat lama (79% lebih dari 90 hari; di luar retur sekitar 30,4 miliar; hutang aset tipe 3 dibayar berlebih sekitar 10,5 miliar dari 2 item di Client 1): diklaim, dihapus, atau dibiarkan?                                                                      | Dihitung sebagai kredit vendor yang mengurangi utang                                                               | Belum                                       |                 |         |
+| KF-66 | S   | 8.9           | Dokumen Pengakuan Biaya berstatus Not Posted yang berumur tahunan: masih berlaku atau draf mati? (memengaruhi label "Diseleksi")                                                                                                                                                    | Dihitung sebagai Diseleksi                                                                                         | Belum                                       |                 |         |
+| KF-67 | T   | 8.9           | Setujukah finance bila Payment Plan AP mengurangi kredit vendor otomatis (aturan kolam D53)?                                                                                                                                                                                        | Mengurangi tagihan terawal                                                                                         | Belum                                       |                 |         |
 
 ### 12.3 Hasil pengecekan ke database lokal (2026-11-05)
 
@@ -2843,6 +2900,8 @@ Pengecekan memakai **tujuh query `SELECT` (hanya baca)** ke database lokal `demo
 | 2026-11-05 | Expense Paid: `ap_ar_card_detail.amount` pada kartu pembayaran bernilai negatif, jadi total "Pembayaran tagihan AP" dan angka per entitas kini menegasikannya (`expense-paid.ts`, `expense-paid.service.ts`); sebelumnya tampil negatif dan berbeda dari drill-down (KF-24). Bagian 8.4.7 dan bab 12 diperbarui; tes unit disesuaikan. Angka Expense Paid berubah tanda dibanding versi sebelumnya.                                                                                                                                                                                                                                                                                                                                                                                            |
 | 2026-11-05 | Format angka singkat (kartu, sumbu grafik) kini menulis angka negatif dalam kurung seperti tabel, mis. "IDR (29.19B)", bukan dengan tanda minus (`src/lib/format/number.ts`). Bab 6.8 diperbarui. Contoh angka negatif di dokumen ini sebagian masih memakai tanda minus.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | 2026-11-06 | Istilah "Retur langsung" (AR) menggantikan "belum dialokasikan"; data check AR_UNALLOC diganti AR_PAYMENT_UNALLOC dan DIRECT_RETURN_OPEN (level info baru); teks pendamping Retur langsung di kartu Payables/Receivables; hasil agregat directReturns/directReturnCount (bagian 3, 5.3.3, 8.7, 8.8, 8.11; D52, KF-63, KF-65).                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 2026-11-07 | Phase 3 Payment Plan AP: kredit vendor (retur, memo, kelebihan bayar) mengurangi tagihan jatuh tempo terawal dalam vendor dan entitas yang sama (aturan kolam D53); baris kredit negatif tampil di tabel tagihan dan drill-down hari; companion hint creditsApplied di kartu Total planned outflows; KF-64, KF-66, KF-67, O20.                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 2026-11-07 | Payment Plan AP: pembacaan tagihan pasangan berkredit tanpa filter entitas memakai satu pemindaian kunci utama (query C2, bagian 8.9.2), 5,6 detik menjadi 0,4 detik pada data demo; teks query C1 dan C2 disamakan dengan kode.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 ### 14.1 Riwayat ringkas dokumen yang digantikan
 

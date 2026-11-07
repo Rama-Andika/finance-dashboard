@@ -7,12 +7,16 @@ const rowsMock = vi.fn()
 vi.mock('~/server/db/query', () => ({ rows: (...args: unknown[]) => rowsMock(...args) }))
 
 const {
+  creditableBillsQuery,
+  creditPoolsQuery,
   dueTotalsQuery,
   historySource,
   histAgingAggregates,
+  histCreditData,
   itemsAggregateQuery,
   paymentsAggregateQuery,
   snapshotAgingAggregates,
+  snapshotCreditData,
   snapshotDueTotals,
   snapshotSource,
 } = await import('./snapshot-aggregate')
@@ -231,5 +235,115 @@ describe('index hint on whole-side reads', () => {
     expect(coaOfOpen).not.toContain("kind = 'counted'")
     expect(coaOfUnallocated).not.toContain('FORCE INDEX')
     expect(coaOfUnallocated).toContain("kind = 'counted'")
+  })
+})
+
+describe('credit data queries', () => {
+  it('creditPoolsQuery sums negative balances per (party, entity) with scan hint when unconstrained', () => {
+    const unconstrained = compile(creditPoolsQuery(snapshotSource, 'ap', undefined)).sql
+    expect(unconstrained).toContain('balance < 0')
+    expect(unconstrained).toContain('GROUP BY party_id, location_id')
+    expect(unconstrained).toContain('FORCE INDEX (PRIMARY)')
+
+    const withLoc = compile(creditPoolsQuery(snapshotSource, 'ap', ['1'])).sql
+    expect(withLoc).not.toContain('FORCE INDEX')
+
+    const hist = compile(creditPoolsQuery(historySource('2026-05-31'), 'ap', undefined)).sql
+    expect(hist).toContain('as_of_date = ?')
+    expect(hist).not.toContain('FORCE INDEX')
+  })
+
+  it('creditableBillsQuery reads positive bills due by maxDue without FORCE INDEX', () => {
+    const billQuery = compile(creditableBillsQuery(snapshotSource, 'ap', undefined, ['7'], '2026-06-21'))
+    expect(billQuery.sql).toContain('balance > 0')
+    expect(billQuery.sql).toContain('party_id IN (?)')
+    expect(billQuery.sql).toContain('<= ?')
+    expect(billQuery.sql).not.toContain('FORCE INDEX')
+    expect(billQuery.params).toContain('2026-06-21')
+
+    const hist = compile(creditableBillsQuery(historySource('2026-05-31'), 'ap', undefined, ['7'], '2026-06-21')).sql
+    expect(hist).toContain('as_of_date = ?')
+  })
+
+  it('snapshotCreditData maps pools and bills, dropping empty parties', async () => {
+    rowsMock.mockReset()
+    rowsMock
+      .mockResolvedValueOnce([
+        { partyId: '7', locationId: '3', total: '-30.00' },
+        { partyId: null, locationId: '3', total: '-5.00' },
+      ])
+      .mockResolvedValueOnce([
+        { invoiceId: 'i1', partyId: '7', locationId: '3', dueDate: '2026-06-10 00:00:00', balance: '40' },
+      ])
+
+    const res = await snapshotCreditData('ap', 'all', '2026-06-21')
+    expect(res.pools).toEqual([{ partyId: '7', locationId: '3', amount: '30.00' }])
+    expect(res.bills).toEqual([
+      { invoiceId: 'i1', partyId: '7', locationId: '3', dueDate: '2026-06-10', balance: '40.00' },
+    ])
+  })
+
+  it('histCreditData delegates to readCreditData with historySource', async () => {
+    rowsMock.mockReset()
+    rowsMock.mockResolvedValueOnce([]).mockResolvedValueOnce([])
+    const res = await histCreditData('ap', '2026-05-31', 'all', '2026-06-21')
+    expect(res).toEqual({ pools: [], bills: [] })
+  })
+
+  it('creditableBillsQuery without a party list scans the whole side in primary-key order', () => {
+    const whole = compile(creditableBillsQuery(snapshotSource, 'ap', undefined, undefined, '2026-06-21')).sql
+    expect(whole).toContain('FORCE INDEX (PRIMARY)')
+    expect(whole).not.toContain('party_id IN')
+
+    // A location filter narrows the read, so the secondary indexes are better than the hint
+    const withLoc = compile(creditableBillsQuery(snapshotSource, 'ap', ['1'], undefined, '2026-06-21')).sql
+    expect(withLoc).not.toContain('FORCE INDEX')
+
+    // A month-end history is read by its day, never with the hint
+    const hist = compile(
+      creditableBillsQuery(historySource('2026-05-31'), 'ap', undefined, undefined, '2026-06-21'),
+    ).sql
+    expect(hist).not.toContain('FORCE INDEX')
+    expect(hist).toContain('as_of_date = ?')
+  })
+
+  it('without an entity filter the bills are read once for every vendor and only the vendors with a credit are kept', async () => {
+    rowsMock.mockReset()
+    rowsMock.mockResolvedValueOnce([{ partyId: '7', locationId: '3', total: '-30.00' }]).mockResolvedValueOnce([
+      { invoiceId: 'i1', partyId: '7', locationId: '3', dueDate: '2026-06-10', balance: '40.00' },
+      { invoiceId: 'i2', partyId: '8', locationId: '3', dueDate: '2026-06-11', balance: '15.00' }, // no credit: dropped
+      { invoiceId: 'i3', partyId: null, locationId: '3', dueDate: '2026-06-12', balance: '5.00' }, // no vendor: dropped
+    ])
+
+    const res = await snapshotCreditData('ap', 'all', '2026-06-21')
+    expect(res.bills.map((b) => b.invoiceId)).toEqual(['i1'])
+    expect(rowsMock).toHaveBeenCalledTimes(2) // the pools, then one read of the bills
+    const billSql = compile(rowsMock.mock.calls[1]![0] as SQL).sql
+    expect(billSql).toContain('FORCE INDEX (PRIMARY)')
+    expect(billSql).not.toContain('party_id IN')
+  })
+
+  it('with an entity filter the bills are read through the party list', async () => {
+    rowsMock.mockReset()
+    rowsMock
+      .mockResolvedValueOnce([{ partyId: '7', locationId: '3', total: '-30.00' }])
+      .mockResolvedValueOnce([
+        { invoiceId: 'i1', partyId: '7', locationId: '3', dueDate: '2026-06-10', balance: '40.00' },
+      ])
+
+    const res = await snapshotCreditData('ap', ['3'], '2026-06-21')
+    expect(res.bills.map((b) => b.invoiceId)).toEqual(['i1'])
+    const billSql = compile(rowsMock.mock.calls[1]![0] as SQL).sql
+    expect(billSql).toContain('party_id IN (?)')
+    expect(billSql).toContain('location_id IN (?)')
+    expect(billSql).not.toContain('FORCE INDEX')
+  })
+
+  it('does not read the bills at all when there are no credits', async () => {
+    rowsMock.mockReset()
+    rowsMock.mockResolvedValueOnce([])
+    const res = await snapshotCreditData('ap', 'all', '2026-06-21')
+    expect(res).toEqual({ pools: [], bills: [] })
+    expect(rowsMock).toHaveBeenCalledTimes(1)
   })
 })

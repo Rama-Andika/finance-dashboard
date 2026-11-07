@@ -3,7 +3,7 @@ import Decimal from 'decimal.js'
 import { sql, type SQL } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
-import { SLICE_CONCURRENCY, chunkOrAll, mapLimit, sliceCombos } from '~/server/db/chunk'
+import { SLICE_CONCURRENCY, chunk, chunkOrAll, mapLimit, sliceCombos } from '~/server/db/chunk'
 import { AGING_SIDES, type AgingSide } from '~/server/db/erp-codes'
 import { idOrEmpty } from '~/server/repo/ap-ar/shared'
 import { D } from '~/lib/core/money'
@@ -16,6 +16,7 @@ import {
 } from '~/lib/finance/ap-ar/aging'
 import { mergeAgingAggregates, type AgingAggregates, type BucketAmounts } from '~/lib/finance/ap-ar/aging-aggregate'
 import type { Id, IsoDate, Money } from '~/lib/core/types'
+import type { CreditPool, CreditableBill } from '~/lib/finance/ap-ar/payment-plan-credits'
 import { DASH_TABLES } from './tables'
 import { fullScanHint } from './scan-hint'
 
@@ -254,4 +255,113 @@ export function histDueTotals(
   opts: DueTotalsOptions,
 ): Promise<Map<IsoDate, Money>> {
   return readDueTotals(historySource(day), side, locIds, opts)
+}
+
+// ---------------------------------------------------------------------------------------------
+// Credits and the bills they reduce (Payment Plan)
+// ---------------------------------------------------------------------------------------------
+
+/** Open items below zero summed per (party, entity): the credits of that pair. */
+export function creditPoolsQuery(source: AggregateSource, side: AgingSide, locSlice: Id[] | undefined): SQL {
+  return sql`
+    SELECT party_id AS partyId, location_id AS locationId, SUM(balance) AS total
+    FROM ${sql.identifier(source.open)} ${fullScanHint(source.day, locSlice !== undefined)}
+    WHERE module_type = ${AGING_SIDES[side].module}
+      AND balance < 0
+      AND party_id IS NOT NULL
+      ${dayFilter(source)}
+      ${locationSlice(locSlice)}
+    GROUP BY party_id, location_id
+  `
+}
+
+/**
+ * The open bills (balance above zero) due by `maxDue`. With a party list the read is narrowed to those parties and carries
+ * no index hint. Without one (the vendors with a credit hold most of the bills) the read is a whole-side scan, so it uses
+ * the primary-key order like the other whole-side reads (scan-hint.ts); the caller keeps the parties it needs.
+ */
+export function creditableBillsQuery(
+  source: AggregateSource,
+  side: AgingSide,
+  locSlice: Id[] | undefined,
+  partySlice: Id[] | undefined,
+  maxDue: IsoDate,
+): SQL {
+  return sql`
+    SELECT card_id AS invoiceId, party_id AS partyId, location_id AS locationId,
+           COALESCE(due_date, tx_date) AS dueDate, balance AS balance
+    FROM ${sql.identifier(source.open)} ${fullScanHint(source.day, locSlice !== undefined || partySlice !== undefined)}
+    WHERE module_type = ${AGING_SIDES[side].module}
+      AND balance > 0
+      ${partySlice ? sql`AND party_id IN (${inList(partySlice)})` : sql``}
+      AND COALESCE(due_date, tx_date) <= ${maxDue}
+      ${dayFilter(source)}
+      ${locationSlice(locSlice)}
+  `
+}
+
+export type CreditData = { pools: CreditPool[]; bills: CreditableBill[] }
+
+async function readCreditData(
+  source: AggregateSource,
+  side: AgingSide,
+  locIds: Id[] | 'all',
+  maxDue: IsoDate,
+): Promise<CreditData> {
+  const poolParts = await mapLimit(chunkOrAll(locIds), SLICE_CONCURRENCY, (locSlice) =>
+    rows<{ partyId: string | null; locationId: string | null; total: string | number }>(
+      creditPoolsQuery(source, side, locSlice),
+    ),
+  )
+  const pools: CreditPool[] = poolParts
+    .flat()
+    .map((r) => ({
+      partyId: idOrEmpty(r.partyId),
+      locationId: idOrEmpty(r.locationId),
+      amount: D(r.total).negated().toFixed(2),
+    }))
+    .filter((p) => p.partyId !== '' && D(p.amount).gt(0))
+
+  const partyIds = Array.from(new Set(pools.map((p) => p.partyId)))
+  type BillDbRow = {
+    invoiceId: string
+    partyId: string | null
+    locationId: string | null
+    dueDate: string
+    balance: string | number
+  }
+  let billRows: BillDbRow[]
+  if (partyIds.length === 0) {
+    billRows = [] // no credits: nothing to reduce, so the bills are not read at all
+  } else if (locIds === 'all') {
+    // No entity filter: nearly every bill belongs to a vendor with a credit, so one primary-key scan is much faster than
+    // reading the bills through the party index in slices (5.6 s against 0.4 s on the demo data); the rest is dropped here.
+    const wanted = new Set(partyIds)
+    const all = await rows<BillDbRow>(creditableBillsQuery(source, side, undefined, undefined, maxDue))
+    billRows = all.filter((r) => wanted.has(idOrEmpty(r.partyId)))
+  } else {
+    const combos = sliceCombos(chunkOrAll(locIds), chunk(partyIds))
+    const parts = await mapLimit(combos, SLICE_CONCURRENCY, ([locSlice, partySlice]) =>
+      rows<BillDbRow>(creditableBillsQuery(source, side, locSlice, partySlice, maxDue)),
+    )
+    billRows = parts.flat()
+  }
+  const bills: CreditableBill[] = billRows.map((r) => ({
+    invoiceId: String(r.invoiceId),
+    partyId: idOrEmpty(r.partyId),
+    locationId: idOrEmpty(r.locationId),
+    dueDate: String(r.dueDate).slice(0, 10),
+    balance: D(r.balance).toFixed(2),
+  }))
+  return { pools, bills }
+}
+
+/** Credits and creditable bills of today's snapshot (call `apArSnapshotCovers` first). */
+export function snapshotCreditData(side: AgingSide, locIds: Id[] | 'all', maxDue: IsoDate): Promise<CreditData> {
+  return readCreditData(snapshotSource, side, locIds, maxDue)
+}
+
+/** Credits and creditable bills of a month-end history day (call `apArHistCovers(day)` first). */
+export function histCreditData(side: AgingSide, day: IsoDate, locIds: Id[] | 'all', maxDue: IsoDate): Promise<CreditData> {
+  return readCreditData(historySource(day), side, locIds, maxDue)
 }

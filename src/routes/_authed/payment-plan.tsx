@@ -15,6 +15,7 @@ import { PaymentPlanControls } from '~/components/payment-plan/PaymentPlanContro
 import { ProjectedBalanceChart } from '~/components/payment-plan/ProjectedBalanceChart'
 import { DailyScheduleTable } from '~/components/payment-plan/DailyScheduleTable'
 import { formatMoneyShort } from '~/lib/format/number'
+import { D } from '~/lib/core/money'
 
 export const Route = createFileRoute('/_authed/payment-plan')({
   validateSearch: paymentPlanSearchSchema.extend(drillSearchSchema.shape),
@@ -65,7 +66,14 @@ function PaymentPlanPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiCard label={t('ui.paymentPlan.openingCash')} value={data.openingBalance} higherIsBetter={true} />
-        <KpiCard label={t('ui.paymentPlan.totalPlannedOutflows')} value={totalOutflow} higherIsBetter={false} />
+        <KpiCard
+          label={t('ui.paymentPlan.totalPlannedOutflows')}
+          value={totalOutflow}
+          higherIsBetter={false}
+          {...(D(data.creditsApplied).gt(0)
+            ? { hint: t('ui.paymentPlan.creditsAppliedHint', { amount: formatMoneyShort(data.creditsApplied, lang) }) }
+            : {})}
+        />
         <KpiCard label={t('ui.paymentPlan.lowestProjectedBalance')} value={minClosing} higherIsBetter={true} />
       </div>
 

@@ -9,6 +9,7 @@ import {
 } from '~/lib/finance/ap-ar/payment-plan-bills'
 import type { PaymentPlanBill } from '~/lib/finance/ap-ar/payment-plan'
 import '@tanstack/react-start/server-only'
+import Decimal from 'decimal.js'
 import { D } from '~/lib/core/money'
 import { buildEntityOwners, ownerNameOfLocation } from '~/lib/finance/entity/entity-owner'
 import { addDays } from '~/lib/format/date'
@@ -16,11 +17,16 @@ import type { Id, MetricMeta, Money } from '~/lib/core/types'
 import { type AppContextFilter, buildMetricMeta, getCachedCoaTree, getCachedEntities } from '~/server/context'
 import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
 import { computeCashPosition } from '~/server/services/cash/cash-position.service'
-import { agingDueTotals, apOpenInvoices, arOpenInvoices } from '~/server/repo/ap-ar/aging.repo'
+import { agingCreditData, agingDueTotals, apOpenInvoices, arOpenInvoices } from '~/server/repo/ap-ar/aging.repo'
 import { listActivePlanStatuses } from '~/server/repo/ap-ar/payment-plan.repo'
 import { listVendors } from '~/server/repo/ap-ar/party.repo'
 import { unsettledByChannel, settlementLag } from '~/server/repo/cash/bank-payment.repo'
 import { invoicesByPlanStatus, planStatus, voucherStatusesByInvoice } from '~/lib/finance/ap-ar/aging'
+import {
+  applyCredits,
+  creditPoolsFromItems,
+  subtractReductions,
+} from '~/lib/finance/ap-ar/payment-plan-credits'
 import {
   buildPaymentPlan,
   type ApItemForPlan,
@@ -38,6 +44,8 @@ export type PaymentPlanResult = {
   overdue: Money
   days: PaymentPlanDay[]
   bills: PaymentPlanBill[]
+  /** Total of the vendor credits that were taken off the bills in the plan (a positive amount) */
+  creditsApplied: Money
   /** True when at least one bill has a live Pengakuan Biaya document (Posted, Partialy Paid or Not Posted). */
   planStatusInUse: boolean
 }
@@ -137,10 +145,27 @@ async function computePaymentPlanUncached(
 
   const statusMap = voucherStatusesByInvoice(statusRows)
 
+  // Vendor credits reduce the bills of the same vendor and entity, earliest due date first (decisions D53).
+  const creditPools = creditPoolsFromItems(
+    rawAp.map((a) => ({ partyId: a.vendorId, locationId: a.locationId, balance: a.balance })),
+  )
+  const { reductions, applied: creditsApplied } = applyCredits(
+    apPositive.map((a) => ({
+      invoiceId: a.invoiceId,
+      partyId: a.vendorId,
+      locationId: a.locationId,
+      dueDate: a.dueDate || a.txDate,
+      balance: a.balance,
+    })),
+    creditPools,
+  )
+  const reducedBy = new Map<Id, Decimal>()
+  for (const r of reductions) reducedBy.set(r.invoiceId, (reducedBy.get(r.invoiceId) ?? D(0)).plus(D(r.amount)))
+
   const apItems: ApItemForPlan[] = apPositive.map((a) => ({
     invoiceId: a.invoiceId,
     dueDate: a.dueDate || a.txDate,
-    balance: a.balance,
+    balance: D(a.balance).minus(reducedBy.get(a.invoiceId) ?? D(0)).toFixed(2),
     status: planStatus(statusMap.get(a.invoiceId) ?? []),
   }))
 
@@ -178,6 +203,20 @@ async function computePaymentPlanUncached(
     balance: b.balance,
     status: planStatus(statusMap.get(b.invoiceId) ?? []),
     overdue: (b.dueDate || b.txDate) < today,
+    kind: 'bill',
+  }))
+
+  const creditRows: PaymentPlanBill[] = reductions.map((r) => ({
+    invoiceId: `credit:${r.invoiceId}`,
+    vendorId: r.partyId,
+    vendorName: vendorMap.get(r.partyId) || r.partyId,
+    entityName: ownerNameOfLocation(owners, r.locationId),
+    invoiceNumber: '',
+    dueDate: r.dueDate,
+    balance: D(r.amount).negated().toFixed(2),
+    status: planStatus(statusMap.get(r.invoiceId) ?? []),
+    overdue: r.dueDate < today,
+    kind: 'credit',
   }))
 
   return {
@@ -185,7 +224,8 @@ async function computePaymentPlanUncached(
     openingBalance: res.openingBalance,
     overdue: res.overdue,
     days: res.days,
-    bills,
+    bills: [...bills, ...creditRows],
+    creditsApplied,
     planStatusInUse: statusRows.length > 0,
   }
 }
@@ -238,11 +278,16 @@ async function computePaymentPlanSummaryUncached(
       invoiceIds: submittedIds,
     }),
   ])
-  const apItems = apItemsFromDueTotals({
-    total: apTotals,
-    approved: approved ?? new Map(),
-    submitted: submitted ?? new Map(),
-  })
+  const credit = await agingCreditData('ap', today, filter.locationIds, lastDay)
+  const { reductions, applied: creditsApplied } = credit
+    ? applyCredits(credit.bills, credit.pools)
+    : { reductions: [], applied: '0.00' }
+  const reduced = subtractReductions(
+    { total: apTotals, approved: approved ?? new Map(), submitted: submitted ?? new Map() },
+    reductions,
+    (invoiceId) => planStatus(statusMap.get(invoiceId) ?? []),
+  )
+  const apItems = apItemsFromDueTotals(reduced)
 
   const { arItems, unsettled, settlementLags } = opts.inflow
     ? await loadInflowTotals(filter, lastDay)
@@ -263,6 +308,7 @@ async function computePaymentPlanSummaryUncached(
     openingBalance: res.openingBalance,
     overdue: res.overdue,
     days: res.days,
+    creditsApplied,
     planStatusInUse: statusRows.length > 0,
   }
 }

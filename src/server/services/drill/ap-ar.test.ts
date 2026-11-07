@@ -110,4 +110,73 @@ describe('paymentPlanDrill: bills of one day', () => {
     expect(res.showEntity).toBe(false)
     expect(res.rows[0]).not.toHaveProperty('entityName')
   })
+
+  it('includes credit rows for bills reduced by vendor credit in the same entity', async () => {
+    apOpenInvoices.mockResolvedValue([
+      {
+        invoiceId: 'b1',
+        invoiceNumber: 'INV-B1',
+        vendorId: 'v1',
+        locationId: 'locA',
+        coaId: '1',
+        txDate: '2026-10-01',
+        dueDate: '2026-10-15',
+        itemType: 0,
+        originalAmount: '100.00',
+        balance: '100.00',
+      },
+      {
+        invoiceId: 'c1',
+        invoiceNumber: 'RT-1',
+        vendorId: 'v1',
+        locationId: 'locA',
+        coaId: '1',
+        txDate: '2026-10-05',
+        dueDate: '2026-10-05',
+        itemType: 2,
+        originalAmount: '-30.00',
+        balance: '-30.00',
+      },
+    ])
+    const res = await paymentPlanDrill(ctxWith(1), dayStep)
+    expect(res.rows).toHaveLength(2)
+    expect(res.rows[0]?.id).toBe('b1')
+    expect(res.rows[0]?.balance).toBe('100.00')
+    expect(res.rows[1]?.id).toBe('credit:b1')
+    expect(res.rows[1]?.balance).toBe('-30.00')
+    expect(res.rows[1]?.invoiceNumber).toBe('')
+  })
+
+  it('does not apply vendor credits from a different entity', async () => {
+    apOpenInvoices.mockResolvedValue([
+      {
+        invoiceId: 'b1',
+        invoiceNumber: 'INV-B1',
+        vendorId: 'v1',
+        locationId: 'locA',
+        coaId: '1',
+        txDate: '2026-10-01',
+        dueDate: '2026-10-15',
+        itemType: 0,
+        originalAmount: '100.00',
+        balance: '100.00',
+      },
+      {
+        invoiceId: 'c1',
+        invoiceNumber: 'RT-1',
+        vendorId: 'v1',
+        locationId: 'locB',
+        coaId: '1',
+        txDate: '2026-10-05',
+        dueDate: '2026-10-05',
+        itemType: 2,
+        originalAmount: '-30.00',
+        balance: '-30.00',
+      },
+    ])
+    const res = await paymentPlanDrill(ctxWith(1), dayStep)
+    expect(res.rows).toHaveLength(1)
+    expect(res.rows[0]?.id).toBe('b1')
+    expect(res.rows[0]?.balance).toBe('100.00')
+  })
 })

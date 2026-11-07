@@ -368,7 +368,8 @@
       "dailyProjectedCashBalance": "Proyeksi Saldo Kas Harian",
       "daysProjection": "hari ke depan",
       "dailyPaymentSchedule": "Jadwal Rencana Bayar Harian",
-      "overdueNotice": "Ada tagihan lewat jatuh tempo sebesar {{amount}}."
+      "overdueNotice": "Ada tagihan lewat jatuh tempo sebesar {{amount}}.",
+      "creditsAppliedHint": "Dikurangi kredit vendor {{amount}}"
     },
     "profitLoss": {
       "pLLine": "Pos Laba Rugi",
@@ -467,6 +468,7 @@
     "col": {
       "amount": "Jumlah (Rp)",
       "vendor": "Vendor",
+      "creditRow": "Kredit vendor",
       "status": "Status",
       "categoryFolder": "Kategori / Folder",
       "overdueAmount": "Jatuh Tempo (Rp)",

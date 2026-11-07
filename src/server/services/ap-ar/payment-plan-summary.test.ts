@@ -13,10 +13,12 @@ vi.mock('~/server/services/cash/cash-position.service', () => ({
   computeCashPosition: (...args: unknown[]) => computeCashPosition(...args),
 }))
 const agingDueTotals = vi.fn()
+const agingCreditData = vi.fn()
 const apOpenInvoices = vi.fn()
 const arOpenInvoices = vi.fn()
 vi.mock('~/server/repo/ap-ar/aging.repo', () => ({
   agingDueTotals: (...args: unknown[]) => agingDueTotals(...args),
+  agingCreditData: (...args: unknown[]) => agingCreditData(...args),
   apOpenInvoices: (...args: unknown[]) => apOpenInvoices(...args),
   arOpenInvoices: (...args: unknown[]) => arOpenInvoices(...args),
 }))
@@ -44,10 +46,11 @@ const opts = { horizon: '7' as const, inflow: false }
 
 describe('computePaymentPlanSummary', () => {
   beforeEach(() => {
-    for (const m of [computeCashPosition, agingDueTotals, apOpenInvoices, arOpenInvoices, listActivePlanStatuses])
+    for (const m of [computeCashPosition, agingDueTotals, agingCreditData, apOpenInvoices, arOpenInvoices, listActivePlanStatuses])
       m.mockReset()
     clearCache()
     computeCashPosition.mockResolvedValue({ cashPosition: '1000.00' })
+    agingCreditData.mockResolvedValue({ pools: [], bills: [] })
     listActivePlanStatuses.mockResolvedValue([
       { invoiceId: 'i1', status: 'Posted' },
       { invoiceId: 'i2', status: 'Not Posted' },
@@ -108,5 +111,50 @@ describe('computePaymentPlanSummary', () => {
     expect(sides).toContain('ar')
     const arCall = agingDueTotals.mock.calls.find((c) => c[0] === 'ar')
     expect(arCall?.[3]).toEqual({ minDue: TODAY, maxDue: '2026-06-21' })
+  })
+
+  it('takes vendor credits off the bills by due date and keeps the statuses', async () => {
+    agingDueTotals.mockImplementation(
+      async (_side: string, _asOf: string, _loc: unknown, o: { invoiceIds?: string[] }) => {
+        if (!o.invoiceIds)
+          return new Map([
+            [TODAY, '100.00'],
+            ['2026-06-10', '40.00'],
+          ])
+        if (o.invoiceIds.includes('i1')) return new Map([[TODAY, '30.00']])
+        return new Map()
+      },
+    )
+    agingCreditData.mockResolvedValue({
+      pools: [{ partyId: 'v1', locationId: 'l1', amount: '30.00' }],
+      bills: [{ invoiceId: 'i4', partyId: 'v1', locationId: 'l1', dueDate: '2026-06-10', balance: '40.00' }],
+    })
+
+    const plan = await computePaymentPlanSummary(filter, opts)
+
+    expect(plan.overdue).toBe('10.00')
+    expect(plan.days[0]?.outflow).toBe('110.00') // 100 due today + 10 overdue
+    expect(plan.creditsApplied).toBe('30.00')
+  })
+
+  it('ignores credits when the snapshot cannot answer', async () => {
+    agingDueTotals.mockImplementation(
+      async (_side: string, _asOf: string, _loc: unknown, o: { invoiceIds?: string[] }) => {
+        if (!o.invoiceIds)
+          return new Map([
+            [TODAY, '100.00'],
+            ['2026-06-10', '40.00'],
+          ])
+        if (o.invoiceIds.includes('i1')) return new Map([[TODAY, '30.00']])
+        return new Map()
+      },
+    )
+    agingCreditData.mockResolvedValue(null)
+
+    const plan = await computePaymentPlanSummary(filter, opts)
+
+    expect(plan.overdue).toBe('40.00')
+    expect(plan.days[0]?.outflow).toBe('140.00')
+    expect(plan.creditsApplied).toBe('0.00')
   })
 })

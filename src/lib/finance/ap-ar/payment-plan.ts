@@ -175,6 +175,8 @@ export type PaymentPlanBill = {
   status: string
   /** Due before today (a missing due date falls back to the transaction date). */
   overdue: boolean
+  /** 'credit' = a negative row for the vendor credit that reduces a bill (shown under the bills it reduces) */
+  kind: 'bill' | 'credit'
 }
 
 /** Headline numbers of a plan: everything going out (overdue + all days) and the lowest closing balance. */

@@ -47,7 +47,7 @@ export function BillsTable({
       cell: ({ row }) => (
         <div>
           <span className="nr-name">{row.original.vendorName}</span>
-          <span className="nr-sub">{row.original.invoiceNumber}</span>
+          <span className="nr-sub">{row.original.kind === 'credit' ? t('ui.col.creditRow') : row.original.invoiceNumber}</span>
           {showEntity && <EntityCaption name={row.original.entityName} />}
         </div>
       ),
@@ -77,7 +77,7 @@ export function BillsTable({
   ]
 
   const exportColumns: CsvColumn<PaymentPlanBill>[] = [
-    { header: t('ui.col.billNumber'), value: (r) => r.invoiceNumber, kind: 'text' },
+    { header: t('ui.col.billNumber'), value: (r) => (r.kind === 'credit' ? t('ui.col.creditRow') : r.invoiceNumber), kind: 'text' },
     { header: t('ui.col.vendor'), value: (r) => r.vendorName, kind: 'text' },
     ...(showEntity
       ? [{ header: t('common.entity'), value: (r: PaymentPlanBill) => r.entityName ?? t('common.noEntity'), kind: 'text' as const }]
@@ -132,7 +132,7 @@ export function BillsTable({
             <div className="flex justify-between items-start">
               <div>
                 <div className="font-semibold">{r.vendorName}</div>
-                <div className="text-xs font-mono text-ink-muted">{r.invoiceNumber}</div>
+                <div className="text-xs font-mono text-ink-muted">{r.kind === 'credit' ? t('ui.col.creditRow') : r.invoiceNumber}</div>
                 {showEntity && <EntityCaption name={r.entityName} className="block text-xs text-ink-muted" />}
               </div>
               <div className="text-right">

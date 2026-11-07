@@ -976,10 +976,14 @@ VariableCost(bulan) = mutasi(grup('Expense') − basket('fixedCost'), …)
 
 ```
 SaldoAwal(hari ke-0) = CashPosition(hari ini)
-Baris "Overdue"      = Σ sisa AP dengan due_date < hari ini     (ditampilkan paling atas, dibebankan di hari ke-0)
+Kolam kredit AP      = Σ |sisa AP| dengan sisa < 0 per (vendor, lokasi)
+                       Kredit mengurangi tagihan positif pasangan tersebut dengan urutan jatuh tempo
+                       terawal (due_date ASC, card_id ASC), tidak melebihi total tagihan pasangan itu (D53)
+Baris "Overdue"      = Σ (sisa tagihan AP − potongan kredit) dengan due_date < hari ini
+                       (ditampilkan paling atas, dibebankan di hari ke-0)
 
 untuk setiap hari h dalam horizon:
-  Keluar(h) = Σ sisa AP dengan due_date = h
+  Keluar(h) = Σ (sisa tagihan AP − potongan kredit) dengan due_date = h
   Masuk(h)  = 0                                           (default, konservatif)
   jika toggle "Sertakan proyeksi penerimaan":
      Masuk(h) = Σ sisa AR dengan due_date = h

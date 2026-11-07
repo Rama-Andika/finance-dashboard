@@ -13,13 +13,13 @@ export function filterBillsByScope(bills: readonly PaymentPlanBill[], scope: Bil
 
 export type BillScopeSummary = Record<BillScope, { count: number; total: Money }>
 
-/** Count and total balance of both scopes, for the tab labels. */
+/** Count of bills (credit rows are not counted) and total of both scopes, for the tab labels. */
 export function summarizeBillScopes(bills: readonly PaymentPlanBill[]): BillScopeSummary {
   const due = filterBillsByScope(bills, 'due')
   const overdue = filterBillsByScope(bills, 'overdue')
   return {
-    due: { count: due.length, total: sum(due.map((b) => b.balance)) },
-    overdue: { count: overdue.length, total: sum(overdue.map((b) => b.balance)) },
+    due: { count: due.filter((b) => b.kind === 'bill').length, total: sum(due.map((b) => b.balance)) },
+    overdue: { count: overdue.filter((b) => b.kind === 'bill').length, total: sum(overdue.map((b) => b.balance)) },
   }
 }
 

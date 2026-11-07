@@ -3,7 +3,8 @@ import Decimal from 'decimal.js'
 import { D } from '~/lib/core/money'
 import { buildEntityCaptions } from '~/lib/finance/entity/entity-owner'
 import { addDays } from '~/lib/format/date'
-import { type Id } from '~/lib/core/types'
+import { type Id, type IsoDate, type Money } from '~/lib/core/types'
+import { applyCredits, creditPoolsFromItems } from '~/lib/finance/ap-ar/payment-plan-credits'
 import { apOpenInvoices, arOpenInvoices } from '~/server/repo/ap-ar/aging.repo'
 import { listCustomers, listVendors } from '~/server/repo/ap-ar/party.repo'
 import { type DrillState, type DrillStep, type DrillStepKind } from '~/lib/filters/search-schema'
@@ -87,17 +88,67 @@ export async function paymentPlanDrill(ctx: DrillContext, dayStep: DrillStep): P
   const today = ctx.filter.today
   const raw = await apOpenInvoices(addDays(today, 1), ctx.filter.locationIds)
   const isDayZero = dayStep.id === today
+  const maxDue = isDayZero ? today : dayStep.id
+
+  // Credits reduce bills due up to this day earliest due date first (decisions D53).
+  const creditPools = creditPoolsFromItems(
+    raw.map((a) => ({ partyId: a.vendorId, locationId: a.locationId, balance: a.balance })),
+  )
+  const creditableBills = raw
+    .filter((a) => D(a.balance).gt(0) && (a.dueDate || a.txDate) <= maxDue)
+    .map((a) => ({
+      invoiceId: a.invoiceId,
+      partyId: a.vendorId,
+      locationId: a.locationId,
+      dueDate: (a.dueDate || a.txDate).slice(0, 10),
+      balance: a.balance,
+    }))
+  const { reductions } = applyCredits(creditableBills, creditPools)
+  const dayReductions = reductions.filter((r) => (isDayZero ? r.dueDate <= today : r.dueDate === dayStep.id))
+
   const dayBills = raw.filter((a) => {
     if (!D(a.balance).gt(0)) return false
     const due = a.dueDate || a.txDate
     return isDayZero ? due <= today : due === dayStep.id // day 0 also carries the overdue bills
   })
-  dayBills.sort((a, b) => (a.dueDate || a.txDate).localeCompare(b.dueDate || b.txDate) || a.invoiceId.localeCompare(b.invoiceId))
-  const { page: shownBills, hasMore } = pageOf(dayBills, ctx.offset)
-  // The vendor names and the plan statuses do not depend on each other: read them together.
+
+  type CombinedBillRow = {
+    id: Id
+    vendorId: Id
+    invoiceNumber: string
+    dueDate: IsoDate
+    balance: Money
+    locationId: Id
+    reducedInvoiceId?: Id
+  }
+
+  const combinedRows: CombinedBillRow[] = [
+    ...dayBills.map((b) => ({
+      id: b.invoiceId,
+      vendorId: b.vendorId,
+      invoiceNumber: b.invoiceNumber || b.invoiceId,
+      dueDate: (b.dueDate || b.txDate).slice(0, 10),
+      balance: b.balance,
+      locationId: b.locationId,
+    })),
+    ...dayReductions.map((r) => ({
+      id: `credit:${r.invoiceId}`,
+      vendorId: r.partyId,
+      invoiceNumber: '',
+      dueDate: r.dueDate,
+      balance: D(r.amount).negated().toFixed(2),
+      locationId: r.locationId,
+      reducedInvoiceId: r.invoiceId,
+    })),
+  ]
+
+  combinedRows.sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.id.localeCompare(b.id))
+  const { page: shownRows, hasMore } = pageOf(combinedRows, ctx.offset)
+
+  const statusInvoiceIds = Array.from(new Set(shownRows.map((r) => r.reducedInvoiceId ?? r.id)))
   const [vendors, statuses] = await Promise.all([
-    listVendors(Array.from(new Set(shownBills.map((b) => b.vendorId)))),
-    statusMapFor(shownBills.map((b) => b.invoiceId)),
+    listVendors(Array.from(new Set(shownRows.map((b) => b.vendorId)))),
+    statusMapFor(statusInvoiceIds),
   ])
   const vendorMap = new Map(vendors.map((v) => [v.vendorId, v.name]))
   const captions = buildEntityCaptions(ctx.entities, ctx.filter.entityCount)
@@ -106,17 +157,19 @@ export async function paymentPlanDrill(ctx: DrillContext, dayStep: DrillStep): P
     showEntity: captions.show,
     titleLabel: dayStep.label,
     columns: [col('vendor', 'text'), col('invoiceNumber', 'code'), col('dueDate', 'date'), col('balance', 'money'), col('status', 'status')],
-    rows: shownBills.map((b) => ({
-      id: b.invoiceId,
-      vendor: vendorMap.get(b.vendorId) || b.vendorId,
-      invoiceNumber: b.invoiceNumber || b.invoiceId,
-      dueDate: b.dueDate || b.txDate,
-      balance: b.balance,
-      status: statuses.get(b.invoiceId) ?? 'notSubmitted',
-      ...captions.fieldsOfLocation(b.locationId),
-    })),
+    rows: shownRows.map((b) => {
+      const invoiceForStatus = b.reducedInvoiceId ?? b.id
+      return {
+        id: b.id,
+        vendor: vendorMap.get(b.vendorId) || b.vendorId,
+        invoiceNumber: b.invoiceNumber,
+        dueDate: b.dueDate,
+        balance: b.balance,
+        status: statuses.get(invoiceForStatus) ?? 'notSubmitted',
+        ...captions.fieldsOfLocation(b.locationId),
+      }
+    }),
     nextKind: 'card',
     hasMore,
   }
 }
-

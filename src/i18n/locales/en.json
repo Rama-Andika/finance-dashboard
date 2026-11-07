@@ -368,7 +368,8 @@
       "dailyProjectedCashBalance": "Daily Projected Cash Balance",
       "daysProjection": "days projection",
       "dailyPaymentSchedule": "Daily Payment Schedule",
-      "overdueNotice": "There is {{amount}} in overdue bills."
+      "overdueNotice": "There is {{amount}} in overdue bills.",
+      "creditsAppliedHint": "After vendor credits {{amount}}"
     },
     "profitLoss": {
       "pLLine": "P&L Line",
@@ -467,6 +468,7 @@
     "col": {
       "amount": "Amount (IDR)",
       "vendor": "Vendor",
+      "creditRow": "Vendor credit",
       "status": "Status",
       "categoryFolder": "Category / Folder",
       "overdueAmount": "Overdue (IDR)",
