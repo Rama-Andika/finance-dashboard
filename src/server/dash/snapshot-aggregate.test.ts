@@ -8,6 +8,7 @@ vi.mock('~/server/db/query', () => ({ rows: (...args: unknown[]) => rowsMock(...
 
 const {
   creditableBillsQuery,
+  unallocatedCreditPoolsQuery,
   creditPoolsQuery,
   dueTotalsQuery,
   historySource,
@@ -251,6 +252,55 @@ describe('credit data queries', () => {
     const hist = compile(creditPoolsQuery(historySource('2026-05-31'), 'ap', undefined)).sql
     expect(hist).toContain('as_of_date = ?')
     expect(hist).not.toContain('FORCE INDEX')
+  })
+
+  it('unallocatedCreditPoolsQuery sums negative balances per (party, entity) from unallocated table', () => {
+    const unallocated = compile(unallocatedCreditPoolsQuery(snapshotSource, 'ar', undefined)).sql
+    expect(unallocated).toContain('dash_snap_ap_ar_unallocated')
+    expect(unallocated).toContain('balance < 0')
+    expect(unallocated).toContain("kind = 'counted'")
+    expect(unallocated).toContain('GROUP BY party_id, location_id')
+
+    const hist = compile(unallocatedCreditPoolsQuery(historySource('2026-05-31'), 'ar', undefined)).sql
+    expect(hist).toContain('dash_snap_ap_ar_hist_unallocated')
+    expect(hist).toContain('as_of_date = ?')
+  })
+
+  it('creditableBillsQuery includes minDue condition when provided', () => {
+    const withMin = compile(creditableBillsQuery(snapshotSource, 'ar', undefined, ['7'], '2026-06-21', '2026-06-15'))
+    expect(withMin.sql).toContain('<= ?')
+    expect(withMin.sql).toContain('>= ?')
+    expect(withMin.params).toContain('2026-06-21')
+    expect(withMin.params).toContain('2026-06-15')
+
+    const withoutMin = compile(creditableBillsQuery(snapshotSource, 'ar', undefined, ['7'], '2026-06-21'))
+    expect(withoutMin.sql).not.toContain('>= ?')
+  })
+
+  it('snapshotCreditData merges open and unallocated pools for AR and applies minDue', async () => {
+    rowsMock.mockReset()
+    rowsMock
+      .mockResolvedValueOnce([{ partyId: 'c1', locationId: 'l1', total: '-20.00' }]) // open pool
+      .mockResolvedValueOnce([{ partyId: 'c1', locationId: 'l1', total: '-50.00' }]) // unallocated pool
+      .mockResolvedValueOnce([
+        { invoiceId: 'inv1', partyId: 'c1', locationId: 'l1', dueDate: '2026-06-16', balance: '100.00' },
+      ]) // bills
+
+    const res = await snapshotCreditData('ar', 'all', '2026-06-21', {
+      includeUnallocated: true,
+      minDue: '2026-06-15',
+    })
+    expect(res.pools).toEqual([
+      { partyId: 'c1', locationId: 'l1', amount: '20.00' },
+      { partyId: 'c1', locationId: 'l1', amount: '50.00' },
+    ])
+    expect(res.bills).toEqual([
+      { invoiceId: 'inv1', partyId: 'c1', locationId: 'l1', dueDate: '2026-06-16', balance: '100.00' },
+    ])
+    expect(rowsMock).toHaveBeenCalledTimes(3)
+    const billSql = compile(rowsMock.mock.calls[2]![0] as SQL)
+    expect(billSql.sql).toContain('>= ?')
+    expect(billSql.params).toContain('2026-06-15')
   })
 
   it('creditableBillsQuery reads positive bills due by maxDue without FORCE INDEX', () => {

@@ -17,7 +17,7 @@ import type { Id, MetricMeta, Money } from '~/lib/core/types'
 import { type AppContextFilter, buildMetricMeta, getCachedCoaTree, getCachedEntities } from '~/server/context'
 import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
 import { computeCashPosition } from '~/server/services/cash/cash-position.service'
-import { agingCreditData, agingDueTotals, apOpenInvoices, arOpenInvoices } from '~/server/repo/ap-ar/aging.repo'
+import { agingCreditData, agingDueTotals, apOpenInvoices, arDirectReturns, arOpenInvoices } from '~/server/repo/ap-ar/aging.repo'
 import { listActivePlanStatuses } from '~/server/repo/ap-ar/payment-plan.repo'
 import { listVendors } from '~/server/repo/ap-ar/party.repo'
 import { unsettledByChannel, settlementLag } from '~/server/repo/cash/bank-payment.repo'
@@ -46,6 +46,8 @@ export type PaymentPlanResult = {
   bills: PaymentPlanBill[]
   /** Total of the vendor credits that were taken off the bills in the plan (a positive amount) */
   creditsApplied: Money
+  /** Customer credits taken off the projected receipts (a positive amount); 0.00 when receipts are not asked for */
+  inflowCreditsApplied: Money
   /** True when at least one bill has a live Pengakuan Biaya document (Posted, Partialy Paid or Not Posted). */
   planStatusInUse: boolean
 }
@@ -63,6 +65,7 @@ type Inflows = {
   arItems: ArItemForPlan[]
   unsettled: UnsettledBankForPlan[]
   settlementLags: Map<Id, number>
+  creditsApplied: Money
 }
 
 type BankInflows = {
@@ -92,14 +95,42 @@ async function loadBankInflows(filter: AppContextFilter): Promise<BankInflows> {
 }
 
 /** Expected inflows: open AR invoices, and the receipts still in a settlement channel with that channel's usual lag. */
-async function loadInflows(filter: AppContextFilter, asOfPlusOne: string): Promise<Inflows> {
-  const [rawAr, bank] = await Promise.all([arOpenInvoices(asOfPlusOne, filter.locationIds), loadBankInflows(filter)])
+async function loadInflows(filter: AppContextFilter, asOfPlusOne: string, lastDay: string): Promise<Inflows> {
+  const [rawAr, directReturns, bank] = await Promise.all([
+    arOpenInvoices(asOfPlusOne, filter.locationIds),
+    arDirectReturns(asOfPlusOne, filter.locationIds),
+    loadBankInflows(filter),
+  ])
+  const pools = creditPoolsFromItems([
+    ...rawAr.map((a) => ({ partyId: a.customerId, locationId: a.locationId, balance: a.balance })),
+    ...directReturns.map((r) => ({ partyId: r.customerId, locationId: r.locationId, balance: r.balance })),
+  ])
+  const inWindow = rawAr.filter((a) => {
+    const due = a.dueDate || a.txDate
+    return D(a.balance).gt(0) && due >= filter.today && due <= lastDay
+  })
+  const { reductions, applied } = applyCredits(
+    inWindow.map((a) => ({
+      invoiceId: a.invoiceId,
+      partyId: a.customerId,
+      locationId: a.locationId,
+      dueDate: a.dueDate || a.txDate,
+      balance: a.balance,
+    })),
+    pools,
+  )
+  const reducedBy = new Map<Id, Decimal>()
+  for (const r of reductions) reducedBy.set(r.invoiceId, (reducedBy.get(r.invoiceId) ?? D(0)).plus(D(r.amount)))
   return {
     arItems: rawAr
       .filter((a) => D(a.balance).gt(0))
-      .map((a) => ({ dueDate: a.dueDate || a.txDate, balance: a.balance })),
+      .map((a) => ({
+        dueDate: a.dueDate || a.txDate,
+        balance: D(a.balance).minus(reducedBy.get(a.invoiceId) ?? D(0)).toFixed(2),
+      })),
     unsettled: bank.unsettled,
     settlementLags: bank.settlementLags,
+    creditsApplied: applied,
   }
 }
 
@@ -113,11 +144,23 @@ async function loadInflowTotals(filter: AppContextFilter, lastDay: string): Prom
     loadBankInflows(filter),
   ])
   // Neither the snapshot nor a month-end history covers today: read the invoices as before.
-  if (arTotals === null) return loadInflows(filter, addDays(filter.today, 1))
+  if (arTotals === null) return loadInflows(filter, addDays(filter.today, 1), lastDay)
+
+  const credit = await agingCreditData('ar', filter.today, filter.locationIds, lastDay, {
+    minDue: filter.today,
+    includeUnallocated: true,
+  })
+  const { reductions, applied } = credit ? applyCredits(credit.bills, credit.pools) : { reductions: [], applied: '0.00' }
+  const reduced = subtractReductions(
+    { total: arTotals, approved: new Map(), submitted: new Map() },
+    reductions,
+    () => 'notSubmitted',
+  )
   return {
-    arItems: arItemsFromDueTotals(arTotals),
+    arItems: arItemsFromDueTotals(reduced.total),
     unsettled: bank.unsettled,
     settlementLags: bank.settlementLags,
+    creditsApplied: applied,
   }
 }
 
@@ -170,9 +213,14 @@ async function computePaymentPlanUncached(
   }))
 
   // 4. Inflows (AR + bank payments unsettled)
-  const { arItems, unsettled, settlementLags } = opts.inflow
-    ? await loadInflows(filter, asOfPlusOne)
-    : { arItems: [], unsettled: [], settlementLags: new Map<Id, number>() }
+  const {
+    arItems,
+    unsettled,
+    settlementLags,
+    creditsApplied: inflowCreditsApplied,
+  } = opts.inflow
+    ? await loadInflows(filter, asOfPlusOne, lastDay)
+    : { arItems: [], unsettled: [], settlementLags: new Map<Id, number>(), creditsApplied: '0.00' }
 
   // 5. Projection
   const res = buildPaymentPlan({
@@ -226,6 +274,7 @@ async function computePaymentPlanUncached(
     days: res.days,
     bills: [...bills, ...creditRows],
     creditsApplied,
+    inflowCreditsApplied,
     planStatusInUse: statusRows.length > 0,
   }
 }
@@ -289,9 +338,14 @@ async function computePaymentPlanSummaryUncached(
   )
   const apItems = apItemsFromDueTotals(reduced)
 
-  const { arItems, unsettled, settlementLags } = opts.inflow
+  const {
+    arItems,
+    unsettled,
+    settlementLags,
+    creditsApplied: inflowCreditsApplied,
+  } = opts.inflow
     ? await loadInflowTotals(filter, lastDay)
-    : { arItems: [], unsettled: [], settlementLags: new Map<Id, number>() }
+    : { arItems: [], unsettled: [], settlementLags: new Map<Id, number>(), creditsApplied: '0.00' }
 
   const res = buildPaymentPlan({
     today,
@@ -309,6 +363,7 @@ async function computePaymentPlanSummaryUncached(
     overdue: res.overdue,
     days: res.days,
     creditsApplied,
+    inflowCreditsApplied,
     planStatusInUse: statusRows.length > 0,
   }
 }

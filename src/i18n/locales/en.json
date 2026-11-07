@@ -369,7 +369,8 @@
       "daysProjection": "days projection",
       "dailyPaymentSchedule": "Daily Payment Schedule",
       "overdueNotice": "There is {{amount}} in overdue bills.",
-      "creditsAppliedHint": "After vendor credits {{amount}}"
+      "creditsAppliedHint": "After vendor credits {{amount}}",
+      "inflowCreditsNotice": "Projected receipts are reduced by customer credits (direct returns and credit memos): {{amount}}."
     },
     "profitLoss": {
       "pLLine": "P&L Line",

@@ -157,4 +157,35 @@ describe('computePaymentPlanSummary', () => {
     expect(plan.days[0]?.outflow).toBe('140.00')
     expect(plan.creditsApplied).toBe('0.00')
   })
-})
+  it('takes customer credits off the projected receipts', async () => {
+    agingDueTotals.mockImplementation(async (side: string) => {
+      if (side === 'ar')
+        return new Map([
+          [TODAY, '100.00'],
+          ['2026-06-17', '50.00'],
+        ])
+      return new Map()
+    })
+    agingCreditData.mockImplementation(async (side: string) => {
+      if (side === 'ar') {
+        return {
+          pools: [{ partyId: 'c1', locationId: 'l1', amount: '120.00' }],
+          bills: [
+            { invoiceId: 'a1', partyId: 'c1', locationId: 'l1', dueDate: TODAY, balance: '100.00' },
+            { invoiceId: 'a2', partyId: 'c1', locationId: 'l1', dueDate: '2026-06-17', balance: '50.00' },
+          ],
+        }
+      }
+      return { pools: [], bills: [] }
+    })
+
+    const plan = await computePaymentPlanSummary(filter, { horizon: '7', inflow: true })
+
+    expect(plan.days[0]?.inflow).toBe('0.00') // 100 - 100
+    expect(plan.days.find((d) => d.date === '2026-06-17')?.inflow).toBe('30.00') // 50 - 20
+    expect(plan.inflowCreditsApplied).toBe('120.00')
+
+    const arCreditCall = agingCreditData.mock.calls.find((c) => c[0] === 'ar')
+    expect(arCreditCall?.[4]).toEqual({ minDue: TODAY, includeUnallocated: true })
+  })
+});

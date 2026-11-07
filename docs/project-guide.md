@@ -2368,6 +2368,19 @@ Bila tidak ada kolam kredit sama sekali, tagihan tidak dibaca.
 
 Catatan: Pada jalur daftar `computePaymentPlan`, query C1 dan C2 tidak dipanggil karena semua baris AP terbuka (positif dan negatif) sudah dimuat oleh `apOpenInvoices`; kolam dan tagihan dipasangkan langsung di memori oleh `creditPoolsFromItems`.
 
+**Query C3: Kolam kredit pelanggan AR dari tabel retur langsung** (`unallocatedCreditPoolsQuery` di `src/server/dash/snapshot-aggregate.ts`; sama untuk riwayat `dash_snap_ap_ar_hist_unallocated`):
+
+```sql
+SELECT party_id AS partyId, location_id AS locationId, SUM(balance) AS total
+FROM dash_snap_ap_ar_unallocated
+WHERE module_type = 1 AND balance < 0 AND kind = 'counted' AND party_id IS NOT NULL
+  [AND as_of_date = :hari]                              -- hanya untuk riwayat akhir bulan
+  [AND location_id IN (:lokasi)]
+GROUP BY party_id, location_id
+```
+
+Catatan: Pada sisi AR, pembacaan kredit (`readCreditData` dengan opsi `includeUnallocated: true` dan `minDue: today`) menggabungkan kolam dari item terbuka bersisa negatif (query C1) dan retur langsung terbuka (query C3), serta membatasi tagihan yang dibaca (`creditableBillsQuery` C2) hanya yang jatuh tempo pada atau setelah hari ini (`COALESCE(due_date, tx_date) >= :minDue`).
+
 **Q19: Dokumen Pengakuan Biaya aktif** (`listActivePlanStatuses`; di-cache 5 menit):
 
 ```sql
@@ -2399,14 +2412,23 @@ Status satu tagihan         : "Disetujui, menunggu bayar" bila ada dokumen Poste
                               selain itu "Diseleksi, belum disetujui" bila ada dokumen Not Posted;
                               selain itu "Belum diseleksi"
 Lewat jatuh tempo (overdue) = Σ (saldo tagihan − potongan kredit) dengan jatuh tempo < hari ini → dibebankan pada HARI KE-0
+Aturan kolam kredit AR      : 1. Kolam kredit per (pelanggan, entitas/location_id) = retur langsung AR (unallocated)
+                                 + item AR bersisa negatif (memo kredit).
+                              2. Kredit hanya mengurangi faktur yang dihitung dalam proyeksi horizon
+                                 (jatuh tempo hari ini s.d. akhir horizon), urut jatuh tempo terawal (D54).
+                              3. Faktur lewat jatuh tempo tidak ikut proyeksi dan tidak menyerap kredit (konservatif).
+                              4. Potongan tidak melebihi total faktur horizon pelanggan tersebut.
+                              5. Pembayaran AR tanpa alokasi tidak ikut kolam (D25).
 Hari h (0…horizon−1)        : pengeluaran = Σ (saldo tagihan − potongan kredit) jatuh tempo pada tanggal itu (+ overdue pada hari 0)
-                              penerimaan  = piutang jatuh tempo hari itu + dana pencairan yang diperkirakan cair hari itu
+                              penerimaan  = Σ (faktur piutang − potongan kredit pelanggan) jatuh tempo hari itu
+                                            + dana pencairan yang diperkirakan cair hari itu
                               (hanya bila toggle penerimaan aktif)
                               kas akhir   = kas awal + penerimaan − pengeluaran;  kas awal hari berikutnya = kas akhir
 Perkiraan tanggal cair dana = tanggal transaksi + max(1, ceil(rata-rata lama cair channel 90 hari terakhir)),
                               tidak lebih awal dari BESOK (bila channel tak punya data: 1 hari)
 Total pengeluaran           = overdue + Σ pengeluaran harian
-Kredit terpakai             = creditsApplied = Σ potongan kredit pada tagihan yang masuk horizon atau overdue
+Kredit terpakai (AP)        = creditsApplied = Σ potongan kredit pada tagihan yang masuk horizon atau overdue
+Kredit penerimaan (AR)      = inflowCreditsApplied = Σ potongan kredit pelanggan pada faktur horizon
 Saldo proyeksi terendah     = kas akhir terkecil (atau kas awal bila tidak ada yang lebih kecil)
 ```
 
@@ -2433,18 +2455,20 @@ Total pengeluaran = 100 + 40 + 300 = 440 jt;  saldo terendah = 1.330 jt
 
 - Tagihan 22.200 dan retur 4.440 pada vendor dan entitas yang sama: tagihan dipotong 4.440 sehingga rencana bayar menjadi 17.760.
 - Contoh kolam kredit 150: Vendor V1 di entitas L1 memiliki kredit 150 dan tiga tagihan: Tagihan 1 (overdue, 60), Tagihan 2 (hari ke-2, 70), Tagihan 3 (hari ke-5, 50). Alokasi kolam 150: Tagihan 1 terpotong penuh 60 (sisa kredit 90), Tagihan 2 terpotong penuh 70 (sisa kredit 20), Tagihan 3 terpotong 20 (tersisa 30). Pengeluaran menjadi: Hari 0 (overdue) = 0, Hari ke-2 = 0, Hari ke-5 = 30. Kredit terpakai (creditsApplied) = 150.
+- **Contoh penerimaan dikurangi kredit pelanggan:** Pelanggan C1 memiliki retur langsung 120 jt dan dua faktur dalam horizon: Faktur 1 (jatuh tempo hari ini, 100 jt) dan Faktur 2 (jatuh tempo hari ke-3, 50 jt), serta faktur lewat jatuh tempo 80 jt. Faktur lewat jatuh tempo tidak menyerap kredit. Alokasi kolam 120 jt: Faktur 1 terpotong penuh 100 jt (sisa kredit 20 jt), Faktur 2 terpotong 20 jt (sisa faktur 30 jt). Penerimaan menjadi: Hari ini = 0 jt, Hari ke-3 = 30 jt. Kredit pelanggan terpakai (inflowCreditsApplied) = 120 jt.
 
 #### 8.9.5 Perlu dikonfirmasi
 
-| Kode  | Pertanyaan                                                                                                                                                                                  | Default sementara                            |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| KF-47 | Istilah label status rencana bayar yang dipakai finance klien ("Belum diseleksi", "Diseleksi, belum disetujui", "Disetujui, menunggu bayar") sudah sesuai (O16)?                            | Mengikuti nama menu ERP "Seleksi Invoice" ⚠️ |
-| KF-48 | Kas awal Payment Plan = Cash Position (Kas + Bank) hari ini, **tanpa** Deposito dan tanpa mengurangi giro beredar. Sesuai (O15)?                                                            | Ya ⚠️                                        |
-| KF-49 | Semua tagihan lewat jatuh tempo dibebankan ke hari pertama. Apakah tagihan sangat lama (mis. > 180 hari) perlu ditandai atau ditinjau terpisah?                                             | Tanpa penandaan ⚠️                           |
-| KF-50 | Proyeksi penerimaan memakai tanggal jatuh tempo piutang dan perkiraan lama cair dana per channel (rata-rata 90 hari). Apakah pola pembayaran pelanggan sebenarnya berbeda dari jatuh tempo? | Memakai jatuh tempo ⚠️                       |
-| KF-64 | 337 vendor dengan kredit persis sama dengan tagihan (sekitar 10,48 miliar di Client 1): kenapa tidak dipasangkan di ERP?                                                                    | Belum dipasangkan di ERP ⚠️                  |
-| KF-66 | Dokumen Pengakuan Biaya berstatus Not Posted yang berumur tahunan: masih berlaku atau draf mati? (memengaruhi label "Diseleksi")                                                            | Dihitung sebagai Diseleksi ⚠️                |
-| KF-67 | Setujukah finance bila Payment Plan AP mengurangi kredit vendor otomatis (aturan kolam D53)?                                                                                                | Mengurangi tagihan terawal ⚠️                |
+| Kode  | Pertanyaan                                                                                                                                                                                  | Default sementara                                                  |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| KF-47 | Istilah label status rencana bayar yang dipakai finance klien ("Belum diseleksi", "Diseleksi, belum disetujui", "Disetujui, menunggu bayar") sudah sesuai (O16)?                            | Mengikuti nama menu ERP "Seleksi Invoice" ⚠️                       |
+| KF-48 | Kas awal Payment Plan = Cash Position (Kas + Bank) hari ini, **tanpa** Deposito dan tanpa mengurangi giro beredar. Sesuai (O15)?                                                            | Ya ⚠️                                                              |
+| KF-49 | Semua tagihan lewat jatuh tempo dibebankan ke hari pertama. Apakah tagihan sangat lama (mis. > 180 hari) perlu ditandai atau ditinjau terpisah?                                             | Tanpa penandaan ⚠️                                                 |
+| KF-50 | Proyeksi penerimaan memakai tanggal jatuh tempo piutang dan perkiraan lama cair dana per channel (rata-rata 90 hari). Apakah pola pembayaran pelanggan sebenarnya berbeda dari jatuh tempo? | Memakai jatuh tempo ⚠️                                             |
+| KF-64 | 337 vendor dengan kredit persis sama dengan tagihan (sekitar 10,48 miliar di Client 1): kenapa tidak dipasangkan di ERP?                                                                    | Belum dipasangkan di ERP ⚠️                                        |
+| KF-66 | Dokumen Pengakuan Biaya berstatus Not Posted yang berumur tahunan: masih berlaku atau draf mati? (memengaruhi label "Diseleksi")                                                            | Dihitung sebagai Diseleksi ⚠️                                      |
+| KF-67 | Setujukah finance bila Payment Plan AP mengurangi kredit vendor otomatis (aturan kolam D53)?                                                                                                | Mengurangi tagihan terawal ⚠️                                      |
+| KF-68 | Setujukah finance bila proyeksi penerimaan piutang dikurangi kredit pelanggan (retur langsung dan memo kredit), hanya pada faktur yang jatuh tempo dari hari ini sampai akhir horizon?      | Dikurangi, faktur lewat jatuh tempo tidak menyerap kredit (D54) ⚠️ |
 
 ---
 
@@ -2851,6 +2875,7 @@ Urutan pengecekan yang disarankan, dari penyebab paling umum:
 | KF-65 | S   | 8.7           | Kredit vendor yang sangat lama (79% lebih dari 90 hari; di luar retur sekitar 30,4 miliar; hutang aset tipe 3 dibayar berlebih sekitar 10,5 miliar dari 2 item di Client 1): diklaim, dihapus, atau dibiarkan?                                                                      | Dihitung sebagai kredit vendor yang mengurangi utang                                                               | Belum                                       |                 |         |
 | KF-66 | S   | 8.9           | Dokumen Pengakuan Biaya berstatus Not Posted yang berumur tahunan: masih berlaku atau draf mati? (memengaruhi label "Diseleksi")                                                                                                                                                    | Dihitung sebagai Diseleksi                                                                                         | Belum                                       |                 |         |
 | KF-67 | T   | 8.9           | Setujukah finance bila Payment Plan AP mengurangi kredit vendor otomatis (aturan kolam D53)?                                                                                                                                                                                        | Mengurangi tagihan terawal                                                                                         | Belum                                       |                 |         |
+| KF-68 | S   | 8.9           | Setujukah finance bila proyeksi penerimaan piutang dikurangi kredit pelanggan (retur langsung dan memo kredit), hanya pada faktur yang jatuh tempo dari hari ini sampai akhir horizon?                                                                                              | Dikurangi, faktur lewat jatuh tempo tidak menyerap kredit (D54)                                                    | Belum                                       |                 |         |
 
 ### 12.3 Hasil pengecekan ke database lokal (2026-11-05)
 
@@ -2902,6 +2927,7 @@ Pengecekan memakai **tujuh query `SELECT` (hanya baca)** ke database lokal `demo
 | 2026-11-06 | Istilah "Retur langsung" (AR) menggantikan "belum dialokasikan"; data check AR_UNALLOC diganti AR_PAYMENT_UNALLOC dan DIRECT_RETURN_OPEN (level info baru); teks pendamping Retur langsung di kartu Payables/Receivables; hasil agregat directReturns/directReturnCount (bagian 3, 5.3.3, 8.7, 8.8, 8.11; D52, KF-63, KF-65).                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 2026-11-07 | Phase 3 Payment Plan AP: kredit vendor (retur, memo, kelebihan bayar) mengurangi tagihan jatuh tempo terawal dalam vendor dan entitas yang sama (aturan kolam D53); baris kredit negatif tampil di tabel tagihan dan drill-down hari; companion hint creditsApplied di kartu Total planned outflows; KF-64, KF-66, KF-67, O20.                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | 2026-11-07 | Payment Plan AP: pembacaan tagihan pasangan berkredit tanpa filter entitas memakai satu pemindaian kunci utama (query C2, bagian 8.9.2), 5,6 detik menjadi 0,4 detik pada data demo; teks query C1 dan C2 disamakan dengan kode.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 2026-11-07 | Phase 4 Payment Plan AR: proyeksi penerimaan piutang dikurangi kredit pelanggan (retur langsung dan memo kredit) pada faktur yang jatuh tempo dari hari ini sampai akhir horizon, dengan Notice info di halaman Payment Plan (bagian 8.9.2 query C3, 8.9.3, 8.9.4, 8.9.5; D54, KF-68).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ### 14.1 Riwayat ringkas dokumen yang digantikan
 

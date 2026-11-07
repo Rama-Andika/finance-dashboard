@@ -369,7 +369,8 @@
       "daysProjection": "hari ke depan",
       "dailyPaymentSchedule": "Jadwal Rencana Bayar Harian",
       "overdueNotice": "Ada tagihan lewat jatuh tempo sebesar {{amount}}.",
-      "creditsAppliedHint": "Dikurangi kredit vendor {{amount}}"
+      "creditsAppliedHint": "Dikurangi kredit vendor {{amount}}",
+      "inflowCreditsNotice": "Proyeksi penerimaan dikurangi kredit pelanggan (retur langsung dan memo kredit): {{amount}}."
     },
     "profitLoss": {
       "pLLine": "Pos Laba Rugi",

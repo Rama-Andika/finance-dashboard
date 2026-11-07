@@ -64,6 +64,13 @@ function PaymentPlanPage() {
         />
       )}
 
+      {deps.inflow && D(data.inflowCreditsApplied).gt(0) && (
+        <Notice
+          tone="info"
+          title={t('ui.paymentPlan.inflowCreditsNotice', { amount: formatMoneyShort(data.inflowCreditsApplied, lang) })}
+        />
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiCard label={t('ui.paymentPlan.openingCash')} value={data.openingBalance} higherIsBetter={true} />
         <KpiCard

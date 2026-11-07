@@ -23,6 +23,7 @@ import {
   snapshotCreditData,
   snapshotDueTotals,
   type CreditData,
+  type CreditDataOptions,
   type DueTotalsOptions,
 } from '~/server/dash/snapshot-aggregate'
 import { emptyAggregates, type AgingAggregates } from '~/lib/finance/ap-ar/aging-aggregate'
@@ -303,9 +304,10 @@ export async function agingCreditData(
   asOf: IsoDate,
   locIds: Id[] | 'all',
   maxDue: IsoDate,
+  options?: CreditDataOptions,
 ): Promise<CreditData | null> {
   if (locIds !== 'all' && locIds.length === 0) return { pools: [], bills: [] }
-  if (await apArSnapshotCovers(asOf)) return snapshotCreditData(side, locIds, maxDue)
-  if (await apArHistCovers(asOf)) return histCreditData(side, asOf, locIds, maxDue)
+  if (await apArSnapshotCovers(asOf)) return snapshotCreditData(side, locIds, maxDue, options)
+  if (await apArHistCovers(asOf)) return histCreditData(side, asOf, locIds, maxDue, options)
   return null
 }

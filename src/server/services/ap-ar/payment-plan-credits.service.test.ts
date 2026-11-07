@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { sum } from '~/lib/core/money'
 import { filterBillsByScope } from '~/lib/finance/ap-ar/payment-plan-bills'
-import type { ApOpenInvoiceRow } from '~/server/repo/ap-ar/aging.repo'
+import type { ApOpenInvoiceRow, ArDirectReturnRow, ArOpenInvoiceRow } from '~/server/repo/ap-ar/aging.repo'
 
 vi.mock('~/server/context', () => ({
   buildMetricMeta: () => ({ meta: true }),
@@ -19,11 +19,13 @@ const agingDueTotals = vi.fn()
 const agingCreditData = vi.fn()
 const apOpenInvoices = vi.fn()
 const arOpenInvoices = vi.fn()
+const arDirectReturns = vi.fn()
 vi.mock('~/server/repo/ap-ar/aging.repo', () => ({
   agingDueTotals: (...args: unknown[]) => agingDueTotals(...args),
   agingCreditData: (...args: unknown[]) => agingCreditData(...args),
   apOpenInvoices: (...args: unknown[]) => apOpenInvoices(...args),
   arOpenInvoices: (...args: unknown[]) => arOpenInvoices(...args),
+  arDirectReturns: (...args: unknown[]) => arDirectReturns(...args),
 }))
 const listActivePlanStatuses = vi.fn()
 vi.mock('~/server/repo/ap-ar/payment-plan.repo', () => ({
@@ -55,6 +57,7 @@ describe('Payment Plan two-path credit parity', () => {
       agingCreditData,
       apOpenInvoices,
       arOpenInvoices,
+      arDirectReturns,
       listActivePlanStatuses,
     ])
       m.mockReset()
@@ -268,4 +271,131 @@ describe('Payment Plan two-path credit parity', () => {
     expect(overdueGrossBills.length).toBe(3) // b1_0, b1_1, b3_0
     expect(overdueCreditRows.length).toBe(2) // credit for b1_0, credit for b1_1
   })
-})
+
+  it('yields identical daily inflows and inflowCreditsApplied between list and summary paths', async () => {
+    // AR Dataset:
+    // c1 @ l1:
+    //   a1: due TODAY (2026-06-15), 100.00
+    //   a2: due 2026-06-17, 50.00
+    //   a_overdue: due 2026-06-10, 80.00 (overdue: does not absorb credit)
+    //   ret1: direct return, -120.00 (pool = 120.00 covers a1 (100) and 20 of a2)
+    // c2 @ l1:
+    //   a3: due 2026-06-18, 40.00 (no credit)
+    // c1 @ l2:
+    //   ret_other: direct return, -30.00 (different entity, does not reduce l1)
+    const rawAr: ArOpenInvoiceRow[] = [
+      {
+        invoiceId: 'a1',
+        customerId: 'c1',
+        locationId: 'l1',
+        coaId: 'c',
+        txDate: '2026-05-15',
+        dueDate: '2026-06-15',
+        itemType: 0,
+        originalAmount: '100.00',
+        balance: '100.00',
+      },
+      {
+        invoiceId: 'a2',
+        customerId: 'c1',
+        locationId: 'l1',
+        coaId: 'c',
+        txDate: '2026-05-17',
+        dueDate: '2026-06-17',
+        itemType: 0,
+        originalAmount: '50.00',
+        balance: '50.00',
+      },
+      {
+        invoiceId: 'a_overdue',
+        customerId: 'c1',
+        locationId: 'l1',
+        coaId: 'c',
+        txDate: '2026-05-10',
+        dueDate: '2026-06-10',
+        itemType: 0,
+        originalAmount: '80.00',
+        balance: '80.00',
+      },
+      {
+        invoiceId: 'a3',
+        customerId: 'c2',
+        locationId: 'l1',
+        coaId: 'c',
+        txDate: '2026-05-18',
+        dueDate: '2026-06-18',
+        itemType: 0,
+        originalAmount: '40.00',
+        balance: '40.00',
+      },
+    ]
+
+    const directReturns: ArDirectReturnRow[] = [
+      {
+        cardId: 'ret1',
+        customerId: 'c1',
+        locationId: 'l1',
+        coaId: 'c',
+        txDate: '2026-05-01',
+        balance: '-120.00',
+      },
+      {
+        cardId: 'ret_other',
+        customerId: 'c1',
+        locationId: 'l2',
+        coaId: 'c',
+        txDate: '2026-05-01',
+        balance: '-30.00',
+      },
+    ]
+
+    // 1. Run list path
+    apOpenInvoices.mockResolvedValue([])
+    arOpenInvoices.mockResolvedValue(rawAr)
+    arDirectReturns.mockResolvedValue(directReturns)
+
+    const plan = await computePaymentPlan(filter, { horizon: '7', inflow: true })
+
+    clearCache()
+
+    // 2. Setup summary path mocks
+    agingDueTotals.mockImplementation(async (side: string) => {
+      if (side === 'ar')
+        return new Map([
+          ['2026-06-15', '100.00'],
+          ['2026-06-17', '50.00'],
+          ['2026-06-18', '40.00'],
+        ])
+      return new Map()
+    })
+    agingCreditData.mockImplementation(async (side: string) => {
+      if (side === 'ar') {
+        return {
+          pools: [
+            { partyId: 'c1', locationId: 'l1', amount: '120.00' },
+            { partyId: 'c1', locationId: 'l2', amount: '30.00' },
+          ],
+          bills: [
+            { invoiceId: 'a1', partyId: 'c1', locationId: 'l1', dueDate: '2026-06-15', balance: '100.00' },
+            { invoiceId: 'a2', partyId: 'c1', locationId: 'l1', dueDate: '2026-06-17', balance: '50.00' },
+          ],
+        }
+      }
+      return { pools: [], bills: [] }
+    })
+
+    const summary = await computePaymentPlanSummary(filter, { horizon: '7', inflow: true })
+
+    // Assert daily inflow parity
+    expect(summary.days.map((d) => d.inflow)).toEqual(plan.days.map((d) => d.inflow))
+    expect(summary.inflowCreditsApplied).toBe(plan.inflowCreditsApplied)
+    expect(plan.inflowCreditsApplied).toBe('120.00')
+
+    // Day 0: 100 - 100 = 0
+    expect(plan.days[0]?.inflow).toBe('0.00')
+    // Day 2 (2026-06-17): 50 - 20 = 30
+    expect(plan.days.find((d) => d.date === '2026-06-17')?.inflow).toBe('30.00')
+    // Day 3 (2026-06-18): 40 (no credit)
+    expect(plan.days.find((d) => d.date === '2026-06-18')?.inflow).toBe('40.00')
+  })
+});

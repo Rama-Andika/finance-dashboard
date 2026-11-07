@@ -986,7 +986,10 @@ untuk setiap hari h dalam horizon:
   Keluar(h) = Σ (sisa tagihan AP − potongan kredit) dengan due_date = h
   Masuk(h)  = 0                                           (default, konservatif)
   jika toggle "Sertakan proyeksi penerimaan":
-     Masuk(h) = Σ sisa AR dengan due_date = h
+     Kolam kredit AR = Σ |sisa AR| dengan sisa < 0 + retur langsung AR per (pelanggan, lokasi)
+     Kredit mengurangi faktur AR dalam horizon (due_date antara hari ini dan akhir horizon)
+     dengan urutan jatuh tempo terawal (due_date ASC, card_id ASC) (D54)
+     Masuk(h) = Σ (sisa AR − potongan kredit pelanggan) dengan due_date = h
               + Σ bank_payment belum cair dengan estimasiCair = h
                 -- estimasiCair = transaction_date + lag(channel), minimal besok
                 -- lag(channel) = rata-rata (payment_date − transaction_date) 90 hari terakhir

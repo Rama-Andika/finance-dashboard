@@ -275,6 +275,21 @@ export function creditPoolsQuery(source: AggregateSource, side: AgingSide, locSl
   `
 }
 
+/** The unallocated table below zero summed per (party, entity): AR direct returns that are still open. */
+export function unallocatedCreditPoolsQuery(source: AggregateSource, side: AgingSide, locSlice: Id[] | undefined): SQL {
+  return sql`
+    SELECT party_id AS partyId, location_id AS locationId, SUM(balance) AS total
+    FROM ${sql.identifier(source.unallocated)}
+    WHERE module_type = ${AGING_SIDES[side].module}
+      AND balance < 0
+      AND kind = 'counted'
+      AND party_id IS NOT NULL
+      ${dayFilter(source)}
+      ${locationSlice(locSlice)}
+    GROUP BY party_id, location_id
+  `
+}
+
 /**
  * The open bills (balance above zero) due by `maxDue`. With a party list the read is narrowed to those parties and carries
  * no index hint. Without one (the vendors with a credit hold most of the bills) the read is a whole-side scan, so it uses
@@ -286,6 +301,7 @@ export function creditableBillsQuery(
   locSlice: Id[] | undefined,
   partySlice: Id[] | undefined,
   maxDue: IsoDate,
+  minDue?: IsoDate,
 ): SQL {
   return sql`
     SELECT card_id AS invoiceId, party_id AS partyId, location_id AS locationId,
@@ -295,9 +311,17 @@ export function creditableBillsQuery(
       AND balance > 0
       ${partySlice ? sql`AND party_id IN (${inList(partySlice)})` : sql``}
       AND COALESCE(due_date, tx_date) <= ${maxDue}
+      ${minDue ? sql`AND COALESCE(due_date, tx_date) >= ${minDue}` : sql``}
       ${dayFilter(source)}
       ${locationSlice(locSlice)}
   `
+}
+
+export type CreditDataOptions = {
+  /** Only bills due on or after this day (default: no lower limit) */
+  minDue?: IsoDate
+  /** Also count the rows of the unallocated table (AR direct returns) in the credits */
+  includeUnallocated?: boolean
 }
 
 export type CreditData = { pools: CreditPool[]; bills: CreditableBill[] }
@@ -307,14 +331,22 @@ async function readCreditData(
   side: AgingSide,
   locIds: Id[] | 'all',
   maxDue: IsoDate,
+  options: CreditDataOptions = {},
 ): Promise<CreditData> {
   const poolParts = await mapLimit(chunkOrAll(locIds), SLICE_CONCURRENCY, (locSlice) =>
     rows<{ partyId: string | null; locationId: string | null; total: string | number }>(
       creditPoolsQuery(source, side, locSlice),
     ),
   )
-  const pools: CreditPool[] = poolParts
-    .flat()
+  const unallocatedParts = options.includeUnallocated
+    ? await mapLimit(chunkOrAll(locIds), SLICE_CONCURRENCY, (locSlice) =>
+        rows<{ partyId: string | null; locationId: string | null; total: string | number }>(
+          unallocatedCreditPoolsQuery(source, side, locSlice),
+        ),
+      )
+    : []
+
+  const pools: CreditPool[] = [...poolParts.flat(), ...unallocatedParts.flat()]
     .map((r) => ({
       partyId: idOrEmpty(r.partyId),
       locationId: idOrEmpty(r.locationId),
@@ -337,12 +369,12 @@ async function readCreditData(
     // No entity filter: nearly every bill belongs to a vendor with a credit, so one primary-key scan is much faster than
     // reading the bills through the party index in slices (5.6 s against 0.4 s on the demo data); the rest is dropped here.
     const wanted = new Set(partyIds)
-    const all = await rows<BillDbRow>(creditableBillsQuery(source, side, undefined, undefined, maxDue))
+    const all = await rows<BillDbRow>(creditableBillsQuery(source, side, undefined, undefined, maxDue, options.minDue))
     billRows = all.filter((r) => wanted.has(idOrEmpty(r.partyId)))
   } else {
     const combos = sliceCombos(chunkOrAll(locIds), chunk(partyIds))
     const parts = await mapLimit(combos, SLICE_CONCURRENCY, ([locSlice, partySlice]) =>
-      rows<BillDbRow>(creditableBillsQuery(source, side, locSlice, partySlice, maxDue)),
+      rows<BillDbRow>(creditableBillsQuery(source, side, locSlice, partySlice, maxDue, options.minDue)),
     )
     billRows = parts.flat()
   }
@@ -357,11 +389,22 @@ async function readCreditData(
 }
 
 /** Credits and creditable bills of today's snapshot (call `apArSnapshotCovers` first). */
-export function snapshotCreditData(side: AgingSide, locIds: Id[] | 'all', maxDue: IsoDate): Promise<CreditData> {
-  return readCreditData(snapshotSource, side, locIds, maxDue)
+export function snapshotCreditData(
+  side: AgingSide,
+  locIds: Id[] | 'all',
+  maxDue: IsoDate,
+  options?: CreditDataOptions,
+): Promise<CreditData> {
+  return readCreditData(snapshotSource, side, locIds, maxDue, options)
 }
 
 /** Credits and creditable bills of a month-end history day (call `apArHistCovers(day)` first). */
-export function histCreditData(side: AgingSide, day: IsoDate, locIds: Id[] | 'all', maxDue: IsoDate): Promise<CreditData> {
-  return readCreditData(historySource(day), side, locIds, maxDue)
+export function histCreditData(
+  side: AgingSide,
+  day: IsoDate,
+  locIds: Id[] | 'all',
+  maxDue: IsoDate,
+  options?: CreditDataOptions,
+): Promise<CreditData> {
+  return readCreditData(historySource(day), side, locIds, maxDue, options)
 }
