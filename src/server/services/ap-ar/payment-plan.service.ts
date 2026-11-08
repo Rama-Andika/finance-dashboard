@@ -142,20 +142,20 @@ async function loadInflows(filter: AppContextFilter, asOfPlusOne: string, lastDa
 
 /** The same inflows with the receivables summed per due date by the database (only dates the plan can use). */
 async function loadInflowTotals(filter: AppContextFilter, lastDay: string): Promise<Inflows> {
-  const [arTotals, bank] = await Promise.all([
+  const [arTotals, bank, credit] = await Promise.all([
     agingDueTotals('ar', filter.today, filter.locationIds, {
       minDue: filter.today,
       maxDue: lastDay,
     }),
     loadBankInflows(filter),
+    agingCreditData('ar', filter.today, filter.locationIds, lastDay, {
+      minDue: filter.today,
+      includeUnallocated: true,
+    }),
   ])
   // Neither the snapshot nor a month-end history covers today: read the invoices as before.
   if (arTotals === null) return loadInflows(filter, addDays(filter.today, 1), lastDay)
 
-  const credit = await agingCreditData('ar', filter.today, filter.locationIds, lastDay, {
-    minDue: filter.today,
-    includeUnallocated: true,
-  })
   const { reductions, applied } = applyCreditData(credit)
   const reduced = subtractReductions(
     { total: arTotals, approved: new Map(), submitted: new Map() },
@@ -298,11 +298,13 @@ async function computePaymentPlanSummaryUncached(
   const horizon = Number(opts.horizon) || 7
   const lastDay = addDays(today, horizon - 1)
 
-  // Opening cash, the bills due by the last day of the plan (overdue included) and the live payment vouchers are independent.
-  const [cashPos, statusRows, apTotals] = await Promise.all([
+  // Opening cash, the bills due by the last day of the plan (overdue included), the live payment vouchers and the vendor
+  // credits are independent. The credit read answers null, without a query, when the snapshot does not cover today.
+  const [cashPos, statusRows, apTotals, credit] = await Promise.all([
     computeCashPosition({ ...filter, asOf: today }, { includeByEntity: false, includeCompare: false }),
     listActivePlanStatuses(),
     agingDueTotals('ap', today, filter.locationIds, { maxDue: lastDay }),
+    agingCreditData('ap', today, filter.locationIds, lastDay),
   ])
 
   if (apTotals === null) {
@@ -323,7 +325,6 @@ async function computePaymentPlanSummaryUncached(
       invoiceIds: submittedIds,
     }),
   ])
-  const credit = await agingCreditData('ap', today, filter.locationIds, lastDay)
   const { reductions, applied: creditsApplied } = applyCreditData(credit)
   const reduced = subtractReductions(
     { total: apTotals, approved: approved ?? new Map(), submitted: submitted ?? new Map() },

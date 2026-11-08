@@ -188,4 +188,56 @@ describe('computePaymentPlanSummary', () => {
     const arCreditCall = agingCreditData.mock.calls.find((c) => c[0] === 'ar')
     expect(arCreditCall?.[4]).toEqual({ minDue: TODAY, includeUnallocated: true })
   })
+
+  it('starts the vendor credit read together with the other reads instead of after them', async () => {
+    const events: string[] = []
+    let releaseTotals: () => void = () => {}
+    agingDueTotals.mockImplementation(
+      async (_side: string, _asOf: string, _loc: unknown, o: { invoiceIds?: string[] }) => {
+        if (o.invoiceIds) return new Map()
+        events.push('totals:start')
+        await new Promise<void>((resolve) => {
+          releaseTotals = resolve
+        })
+        events.push('totals:end')
+        return new Map()
+      },
+    )
+    agingCreditData.mockImplementation(async () => {
+      events.push('credit:start')
+      return null
+    })
+
+    const pending = computePaymentPlanSummary(filter, opts)
+    // The credit read starts while the due-date totals are still being read.
+    await vi.waitFor(() => expect(events).toContain('credit:start'))
+    expect(events).not.toContain('totals:end')
+    releaseTotals()
+    await pending
+    expect(events.indexOf('credit:start')).toBeLessThan(events.indexOf('totals:end'))
+  })
+
+  it('starts the customer credit read together with the receivable totals instead of after them', async () => {
+    const events: string[] = []
+    let releaseTotals: () => void = () => {}
+    agingDueTotals.mockImplementation(async (side: string) => {
+      if (side !== 'ar') return new Map()
+      events.push('ar-totals:start')
+      await new Promise<void>((resolve) => {
+        releaseTotals = resolve
+      })
+      events.push('ar-totals:end')
+      return new Map()
+    })
+    agingCreditData.mockImplementation(async (side: string) => {
+      events.push(`${side}-credit:start`)
+      return null
+    })
+
+    const pending = computePaymentPlanSummary(filter, { horizon: '7', inflow: true })
+    await vi.waitFor(() => expect(events).toContain('ar-credit:start'))
+    expect(events).not.toContain('ar-totals:end')
+    releaseTotals()
+    await pending
+  })
 });
