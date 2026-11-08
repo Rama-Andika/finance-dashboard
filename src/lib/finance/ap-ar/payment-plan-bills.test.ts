@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   PAYMENT_BILL_SORT_KEYS,
+  billReference,
   filterBillsByScope,
   paymentBillComparators,
   summarizeBillScopes,
@@ -86,5 +87,15 @@ describe('bill scopes', () => {
       due: { count: 0, total: '0.00' },
       overdue: { count: 0, total: '0.00' },
     })
+  })
+})
+
+describe('billReference', () => {
+  it('shows the invoice number of a bill', () => {
+    expect(billReference(bill({ invoiceNumber: 'INV-7' }), 'Vendor credit')).toBe('INV-7')
+  })
+
+  it('shows the credit label for a credit row, which has no number of its own', () => {
+    expect(billReference(bill({ kind: 'credit', invoiceNumber: '' }), 'Vendor credit')).toBe('Vendor credit')
   })
 })

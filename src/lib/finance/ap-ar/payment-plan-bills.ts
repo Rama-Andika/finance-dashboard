@@ -32,3 +32,11 @@ export const paymentBillComparators: Record<PaymentBillSortKey, Comparator<Payme
   vendorName: (a, b) => compareText(a.vendorName, b.vendorName),
   status: (a, b) => compareText(a.status, b.status),
 }
+
+/**
+ * What a bills table shows where the number of a bill goes. A credit row (the vendor credit that reduces a bill) has
+ * no number of its own, so it says what it is.
+ */
+export function billReference(bill: Pick<PaymentPlanBill, 'kind' | 'invoiceNumber'>, creditLabel: string): string {
+  return bill.kind === 'credit' ? creditLabel : bill.invoiceNumber
+}
