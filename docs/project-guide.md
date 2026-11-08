@@ -791,6 +791,20 @@ FROM gl g
 WHERE g.period_id = ?;
 ```
 
+Versi banyak periode (`glPeriodStatsOfTable`, dipakai pemeriksaan periode lama):
+
+```sql
+SELECT g.period_id AS periodId, COUNT(*) AS journals,
+       COALESCE(MAX(g.gl_id), 0) AS maxGlId,
+       COALESCE(SUM(g.posted_status = 1), 0) AS posted,
+       COALESCE(SUM(g.canceled_date IS NOT NULL), 0) AS canceled   -- 0 bila kolom tidak ada
+FROM gl g
+WHERE g.period_id IN (:id_periode)      -- per potongan 1.000 periode
+GROUP BY g.period_id;
+```
+
+Pemeriksaan periode lama memakai versi ini: satu query per tabel GL untuk semua periode yang jatuh tempo diperiksa, bukan satu query per periode. Periode tanpa jurnal tidak muncul di hasil dan dihitung nol. Pembangunan periode tetap memakai versi satu periode (hitungan harus segar). Cache 60 detik per periode tidak berubah.
+
 Hanya membaca kepala jurnal (satu rentang indeks `period_id`), bukan baris detail.
 
 #### B7. Snapshot baris kas per periode (`cash-lines-build.ts`)
@@ -2928,6 +2942,7 @@ Pengecekan memakai **tujuh query `SELECT` (hanya baca)** ke database lokal `demo
 | 2026-11-07 | Phase 3 Payment Plan AP: kredit vendor (retur, memo, kelebihan bayar) mengurangi tagihan jatuh tempo terawal dalam vendor dan entitas yang sama (aturan kolam D53); baris kredit negatif tampil di tabel tagihan dan drill-down hari; companion hint creditsApplied di kartu Total planned outflows; KF-64, KF-66, KF-67, O20.                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | 2026-11-07 | Payment Plan AP: pembacaan tagihan pasangan berkredit tanpa filter entitas memakai satu pemindaian kunci utama (query C2, bagian 8.9.2), 5,6 detik menjadi 0,4 detik pada data demo; teks query C1 dan C2 disamakan dengan kode.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | 2026-11-07 | Phase 4 Payment Plan AR: proyeksi penerimaan piutang dikurangi kredit pelanggan (retur langsung dan memo kredit) pada faktur yang jatuh tempo dari hari ini sampai akhir horizon, dengan Notice info di halaman Payment Plan (bagian 8.9.2 query C3, 8.9.3, 8.9.4, 8.9.5; D54, KF-68).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 2026-11-07 | Pemeriksaan periode tertutup lama membaca hitungan jurnal banyak periode dengan satu query per tabel GL (glPeriodStatsOfTable, bagian 5.6 B6); angka tidak berubah.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ### 14.1 Riwayat ringkas dokumen yang digantikan
 

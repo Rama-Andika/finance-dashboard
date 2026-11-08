@@ -2,12 +2,13 @@ import '@tanstack/react-start/server-only'
 import { refreshPool } from '~/server/db/refresh-pool'
 import { chunk } from '~/server/db/chunk'
 import { listPeriods } from '~/server/repo/master-data/periods.repo'
-import { glPeriodStatsShared } from '~/server/repo/gl/gl-period-stats.repo'
+import { glPeriodStatsSharedMany } from '~/server/repo/gl/gl-period-stats.repo'
 import {
   NEWEST_CLOSED_PERIODS,
   statsKey,
   verifyDecision,
   type BuiltPeriodState,
+  type PeriodHeaderStats,
 } from '~/lib/finance/period/period-fingerprint'
 import type { Period } from '~/lib/core/types'
 import { dashTable } from './tables'
@@ -98,32 +99,44 @@ export async function refreshClosedPeriods(
     const newestIds = new Set(newestFirst.slice(0, NEWEST_CLOSED_PERIODS).map((p) => p.periodeId))
     const nowMs = Date.now()
 
-    const toBuild: Period[] = []
-    const replaced = new Set<string>()
-    const unchanged: string[] = []
+    // First decide for every period, without waiting for the ERP: the periods whose journal counts must be compared
+    // are collected, so they can be read together (one query per GL table instead of one per period).
+    type PeriodDecision = 'build' | 'rebuild' | 'check-stats' | 'keep'
+    const decisions: Array<{ period: Period; row: BuiltRow | undefined; decision: PeriodDecision }> = []
     for (const period of newestFirst) {
       const row = builtById.get(period.periodeId)
       if (!row) {
+        decisions.push({ period, row, decision: 'build' })
+      } else if (spec.extra && row.extra !== spec.extra.expected) {
+        decisions.push({ period, row, decision: 'rebuild' })
+      } else {
+        const state: BuiltPeriodState = {
+          periodKey: row.periodKey,
+          statsKey: row.statsKey,
+          builtAtMs: toMs(row.builtAt),
+          checkedAtMs: toMs(row.checkedAt),
+        }
+        const decision = verifyDecision({ period, built: state, isNewest: newestIds.has(period.periodeId), nowMs })
+        decisions.push({ period, row, decision })
+      }
+    }
+
+    const toCheck = decisions.filter((d) => d.decision === 'check-stats').map((d) => d.period)
+    const counts = toCheck.length > 0 ? await glPeriodStatsSharedMany(toCheck) : new Map<string, PeriodHeaderStats>()
+
+    const toBuild: Period[] = []
+    const replaced = new Set<string>()
+    const unchanged: string[] = []
+    for (const { period, row, decision } of decisions) {
+      let final = decision
+      if (final === 'check-stats') {
+        const found = counts.get(period.periodeId)
+        final = found !== undefined && row !== undefined && statsKey(found) === row.statsKey ? 'keep' : 'rebuild'
+        if (final === 'keep') unchanged.push(period.periodeId)
+      }
+      if (final === 'build') {
         toBuild.push(period)
-        continue
-      }
-      if (spec.extra && row.extra !== spec.extra.expected) {
-        toBuild.push(period)
-        replaced.add(period.periodeId)
-        continue
-      }
-      const state: BuiltPeriodState = {
-        periodKey: row.periodKey,
-        statsKey: row.statsKey,
-        builtAtMs: toMs(row.builtAt),
-        checkedAtMs: toMs(row.checkedAt),
-      }
-      let decision = verifyDecision({ period, built: state, isNewest: newestIds.has(period.periodeId), nowMs })
-      if (decision === 'check-stats') {
-        decision = statsKey(await glPeriodStatsShared(period)) === row.statsKey ? 'keep' : 'rebuild'
-        if (decision === 'keep') unchanged.push(period.periodeId)
-      }
-      if (decision === 'rebuild') {
+      } else if (final === 'rebuild') {
         toBuild.push(period)
         replaced.add(period.periodeId)
       }

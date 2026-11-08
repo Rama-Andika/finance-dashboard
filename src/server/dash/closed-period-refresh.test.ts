@@ -5,13 +5,13 @@ import type { Period } from '~/lib/core/types'
 const mocks = vi.hoisted(() => ({
   getConnection: vi.fn(),
   listPeriods: vi.fn(),
-  glPeriodStatsShared: vi.fn(),
+  glPeriodStatsSharedMany: vi.fn(),
   info: vi.fn(),
 }))
 
 vi.mock('~/server/db/refresh-pool', () => ({ refreshPool: { getConnection: mocks.getConnection } }))
 vi.mock('~/server/repo/master-data/periods.repo', () => ({ listPeriods: mocks.listPeriods }))
-vi.mock('~/server/repo/gl/gl-period-stats.repo', () => ({ glPeriodStatsShared: mocks.glPeriodStatsShared }))
+vi.mock('~/server/repo/gl/gl-period-stats.repo', () => ({ glPeriodStatsSharedMany: mocks.glPeriodStatsSharedMany }))
 vi.mock('./log', () => ({ dashLog: { info: mocks.info, warn: vi.fn(), error: vi.fn() } }))
 
 const { refreshClosedPeriods } = await import('./closed-period-refresh')
@@ -69,7 +69,9 @@ const statements = (conn: FakeConn, start: string) =>
 
 beforeEach(() => {
   vi.resetAllMocks()
-  mocks.glPeriodStatsShared.mockResolvedValue(STATS)
+  mocks.glPeriodStatsSharedMany.mockImplementation(
+    async (periods: Array<{ periodeId: string }>) => new Map(periods.map((p) => [p.periodeId, STATS])),
+  )
 })
 
 describe('refreshClosedPeriods', () => {
@@ -100,7 +102,7 @@ describe('refreshClosedPeriods', () => {
 
     expect(built).toEqual(['3', '2', '1'])
     expect(result).toMatchObject({ ran: true, built: 3, rebuilt: 0, removed: 0 })
-    expect(mocks.glPeriodStatsShared).not.toHaveBeenCalled()
+    expect(mocks.glPeriodStatsSharedMany).not.toHaveBeenCalled()
     expect(mocks.info).toHaveBeenCalledWith(expect.stringContaining('test snapshot 1/3: Period 3'))
     expect(statements(conn, 'SELECT RELEASE_LOCK')).toHaveLength(1)
     expect(conn.release).toHaveBeenCalledTimes(1)
@@ -134,7 +136,7 @@ describe('refreshClosedPeriods', () => {
 
     expect(result).toEqual({ ran: false, reason: 'nothing-to-do' })
     expect(build).not.toHaveBeenCalled()
-    expect(mocks.glPeriodStatsShared).toHaveBeenCalledTimes(1)
+    expect(mocks.glPeriodStatsSharedMany).toHaveBeenCalledTimes(1)
     const updates = statements(conn, 'UPDATE')
     expect(updates).toHaveLength(1)
     expect(updates[0]?.[1]).toEqual([DASH_TABLES.glPeriods, ['1']])
@@ -163,7 +165,7 @@ describe('refreshClosedPeriods', () => {
 
     expect(build).toHaveBeenCalledTimes(1)
     expect(result).toMatchObject({ ran: true, built: 1, rebuilt: 1 })
-    expect(mocks.glPeriodStatsShared).not.toHaveBeenCalled()
+    expect(mocks.glPeriodStatsSharedMany).not.toHaveBeenCalled()
     // the extra column is selected by name through an identifier placeholder
     const select = statements(conn, 'SELECT CAST(period_id')[0]!
     expect(String(select[0])).toContain('?? AS extra')
@@ -195,5 +197,47 @@ describe('refreshClosedPeriods', () => {
 
     expect(statements(conn, 'SELECT RELEASE_LOCK')).toHaveLength(1)
     expect(conn.release).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks for the journal counts of all the periods that need a comparison in ONE call', async () => {
+    const jan = period('1', '2026-01-01')
+    const feb = period('2', '2026-02-01')
+    const mar = period('3', '2026-03-01')
+    const old = iso(7 * 60 * 60_000) // checked 7 hours ago: older periods are compared again after 6 hours
+    mocks.listPeriods.mockResolvedValue([jan, feb, mar])
+    const conn = fakeConnection({
+      markers: [marker(jan, { checkedAt: old }), marker(feb, { checkedAt: old }), marker(mar, { checkedAt: old })],
+    })
+    const build = vi.fn()
+
+    const result = await refreshClosedPeriods(SPEC, build)
+
+    expect(result).toEqual({ ran: false, reason: 'nothing-to-do' })
+    expect(mocks.glPeriodStatsSharedMany).toHaveBeenCalledTimes(1)
+    const asked = mocks.glPeriodStatsSharedMany.mock.calls[0]![0] as Period[]
+    expect(asked.map((p) => p.periodeId).sort()).toEqual(['1', '2', '3'])
+    // all three had unchanged counts: their checked time moves, in one statement
+    const updates = statements(conn, 'UPDATE')
+    expect(updates).toHaveLength(1)
+    expect((updates[0]?.[1] as unknown[])[1]).toEqual(expect.arrayContaining(['1', '2', '3']))
+  })
+
+  it('rebuilds only the periods whose counts changed, keeping the newest-first order', async () => {
+    const jan = period('1', '2026-01-01')
+    const feb = period('2', '2026-02-01')
+    const mar = period('3', '2026-03-01')
+    mocks.listPeriods.mockResolvedValue([jan, feb, mar])
+    fakeConnection({
+      markers: [marker(jan), marker(feb), marker(mar, { statsKey: statsKey({ ...STATS, journals: '9' }) })],
+    })
+    const built: string[] = []
+    const build = vi.fn(async (_conn: unknown, p: Period) => {
+      built.push(p.periodeId)
+    })
+
+    const result = await refreshClosedPeriods(SPEC, build)
+
+    expect(result).toMatchObject({ ran: true, built: 1, rebuilt: 1 })
+    expect(built).toEqual(['3'])
   })
 })
