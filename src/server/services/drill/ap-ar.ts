@@ -5,7 +5,12 @@ import { buildEntityCaptions } from '~/lib/finance/entity/entity-owner'
 import { addDays } from '~/lib/format/date'
 import { type Id, type IsoDate, type Money } from '~/lib/core/types'
 import { applyCreditsToItems, partyItemOf } from '~/lib/finance/ap-ar/payment-plan-credits'
-import { apOpenInvoices, arOpenInvoices } from '~/server/repo/ap-ar/aging.repo'
+import {
+  apOpenInvoices,
+  arOpenInvoices,
+  type ApOpenInvoiceRow,
+  type ArOpenInvoiceRow,
+} from '~/server/repo/ap-ar/aging.repo'
 import { listCustomers, listVendors } from '~/server/repo/ap-ar/party.repo'
 import { type DrillState, type DrillStep, type DrillStepKind } from '~/lib/filters/search-schema'
 import { col, NAMED_TOTAL_COLUMNS, matchesBucket, statusMapFor, type DrillContext, type DrillResult, pageOf } from '~/server/services/drill/shared'
@@ -14,73 +19,130 @@ import { col, NAMED_TOTAL_COLUMNS, matchesBucket, statusMapFor, type DrillContex
 // AP / AR aging, payment plan
 // ---------------------------------------------------------------------------
 
-export async function apArDrill(ctx: DrillContext, drill: DrillState, steps: Map<DrillStepKind, DrillStep>) {
-  const isAp = drill.metric === 'apAging'
+type OpenInvoice = ApOpenInvoiceRow | ArOpenInvoiceRow
+type PartyNames = Map<Id, { code: string; name: string }>
+
+/** What differs between the payables side and the receivables side of the aging drill-down. */
+type AgingDrillSide = {
+  /** The drill step that holds the chosen vendor or customer. */
+  partyKind: 'vendor' | 'customer'
+  /** i18n key of the list with the invoices of one party. */
+  invoicesTitleKey: string
+  /** i18n key of the list with the parties of one aging bucket. */
+  partiesTitleKey: string
+  /** Only bills have a plan status: the payment plan is about what the company pays. */
+  hasPlanStatus: boolean
+  loadInvoices: (asOfPlusOne: IsoDate, locationIds: Id[] | 'all') => Promise<readonly OpenInvoice[]>
+  lookupParties: (ids: Id[]) => Promise<PartyNames>
+}
+
+const AGING_DRILL_SIDES: Record<'ap' | 'ar', AgingDrillSide> = {
+  ap: {
+    partyKind: 'vendor',
+    invoicesTitleKey: 'drill.title.bills',
+    partiesTitleKey: 'drill.title.vendors',
+    hasPlanStatus: true,
+    loadInvoices: apOpenInvoices,
+    lookupParties: async (ids) => new Map((await listVendors(ids)).map((v) => [v.vendorId, v])),
+  },
+  ar: {
+    partyKind: 'customer',
+    invoicesTitleKey: 'drill.title.invoices',
+    partiesTitleKey: 'drill.title.customers',
+    hasPlanStatus: false,
+    loadInvoices: arOpenInvoices,
+    lookupParties: async (ids) => new Map((await listCustomers(ids)).map((c) => [c.customerId, c])),
+  },
+}
+
+const partyIdOf = (invoice: OpenInvoice): Id => ('vendorId' in invoice ? invoice.vendorId : invoice.customerId)
+
+export async function apArDrill(
+  ctx: DrillContext,
+  drill: DrillState,
+  steps: Map<DrillStepKind, DrillStep>,
+): Promise<DrillResult> {
+  const side = AGING_DRILL_SIDES[drill.metric === 'apAging' ? 'ap' : 'ar']
   const asOf = ctx.filter.asOf
   const bucketStep = steps.get('bucket')
-  const partyStep = steps.get(isAp ? 'vendor' : 'customer')
+  const partyStep = steps.get(side.partyKind)
   // The cached invoice lists are shared: read them, never copy or modify them.
-  const raw = isAp
-    ? await apOpenInvoices(addDays(asOf, 1), ctx.filter.locationIds)
-    : await arOpenInvoices(addDays(asOf, 1), ctx.filter.locationIds)
-  const partyOf = (a: (typeof raw)[number]): Id => ('vendorId' in a ? a.vendorId : a.customerId)
+  const raw = await side.loadInvoices(addDays(asOf, 1), ctx.filter.locationIds)
 
   let items = raw.filter((a) => D(a.balance).gt(0))
   if (bucketStep) items = items.filter((a) => matchesBucket(asOf, a.dueDate || a.txDate, bucketStep.id))
 
-  if (partyStep) {
-    // Newest transaction date first; only the shown page needs its plan statuses
-    const partyItems = items
-      .filter((a) => partyOf(a) === partyStep.id)
-      .sort((a, b) => b.txDate.localeCompare(a.txDate) || b.invoiceId.localeCompare(a.invoiceId))
-    const { page: shown, hasMore } = pageOf(partyItems, ctx.offset)
-    const captions = buildEntityCaptions(ctx.entities, ctx.filter.entityCount)
-    const statuses = isAp ? await statusMapFor(shown.map((a) => a.invoiceId)) : null
-    return {
-      titleKey: isAp ? 'drill.title.bills' : 'drill.title.invoices',
-      showEntity: captions.show,
-      titleLabel: partyStep.label,
-      columns: [
-        col('invoiceNumber', 'code'),
-        col('txDate', 'date'),
-        col('dueDate', 'date'),
-        col('balance', 'money'),
-        ...(isAp ? [col('status', 'status')] : []),
-      ],
-      rows: shown.map((a) => ({
-        id: a.invoiceId,
-        invoiceNumber: a.invoiceNumber || a.invoiceId,
-        txDate: a.txDate,
-        dueDate: a.dueDate || a.txDate,
-        balance: a.balance,
-        ...(statuses ? { status: statuses.get(a.invoiceId) ?? 'notSubmitted' } : {}),
-        ...captions.fieldsOfLocation(a.locationId),
-      })),
-      nextKind: 'card',
-      hasMore,
-    } satisfies DrillResult
-  }
+  return partyStep
+    ? partyInvoicesPage(ctx, side, items, partyStep)
+    : partyTotalsPage(ctx, side, items, bucketStep?.label ?? '')
+}
 
-  const totals = new Map<Id, Decimal>()
-  for (const a of items) totals.set(partyOf(a), (totals.get(partyOf(a)) ?? D(0)).plus(D(a.balance)))
-  // Largest balance first; names are looked up for the shown page only
-  const ranked = Array.from(totals.entries()).sort(([, a], [, b]) => b.cmp(a))
-  const { page: shownParties, hasMore: moreParties } = pageOf(ranked, ctx.offset)
-  const ids = shownParties.map(([id]) => id).filter(Boolean)
-  const names = isAp
-    ? new Map((await listVendors(ids)).map((v) => [v.vendorId, v]))
-    : new Map((await listCustomers(ids)).map((c) => [c.customerId, c]))
+/** The open invoices of one vendor or customer, newest transaction first, one page. */
+async function partyInvoicesPage(
+  ctx: DrillContext,
+  side: AgingDrillSide,
+  items: readonly OpenInvoice[],
+  partyStep: DrillStep,
+): Promise<DrillResult> {
+  const partyItems = items
+    .filter((a) => partyIdOf(a) === partyStep.id)
+    .sort((a, b) => b.txDate.localeCompare(a.txDate) || b.invoiceId.localeCompare(a.invoiceId))
+  const { page: shown, hasMore } = pageOf(partyItems, ctx.offset)
+  const captions = buildEntityCaptions(ctx.entities, ctx.filter.entityCount)
+  // Only the shown page needs its plan statuses
+  const statuses = side.hasPlanStatus ? await statusMapFor(shown.map((a) => a.invoiceId)) : null
   return {
-    titleKey: isAp ? 'drill.title.vendors' : 'drill.title.customers',
-    titleLabel: bucketStep?.label ?? '',
+    titleKey: side.invoicesTitleKey,
+    showEntity: captions.show,
+    titleLabel: partyStep.label,
+    columns: [
+      col('invoiceNumber', 'code'),
+      col('txDate', 'date'),
+      col('dueDate', 'date'),
+      col('balance', 'money'),
+      ...(side.hasPlanStatus ? [col('status', 'status')] : []),
+    ],
+    rows: shown.map((a) => ({
+      id: a.invoiceId,
+      invoiceNumber: a.invoiceNumber || a.invoiceId,
+      txDate: a.txDate,
+      dueDate: a.dueDate || a.txDate,
+      balance: a.balance,
+      ...(statuses ? { status: statuses.get(a.invoiceId) ?? 'notSubmitted' } : {}),
+      ...captions.fieldsOfLocation(a.locationId),
+    })),
+    nextKind: 'card',
+    hasMore,
+  }
+}
+
+/** The vendors or customers of one aging bucket with their balance, largest first, one page. */
+async function partyTotalsPage(
+  ctx: DrillContext,
+  side: AgingDrillSide,
+  items: readonly OpenInvoice[],
+  bucketLabel: string,
+): Promise<DrillResult> {
+  const totals = new Map<Id, Decimal>()
+  for (const a of items) {
+    const partyId = partyIdOf(a)
+    totals.set(partyId, (totals.get(partyId) ?? D(0)).plus(D(a.balance)))
+  }
+  const ranked = Array.from(totals.entries()).sort(([, a], [, b]) => b.cmp(a))
+  const { page: shownParties, hasMore } = pageOf(ranked, ctx.offset)
+  // Names are looked up for the shown page only
+  const names = await side.lookupParties(shownParties.map(([id]) => id).filter(Boolean))
+  return {
+    titleKey: side.partiesTitleKey,
+    titleLabel: bucketLabel,
     columns: NAMED_TOTAL_COLUMNS,
     rows: shownParties.map(([id, total]) => {
       const party = names.get(id)
       return { id, code: party?.code || '', name: party?.name || id, amount: total.toFixed(2) }
     }),
-    nextKind: isAp ? 'vendor' : 'customer',
-    hasMore: moreParties,
-  } satisfies DrillResult
+    nextKind: side.partyKind,
+    hasMore,
+  }
 }
 
 export async function paymentPlanDrill(ctx: DrillContext, dayStep: DrillStep): Promise<DrillResult> {
