@@ -267,13 +267,15 @@ describe('credit data queries', () => {
   })
 
   it('creditableBillsQuery includes minDue condition when provided', () => {
-    const withMin = compile(creditableBillsQuery(snapshotSource, 'ar', undefined, ['7'], '2026-06-21', '2026-06-15'))
+    const withMin = compile(
+      creditableBillsQuery(snapshotSource, 'ar', { partySlice: ['7'], maxDue: '2026-06-21', minDue: '2026-06-15' }),
+    )
     expect(withMin.sql).toContain('<= ?')
     expect(withMin.sql).toContain('>= ?')
     expect(withMin.params).toContain('2026-06-21')
     expect(withMin.params).toContain('2026-06-15')
 
-    const withoutMin = compile(creditableBillsQuery(snapshotSource, 'ar', undefined, ['7'], '2026-06-21'))
+    const withoutMin = compile(creditableBillsQuery(snapshotSource, 'ar', { partySlice: ['7'], maxDue: '2026-06-21' }))
     expect(withoutMin.sql).not.toContain('>= ?')
   })
 
@@ -304,14 +306,16 @@ describe('credit data queries', () => {
   })
 
   it('creditableBillsQuery reads positive bills due by maxDue without FORCE INDEX', () => {
-    const billQuery = compile(creditableBillsQuery(snapshotSource, 'ap', undefined, ['7'], '2026-06-21'))
+    const billQuery = compile(creditableBillsQuery(snapshotSource, 'ap', { partySlice: ['7'], maxDue: '2026-06-21' }))
     expect(billQuery.sql).toContain('balance > 0')
     expect(billQuery.sql).toContain('party_id IN (?)')
     expect(billQuery.sql).toContain('<= ?')
     expect(billQuery.sql).not.toContain('FORCE INDEX')
     expect(billQuery.params).toContain('2026-06-21')
 
-    const hist = compile(creditableBillsQuery(historySource('2026-05-31'), 'ap', undefined, ['7'], '2026-06-21')).sql
+    const hist = compile(
+      creditableBillsQuery(historySource('2026-05-31'), 'ap', { partySlice: ['7'], maxDue: '2026-06-21' }),
+    ).sql
     expect(hist).toContain('as_of_date = ?')
   })
 
@@ -341,20 +345,42 @@ describe('credit data queries', () => {
   })
 
   it('creditableBillsQuery without a party list scans the whole side in primary-key order', () => {
-    const whole = compile(creditableBillsQuery(snapshotSource, 'ap', undefined, undefined, '2026-06-21')).sql
+    const whole = compile(creditableBillsQuery(snapshotSource, 'ap', { maxDue: '2026-06-21' })).sql
     expect(whole).toContain('FORCE INDEX (PRIMARY)')
     expect(whole).not.toContain('party_id IN')
 
     // A location filter narrows the read, so the secondary indexes are better than the hint
-    const withLoc = compile(creditableBillsQuery(snapshotSource, 'ap', ['1'], undefined, '2026-06-21')).sql
+    const withLoc = compile(creditableBillsQuery(snapshotSource, 'ap', { locSlice: ['1'], maxDue: '2026-06-21' })).sql
     expect(withLoc).not.toContain('FORCE INDEX')
 
     // A month-end history is read by its day, never with the hint
-    const hist = compile(
-      creditableBillsQuery(historySource('2026-05-31'), 'ap', undefined, undefined, '2026-06-21'),
-    ).sql
+    const hist = compile(creditableBillsQuery(historySource('2026-05-31'), 'ap', { maxDue: '2026-06-21' })).sql
     expect(hist).not.toContain('FORCE INDEX')
     expect(hist).toContain('as_of_date = ?')
+  })
+
+  it('creditableBillsQuery puts the filters in the same places whatever order they are written in', () => {
+    const a = compile(
+      creditableBillsQuery(snapshotSource, 'ap', {
+        maxDue: '2026-06-21',
+        minDue: '2026-06-15',
+        locSlice: ['1'],
+        partySlice: ['7'],
+      }),
+    )
+    const b = compile(
+      creditableBillsQuery(snapshotSource, 'ap', {
+        partySlice: ['7'],
+        locSlice: ['1'],
+        minDue: '2026-06-15',
+        maxDue: '2026-06-21',
+      }),
+    )
+    expect(a.sql).toBe(b.sql)
+    expect(a.params).toEqual(b.params)
+    expect(a.sql).toContain('party_id IN (?)')
+    expect(a.sql).toContain('location_id IN (?)')
+    expect(a.sql).toContain('>= ?')
   })
 
   it('without an entity filter the bills are read once for every vendor and only the vendors with a credit are kept', async () => {

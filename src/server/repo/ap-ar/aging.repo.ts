@@ -28,6 +28,7 @@ import {
 } from '~/server/dash/snapshot-aggregate'
 import { emptyAggregates, type AgingAggregates } from '~/lib/finance/ap-ar/aging-aggregate'
 import { locKeyOf, locationFilter } from '~/server/repo/ap-ar/shared'
+import { unallocatedQuery } from '~/server/repo/ap-ar/unallocated-sql'
 import type { AgingInvoice, AgingSide, AgingUnallocated } from '~/server/repo/ap-ar/types'
 import type { Id, IsoDate, Money } from '~/lib/core/types'
 
@@ -129,47 +130,7 @@ export function liveAgingUnallocated<K extends 'vendorId' | 'customerId'>(
   return memo(`${side}AgingUnallocated:${asOfPlusOne}:${locKeyOf(locIds)}`, AGING_CACHE_MS, async () => {
     // The slices of 1,000 locations do not depend on each other: read them together.
     const slices = await mapLimit(chunkOrAll(locIds), SLICE_CONCURRENCY, async (lChunk) => {
-      const res = await rows<AgingUnallocatedDbRow>(
-        cfg.unallocatedAllocatedLater
-          ? sql`
-        SELECT r.ap_ar_card_id AS cardId,
-               r.owner_id AS partyId,
-               r.location_id AS locationId,
-               r.coa_id AS coaId,
-               DATE(r.transaction_date) AS txDate,
-               r.amount * r.in_out + COALESCE(SUM(CASE WHEN p.ap_ar_card_id IS NOT NULL THEN d.amount END), 0) AS balance
-        FROM ap_ar_card r
-        LEFT JOIN ap_ar_card_detail d ON d.invoice_id = r.ap_ar_card_id
-        LEFT JOIN ap_ar_card p ON p.ap_ar_card_id = d.ap_ar_card_id
-                              AND p.transaction_date < ${asOfPlusOne}
-                              AND p.in_out IN (${intList(IN_OUT_VALUES)})
-                              AND p.module_type = ${cfg.module}
-                              AND p.transaction_type IN (${intList(cfg.settlementTypes)})
-        WHERE r.module_type = ${cfg.module}
-          AND r.transaction_type IN (${intList(cfg.unallocatedTypes)})
-          AND r.in_out IN (${intList(IN_OUT_VALUES)})
-          AND r.transaction_date < ${asOfPlusOne}
-          ${locationFilter('r', lChunk)}
-          AND NOT EXISTS (SELECT 1 FROM ap_ar_card_detail o WHERE o.ap_ar_card_id = r.ap_ar_card_id)
-        GROUP BY r.ap_ar_card_id, r.owner_id, r.location_id, r.coa_id, DATE(r.transaction_date), r.amount, r.in_out
-        HAVING balance <> 0
-      `
-          : sql`
-        SELECT p.ap_ar_card_id AS cardId,
-               p.owner_id AS partyId,
-               p.location_id AS locationId,
-               p.coa_id AS coaId,
-               DATE(p.transaction_date) AS txDate,
-               p.amount * p.in_out AS balance
-        FROM ap_ar_card p
-        WHERE p.module_type = ${cfg.module}
-          AND p.transaction_type IN (${intList(cfg.unallocatedTypes)})
-          AND p.in_out IN (${intList(IN_OUT_VALUES)})
-          AND p.transaction_date < ${asOfPlusOne}
-          ${locationFilter('p', lChunk)}
-          AND NOT EXISTS (SELECT 1 FROM ap_ar_card_detail d WHERE d.ap_ar_card_id = p.ap_ar_card_id)
-      `,
-      )
+      const res = await rows<AgingUnallocatedDbRow>(unallocatedQuery(cfg, asOfPlusOne, lChunk))
 
       return res.map((r): AgingUnallocatedOf<K> => toAgingUnallocated(r, partyKey))
     })

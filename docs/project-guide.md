@@ -10,7 +10,7 @@
 >
 > **Bila dokumen ini berbeda dengan `docs/decisions.md` atau `docs/data-model.md`, kedua dokumen itu yang menang** (lalu perbaiki dokumen ini). Keduanya tetap menjadi sumber keputusan (D#, O#) dan rincian kolom per tabel ERP.
 >
-> **Terakhir diperbarui:** 2026-11-07
+> **Terakhir diperbarui:** 2026-11-08
 
 ## Daftar isi
 
@@ -2056,7 +2056,7 @@ Net Profit realisasi 252 jt, anggaran 240 jt → selisih +12 jt
 
 ### 8.7 Halaman Payables (Utang usaha, AP Aging)
 
-Rute `/payables` · service `src/server/services/ap-ar/ap-aging.service.ts` (+ `aging-reader.ts`, `aging-metric.ts`, `aging-helpers.ts`) · logika murni `src/lib/finance/ap-ar/apar.ts`, `aging.ts`, `aging-aggregate.ts`, `aging-reconciliation.ts` · repo `src/server/repo/ap-ar/aging.repo.ts`, `party.repo.ts` · snapshot `src/server/dash/snapshot*.ts` · komponen `src/components/aging/`.
+Rute `/payables` · service `src/server/services/ap-ar/ap-aging.service.ts` (+ `aging-reader.ts`, `aging-metric.ts`, `aging-helpers.ts`) · logika murni `src/lib/finance/ap-ar/apar.ts`, `aging.ts`, `aging-aggregate.ts`, `aging-reconciliation.ts` · repo `src/server/repo/ap-ar/aging.repo.ts`, `unallocated-sql.ts`, `party.repo.ts` · snapshot `src/server/dash/snapshot*.ts` · komponen `src/components/aging/`.
 
 Halaman Receivables (8.8) memakai kode yang sama (`createAgingMetric`), hanya berbeda modul dan tipe transaksi; semua penjelasan di sini berlaku untuk keduanya kecuali dikatakan lain.
 
@@ -2158,7 +2158,7 @@ Penjelasan: satu tagihan (`i`) digabung dengan alokasi pelunasan (`d`) yang bera
 **Q17: Pembayaran belum dialokasikan, ERP langsung** (`liveAgingUnallocated`):
 
 ```sql
--- AP: pembayaran tanpa alokasi (query lama)
+-- AP: pembayaran tanpa alokasi (query lama) (fungsi paymentsWithoutDetailQuery di unallocated-sql.ts)
 SELECT p.ap_ar_card_id AS cardId, p.owner_id AS partyId, p.location_id AS locationId, p.coa_id AS coaId,
        DATE(p.transaction_date) AS txDate, p.amount * p.in_out AS balance
 FROM ap_ar_card p
@@ -2167,7 +2167,7 @@ WHERE p.module_type = :modul AND p.transaction_type IN (:tipe_tanpa_alokasi)
   [AND p.location_id IN (:lokasi)]
   AND NOT EXISTS (SELECT 1 FROM ap_ar_card_detail d WHERE d.ap_ar_card_id = p.ap_ar_card_id);
 
--- AR: retur langsung (tipe 2), sisanya setelah pelunasan yang menunjuk ke kartu retur (src/server/repo/ap-ar/aging.repo.ts)
+-- AR: retur langsung (tipe 2), sisanya setelah pelunasan yang menunjuk ke kartu retur (src/server/repo/ap-ar/unallocated-sql.ts, fungsi directReturnsQuery)
 SELECT r.ap_ar_card_id AS cardId,
        r.owner_id AS partyId,
        r.location_id AS locationId,
@@ -2943,6 +2943,7 @@ Pengecekan memakai **tujuh query `SELECT` (hanya baca)** ke database lokal `demo
 | 2026-11-07 | Payment Plan AP: pembacaan tagihan pasangan berkredit tanpa filter entitas memakai satu pemindaian kunci utama (query C2, bagian 8.9.2), 5,6 detik menjadi 0,4 detik pada data demo; teks query C1 dan C2 disamakan dengan kode.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | 2026-11-07 | Phase 4 Payment Plan AR: proyeksi penerimaan piutang dikurangi kredit pelanggan (retur langsung dan memo kredit) pada faktur yang jatuh tempo dari hari ini sampai akhir horizon, dengan Notice info di halaman Payment Plan (bagian 8.9.2 query C3, 8.9.3, 8.9.4, 8.9.5; D54, KF-68).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | 2026-11-07 | Pemeriksaan periode tertutup lama membaca hitungan jurnal banyak periode dengan satu query per tabel GL (glPeriodStatsOfTable, bagian 5.6 B6); angka tidak berubah.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 2026-11-08 | Refactor pembangun query (creditableBillsQuery memakai objek opsi; query unallocated dipindah ke unallocated-sql.ts); SQL dan angka tidak berubah.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 ### 14.1 Riwayat ringkas dokumen yang digantikan
 

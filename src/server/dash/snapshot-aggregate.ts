@@ -298,11 +298,18 @@ export function unallocatedCreditPoolsQuery(source: AggregateSource, side: Aging
 export function creditableBillsQuery(
   source: AggregateSource,
   side: AgingSide,
-  locSlice: Id[] | undefined,
-  partySlice: Id[] | undefined,
-  maxDue: IsoDate,
-  minDue?: IsoDate,
+  filter: {
+    /** Only bills due on or before this day */
+    maxDue: IsoDate
+    /** Only bills due on or after this day (default: no lower limit) */
+    minDue?: IsoDate
+    /** Only the bills of these parties; without it the read is a whole-side scan */
+    partySlice?: Id[]
+    /** Only the bills of these locations (one slice of the location list) */
+    locSlice?: Id[]
+  },
 ): SQL {
+  const { maxDue, minDue, partySlice, locSlice } = filter
   return sql`
     SELECT card_id AS invoiceId, party_id AS partyId, location_id AS locationId,
            COALESCE(due_date, tx_date) AS dueDate, balance AS balance
@@ -369,12 +376,12 @@ async function readCreditData(
     // No entity filter: nearly every bill belongs to a vendor with a credit, so one primary-key scan is much faster than
     // reading the bills through the party index in slices (5.6 s against 0.4 s on the demo data); the rest is dropped here.
     const wanted = new Set(partyIds)
-    const all = await rows<BillDbRow>(creditableBillsQuery(source, side, undefined, undefined, maxDue, options.minDue))
+    const all = await rows<BillDbRow>(creditableBillsQuery(source, side, { maxDue, minDue: options.minDue }))
     billRows = all.filter((r) => wanted.has(idOrEmpty(r.partyId)))
   } else {
     const combos = sliceCombos(chunkOrAll(locIds), chunk(partyIds))
     const parts = await mapLimit(combos, SLICE_CONCURRENCY, ([locSlice, partySlice]) =>
-      rows<BillDbRow>(creditableBillsQuery(source, side, locSlice, partySlice, maxDue, options.minDue)),
+      rows<BillDbRow>(creditableBillsQuery(source, side, { maxDue, minDue: options.minDue, locSlice, partySlice })),
     )
     billRows = parts.flat()
   }
