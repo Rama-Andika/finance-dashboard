@@ -1,6 +1,15 @@
 /** MySQL `IN (...)` lists are sent in slices of this size. */
 export const IN_LIST_LIMIT = 1000
 
+/**
+ * Slice size for an `IN (...)` list on a big table that is joined to another one. MySQL 5.7 and MariaDB stop estimating
+ * a list by looking into the index once it has `eq_range_index_dive_limit` values (default 200); from there the
+ * optimizer works from rough statistics and can pick a plan that scans the whole table. Staying below that limit
+ * keeps the estimate exact. Measured on 15 million journal lines: 199 accounts took 2 seconds, 200 accounts did not
+ * finish in 40 seconds.
+ */
+export const PLAN_SAFE_IN_LIST_LIMIT = 150
+
 /** Split a list into slices of at most `size` items. */
 export function chunk<T>(items: readonly T[], size: number = IN_LIST_LIMIT): T[][] {
   const out: T[][] = []

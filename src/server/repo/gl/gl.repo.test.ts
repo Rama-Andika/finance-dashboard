@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { MySqlDialect } from 'drizzle-orm/mysql-core'
+import type { SQL } from 'drizzle-orm'
 import type { Period } from '~/lib/core/types'
 
 const rowsMock = vi.fn()
@@ -236,5 +238,59 @@ describe('reads over several GL tables', () => {
     const plain = await journalLines({ tables: ['gl'], segCol: 'segment1_id', segIds: 'all' })
     expect(grouped.map((r) => r.segmentDetailId)).toEqual(['s7'])
     expect(plain.map((r) => r.segmentDetailId)).toEqual([''])
+  })
+})
+
+describe('movementsByDate: account lists stay below the limit where the optimizer stops looking into the index', () => {
+  const dialect = new MySqlDialect()
+  const ids = (n: number) => Array.from({ length: n }, (_, i) => String(50_000_000 + i))
+  // The values of every IN (...) list of every query that was sent: [accounts, segments] counted from the parameters.
+  const paramCounts = () => rowsMock.mock.calls.map(([query]) => dialect.sqlToQuery(query as SQL).params.length - 2)
+
+  beforeEach(() => {
+    rowsMock.mockReset()
+    rowsMock.mockResolvedValue([])
+  })
+
+  it('reads 266 accounts with two queries of at most 150 accounts each, and sums the answers', async () => {
+    rowsMock.mockResolvedValueOnce([{ coaId: '50000000', debet: '10', credit: '0' }])
+    rowsMock.mockResolvedValueOnce([{ coaId: '50000000', debet: '5', credit: '1' }])
+
+    const result = await movementsByDate({
+      from: '2025-10-01',
+      to: '2026-11-08',
+      tables: ['gl'],
+      segCol: 'segment1_id',
+      segIds: 'all',
+      coaIds: ids(266),
+    })
+
+    expect(paramCounts().sort((a, b) => a - b)).toEqual([116, 150])
+    expect(result.map((r) => [r.coaId, r.debet, r.credit])).toEqual([['50000000', '15.00', '1.00']])
+  })
+
+  it('keeps a list below 200 accounts in a single query', async () => {
+    await movementsByDate({
+      from: '2026-10-01',
+      to: '2026-10-31',
+      tables: ['gl'],
+      segCol: 'segment1_id',
+      segIds: 'all',
+      coaIds: ids(149),
+    })
+    expect(paramCounts()).toEqual([149])
+  })
+
+  it('slices a long list of entities the same way', async () => {
+    await movementsByDate({
+      from: '2026-10-01',
+      to: '2026-10-31',
+      tables: ['gl'],
+      segCol: 'segment1_id',
+      segIds: ids(301),
+      coaIds: ids(10),
+    })
+    // 3 slices of entities (150 + 150 + 1), each with the 10 accounts
+    expect(paramCounts().sort((a, b) => a - b)).toEqual([11, 160, 160])
   })
 })

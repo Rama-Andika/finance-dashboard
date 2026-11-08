@@ -2,7 +2,7 @@ import '@tanstack/react-start/server-only'
 import { sql, type SQL } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
-import { SLICE_CONCURRENCY, chunkOrAll, mapLimit, sliceCombos } from '~/server/db/chunk'
+import { PLAN_SAFE_IN_LIST_LIMIT, SLICE_CONCURRENCY, chunkOrAll, mapLimit, sliceCombos } from '~/server/db/chunk'
 import { assertSegmentColumn } from '~/server/db/segment-column'
 import { prefetchCanceledDateColumns } from '~/server/db/gl-columns'
 import { D } from '~/lib/core/money'
@@ -119,7 +119,11 @@ async function dateMovementsOfTable(
 ): Promise<DateMovementRow[]> {
   const tables = await glTableSql(tableName, opts.segCol)
 
-  const combos = sliceCombos(chunkOrAll(opts.coaIds), chunkOrAll(opts.segIds))
+  // Small slices: a list of 200 accounts or more makes the optimizer drop the date index and scan gl_detail.
+  const combos = sliceCombos(
+    chunkOrAll(opts.coaIds, PLAN_SAFE_IN_LIST_LIMIT),
+    chunkOrAll(opts.segIds, PLAN_SAFE_IN_LIST_LIMIT),
+  )
   const slices = await mapLimit(combos, SLICE_CONCURRENCY, async ([coaIds, segIds]) => {
     const queryRows = await rows<DateMovementDbRow>(dateMovementQuery(tables, opts, driveFromGl, { coaIds, segIds }))
     return queryRows.map((r) => toDateMovementRow(r, Boolean(opts.bySegment)))
