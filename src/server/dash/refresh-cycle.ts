@@ -5,7 +5,7 @@ import { todayIn } from '~/lib/format/date'
 import { clearCache } from '~/server/cache'
 import { dashLog } from './log'
 import { PERIOD_STATS_CACHE_PREFIX } from './tables'
-import { createStepTimer, formatDuration, formatSteps, type StepTiming } from './step-timer'
+import { createStepTimer, formatDuration, formatSteps, type StepTimer, type StepTiming } from './step-timer'
 import { dashMigrationStatus } from './migrate'
 import { refreshApArSnapshot } from './refresh-ap-ar'
 import { refreshGlMonthlySnapshot } from './gl-snapshot'
@@ -63,6 +63,82 @@ export function getRefreshJob(): RefreshJobState {
   return { ...jobState() }
 }
 
+/** The AP/AR snapshot, then the invoice lists warmed from it. */
+async function runApArStep(timer: StepTimer, force: boolean): Promise<void> {
+  const result = await timer.time('AP/AR snapshot', () => refreshApArSnapshot(today(), { force }))
+  if (result.ran) {
+    dashLog.info(
+      `AP/AR snapshot refreshed in ${formatDuration(result.durationMs)} (${result.openRows} open invoices, ${result.unallocatedRows} unallocated): ${formatSteps(result.steps)}`,
+    )
+  }
+  await timer.time('warm invoice lists', () => warmApArSnapshot())
+}
+
+/** Closed GL periods: cheap when nothing is new, a few seconds to minutes per new period otherwise. */
+async function runGlStep(timer: StepTimer): Promise<void> {
+  const gl = await timer.time('GL snapshot', () => refreshGlMonthlySnapshot())
+  if (!gl.ran) return
+  dashLog.info(
+    `GL snapshot built ${gl.built} period(s) (${gl.rebuilt} rebuilt), removed ${gl.removed} in ${Math.round(gl.durationMs / 1000)}s`,
+  )
+  // A period that was rebuilt or dropped may have served older numbers: forget what was derived from it.
+  if (gl.rebuilt > 0 || gl.removed > 0) clearCachesAfterPeriodChange()
+}
+
+/**
+ * Lines of the cash journals of Closed periods (feeds Cash Flow, Runway and Expense Paid).
+ * A failure is logged and answered with false; it does not stop the steps after it, because the live ERP query still
+ * answers, only slower.
+ */
+async function runCashLinesStep(timer: StepTimer): Promise<boolean> {
+  try {
+    const cash = await timer.time('cash lines snapshot', async () =>
+      refreshCashLinesSnapshot(await currentCashAccountIds()),
+    )
+    if (cash.ran) {
+      dashLog.info(
+        `cash lines snapshot built ${cash.built} period(s) (${cash.rebuilt} rebuilt), removed ${cash.removed} in ${Math.round(cash.durationMs / 1000)}s`,
+      )
+      if (cash.rebuilt > 0 || cash.removed > 0) clearCachesAfterPeriodChange()
+    }
+    return true
+  } catch (error) {
+    dashLog.error(`cash lines snapshot failed (the live query is used meanwhile): ${errorText(error)}`)
+    return false
+  }
+}
+
+/** Month-end AP/AR history: one month per run (the first fill takes a few runs; `npm run dash:refresh-hist` does it at once). */
+async function runHistoryStep(timer: StepTimer): Promise<void> {
+  const hist = await timer.time('AP/AR history', () =>
+    refreshApArHistSnapshots(today(), { maxBuilds: HIST_MAX_BUILDS_PER_RUN }),
+  )
+  if (!hist.ran) return
+  clearCache('dash:ap-ar:hist')
+  dashLog.info(
+    `AP/AR history built ${hist.built.length} month(s), removed ${hist.pruned} in ${Math.round(hist.durationMs / 1000)}s`,
+  )
+}
+
+/**
+ * The steps of one run, in order. Answers false when the cash lines step failed (the run goes on without it).
+ * A failure of any other step is thrown and ends the run.
+ */
+async function runSteps(source: RefreshSource, force: boolean, timer: StepTimer): Promise<boolean> {
+  if (source === 'manual') dashLog.info('manual snapshot refresh started')
+  await runApArStep(timer, force)
+  await runGlStep(timer)
+  const cashOk = await runCashLinesStep(timer)
+  await runHistoryStep(timer)
+  if (source === 'manual') {
+    // The person who pressed "Refresh now" expects fresh numbers, not an answer kept for the stale window.
+    clearCache('metric:')
+    // ... and its period checks look at the ERP again instead of reusing the counts of the previous run
+    clearCache(PERIOD_STATS_CACHE_PREFIX)
+  }
+  return cashOk
+}
+
 /**
  * One refresh run: the AP/AR snapshot, the monthly GL snapshot for Closed periods, then the month-end AP/AR history.
  * The scheduler and the "Refresh now" button both call this, so they behave the same.
@@ -94,63 +170,15 @@ export async function runRefreshCycle(
         `${status.pending.length} migration(s) pending (${status.pending.join(', ')}); run "npm run db:dash:migrate". Snapshot refresh skipped.`,
       )
     } else {
-      if (source === 'manual') dashLog.info('manual snapshot refresh started')
-      const result = await timer.time('AP/AR snapshot', () => refreshApArSnapshot(today(), { force: options.force }))
-      if (result.ran) {
-        dashLog.info(
-          `AP/AR snapshot refreshed in ${formatDuration(result.durationMs)} (${result.openRows} open invoices, ${result.unallocatedRows} unallocated): ${formatSteps(result.steps)}`,
-        )
-      }
-      await timer.time('warm invoice lists', () => warmApArSnapshot())
-      // Closed GL periods: cheap when nothing is new, a few seconds to minutes per new period otherwise
-      const gl = await timer.time('GL snapshot', () => refreshGlMonthlySnapshot())
-      if (gl.ran) {
-        dashLog.info(
-          `GL snapshot built ${gl.built} period(s) (${gl.rebuilt} rebuilt), removed ${gl.removed} in ${Math.round(gl.durationMs / 1000)}s`,
-        )
-        // A period that was rebuilt or dropped may have served older numbers: forget what was derived from it.
-        if (gl.rebuilt > 0 || gl.removed > 0) clearCachesAfterPeriodChange()
-      }
-      // Lines of the cash journals of Closed periods (feeds Cash Flow, Runway and Expense Paid).
-      // A failure here is recorded but does not stop the steps after it: the live ERP query still answers, only slower.
-      try {
-        const cash = await timer.time('cash lines snapshot', async () =>
-          refreshCashLinesSnapshot(await currentCashAccountIds()),
-        )
-        if (cash.ran) {
-          dashLog.info(
-            `cash lines snapshot built ${cash.built} period(s) (${cash.rebuilt} rebuilt), removed ${cash.removed} in ${Math.round(cash.durationMs / 1000)}s`,
-          )
-          if (cash.rebuilt > 0 || cash.removed > 0) clearCachesAfterPeriodChange()
-        }
-      } catch (error) {
-        ok = false
-        dashLog.error(`cash lines snapshot failed (the live query is used meanwhile): ${errorText(error)}`)
-      }
-      // Month-end AP/AR history: one month per run (the first fill takes a few runs; `npm run dash:refresh-hist` does it at once)
-      const hist = await timer.time('AP/AR history', () =>
-        refreshApArHistSnapshots(today(), { maxBuilds: HIST_MAX_BUILDS_PER_RUN }),
-      )
-      if (hist.ran) {
-        clearCache('dash:ap-ar:hist')
-        dashLog.info(
-          `AP/AR history built ${hist.built.length} month(s), removed ${hist.pruned} in ${Math.round(hist.durationMs / 1000)}s`,
-        )
-      }
-      // The person who pressed "Refresh now" expects fresh numbers, not an answer kept for the stale window.
-      if (source === 'manual') {
-        clearCache('metric:')
-        // ... and its period checks look at the ERP again instead of reusing the counts of the previous run
-        clearCache(PERIOD_STATS_CACHE_PREFIX)
-      }
+      ok = await runSteps(source, options.force, timer)
     }
   } catch (error) {
     ok = false
     dashLog.error(`snapshot refresh failed: ${errorText(error)}`)
   } finally {
     job.running = false
-    if (!migrationsPending) logCycleSummary(source, timer.steps, Date.now() - startedAt, ok)
     if (!migrationsPending) {
+      logCycleSummary(source, timer.steps, Date.now() - startedAt, ok)
       job.lastOk = ok
       job.finishedRuns += 1
     }

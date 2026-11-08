@@ -9,6 +9,7 @@ import {
   verifyDecision,
   type BuiltPeriodState,
   type PeriodHeaderStats,
+  type VerifyDecision,
 } from '~/lib/finance/period/period-fingerprint'
 import type { Period } from '~/lib/core/types'
 import { dashTable } from './tables'
@@ -40,7 +41,7 @@ export type ClosedPeriodSpec = {
   extra?: { column: string; expected: string }
 }
 
-type BuiltRow = {
+export type BuiltRow = {
   id: string
   periodKey: string | null
   statsKey: string | null
@@ -53,6 +54,134 @@ const toMs = (iso: string | null): number | null => {
   if (!iso) return null
   const ms = Date.parse(iso)
   return Number.isNaN(ms) ? null : ms
+}
+
+type PeriodDecision = 'build' | VerifyDecision
+
+/** What to do with one Closed period, and the marker row it was decided from (none when it was never built). */
+export type PeriodPlan = { period: Period; row: BuiltRow | undefined; decision: PeriodDecision }
+
+/** The marker rows of the snapshot, by period id. */
+async function readBuiltRows(conn: RefreshConnection, spec: ClosedPeriodSpec): Promise<Map<string, BuiltRow>> {
+  const [builtRows] = await conn.query(
+    `SELECT CAST(period_id AS CHAR) AS id, period_key AS periodKey, stats_key AS statsKey${spec.extra ? ', ?? AS extra' : ', NULL AS extra'},
+            DATE_FORMAT(built_at, '%Y-%m-%dT%H:%i:%sZ') AS builtAt,
+            DATE_FORMAT(checked_at, '%Y-%m-%dT%H:%i:%sZ') AS checkedAt
+     FROM ??`,
+    [...(spec.extra ? [spec.extra.column] : []), dashTable(spec.markerTable)],
+  )
+  return new Map((builtRows as BuiltRow[]).map((r) => [String(r.id), r] as const))
+}
+
+/** A period that is no longer Closed was re-opened: its snapshot rows may be outdated, so rows and marker go. */
+async function dropStalePeriods(
+  conn: RefreshConnection,
+  spec: ClosedPeriodSpec,
+  builtById: ReadonlyMap<string, BuiltRow>,
+  closedIds: ReadonlySet<string>,
+): Promise<string[]> {
+  const stale = Array.from(builtById.keys()).filter((id) => !closedIds.has(id))
+  for (const slice of chunk(stale)) {
+    await conn.query('DELETE FROM ?? WHERE period_id IN (?)', [dashTable(spec.rowsTable), slice])
+    await conn.query('DELETE FROM ?? WHERE period_id IN (?)', [dashTable(spec.markerTable), slice])
+  }
+  return stale
+}
+
+function decideOne(
+  period: Period,
+  row: BuiltRow | undefined,
+  isNewest: boolean,
+  extra: ClosedPeriodSpec['extra'],
+  nowMs: number,
+): PeriodDecision {
+  if (!row) return 'build'
+  if (extra && row.extra !== extra.expected) return 'rebuild'
+  const built: BuiltPeriodState = {
+    periodKey: row.periodKey,
+    statsKey: row.statsKey,
+    builtAtMs: toMs(row.builtAt),
+    checkedAtMs: toMs(row.checkedAt),
+  }
+  return verifyDecision({ period, built, isNewest, nowMs })
+}
+
+/**
+ * Decides for every Closed period (given newest first) without asking the ERP anything: build it, rebuild it, keep it,
+ * or compare its journal counts first ('check-stats').
+ */
+export function planPeriods(input: {
+  newestFirst: readonly Period[]
+  builtById: ReadonlyMap<string, BuiltRow>
+  extra: ClosedPeriodSpec['extra']
+  nowMs: number
+}): PeriodPlan[] {
+  const newestIds = new Set(input.newestFirst.slice(0, NEWEST_CLOSED_PERIODS).map((p) => p.periodeId))
+  return input.newestFirst.map((period) => {
+    const row = input.builtById.get(period.periodeId)
+    const isNewest = newestIds.has(period.periodeId)
+    return { period, row, decision: decideOne(period, row, isNewest, input.extra, input.nowMs) }
+  })
+}
+
+/** A 'check-stats' plan becomes 'keep' when the journal counts still match the marker, 'rebuild' otherwise. */
+function finalDecision(plan: PeriodPlan, counts: ReadonlyMap<string, PeriodHeaderStats>): 'build' | 'rebuild' | 'keep' {
+  if (plan.decision !== 'check-stats') return plan.decision
+  const found = counts.get(plan.period.periodeId)
+  return found !== undefined && plan.row !== undefined && statsKey(found) === plan.row.statsKey ? 'keep' : 'rebuild'
+}
+
+/**
+ * What to build (newest first, as planned), which of those are rebuilds, and which periods were compared and found
+ * unchanged. A period kept at once, without a comparison, is in none of the three.
+ */
+export function settlePlans(
+  plans: readonly PeriodPlan[],
+  counts: ReadonlyMap<string, PeriodHeaderStats>,
+): { toBuild: Period[]; replaced: Set<string>; unchanged: string[] } {
+  const toBuild: Period[] = []
+  const replaced = new Set<string>()
+  const unchanged: string[] = []
+  for (const plan of plans) {
+    const final = finalDecision(plan, counts)
+    if (final === 'keep') {
+      if (plan.decision === 'check-stats') unchanged.push(plan.period.periodeId)
+    } else {
+      toBuild.push(plan.period)
+      if (final === 'rebuild') replaced.add(plan.period.periodeId)
+    }
+  }
+  return { toBuild, replaced, unchanged }
+}
+
+async function buildPeriods(
+  conn: RefreshConnection,
+  spec: ClosedPeriodSpec,
+  buildPeriod: (conn: RefreshConnection, period: Period) => Promise<void>,
+  toBuild: readonly Period[],
+  replaced: ReadonlySet<string>,
+): Promise<void> {
+  for (const [index, period] of toBuild.entries()) {
+    const t0 = Date.now()
+    await buildPeriod(conn, period)
+    dashLog.info(
+      `${spec.label} ${index + 1}/${toBuild.length}: ${period.name}${replaced.has(period.periodeId) ? ' (rebuilt)' : ''} (${Math.round((Date.now() - t0) / 1000)}s)`,
+    )
+  }
+}
+
+/** Periods whose journal counts were compared and found equal only move their "checked" time. */
+async function markChecked(
+  conn: RefreshConnection,
+  spec: ClosedPeriodSpec,
+  periodIds: readonly string[],
+): Promise<void> {
+  for (const slice of chunk(periodIds)) {
+    await conn.query('UPDATE ?? SET checked_at = UTC_TIMESTAMP() WHERE period_id IN (?)', [
+      dashTable(spec.markerTable),
+      slice,
+    ])
+  }
 }
 
 /**
@@ -74,89 +203,21 @@ export async function refreshClosedPeriods(
     locked = await tryLock(conn, spec.lockName)
     if (!locked) return { ran: false, reason: 'locked' }
 
-    const periods = await listPeriods()
-    const closed = periods.filter((p) => p.status === 'Closed')
-    const closedIds = new Set(closed.map((p) => p.periodeId))
-
-    const [builtRows] = await conn.query(
-      `SELECT CAST(period_id AS CHAR) AS id, period_key AS periodKey, stats_key AS statsKey${spec.extra ? ', ?? AS extra' : ', NULL AS extra'},
-              DATE_FORMAT(built_at, '%Y-%m-%dT%H:%i:%sZ') AS builtAt,
-              DATE_FORMAT(checked_at, '%Y-%m-%dT%H:%i:%sZ') AS checkedAt
-       FROM ??`,
-      [...(spec.extra ? [spec.extra.column] : []), dashTable(spec.markerTable)],
-    )
-    const builtById = new Map((builtRows as BuiltRow[]).map((r) => [String(r.id), r] as const))
-
-    // A period that is no longer Closed was re-opened: its snapshot rows may be outdated.
-    const stale = Array.from(builtById.keys()).filter((id) => !closedIds.has(id))
-    for (const slice of chunk(stale)) {
-      await conn.query('DELETE FROM ?? WHERE period_id IN (?)', [dashTable(spec.rowsTable), slice])
-      await conn.query('DELETE FROM ?? WHERE period_id IN (?)', [dashTable(spec.markerTable), slice])
-    }
+    const closed = (await listPeriods()).filter((p) => p.status === 'Closed')
+    const builtById = await readBuiltRows(conn, spec)
+    const stale = await dropStalePeriods(conn, spec, builtById, new Set(closed.map((p) => p.periodeId)))
 
     // Newest first: the months that are asked for most are available first.
     const newestFirst = [...closed].sort((a, b) => b.startDate.localeCompare(a.startDate))
-    const newestIds = new Set(newestFirst.slice(0, NEWEST_CLOSED_PERIODS).map((p) => p.periodeId))
-    const nowMs = Date.now()
 
-    // First decide for every period, without waiting for the ERP: the periods whose journal counts must be compared
-    // are collected, so they can be read together (one query per GL table instead of one per period).
-    type PeriodDecision = 'build' | 'rebuild' | 'check-stats' | 'keep'
-    const decisions: Array<{ period: Period; row: BuiltRow | undefined; decision: PeriodDecision }> = []
-    for (const period of newestFirst) {
-      const row = builtById.get(period.periodeId)
-      if (!row) {
-        decisions.push({ period, row, decision: 'build' })
-      } else if (spec.extra && row.extra !== spec.extra.expected) {
-        decisions.push({ period, row, decision: 'rebuild' })
-      } else {
-        const state: BuiltPeriodState = {
-          periodKey: row.periodKey,
-          statsKey: row.statsKey,
-          builtAtMs: toMs(row.builtAt),
-          checkedAtMs: toMs(row.checkedAt),
-        }
-        const decision = verifyDecision({ period, built: state, isNewest: newestIds.has(period.periodeId), nowMs })
-        decisions.push({ period, row, decision })
-      }
-    }
-
-    const toCheck = decisions.filter((d) => d.decision === 'check-stats').map((d) => d.period)
+    const plans = planPeriods({ newestFirst, builtById, extra: spec.extra, nowMs: Date.now() })
+    // The periods whose journal counts must be compared are read together: one query per GL table, not one per period.
+    const toCheck = plans.filter((p) => p.decision === 'check-stats').map((p) => p.period)
     const counts = toCheck.length > 0 ? await glPeriodStatsSharedMany(toCheck) : new Map<string, PeriodHeaderStats>()
+    const { toBuild, replaced, unchanged } = settlePlans(plans, counts)
 
-    const toBuild: Period[] = []
-    const replaced = new Set<string>()
-    const unchanged: string[] = []
-    for (const { period, row, decision } of decisions) {
-      let final = decision
-      if (final === 'check-stats') {
-        const found = counts.get(period.periodeId)
-        final = found !== undefined && row !== undefined && statsKey(found) === row.statsKey ? 'keep' : 'rebuild'
-        if (final === 'keep') unchanged.push(period.periodeId)
-      }
-      if (final === 'build') {
-        toBuild.push(period)
-      } else if (final === 'rebuild') {
-        toBuild.push(period)
-        replaced.add(period.periodeId)
-      }
-    }
-
-    for (const [index, period] of toBuild.entries()) {
-      const t0 = Date.now()
-      await buildPeriod(conn, period)
-      dashLog.info(
-        `${spec.label} ${index + 1}/${toBuild.length}: ${period.name}${replaced.has(period.periodeId) ? ' (rebuilt)' : ''} (${Math.round((Date.now() - t0) / 1000)}s)`,
-      )
-    }
-
-    // Periods whose journal counts were compared and found equal only move their "checked" time.
-    for (const slice of chunk(unchanged)) {
-      await conn.query('UPDATE ?? SET checked_at = UTC_TIMESTAMP() WHERE period_id IN (?)', [
-        dashTable(spec.markerTable),
-        slice,
-      ])
-    }
+    await buildPeriods(conn, spec, buildPeriod, toBuild, replaced)
+    await markChecked(conn, spec, unchanged)
 
     if (toBuild.length === 0 && stale.length === 0) return { ran: false, reason: 'nothing-to-do' }
     return {

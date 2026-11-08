@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { periodKey, statsKey } from '~/lib/finance/period/period-fingerprint'
 import type { Period } from '~/lib/core/types'
+import type { BuiltRow, PeriodPlan } from './closed-period-refresh'
 
 const mocks = vi.hoisted(() => ({
   getConnection: vi.fn(),
@@ -14,7 +15,7 @@ vi.mock('~/server/repo/master-data/periods.repo', () => ({ listPeriods: mocks.li
 vi.mock('~/server/repo/gl/gl-period-stats.repo', () => ({ glPeriodStatsSharedMany: mocks.glPeriodStatsSharedMany }))
 vi.mock('./log', () => ({ dashLog: { info: mocks.info, warn: vi.fn(), error: vi.fn() } }))
 
-const { refreshClosedPeriods } = await import('./closed-period-refresh')
+const { refreshClosedPeriods, planPeriods, settlePlans } = await import('./closed-period-refresh')
 const { DASH_TABLES } = await import('./tables')
 
 const SPEC = {
@@ -239,5 +240,126 @@ describe('refreshClosedPeriods', () => {
 
     expect(result).toMatchObject({ ran: true, built: 1, rebuilt: 1 })
     expect(built).toEqual(['3'])
+  })
+})
+
+const builtRow = (p: Period, over: Partial<BuiltRow> = {}): BuiltRow => ({
+  id: p.periodeId,
+  periodKey: periodKey(p),
+  statsKey: statsKey(STATS),
+  extra: null,
+  builtAt: iso(60 * 60_000),
+  checkedAt: iso(60_000),
+  ...over,
+})
+
+describe('planPeriods', () => {
+  const jan = period('1', '2026-01-01')
+  const feb = period('2', '2026-02-01')
+  const mar = period('3', '2026-03-01')
+  // the two newest Closed periods are mar and feb; jan is an older one
+  const plan = (rows: Array<[Period, BuiltRow]>, extra?: { column: string; expected: string }) =>
+    planPeriods({
+      newestFirst: [mar, feb, jan],
+      builtById: new Map(rows.map(([p, row]) => [p.periodeId, row])),
+      extra,
+      nowMs: Date.now(),
+    })
+  const decisionsOf = (plans: PeriodPlan[]) => plans.map((p) => [p.period.periodeId, p.decision])
+
+  it('builds a period that has no marker row yet', () => {
+    expect(decisionsOf(plan([[mar, builtRow(mar)]]))).toEqual([
+      ['3', 'check-stats'],
+      ['2', 'build'],
+      ['1', 'build'],
+    ])
+  })
+
+  it('compares the journal counts of the two newest periods and keeps a recently checked older one', () => {
+    expect(
+      decisionsOf(
+        plan([
+          [mar, builtRow(mar)],
+          [feb, builtRow(feb)],
+          [jan, builtRow(jan)],
+        ]),
+      ),
+    ).toEqual([
+      ['3', 'check-stats'],
+      ['2', 'check-stats'],
+      ['1', 'keep'],
+    ])
+  })
+
+  it('rebuilds a newest period that was built more than a day ago', () => {
+    const old = builtRow(feb, { builtAt: iso(25 * 60 * 60_000) })
+    expect(
+      decisionsOf(
+        plan([
+          [mar, builtRow(mar)],
+          [feb, old],
+          [jan, builtRow(jan)],
+        ]),
+      )[1],
+    ).toEqual(['2', 'rebuild'])
+  })
+
+  it('compares an older period again once six hours have passed since its last check', () => {
+    const stale = builtRow(jan, { checkedAt: iso(7 * 60 * 60_000) })
+    expect(
+      decisionsOf(
+        plan([
+          [mar, builtRow(mar)],
+          [feb, builtRow(feb)],
+          [jan, stale],
+        ]),
+      )[2],
+    ).toEqual(['1', 'check-stats'])
+  })
+
+  it('rebuilds a period whose extra marker column differs and decides as usual for the others', () => {
+    const extra = { column: 'cash_hash', expected: 'new-hash' }
+    const result = plan(
+      [
+        [mar, builtRow(mar, { extra: 'new-hash' })],
+        [feb, builtRow(feb, { extra: 'old-hash' })],
+        [jan, builtRow(jan, { extra: 'new-hash' })],
+      ],
+      extra,
+    )
+    expect(decisionsOf(result)).toEqual([
+      ['3', 'check-stats'],
+      ['2', 'rebuild'],
+      ['1', 'keep'],
+    ])
+  })
+})
+
+describe('settlePlans', () => {
+  it('turns the decisions and the compared journal counts into what to build, what to rebuild and what is unchanged', () => {
+    const p1 = period('1', '2026-01-01')
+    const p2 = period('2', '2026-02-01')
+    const p3 = period('3', '2026-03-01')
+    const p4 = period('4', '2026-04-01')
+    const p5 = period('5', '2026-05-01')
+    const p6 = period('6', '2026-06-01')
+    const plans: PeriodPlan[] = [
+      { period: p1, row: undefined, decision: 'build' },
+      { period: p2, row: builtRow(p2), decision: 'rebuild' },
+      { period: p3, row: builtRow(p3), decision: 'check-stats' }, // counts equal: unchanged
+      { period: p4, row: builtRow(p4), decision: 'check-stats' }, // counts differ: rebuilt
+      { period: p5, row: builtRow(p5), decision: 'check-stats' }, // no counts came back: rebuilt
+      { period: p6, row: builtRow(p6), decision: 'keep' }, // kept at once: not even touched
+    ]
+    const counts = new Map([
+      ['3', STATS],
+      ['4', { ...STATS, journals: '9' }],
+    ])
+
+    const result = settlePlans(plans, counts)
+
+    expect(result.toBuild.map((p) => p.periodeId)).toEqual(['1', '2', '4', '5'])
+    expect(Array.from(result.replaced)).toEqual(['2', '4', '5'])
+    expect(result.unchanged).toEqual(['3'])
   })
 })

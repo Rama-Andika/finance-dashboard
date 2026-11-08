@@ -265,3 +265,58 @@ describe('timing of the steps', () => {
     )
   })
 })
+
+describe('what a run logs and clears around its steps', () => {
+  const infoLines = () => mocks.logInfo.mock.calls.map((call) => String(call[0]))
+
+  it('says that a manual run started before its first step, and says nothing of the kind for a scheduled run', async () => {
+    await runRefreshCycle('manual', { force: true })
+    expect(infoLines().slice(0, 2)).toEqual([
+      'manual snapshot refresh started',
+      'manual refresh: AP/AR snapshot started',
+    ])
+
+    mocks.logInfo.mockClear()
+    await runRefreshCycle('scheduler', { force: false })
+    expect(infoLines()).not.toContain('manual snapshot refresh started')
+  })
+
+  it('logs what the GL, cash lines and history steps built', async () => {
+    mocks.refreshGlMonthlySnapshot.mockResolvedValue({ ran: true, built: 2, rebuilt: 1, removed: 0, durationMs: 5 })
+    mocks.refreshCashLinesSnapshot.mockResolvedValue({ ran: true, built: 1, rebuilt: 0, removed: 3, durationMs: 2600 })
+    mocks.refreshApArHistSnapshots.mockResolvedValue({ ran: true, built: ['2026-09-30'], pruned: 2, durationMs: 1500 })
+
+    await runRefreshCycle('scheduler', { force: false })
+
+    expect(infoLines()).toEqual(
+      expect.arrayContaining([
+        'GL snapshot built 2 period(s) (1 rebuilt), removed 0 in 0s',
+        'cash lines snapshot built 1 period(s) (0 rebuilt), removed 3 in 3s',
+        'AP/AR history built 1 month(s), removed 2 in 2s',
+      ]),
+    )
+  })
+
+  it('forgets the cached metrics only after the last step of a manual run', async () => {
+    const order: string[] = []
+    mocks.refreshApArHistSnapshots.mockImplementation(async () => {
+      order.push('history')
+      return { ran: false, reason: 'nothing-to-do' }
+    })
+    mocks.clearCache.mockImplementation((prefix: string) => {
+      order.push(`clear ${prefix}`)
+    })
+
+    await runRefreshCycle('manual', { force: true })
+
+    expect(order).toEqual(['history', 'clear metric:', 'clear dash:period-stats:'])
+  })
+
+  it('records a failing history step as a failed run and does not forget the cached metrics', async () => {
+    mocks.refreshApArHistSnapshots.mockRejectedValue(new Error('connection lost'))
+
+    await expect(runRefreshCycle('manual', { force: true })).resolves.toEqual({ ran: true, ok: false })
+    expect(getRefreshJob()).toEqual({ running: false, lastOk: false, finishedRuns: 1 })
+    expect(mocks.clearCache).not.toHaveBeenCalledWith('metric:')
+  })
+})
