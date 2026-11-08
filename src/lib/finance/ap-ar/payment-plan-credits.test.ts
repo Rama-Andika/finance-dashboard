@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applyCreditData,
   applyCredits,
+  applyCreditsToItems,
+  balanceAfterCredits,
   creditPoolsFromItems,
+  noCredits,
+  partyItemOf,
+  reductionsByInvoice,
   subtractReductions,
   type CreditableBill,
   type CreditPool,
   type DueTotals,
+  type PartyItem,
 } from './payment-plan-credits'
 
 describe('payment-plan-credits', () => {
@@ -192,6 +199,107 @@ describe('payment-plan-credits', () => {
       // Original map inputs are not changed
       expect(totals.total.get('2026-06-15')).toBe('300.00')
       expect(totals.approved.get('2026-06-15')).toBe('100.00')
+    })
+  })
+
+  describe('helpers that wire the credits to the open items', () => {
+    const item = (
+      invoiceId: string,
+      balance: string,
+      dueDate: string,
+      partyId = 'v1',
+      locationId = 'l1',
+    ): PartyItem => ({
+      invoiceId,
+      partyId,
+      locationId,
+      dueDate,
+      balance,
+    })
+
+    it('partyItemOf uses the due date, and the transaction date when there is none', () => {
+      const row = { invoiceId: 'i1', locationId: 'l1', dueDate: null, txDate: '2026-06-01', balance: '10.00' }
+      expect(partyItemOf(row, 'v9')).toEqual({
+        invoiceId: 'i1',
+        partyId: 'v9',
+        locationId: 'l1',
+        dueDate: '2026-06-01',
+        balance: '10.00',
+      })
+      expect(partyItemOf({ ...row, dueDate: '2026-06-20' }, 'v9').dueDate).toBe('2026-06-20')
+    })
+
+    it('applyCreditsToItems: a credit among the items reduces the bill of the same vendor and entity', () => {
+      const result = applyCreditsToItems({
+        items: [item('b1', '22200.00', '2026-06-16'), item('c1', '-4440.00', '2026-05-01')],
+        maxDue: '2026-06-20',
+      })
+      expect(result.reductions).toEqual([
+        { invoiceId: 'b1', partyId: 'v1', locationId: 'l1', dueDate: '2026-06-16', amount: '4440.00' },
+      ])
+      expect(result.applied).toBe('4440.00')
+    })
+
+    it('applyCreditsToItems: only bills due inside the window are reduced', () => {
+      const result = applyCreditsToItems({
+        items: [
+          item('b_old', '100.00', '2026-06-10'),
+          item('b_in', '100.00', '2026-06-16'),
+          item('b_late', '100.00', '2026-06-25'),
+          item('c1', '-150.00', '2026-05-01'),
+        ],
+        minDue: '2026-06-15',
+        maxDue: '2026-06-20',
+      })
+      expect(result.reductions.map((r) => [r.invoiceId, r.amount])).toEqual([['b_in', '100.00']])
+    })
+
+    it('applyCreditsToItems: credits due after the window still count (the pool takes every credit item)', () => {
+      const result = applyCreditsToItems({
+        items: [item('b1', '100.00', '2026-06-16'), item('c_late', '-40.00', '2026-09-01')],
+        maxDue: '2026-06-20',
+      })
+      expect(result.applied).toBe('40.00')
+    })
+
+    it('applyCreditsToItems: extra credits (not in the list) join the pool; a positive extra row is not a credit', () => {
+      const bill = item('b1', '100.00', '2026-06-16')
+      expect(
+        applyCreditsToItems({ items: [bill], extraCredits: [item('r1', '-30.00', '2026-05-01')], maxDue: '2026-06-20' })
+          .applied,
+      ).toBe('30.00')
+      expect(
+        applyCreditsToItems({ items: [bill], extraCredits: [item('r2', '30.00', '2026-05-01')], maxDue: '2026-06-20' })
+          .applied,
+      ).toBe('0.00')
+    })
+
+    it('applyCreditData: null or undefined means no credits, otherwise it is applyCredits', () => {
+      expect(applyCreditData(null)).toEqual(noCredits())
+      expect(applyCreditData(undefined)).toEqual({ reductions: [], applied: '0.00' })
+      const data = {
+        pools: [{ partyId: 'v1', locationId: 'l1', amount: '30.00' }],
+        bills: [{ invoiceId: 'b1', partyId: 'v1', locationId: 'l1', dueDate: '2026-06-16', balance: '100.00' }],
+      }
+      expect(applyCreditData(data)).toEqual(applyCredits(data.bills, data.pools))
+      expect(applyCreditData(data).applied).toBe('30.00')
+    })
+
+    it('reductionsByInvoice sums what was taken off each bill', () => {
+      const base = { partyId: 'v1', locationId: 'l1', dueDate: '2026-06-16' }
+      const sums = reductionsByInvoice([
+        { ...base, invoiceId: 'b1', amount: '10.00' },
+        { ...base, invoiceId: 'b2', amount: '5.50' },
+        { ...base, invoiceId: 'b1', amount: '2.25' },
+      ])
+      expect(sums.get('b1')).toBe('12.25')
+      expect(sums.get('b2')).toBe('5.50')
+      expect(sums.get('b3')).toBeUndefined()
+    })
+
+    it('balanceAfterCredits takes the reduction off the balance, and nothing when there is none', () => {
+      expect(balanceAfterCredits('100.00', '30.00')).toBe('70.00')
+      expect(balanceAfterCredits('100.00', undefined)).toBe('100.00')
     })
   })
 })

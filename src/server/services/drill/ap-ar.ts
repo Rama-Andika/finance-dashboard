@@ -4,7 +4,7 @@ import { D } from '~/lib/core/money'
 import { buildEntityCaptions } from '~/lib/finance/entity/entity-owner'
 import { addDays } from '~/lib/format/date'
 import { type Id, type IsoDate, type Money } from '~/lib/core/types'
-import { applyCredits, creditPoolsFromItems } from '~/lib/finance/ap-ar/payment-plan-credits'
+import { applyCreditsToItems, partyItemOf } from '~/lib/finance/ap-ar/payment-plan-credits'
 import { apOpenInvoices, arOpenInvoices } from '~/server/repo/ap-ar/aging.repo'
 import { listCustomers, listVendors } from '~/server/repo/ap-ar/party.repo'
 import { type DrillState, type DrillStep, type DrillStepKind } from '~/lib/filters/search-schema'
@@ -91,19 +91,7 @@ export async function paymentPlanDrill(ctx: DrillContext, dayStep: DrillStep): P
   const maxDue = isDayZero ? today : dayStep.id
 
   // Credits reduce bills due up to this day earliest due date first (decisions D53).
-  const creditPools = creditPoolsFromItems(
-    raw.map((a) => ({ partyId: a.vendorId, locationId: a.locationId, balance: a.balance })),
-  )
-  const creditableBills = raw
-    .filter((a) => D(a.balance).gt(0) && (a.dueDate || a.txDate) <= maxDue)
-    .map((a) => ({
-      invoiceId: a.invoiceId,
-      partyId: a.vendorId,
-      locationId: a.locationId,
-      dueDate: (a.dueDate || a.txDate).slice(0, 10),
-      balance: a.balance,
-    }))
-  const { reductions } = applyCredits(creditableBills, creditPools)
+  const { reductions } = applyCreditsToItems({ items: raw.map((a) => partyItemOf(a, a.vendorId)), maxDue })
   const dayReductions = reductions.filter((r) => (isDayZero ? r.dueDate <= today : r.dueDate === dayStep.id))
 
   const dayBills = raw.filter((a) => {

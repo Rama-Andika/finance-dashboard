@@ -9,7 +9,6 @@ import {
 } from '~/lib/finance/ap-ar/payment-plan-bills'
 import type { PaymentPlanBill } from '~/lib/finance/ap-ar/payment-plan'
 import '@tanstack/react-start/server-only'
-import Decimal from 'decimal.js'
 import { D } from '~/lib/core/money'
 import { buildEntityOwners, ownerNameOfLocation } from '~/lib/finance/entity/entity-owner'
 import { addDays } from '~/lib/format/date'
@@ -17,15 +16,26 @@ import type { Id, MetricMeta, Money } from '~/lib/core/types'
 import { type AppContextFilter, buildMetricMeta, getCachedCoaTree, getCachedEntities } from '~/server/context'
 import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
 import { computeCashPosition } from '~/server/services/cash/cash-position.service'
-import { agingCreditData, agingDueTotals, apOpenInvoices, arDirectReturns, arOpenInvoices } from '~/server/repo/ap-ar/aging.repo'
+import {
+  agingCreditData,
+  agingDueTotals,
+  apOpenInvoices,
+  arDirectReturns,
+  arOpenInvoices,
+  type ArDirectReturnRow,
+} from '~/server/repo/ap-ar/aging.repo'
 import { listActivePlanStatuses } from '~/server/repo/ap-ar/payment-plan.repo'
 import { listVendors } from '~/server/repo/ap-ar/party.repo'
 import { unsettledByChannel, settlementLag } from '~/server/repo/cash/bank-payment.repo'
 import { invoicesByPlanStatus, planStatus, voucherStatusesByInvoice } from '~/lib/finance/ap-ar/aging'
 import {
-  applyCredits,
-  creditPoolsFromItems,
+  applyCreditData,
+  applyCreditsToItems,
+  balanceAfterCredits,
+  partyItemOf,
+  reductionsByInvoice,
   subtractReductions,
+  type PartyItem,
 } from '~/lib/finance/ap-ar/payment-plan-credits'
 import {
   buildPaymentPlan,
@@ -60,6 +70,15 @@ export type PaymentPlanOptions = {
 export function computePaymentPlan(filter: AppContextFilter, opts: PaymentPlanOptions): Promise<PaymentPlanResult> {
   return memoMetric('paymentPlan', { filter, opts }, () => computePaymentPlanUncached(filter, opts))
 }
+
+/** An AR direct return as a credit item: it has no due date, so its own date stands in. */
+const directReturnCredit = (r: ArDirectReturnRow): PartyItem => ({
+  invoiceId: r.cardId,
+  partyId: r.customerId,
+  locationId: r.locationId,
+  dueDate: r.txDate,
+  balance: r.balance,
+})
 
 type Inflows = {
   arItems: ArItemForPlan[]
@@ -101,32 +120,19 @@ async function loadInflows(filter: AppContextFilter, asOfPlusOne: string, lastDa
     arDirectReturns(asOfPlusOne, filter.locationIds),
     loadBankInflows(filter),
   ])
-  const pools = creditPoolsFromItems([
-    ...rawAr.map((a) => ({ partyId: a.customerId, locationId: a.locationId, balance: a.balance })),
-    ...directReturns.map((r) => ({ partyId: r.customerId, locationId: r.locationId, balance: r.balance })),
-  ])
-  const inWindow = rawAr.filter((a) => {
-    const due = a.dueDate || a.txDate
-    return D(a.balance).gt(0) && due >= filter.today && due <= lastDay
+  const { reductions, applied } = applyCreditsToItems({
+    items: rawAr.map((a) => partyItemOf(a, a.customerId)),
+    extraCredits: directReturns.map(directReturnCredit),
+    minDue: filter.today,
+    maxDue: lastDay,
   })
-  const { reductions, applied } = applyCredits(
-    inWindow.map((a) => ({
-      invoiceId: a.invoiceId,
-      partyId: a.customerId,
-      locationId: a.locationId,
-      dueDate: a.dueDate || a.txDate,
-      balance: a.balance,
-    })),
-    pools,
-  )
-  const reducedBy = new Map<Id, Decimal>()
-  for (const r of reductions) reducedBy.set(r.invoiceId, (reducedBy.get(r.invoiceId) ?? D(0)).plus(D(r.amount)))
+  const reducedBy = reductionsByInvoice(reductions)
   return {
     arItems: rawAr
       .filter((a) => D(a.balance).gt(0))
       .map((a) => ({
         dueDate: a.dueDate || a.txDate,
-        balance: D(a.balance).minus(reducedBy.get(a.invoiceId) ?? D(0)).toFixed(2),
+        balance: balanceAfterCredits(a.balance, reducedBy.get(a.invoiceId)),
       })),
     unsettled: bank.unsettled,
     settlementLags: bank.settlementLags,
@@ -150,7 +156,7 @@ async function loadInflowTotals(filter: AppContextFilter, lastDay: string): Prom
     minDue: filter.today,
     includeUnallocated: true,
   })
-  const { reductions, applied } = credit ? applyCredits(credit.bills, credit.pools) : { reductions: [], applied: '0.00' }
+  const { reductions, applied } = applyCreditData(credit)
   const reduced = subtractReductions(
     { total: arTotals, approved: new Map(), submitted: new Map() },
     reductions,
@@ -189,26 +195,16 @@ async function computePaymentPlanUncached(
   const statusMap = voucherStatusesByInvoice(statusRows)
 
   // Vendor credits reduce the bills of the same vendor and entity, earliest due date first (decisions D53).
-  const creditPools = creditPoolsFromItems(
-    rawAp.map((a) => ({ partyId: a.vendorId, locationId: a.locationId, balance: a.balance })),
-  )
-  const { reductions, applied: creditsApplied } = applyCredits(
-    apPositive.map((a) => ({
-      invoiceId: a.invoiceId,
-      partyId: a.vendorId,
-      locationId: a.locationId,
-      dueDate: a.dueDate || a.txDate,
-      balance: a.balance,
-    })),
-    creditPools,
-  )
-  const reducedBy = new Map<Id, Decimal>()
-  for (const r of reductions) reducedBy.set(r.invoiceId, (reducedBy.get(r.invoiceId) ?? D(0)).plus(D(r.amount)))
+  const { reductions, applied: creditsApplied } = applyCreditsToItems({
+    items: rawAp.map((a) => partyItemOf(a, a.vendorId)),
+    maxDue: lastDay,
+  })
+  const reducedBy = reductionsByInvoice(reductions)
 
   const apItems: ApItemForPlan[] = apPositive.map((a) => ({
     invoiceId: a.invoiceId,
     dueDate: a.dueDate || a.txDate,
-    balance: D(a.balance).minus(reducedBy.get(a.invoiceId) ?? D(0)).toFixed(2),
+    balance: balanceAfterCredits(a.balance, reducedBy.get(a.invoiceId)),
     status: planStatus(statusMap.get(a.invoiceId) ?? []),
   }))
 
@@ -328,9 +324,7 @@ async function computePaymentPlanSummaryUncached(
     }),
   ])
   const credit = await agingCreditData('ap', today, filter.locationIds, lastDay)
-  const { reductions, applied: creditsApplied } = credit
-    ? applyCredits(credit.bills, credit.pools)
-    : { reductions: [], applied: '0.00' }
+  const { reductions, applied: creditsApplied } = applyCreditData(credit)
   const reduced = subtractReductions(
     { total: apTotals, approved: approved ?? new Map(), submitted: submitted ?? new Map() },
     reductions,

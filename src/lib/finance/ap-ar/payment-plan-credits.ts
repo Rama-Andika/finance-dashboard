@@ -132,3 +132,76 @@ export function subtractReductions(
   }
   return { total, approved, submitted }
 }
+
+/** An open item of a party: a bill when its balance is above zero, a credit when it is below zero. */
+export type PartyItem = {
+  invoiceId: Id
+  partyId: Id
+  locationId: Id
+  /** Due date, or the transaction date when there is none (YYYY-MM-DD) */
+  dueDate: IsoDate
+  balance: Money
+}
+
+/** An open-invoice row as the repositories return it, seen as a `PartyItem` of the given party (vendor or customer). */
+export function partyItemOf(
+  row: { invoiceId: Id; locationId: Id; dueDate: IsoDate | null; txDate: IsoDate; balance: Money },
+  partyId: Id,
+): PartyItem {
+  return {
+    invoiceId: row.invoiceId,
+    partyId,
+    locationId: row.locationId,
+    dueDate: row.dueDate || row.txDate,
+    balance: row.balance,
+  }
+}
+
+/** What the credits did: the reductions per bill and their total (a positive amount). */
+export type CreditOutcome = { reductions: CreditReduction[]; applied: Money }
+
+/** The outcome when no credit applies. */
+export function noCredits(): CreditOutcome {
+  return { reductions: [], applied: '0.00' }
+}
+
+/**
+ * The credits among `items` (balances below zero), plus `extraCredits` that are not in the list (for example AR direct
+ * returns, whose balance is below zero), reduce the bills among `items`: balances above zero that are due from `minDue`
+ * (default: no lower limit) up to `maxDue`. The credits are taken from ALL the items, whatever their due date.
+ */
+export function applyCreditsToItems(input: {
+  items: readonly PartyItem[]
+  extraCredits?: readonly PartyItem[]
+  maxDue: IsoDate
+  minDue?: IsoDate
+}): CreditOutcome {
+  const { items, extraCredits = [], maxDue, minDue } = input
+  const pools = creditPoolsFromItems([...items, ...extraCredits])
+  const bills = items.filter(
+    (item) => D(item.balance).gt(0) && item.dueDate <= maxDue && (minDue === undefined || item.dueDate >= minDue),
+  )
+  return applyCredits(bills, pools)
+}
+
+/**
+ * `applyCredits` for the credits and bills the database already collected. `null` (or `undefined`) means the snapshot
+ * does not cover the day: no credits.
+ */
+export function applyCreditData(
+  data: { pools: readonly CreditPool[]; bills: readonly CreditableBill[] } | null | undefined,
+): CreditOutcome {
+  return data ? applyCredits(data.bills, data.pools) : noCredits()
+}
+
+/** The amount the reductions took off each bill, by bill id. */
+export function reductionsByInvoice(reductions: readonly CreditReduction[]): Map<Id, Money> {
+  const sums = new Map<Id, Decimal>()
+  for (const r of reductions) sums.set(r.invoiceId, (sums.get(r.invoiceId) ?? D(0)).plus(D(r.amount)))
+  return new Map(Array.from(sums, ([invoiceId, amount]) => [invoiceId, amount.toFixed(2)] as const))
+}
+
+/** What is left of a bill after the credits took `reduced` off it (nothing is taken when `reduced` is undefined). */
+export function balanceAfterCredits(balance: Money, reduced: Money | undefined): Money {
+  return D(balance).minus(D(reduced)).toFixed(2)
+}
