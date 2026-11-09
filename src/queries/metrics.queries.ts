@@ -15,6 +15,7 @@ import { getPaymentPlanFn } from '~/functions/ap-ar/payment-plan.fn'
 import { getBudgetFn } from '~/functions/pnl/budget.fn'
 import { getRunwayFn } from '~/functions/cash/runway.fn'
 import { getBalanceSheetFn } from '~/functions/balance-sheet/balance-sheet.fn'
+import { getBalanceTrendFn } from '~/functions/balance-sheet/balance-trend.fn'
 
 export function summaryHeadOptions(input: MetricInput) {
   return queryOptions({
@@ -154,6 +155,13 @@ export function balanceSheetMetricOptions(input: MetricInput & BalanceSheetSearc
   return queryOptions({
     queryKey: qk.metric('balanceSheet', input),
     queryFn: () => getBalanceSheetFn({ data: input }),
+  })
+}
+
+export function balanceTrendMetricOptions(input: MetricInput) {
+  return queryOptions({
+    queryKey: qk.metric('balanceTrend', input),
+    queryFn: () => getBalanceTrendFn({ data: input }),
   })
 }
 

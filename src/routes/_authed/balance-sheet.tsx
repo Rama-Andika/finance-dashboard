@@ -2,7 +2,12 @@ import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { balanceSheetSearchSchema, drillSearchSchema, metricLoaderDeps } from '~/lib/filters/search-schema'
+import {
+  balanceSheetSearchSchema,
+  drillSearchSchema,
+  metricLoaderDeps,
+  type MetricInput,
+} from '~/lib/filters/search-schema'
 import { searchUpdater } from '~/lib/filters/search-update'
 import { balanceSheetMetricOptions } from '~/queries/metrics.queries'
 import { MetricSkeleton } from '~/components/layout/MetricSkeleton'
@@ -13,6 +18,7 @@ import { BalanceSheetDonuts } from '~/components/balance-sheet/BalanceSheetDonut
 import { BalanceSheetKpiRow } from '~/components/balance-sheet/BalanceSheetKpiRow'
 import { BalanceSheetNotices } from '~/components/balance-sheet/BalanceSheetNotices'
 import { BalanceSheetTable } from '~/components/balance-sheet/BalanceSheetTable'
+import { BalanceTrendSection } from '~/components/balance-sheet/BalanceTrendSection'
 import { useLang } from '~/hooks/use-lang'
 import { formatDate } from '~/lib/format/date'
 
@@ -34,6 +40,15 @@ function BalanceSheetPage() {
   const [hideZero, setHideZero] = useState(true)
 
   if (!data) return null
+
+  // The trend does not depend on what the table is compared with, so a change of comparison does not reload it.
+  const trendInput: MetricInput = {
+    entity: deps.entity,
+    preset: deps.preset,
+    p13: deps.p13,
+    from: deps.from,
+    to: deps.to,
+  }
 
   return (
     <div className="space-y-6">
@@ -74,6 +89,7 @@ function BalanceSheetPage() {
             periodLabel={formatDate(data.period.reportDate, lang)}
             lang={lang}
           />
+          <BalanceTrendSection input={trendInput} lang={lang} />
           <BalanceSheetTable data={data} hideZero={hideZero} lang={lang} />
         </>
       )}

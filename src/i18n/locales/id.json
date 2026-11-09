@@ -667,6 +667,15 @@
       "historyBody": "Angka dijumlahkan dari seluruh jurnal sejak awal, jadi pemuatan bisa lebih lama.",
       "consolidationTitle": "Neraca gabungan {{count}} entitas.",
       "consolidationBody": "Angka menjumlahkan semua entitas yang dipilih. Saldo antar-entitas tidak dieliminasi."
+    },
+    "trend": {
+      "title": "Tren neraca (12 bulan terakhir)",
+      "assets": "Aktiva",
+      "liabilities": "Utang",
+      "equity": "Ekuitas",
+      "provisionalNote": "Kolom yang lebih terang adalah bulan yang belum ditutup.",
+      "missing": "{{count}} bulan lama tidak ditampilkan karena totalnya belum tersimpan.",
+      "failed": "Tren tidak bisa dimuat."
     }
   }
 }

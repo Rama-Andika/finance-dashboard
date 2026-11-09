@@ -667,6 +667,15 @@
       "historyBody": "The balance is added up from every journal since the start, so it can take longer to load.",
       "consolidationTitle": "Combined balance sheet of {{count}} entities.",
       "consolidationBody": "The figures add up all the selected entities. Balances between the entities are not eliminated."
+    },
+    "trend": {
+      "title": "Balance sheet trend (last 12 months)",
+      "assets": "Assets",
+      "liabilities": "Liabilities",
+      "equity": "Equity",
+      "provisionalNote": "Lighter columns are months that are not closed yet.",
+      "missing": "{{count}} older months are not shown because their totals are not saved yet.",
+      "failed": "The trend could not be loaded."
     }
   }
 }
