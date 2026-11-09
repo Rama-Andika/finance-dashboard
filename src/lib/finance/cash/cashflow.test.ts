@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   allocateCash,
+  allocateJournals,
   makeIsOurCash,
   classifyBySetup,
   classifyByFallback,
@@ -13,11 +14,7 @@ import {
 import { CF_FALLBACK, UNCLASSIFIED_SUBGROUP } from './cashflow-labels'
 import { buildCoaTree } from '../coa/coa-tree'
 import { D } from '../../core/money'
-import {
-  mockCashLines,
-  mockCashCoaIds,
-  mockCfSetup,
-} from '../../../../tests/fixtures/cashflow.fixture'
+import { mockCashLines, mockCashCoaIds, mockCfSetup } from '../../../../tests/fixtures/cashflow.fixture'
 
 describe('cashflow pure logic and allocation', () => {
   const isOurCash = (l: CfLine) => mockCashCoaIds.includes(l.coaId)
@@ -33,6 +30,12 @@ describe('cashflow pure logic and allocation', () => {
       expect(j.counterLines.length).toBeGreaterThan(0)
       expect(j.netCash.isZero()).toBe(false)
     }
+  })
+
+  it('allocateJournals gives the same portions as allocateCash for the journals settledJournals picked', () => {
+    const journals = settledJournals(mockCashLines, isOurCash)
+    expect(allocateJournals(journals)).toEqual(allocateCash(mockCashLines, isOurCash))
+    expect(allocateJournals([])).toEqual([])
   })
 
   it('ignores internal cash transfers where all lines touch cash accounts', () => {
@@ -70,22 +73,14 @@ describe('cashflow pure logic and allocation', () => {
 
   it('classifies directionally according to valueDisplayed setup rules', () => {
     // Fixed asset purchase (outflow)
-    const purchaseClass = classifyBySetup(
-      '-500.00',
-      { accountGroup: 'Fixed Assets', subAccountGroup: '' },
-      mockCfSetup,
-    )
+    const purchaseClass = classifyBySetup('-500.00', { accountGroup: 'Fixed Assets', subAccountGroup: '' }, mockCfSetup)
     expect(purchaseClass).toEqual({
       drawer: 'INVESTING',
       subGroup: 'Pembelian Asset',
     })
 
     // Fixed asset sale (inflow)
-    const saleClass = classifyBySetup(
-      '500.00',
-      { accountGroup: 'Fixed Assets', subAccountGroup: '' },
-      mockCfSetup,
-    )
+    const saleClass = classifyBySetup('500.00', { accountGroup: 'Fixed Assets', subAccountGroup: '' }, mockCfSetup)
     expect(saleClass).toEqual({
       drawer: 'INVESTING',
       subGroup: 'Penjualan Asset',
@@ -93,11 +88,7 @@ describe('cashflow pure logic and allocation', () => {
   })
 
   it('returns UNCLASSIFIED when setup has no match for counter account', () => {
-    const unclass = classifyBySetup(
-      '-100.00',
-      { accountGroup: 'Other Expense', subAccountGroup: '' },
-      mockCfSetup,
-    )
+    const unclass = classifyBySetup('-100.00', { accountGroup: 'Other Expense', subAccountGroup: '' }, mockCfSetup)
     expect(unclass).toBe('UNCLASSIFIED')
   })
 
@@ -105,11 +96,7 @@ describe('cashflow pure logic and allocation', () => {
     expect(isSetupValid([])).toBe(false)
 
     // journalType 14 -> FUNDING: bank loan
-    const fallbackLoan = classifyByFallback(
-      '1000.00',
-      { accountGroup: 'Current Liabilities', subAccountGroup: '' },
-      14,
-    )
+    const fallbackLoan = classifyByFallback('1000.00', { accountGroup: 'Current Liabilities', subAccountGroup: '' }, 14)
     expect(fallbackLoan.drawer).toBe('FUNDING')
     expect(fallbackLoan.subGroup).toBe('cf.fallback.bankLoan')
   })
@@ -144,8 +131,24 @@ describe('makeIsOurCash', () => {
   it('allocated portions remember the entity of their counter line', () => {
     const portions = allocateCash(
       [
-        { glId: 'g', journalType: 1, periodId: 'p', coaId: '1', segmentDetailId: 's1', debet: '0.00', credit: '100.00' },
-        { glId: 'g', journalType: 1, periodId: 'p', coaId: '6100', segmentDetailId: 's2', debet: '100.00', credit: '0.00' },
+        {
+          glId: 'g',
+          journalType: 1,
+          periodId: 'p',
+          coaId: '1',
+          segmentDetailId: 's1',
+          debet: '0.00',
+          credit: '100.00',
+        },
+        {
+          glId: 'g',
+          journalType: 1,
+          periodId: 'p',
+          coaId: '6100',
+          segmentDetailId: 's2',
+          debet: '100.00',
+          credit: '0.00',
+        },
       ],
       makeIsOurCash(['1'], 'all'),
     )

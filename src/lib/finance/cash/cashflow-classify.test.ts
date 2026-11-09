@@ -119,4 +119,25 @@ describe('classifyBySetup: which sub row wins', () => {
       classifyBySetup('-5', { accountGroup: 'Revenue', subAccountGroup: '' }, [row('Operating', 1, 'Paid', 1, 1)]),
     ).toBe('UNCLASSIFIED')
   })
+
+  it('answers the same when the same setup list is used again, and reads a new list afresh', () => {
+    const first = [row('Operating', 1, 'Paid', 1, 1)]
+    expect(classifyBySetup('-5', counter, first)).toEqual({ drawer: 'OPERATING', subGroup: 'Paid' })
+    expect(classifyBySetup('-7', counter, first)).toEqual({ drawer: 'OPERATING', subGroup: 'Paid' })
+    expect(classifyBySetup('5', counter, first)).toBe('UNCLASSIFIED')
+
+    const second = [row('Investing activities', 1, 'Capex', 1, 1)]
+    expect(classifyBySetup('-5', counter, second)).toEqual({ drawer: 'INVESTING', subGroup: 'Capex' })
+  })
+
+  it('keeps the sub rows of different counter account types apart', () => {
+    const setup = [
+      row('Operating', 1, 'Paid', 1, 1),
+      { ...row('Financing', 2, 'Loan paid', 1, 1), accountGroup: 'Long Term Liabilities' },
+    ]
+    const loan = { accountGroup: 'Long Term Liabilities', subAccountGroup: '' }
+    expect(classifyBySetup('-5', counter, setup)).toEqual({ drawer: 'OPERATING', subGroup: 'Paid' })
+    expect(classifyBySetup('-5', loan, setup)).toEqual({ drawer: 'FUNDING', subGroup: 'Loan paid' })
+    expect(classifyBySetup('-5', counter, setup)).toEqual({ drawer: 'OPERATING', subGroup: 'Paid' })
+  })
 })

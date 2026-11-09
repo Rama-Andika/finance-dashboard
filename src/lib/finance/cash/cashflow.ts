@@ -103,13 +103,18 @@ export function settledJournals(lines: readonly CfLine[], isOurCash: (l: CfLine)
 /**
  * Step 1 (data-model §6.3): Allocate cash proportionally per journal.
  */
-export function allocateCash(
-  lines: CfLine[],
-  isOurCash: (l: CfLine) => boolean,
-): AllocatedCashPortion[] {
+export function allocateCash(lines: CfLine[], isOurCash: (l: CfLine) => boolean): AllocatedCashPortion[] {
+  return allocateJournals(settledJournals(lines, isOurCash))
+}
+
+/**
+ * The same allocation for journals that `settledJournals` already picked, so a caller that needs both the journals
+ * and the portions groups the lines only once.
+ */
+export function allocateJournals(journals: readonly SettledJournal[]): AllocatedCashPortion[] {
   const result: AllocatedCashPortion[] = []
 
-  for (const { glId, counterLines, netCash } of settledJournals(lines, isOurCash)) {
+  for (const { glId, counterLines, netCash } of journals) {
     // Weight w_i = |debet − credit|
     const weights: Decimal[] = []
     let sumW = D(0)
@@ -226,6 +231,28 @@ function setupSubRowsOf(setup: readonly CfSetupRow[], counter: CounterAccount): 
   return Array.from(subRows.values())
 }
 
+/**
+ * The sub rows per counter account type, remembered per setup list: they depend only on the setup and on the account
+ * group and sub group, while a period has tens of thousands of portions and only a few dozen distinct types.
+ * The setup list must not be changed after it was first used (it is read-only everywhere).
+ */
+const subRowsCache = new WeakMap<readonly CfSetupRow[], Map<string, SetupSubRow[]>>()
+
+function cachedSetupSubRows(setup: readonly CfSetupRow[], counter: CounterAccount): SetupSubRow[] {
+  let byCounter = subRowsCache.get(setup)
+  if (!byCounter) {
+    byCounter = new Map()
+    subRowsCache.set(setup, byCounter)
+  }
+  const key = `${counter.accountGroup}\u0000${counter.subAccountGroup}`
+  let subRows = byCounter.get(key)
+  if (!subRows) {
+    subRows = setupSubRowsOf(setup, counter)
+    byCounter.set(key, subRows)
+  }
+  return subRows
+}
+
 /** A sub row with both kinds of rows takes any portion; one kind takes only its own direction. */
 function takesPortion(subRow: SetupSubRow, portion: Decimal): boolean {
   if (subRow.takesInflow && subRow.takesOutflow) return true
@@ -247,7 +274,7 @@ export function classifyBySetup(
   setup: CfSetupRow[],
 ): ClassifiedPortion | 'UNCLASSIFIED' {
   const portionD = D(portion)
-  const eligible = setupSubRowsOf(setup, counter).filter((subRow) => takesPortion(subRow, portionD))
+  const eligible = cachedSetupSubRows(setup, counter).filter((subRow) => takesPortion(subRow, portionD))
   if (eligible.length === 0) return 'UNCLASSIFIED'
 
   // The first in setup order wins; equal sequences keep setup order.
@@ -291,7 +318,8 @@ const FALLBACK_RULES: readonly FallbackRule[] = [
       : null,
   // 7. Expense, Cost Of Sales, Account Receivable Other
   (counter) =>
-    ['Expense', 'Cost Of Sales'].includes(counter.accountGroup) || counter.subAccountGroup === 'Account Receivable Other'
+    ['Expense', 'Cost Of Sales'].includes(counter.accountGroup) ||
+    counter.subAccountGroup === 'Account Receivable Other'
       ? { drawer: 'OPERATING', subGroup: CF_FALLBACK.operatingExpenses }
       : null,
   // 8. Other Expense

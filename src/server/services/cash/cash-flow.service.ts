@@ -13,7 +13,7 @@ import { balancesAt } from '~/server/services/cash/balance.service'
 import { linesOfCashJournals, getCashFlowSetup } from '~/server/repo/cash/cashflow.repo'
 import { UNCLASSIFIED_SUBGROUP } from '~/lib/finance/cash/cashflow-labels'
 import {
-  allocateCash,
+  allocateJournals,
   settledJournals,
   makeIsOurCash,
   classifyCounterAmount,
@@ -67,6 +67,8 @@ export { UNCLASSIFIED_SUBGROUP }
  */
 export type ClassifiedPortions = {
   lines: CfLine[]
+  /** The journals that really move our cash (see `settledJournals`); the portions are allocated from these. */
+  journals: SettledJournal[]
   portions: ClassifiedCashPortion[]
   setupValid: boolean
   setup: CfSetupRow[]
@@ -112,7 +114,7 @@ async function loadClassifiedPortionsUncached(
 
   const activePeriods = activePeriodsOf(periods, filter.periodIds)
   if (cashEquivIds.length === 0 || activePeriods.length === 0) {
-    return { lines: [], portions: [], setupValid, setup, cashEquivIds, isOurCash }
+    return { lines: [], journals: [], portions: [], setupValid, setup, cashEquivIds, isOurCash }
   }
 
   const lines: CfLine[] = await linesOfCashJournals({
@@ -122,12 +124,13 @@ async function loadClassifiedPortionsUncached(
     cashCoaIds: fetchIds,
   })
 
-  const portions: ClassifiedCashPortion[] = allocateCash(lines, isOurCash).map((p) => ({
+  const journals = settledJournals(lines, isOurCash)
+  const portions: ClassifiedCashPortion[] = allocateJournals(journals).map((p) => ({
     ...p,
     ...classifyCounterAmount(p.portion, counterAccountOf(tree, p.counterCoaId), p.journalType, setupValid, setup),
   }))
 
-  return { lines, portions, setupValid, setup, cashEquivIds, isOurCash }
+  return { lines, journals, portions, setupValid, setup, cashEquivIds, isOurCash }
 }
 
 const DRAWERS = ['OPERATING', 'INVESTING', 'FUNDING'] as const
@@ -261,7 +264,7 @@ async function computeCashFlowUncached(filter: AppContextFilter): Promise<CashFl
     balancesAt({ asOf: filter.asOf, coaIds: cashEquivIds, filter }),
     loadClassifiedPortions(filter, { tree, periods }),
   ])
-  const { lines, portions, setupValid, setup, isOurCash } = classified
+  const { journals, portions, setupValid, setup } = classified
 
   const openingCash = sum(cashEquivIds.map((id) => opRes.byCoa.get(id) ?? '0.00'))
   const closingCashByBalance = sum(cashEquivIds.map((id) => clRes.byCoa.get(id) ?? '0.00'))
@@ -269,7 +272,6 @@ async function computeCashFlowUncached(filter: AppContextFilter): Promise<CashFl
   const { drawers, netCashFlow: netCashFlowDec } = summarizeDrawers(portions)
   const closingCash = D(openingCash).plus(netCashFlowDec).toFixed(2)
 
-  const journals = settledJournals(lines, isOurCash)
   const erpTotals = erpMethodTotals(journals, tree, setupValid, setup)
 
   const erpComparison = DRAWERS.map((drawer) => {
