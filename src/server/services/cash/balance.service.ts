@@ -21,12 +21,12 @@ type BalanceInput = {
 
 type BalanceMethod = 'opening-table' | 'trial-balance'
 
-
 /** Loads openings + movements per data-model §4.5 (opening table, or trial-balance fallback). */
 async function loadBalanceInputs(
   input: BalanceInput,
-  bySegment: boolean,
+  options: { bySegment: boolean },
 ): Promise<{ openings: OpeningBalanceRow[]; movements: DateMovementRow[]; method: BalanceMethod }> {
+  const { bySegment } = options
   const periods = await getCachedPeriods()
   const { closed, opening } = pickOpeningPeriod(periods, input.asOf)
   const segCol = input.filter.entitySegmentColumn
@@ -91,7 +91,7 @@ export function balancesAt(input: BalanceInput): Promise<{
   return memo(balanceKey('balances', input), BALANCE_CACHE_MS, async () => {
     const [accounts, { openings, movements, method }] = await Promise.all([
       accountGroupsOf(input.coaIds),
-      loadBalanceInputs(input, false),
+      loadBalanceInputs(input, { bySegment: false }),
     ])
     return { byCoa: combineBalances(accounts, openings, movements), method }
   })
@@ -117,7 +117,7 @@ async function computeBalancesBySegment(input: BalanceInput): Promise<{
 
   const [accounts, { openings, movements, method }] = await Promise.all([
     accountGroupsOf(input.coaIds),
-    loadBalanceInputs(input, true),
+    loadBalanceInputs(input, { bySegment: true }),
   ])
 
   const openingsBySeg = new Map<Id, OpeningBalanceRow[]>()
@@ -137,10 +137,7 @@ async function computeBalancesBySegment(input: BalanceInput): Promise<{
 
   const segKeys = new Set([...openingsBySeg.keys(), ...movementsBySeg.keys()])
   for (const seg of segKeys) {
-    bySegment.set(
-      seg,
-      combineBalances(accounts, openingsBySeg.get(seg) ?? [], movementsBySeg.get(seg) ?? []),
-    )
+    bySegment.set(seg, combineBalances(accounts, openingsBySeg.get(seg) ?? [], movementsBySeg.get(seg) ?? []))
   }
   return { bySegment, method }
 }

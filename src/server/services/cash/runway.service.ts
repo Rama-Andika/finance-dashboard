@@ -4,12 +4,7 @@ import Decimal from 'decimal.js'
 import { postableAccountIds } from '~/lib/finance/coa/coa-tree'
 import { D, sum } from '~/lib/core/money'
 import type { Id, MetricMeta, Money, Period } from '~/lib/core/types'
-import {
-  type AppContextFilter,
-  buildMetricMeta,
-  getCachedCoaTree,
-  getCachedPeriods,
-} from '~/server/context'
+import { type AppContextFilter, buildMetricMeta, getCachedCoaTree, getCachedPeriods } from '~/server/context'
 import { memoMetric } from '~/server/cache'
 import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
 import { balancesAt } from '~/server/services/cash/balance.service'
@@ -17,11 +12,8 @@ import { computeCashPosition } from '~/server/services/cash/cash-position.servic
 import { computePnl } from '~/server/services/pnl/pnl.service'
 import { linesOfCashJournals } from '~/server/repo/cash/cashflow.repo'
 import { allocateCash, makeIsOurCash } from '~/lib/finance/cash/cashflow'
-import {
-  computeAvgBurn,
-  computeRunway,
-  computeRatios,
-} from '~/lib/finance/cash/runway'
+import { allCashAccountIds } from '~/lib/finance/coa/basket-resolver'
+import { computeAvgBurn, computeRunway, computeRatios } from '~/lib/finance/cash/runway'
 
 export type RunwayResult = {
   meta: MetricMeta
@@ -47,7 +39,10 @@ async function averageBurn(filter: AppContextFilter, periods: Period[], cashEqui
         .filter((p) => isRegularPeriod(p) && p.endDate < filter.asOf && p.startDate.slice(0, 7) < asOfMonth)
         .map((p) => p.startDate.slice(0, 7)),
     ),
-  ).sort().reverse().slice(0, 3)
+  )
+    .sort()
+    .reverse()
+    .slice(0, 3)
 
   const priorPeriods = periods.filter((p) => priorMonths.includes(p.startDate.slice(0, 7)))
   if (priorMonths.length === 0 || priorPeriods.length === 0 || cashEquivIds.length === 0) return '0.00'
@@ -75,7 +70,7 @@ async function computeRunwayMetricsUncached(filter: AppContextFilter): Promise<R
   const [tree, periods] = await Promise.all([getCachedCoaTree(), getCachedPeriods()])
 
   const resolved = await loadResolvedBaskets(tree)
-  const cashEquivIds = Array.from(new Set([...resolved.cash, ...resolved.bank, ...resolved.deposit]))
+  const cashEquivIds = allCashAccountIds(resolved)
   const liquidCoaIds: Id[] = postableAccountIds(tree, ['Liquid Assets'])
   const liabCoaIds: Id[] = postableAccountIds(tree, ['Current Liabilities'])
   const allRatioCoa = [...liquidCoaIds, ...liabCoaIds]

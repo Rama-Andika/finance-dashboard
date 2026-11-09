@@ -1,13 +1,8 @@
+import '@tanstack/react-start/server-only'
 import { activePeriodsOf } from '~/lib/filters/filter-scope'
 import { postableAccountIds } from '~/lib/finance/coa/coa-tree'
-import '@tanstack/react-start/server-only'
 import type { Breakdown, Id, MetricMeta, Money } from '~/lib/core/types'
-import {
-  type AppContextFilter,
-  buildMetricMeta,
-  getCachedCoaTree,
-  getCachedPeriods,
-} from '~/server/context'
+import { type AppContextFilter, buildMetricMeta, getCachedCoaTree, getCachedPeriods } from '~/server/context'
 import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
 import { memoMetric } from '~/server/cache'
 import { loadPlMovements, onlyAccounts } from '~/server/services/pnl/pl-movements'
@@ -42,9 +37,7 @@ async function computeFixedCostUncached(filter: AppContextFilter): Promise<Fixed
   const activePeriods = activePeriodsOf(periods, filter.periodIds)
   const monthsData = filter.months.map((m) => ({
     month: m,
-    periodIds: activePeriods
-      .filter((p) => p.startDate.slice(0, 7) === m)
-      .map((p) => p.periodeId),
+    periodIds: activePeriods.filter((p) => p.startDate.slice(0, 7) === m).map((p) => p.periodeId),
   }))
 
   if (fixedCoaIds.size === 0 || filter.periodIds.length === 0) {

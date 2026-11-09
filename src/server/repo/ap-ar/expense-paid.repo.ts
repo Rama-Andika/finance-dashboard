@@ -8,9 +8,10 @@ import { EXPENSE_PAID_TYPES, IN_OUT_VALUES, MODULE_TYPE, intList } from '~/serve
 import { D } from '~/lib/core/money'
 import { idOrEmpty, locKeyOf, locationFilter, toDay } from '~/server/repo/ap-ar/shared'
 
+import type { Id, IsoDate, Money } from '~/lib/core/types'
+
 /** The Expense Paid metric and its drill-down read the same cards: they share one read for a minute. */
 const EXPENSE_PAID_CACHE_MS = 60 * 1000
-import type { Id, IsoDate, Money } from '~/lib/core/types'
 
 export type ExpensePaidAllocatedRow = {
   cardId: Id
@@ -68,17 +69,15 @@ async function readAllocated(
       GROUP BY p.ap_ar_card_id, p.transaction_number, DATE(p.transaction_date), p.location_id, i.owner_id, i.transaction_type
     `)
 
-    return res.map(
-      (r): ExpensePaidAllocatedRow => ({
-        cardId: String(r.cardId),
-        cardNumber: r.cardNumber ?? '',
-        txDate: toDay(r.txDate),
-        locationId: idOrEmpty(r.locationId),
-        vendorId: idOrEmpty(r.vendorId),
-        itemType: toInt(r.itemType),
-        detailSum: D(r.detailSum || 0).toFixed(2),
-      }),
-    )
+    return res.map((r): ExpensePaidAllocatedRow => ({
+      cardId: String(r.cardId),
+      cardNumber: r.cardNumber ?? '',
+      txDate: toDay(r.txDate),
+      locationId: idOrEmpty(r.locationId),
+      vendorId: idOrEmpty(r.vendorId),
+      itemType: toInt(r.itemType),
+      detailSum: D(r.detailSum || 0).toFixed(2),
+    }))
   })
 
   return slices.flat()
@@ -117,16 +116,14 @@ async function readUnallocated(
         AND NOT EXISTS (SELECT 1 FROM ap_ar_card_detail d WHERE d.ap_ar_card_id = p.ap_ar_card_id)
     `)
 
-    return res.map(
-      (r): ExpensePaidUnallocatedRow => ({
-        cardId: String(r.cardId),
-        cardNumber: r.cardNumber ?? '',
-        txDate: toDay(r.txDate),
-        locationId: idOrEmpty(r.locationId),
-        vendorId: idOrEmpty(r.vendorId),
-        signedAmount: D(r.signedAmount || 0).toFixed(2),
-      }),
-    )
+    return res.map((r): ExpensePaidUnallocatedRow => ({
+      cardId: String(r.cardId),
+      cardNumber: r.cardNumber ?? '',
+      txDate: toDay(r.txDate),
+      locationId: idOrEmpty(r.locationId),
+      vendorId: idOrEmpty(r.vendorId),
+      signedAmount: D(r.signedAmount || 0).toFixed(2),
+    }))
   })
 
   return slices.flat()

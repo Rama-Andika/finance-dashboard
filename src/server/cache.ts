@@ -1,6 +1,7 @@
 import '@tanstack/react-start/server-only'
 import { createHash } from 'node:crypto'
 import { createLogger, errorText } from '~/server/log'
+import { METRIC_FRESH_SETTING, METRIC_STALE_SETTING, type SecondsSetting } from '~/server/metric-settings'
 import { timed } from '~/server/perf'
 
 const log = createLogger('cache')
@@ -149,11 +150,11 @@ export async function memo<T>(
 }
 
 /** Reads a whole-number setting from process.env (this module stays free of the env module on purpose). */
-function secondsFromEnv(name: string, fallback: number, min: number, max: number): number {
-  const raw = process.env[name]
-  if (raw === undefined || raw === '') return fallback
+function secondsFromEnv(setting: SecondsSetting): number {
+  const raw = process.env[setting.name]
+  if (raw === undefined || raw === '') return setting.fallback
   const n = Number(raw)
-  return Number.isInteger(n) && n >= min && n <= max ? n : fallback
+  return Number.isInteger(n) && n >= setting.min && n <= setting.max ? n : setting.fallback
 }
 
 /**
@@ -164,8 +165,8 @@ function secondsFromEnv(name: string, fallback: number, min: number, max: number
  * recalculated in the background. A caller that passes its own `ttlMs` gets no stale window.
  */
 export function memoMetric<T>(name: string, params: unknown, loader: () => Promise<T>, ttlMs?: number): Promise<T> {
-  const freshMs = ttlMs ?? secondsFromEnv('METRIC_FRESH_SECONDS', 60, 5, 3600) * 1000
-  const staleMs = ttlMs === undefined ? secondsFromEnv('METRIC_STALE_SECONDS', 180, 0, 86_400) * 1000 : 0
+  const freshMs = ttlMs ?? secondsFromEnv(METRIC_FRESH_SETTING) * 1000
+  const staleMs = ttlMs === undefined ? secondsFromEnv(METRIC_STALE_SETTING) * 1000 : 0
   const digest = createHash('sha1').update(JSON.stringify(params)).digest('hex')
   // Only a real computation is timed: a cache hit never calls the loader. Nested metrics overlap in time.
   return memo(`metric:${name}:${digest}`, freshMs, () => timed(`metric ${name}`, loader), { staleMs })

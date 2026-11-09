@@ -3,7 +3,7 @@ import { getCachedCoaTree, getCachedEntities, getCachedPeriods } from '~/server/
 import { builtCashPeriods } from '~/server/dash/cash-lines-read'
 import { linesOfCashJournals, type CashJournalLineRow } from '~/server/repo/cash/cashflow.repo'
 import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
-import { allCashAccountIds } from '~/server/services/cash/cash-flow.service'
+import { allCashAccountIds } from '~/lib/finance/coa/basket-resolver'
 import { clearCache, hashIds } from '~/server/cache'
 import type { Id, Period } from '~/lib/core/types'
 

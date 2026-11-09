@@ -5,20 +5,12 @@ import { D, sum } from '~/lib/core/money'
 import { addDays } from '~/lib/format/date'
 import type { Id, MetricMeta, Money, Period } from '~/lib/core/types'
 import type { CoaTree } from '~/lib/finance/coa/coa-tree'
-import {
-  type AppContextFilter,
-  buildMetricMeta,
-  getCachedCoaTree,
-  getCachedPeriods,
-} from '~/server/context'
+import { type AppContextFilter, buildMetricMeta, getCachedCoaTree, getCachedPeriods } from '~/server/context'
 import { memoMetric } from '~/server/cache'
 import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
-import type { ResolvedBaskets } from '~/lib/finance/coa/basket-resolver'
+import { allCashAccountIds } from '~/lib/finance/coa/basket-resolver'
 import { balancesAt } from '~/server/services/cash/balance.service'
-import {
-  linesOfCashJournals,
-  getCashFlowSetup,
-} from '~/server/repo/cash/cashflow.repo'
+import { linesOfCashJournals, getCashFlowSetup } from '~/server/repo/cash/cashflow.repo'
 import { UNCLASSIFIED_SUBGROUP } from '~/lib/finance/cash/cashflow-labels'
 import {
   allocateCash,
@@ -87,8 +79,10 @@ export function loadClassifiedPortions(
   filter: AppContextFilter,
   ctx?: LoadPortionsContext,
 ): Promise<ClassifiedPortions> {
-  return memoMetric('cashPortions', { filter, cashEquivIds: ctx?.cashEquivIds ? [...ctx.cashEquivIds].sort() : null }, () =>
-    loadClassifiedPortionsUncached(filter, ctx),
+  return memoMetric(
+    'cashPortions',
+    { filter, cashEquivIds: ctx?.cashEquivIds ? [...ctx.cashEquivIds].sort() : null },
+    () => loadClassifiedPortionsUncached(filter, ctx),
   )
 }
 
@@ -99,18 +93,14 @@ type LoadPortionsContext = {
   cashEquivIds?: Id[]
 }
 
-/** Cash ∪ bank ∪ deposit: the widest cash list. Every metric reads journal lines for THIS list so the read is shared. */
-export function allCashAccountIds(resolved: ResolvedBaskets): Id[] {
-  return Array.from(new Set([...resolved.cash, ...resolved.bank, ...resolved.deposit]))
-}
-
 async function loadClassifiedPortionsUncached(
   filter: AppContextFilter,
   ctx?: LoadPortionsContext,
 ): Promise<ClassifiedPortions> {
   const tree = ctx?.tree ?? (await getCachedCoaTree())
   const periods = ctx?.periods ?? (await getCachedPeriods())
-  // Lines are always read for the widest cash list (shared with Cash Flow, Expense Paid, Runway);
+  // Lines are always read for the widest cash list, so Cash Flow, Expense Paid and the drill-downs share one read for
+  // the same periods (Runway reads the three months before the report date, so it shares only when the periods match);
   // `cashEquivIds` only decides which of those lines count as our cash.
   const resolved = await loadResolvedBaskets(tree)
   const fetchIds = allCashAccountIds(resolved)
@@ -196,11 +186,7 @@ function summarizeDrawers(portions: ClassifiedCashPortion[]): {
 }
 
 /** Cash in / out per month, one entry per journal that moves our cash. */
-function monthlyTrend(
-  journals: SettledJournal[],
-  periods: Period[],
-  months: string[],
-): CashFlowResult['monthly'] {
+function monthlyTrend(journals: SettledJournal[], periods: Period[], months: string[]): CashFlowResult['monthly'] {
   const periodById = new Map(periods.map((p) => [p.periodeId, p]))
   const totals = new Map<string, { cashIn: Decimal; cashOut: Decimal }>(
     months.map((m) => [m, { cashIn: D(0), cashOut: D(0) }]),

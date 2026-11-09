@@ -183,8 +183,10 @@ export type ArDirectReturnRow = {
   balance: Money
 }
 
-/** Open invoices with a balance ("part A" in data-model §9) and payments not allocated to any invoice ("part B"). */
-/** The returned arrays are cached and shared: callers must not modify them. */
+/**
+ * Open invoices with a balance ("part A" in data-model §9) and payments not allocated to any invoice ("part B").
+ * The returned arrays are cached and shared: callers must not modify them.
+ */
 export function apOpenInvoices(asOfPlusOne: IsoDate, locIds: Id[] | 'all'): Promise<ApOpenInvoiceRow[]> {
   return agingInvoices('ap', asOfPlusOne, locIds, 'vendorId')
 }

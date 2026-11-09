@@ -26,7 +26,7 @@ function nodesWithId(nodes: readonly BalanceSheetNode[], id: string): BalanceShe
 }
 
 /** The accounts below the nodes with their balance at the report date; accounts without a balance are left out. */
-function accountRows(nodes: readonly BalanceSheetNode[], label: string): DrillResult {
+function balanceAccountRows(nodes: readonly BalanceSheetNode[], label: string): DrillResult {
   const rows = accountsBelow(nodes)
     .filter((node) => !D(node.amount).isZero())
     .map((node) => ({ id: node.id, code: node.code, name: node.name, amount: node.amount }))
@@ -61,7 +61,7 @@ export async function balanceSheetDrill(ctx: DrillContext, steps: Map<DrillStepK
       ...nodesWithId(statement.assets.nodes, folderStep.id),
       ...nodesWithId(statement.liabilitiesEquity.nodes, folderStep.id),
     ]
-    return accountRows(nodes, folderStep.label)
+    return balanceAccountRows(nodes, folderStep.label)
   }
 
   const sectionStep = steps.get('section')
@@ -72,7 +72,7 @@ export async function balanceSheetDrill(ctx: DrillContext, steps: Map<DrillStepK
         : sectionStep.id === 'liabilitiesEquity'
           ? statement.liabilitiesEquity.nodes
           : []
-    return accountRows(nodes, sectionStep.label)
+    return balanceAccountRows(nodes, sectionStep.label)
   }
   return empty('drill.title.accounts', '')
 }

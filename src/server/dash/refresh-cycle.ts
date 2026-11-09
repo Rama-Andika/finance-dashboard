@@ -162,7 +162,8 @@ async function runSteps(source: RefreshSource, force: boolean, timer: StepTimer)
 }
 
 /**
- * One refresh run: the AP/AR snapshot, the monthly GL snapshot for Closed periods, then the month-end AP/AR history.
+ * One refresh run, in this order: the AP/AR snapshot, the monthly GL snapshot for Closed periods, the balance sheet
+ * totals, the cash journal lines of Closed periods, then the month-end AP/AR history.
  * The scheduler and the "Refresh now" button both call this, so they behave the same.
  * One run at a time per process; the advisory lock inside each step keeps other processes apart.
  * `force` rebuilds the AP/AR snapshot even when the ERP fingerprint looks unchanged.

@@ -74,6 +74,10 @@ export type SummaryResult = {
   }
 }
 
+/**
+ * The whole Summary page in one result. The page itself loads it in three parts (head, charts and mini, further down),
+ * so only the integration tests use this function: they check that the three parts carry the same figures.
+ */
 export async function computeSummary(filter: AppContextFilter): Promise<SummaryResult> {
   const meta = buildMetricMeta(filter)
 

@@ -1,10 +1,5 @@
 import type { BasketKey, Id } from '../../core/types'
-import {
-  type CoaTree,
-  type CoaNode,
-  postableDescendants,
-  ancestorsOf,
-} from './coa-tree'
+import { type CoaTree, type CoaNode, postableDescendants, ancestorsOf } from './coa-tree'
 
 export type AccountMapping = {
   version: 1
@@ -14,13 +9,12 @@ export type AccountMapping = {
 
 export type ResolvedBaskets = Record<BasketKey, Id[]> & { missing: Id[] }
 
-const BASKET_KEYS: readonly BasketKey[] = [
-  'cash',
-  'bank',
-  'deposit',
-  'inTransit',
-  'fixedCost',
-]
+/** Cash ∪ bank ∪ deposit: the widest cash list. Every metric reads journal lines for THIS list, so the read is shared. */
+export function allCashAccountIds(resolved: ResolvedBaskets): Id[] {
+  return Array.from(new Set([...resolved.cash, ...resolved.bank, ...resolved.deposit]))
+}
+
+const BASKET_KEYS: readonly BasketKey[] = ['cash', 'bank', 'deposit', 'inTransit', 'fixedCost']
 
 /** Resolves each basket: HEADER -> all POSTABLE descendants, POSTABLE -> itself, dedupe, unknown ID -> missing. */
 export function resolveBaskets(mapping: AccountMapping, tree: CoaTree): ResolvedBaskets {
@@ -64,39 +58,27 @@ export function resolveBaskets(mapping: AccountMapping, tree: CoaTree): Resolved
   }
 }
 
-function isNodeDirectlyOrViaAncestorIncluded(
-  includeSet: Set<Id>,
-  tree: CoaTree,
-  coaId: Id,
-): boolean {
+function isNodeDirectlyOrViaAncestorIncluded(includeSet: Set<Id>, tree: CoaTree, coaId: Id): boolean {
   if (includeSet.has(coaId)) return true
   const ancestors = ancestorsOf(tree, coaId)
   return ancestors.some((aId) => includeSet.has(aId))
 }
 
 /** Checkbox state of a node for the UI: 'checked' (☑), 'partial' (◐), 'unchecked'. */
-export function checkState(
-  include: Id[],
-  tree: CoaTree,
-  coaId: Id,
-): 'checked' | 'partial' | 'unchecked' {
+export function checkState(include: Id[], tree: CoaTree, coaId: Id): 'checked' | 'partial' | 'unchecked' {
   const node = tree.byId.get(coaId)
   if (!node) return 'unchecked'
 
   const includeSet = new Set(include)
 
   if (node.status === 'POSTABLE') {
-    return isNodeDirectlyOrViaAncestorIncluded(includeSet, tree, coaId)
-      ? 'checked'
-      : 'unchecked'
+    return isNodeDirectlyOrViaAncestorIncluded(includeSet, tree, coaId) ? 'checked' : 'unchecked'
   }
 
   // HEADER / Folder node
   const postables = postableDescendants(tree, coaId)
   if (postables.length === 0) {
-    return isNodeDirectlyOrViaAncestorIncluded(includeSet, tree, coaId)
-      ? 'checked'
-      : 'unchecked'
+    return isNodeDirectlyOrViaAncestorIncluded(includeSet, tree, coaId) ? 'checked' : 'unchecked'
   }
 
   let includedCount = 0
@@ -115,12 +97,7 @@ export function checkState(
   return 'unchecked'
 }
 
-function expandAncestorExcludingTarget(
-  ancestor: CoaNode,
-  targetId: Id,
-  tree: CoaTree,
-  targetAncestors: Set<Id>,
-): Id[] {
+function expandAncestorExcludingTarget(ancestor: CoaNode, targetId: Id, tree: CoaTree, targetAncestors: Set<Id>): Id[] {
   const result: Id[] = []
   for (const child of ancestor.children) {
     if (child.coaId === targetId) {
@@ -176,12 +153,7 @@ export function toggleNode(include: Id[], tree: CoaTree, coaId: Id): Id[] {
     if (lowestAncestorId) {
       nextInclude = nextInclude.filter((id) => id !== lowestAncestorId)
       const ancestorNode = tree.byId.get(lowestAncestorId)!
-      const replacementIds = expandAncestorExcludingTarget(
-        ancestorNode,
-        coaId,
-        tree,
-        targetAncestors,
-      )
+      const replacementIds = expandAncestorExcludingTarget(ancestorNode, coaId, tree, targetAncestors)
       nextInclude.push(...replacementIds)
     }
 

@@ -18,6 +18,7 @@ declare global {
  */
 export function ensureDashScheduler(): void {
   if (globalThis.__dashScheduler) return
+  // A test must never start the real refresh job (it reads and writes the database), so Vitest switches it off too.
   if (env.DASH_REFRESH_ENABLED === '0' || process.env.VITEST) return
   // After a failed start, wait a minute before trying again (this runs on every request).
   if (globalThis.__dashSchedulerRetryAt && Date.now() < globalThis.__dashSchedulerRetryAt) return

@@ -23,7 +23,7 @@ import {
   computeExpensePaidBreakdown,
   type DirectExpensePortion,
 } from '~/lib/finance/ap-ar/expense-paid'
-import { allCashAccountIds } from '~/server/services/cash/cash-flow.service'
+import { allCashAccountIds } from '~/lib/finance/coa/basket-resolver'
 
 export type ExpensePaidResult = {
   meta: MetricMeta

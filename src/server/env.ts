@@ -1,5 +1,6 @@
 import '@tanstack/react-start/server-only'
 import { z } from 'zod'
+import { METRIC_FRESH_SETTING, METRIC_STALE_SETTING } from '~/server/metric-settings'
 
 if (!process.env.DATABASE_URL) {
   try {
@@ -53,11 +54,21 @@ const envSchema = z.object({
   // while one recalculation runs in the background (0 = never serve an old answer). cache.ts reads both straight from process.env.
   METRIC_FRESH_SECONDS: z.preprocess(
     (v) => (v === '' ? undefined : v),
-    z.coerce.number().int().min(5).max(3600).default(60),
+    z.coerce
+      .number()
+      .int()
+      .min(METRIC_FRESH_SETTING.min)
+      .max(METRIC_FRESH_SETTING.max)
+      .default(METRIC_FRESH_SETTING.fallback),
   ),
   METRIC_STALE_SECONDS: z.preprocess(
     (v) => (v === '' ? undefined : v),
-    z.coerce.number().int().min(0).max(86_400).default(180),
+    z.coerce
+      .number()
+      .int()
+      .min(METRIC_STALE_SETTING.min)
+      .max(METRIC_STALE_SETTING.max)
+      .default(METRIC_STALE_SETTING.fallback),
   ),
   ERP_APP_ID_INDEX: z.coerce.number().int().min(0).max(99).default(7),
   NODE_ENV: z.string().default('development'),

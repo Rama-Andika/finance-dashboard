@@ -206,6 +206,8 @@ export function computeApAgingFromAggregates(input: {
     unpaidBills: r.unpaid.toFixed(2),
     vendorCredits: r.credits.toFixed(2),
     unallocatedPayments: r.unallocated.toFixed(2),
+    // AP: the direct returns are open items of the return type with a negative balance, so they are already inside
+    // `vendorCredits`; `unallocatedPayments` (the unallocated payments) is a separate figure.
     directReturns: r.itemReturns.toFixed(2),
     directReturnCount: r.itemReturnCount,
     buckets: formatBuckets(r.buckets),
@@ -236,6 +238,8 @@ export function computeArAgingFromAggregates(input: {
     total: r.total.toFixed(2),
     unpaidInvoices: r.unpaid.toFixed(2),
     customerCredits: r.credits.toFixed(2),
+    // AR: a direct return is a card without a detail row of its own, so it sits in the unallocated table
+    // (`unallocated`), not among the open items as on the AP side (`itemReturns`).
     directReturns: r.unallocated.toFixed(2),
     directReturnCount: r.unallocatedCount,
     nonTrade: r.nonTrade.toFixed(2),

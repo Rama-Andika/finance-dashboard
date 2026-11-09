@@ -1,3 +1,4 @@
+import '@tanstack/react-start/server-only'
 import { memoMetric } from '~/server/cache'
 import { createViewCache, pageOfSorted, sortRows, type Comparator, type Page, type TableQuery } from '~/lib/table/query'
 import {
@@ -8,7 +9,6 @@ import {
   type BillScopeSummary,
 } from '~/lib/finance/ap-ar/payment-plan-bills'
 import type { PaymentPlanBill } from '~/lib/finance/ap-ar/payment-plan'
-import '@tanstack/react-start/server-only'
 import { D } from '~/lib/core/money'
 import { buildEntityOwners, ownerNameOfLocation } from '~/lib/finance/entity/entity-owner'
 import { addDays } from '~/lib/format/date'
@@ -187,7 +187,7 @@ async function computePaymentPlanUncached(
     listActivePlanStatuses(),
   ])
   const openingCash = cashPos.cashPosition
-  const horizon = Number(opts.horizon) || 7
+  const horizon = Number(opts.horizon)
   const lastDay = addDays(today, horizon - 1)
   // Bills due after the horizon change nothing in the plan, so they are left out here.
   const apPositive = rawAp.filter((a) => D(a.balance).gt(0) && (a.dueDate || a.txDate) <= lastDay)
@@ -295,7 +295,7 @@ async function computePaymentPlanSummaryUncached(
 ): Promise<PaymentPlanSummaryResult> {
   const meta = buildMetricMeta(filter)
   const today = filter.today
-  const horizon = Number(opts.horizon) || 7
+  const horizon = Number(opts.horizon)
   const lastDay = addDays(today, horizon - 1)
 
   // Opening cash, the bills due by the last day of the plan (overdue included), the live payment vouchers and the vendor

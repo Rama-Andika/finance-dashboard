@@ -56,7 +56,7 @@ src/
 │  │  ├─ ap-ar/  cash/  gl/  master-data/  pnl/
 │  │  └─ (root)            auth, settings, data-checks, dan sql-guard.test.ts
 │  ├─ db/  dash/  auth/    koneksi/pembantu DB, tabel snapshot dash_*, login & sesi
-│  └─ cache.ts  context.ts  env.ts  log.ts  oid.ts  public-error.ts
+│  └─ cache.ts  context.ts  env.ts  log.ts  metric-settings.ts  oid.ts  public-error.ts
 ├─ lib/
 │  ├─ core/                tipe, uang (decimal), compare, label i18n — tidak bergantung pada apa pun
 │  ├─ finance/             logika keuangan murni per domain: ap-ar, balance-sheet, cash, checks, coa, entity, journal, period, pnl
@@ -151,3 +151,4 @@ Nama yang diekspor (fungsi, komponen, tipe) tidak boleh berubah hanya karena fil
 | 2026-11-05 | Langkah 7 di "Menambah metrik baru" mengarah ke `docs/project-guide.md` (menggantikan dokumen Summary dan Revenue).                           |
 | 2026-11-09 | Domain Balance Sheet (neraca) ditambahkan: `balance-sheet/` di lib/finance, services, functions, dan components, serta route `balance-sheet`. |
 | 2026-11-09 | Snapshot neraca bulanan: `src/server/dash/balance-snapshot.ts` dan `balance-snapshot-read.ts`, skrip `scripts/dash-refresh-balance.ts`.       |
+| 2026-11-09 | `src/server/metric-settings.ts`: batas dan nilai bawaan pengaturan cache metrik, dipakai `env.ts` dan `cache.ts`.                             |
