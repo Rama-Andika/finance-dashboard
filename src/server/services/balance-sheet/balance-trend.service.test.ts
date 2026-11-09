@@ -144,6 +144,24 @@ describe('computeBalanceTrend', () => {
     expect(movementsByPeriods).not.toHaveBeenCalled()
   })
 
+  it('starts the read of the saved totals and the live read together, not one after the other', async () => {
+    builtPeriods = new Map([['r2026-02', 'v1']])
+    savedTotals = new Map([['r2026-02', { 'Liquid Assets': '230.00', Equity: '220.00', Profit: '10.00' }]])
+    const order: string[] = []
+    snapshotBalanceTotals.mockImplementationOnce(async () => {
+      order.push('snapshot:start')
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      order.push('snapshot:end')
+      return new Map([['r2026-02', savedTotals.get('r2026-02')!]])
+    })
+    movementsByPeriods.mockImplementationOnce(async () => {
+      order.push('live:start')
+      return []
+    })
+    await computeBalanceTrend(filter)
+    expect(order).toEqual(['snapshot:start', 'live:start', 'snapshot:end'])
+  })
+
   it('answers a second call for the same filter from the cache', async () => {
     await computeBalanceTrend(filter)
     await computeBalanceTrend(filter)

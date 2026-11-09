@@ -38,12 +38,14 @@ async function computeBalanceTrendUncached(filter: AppContextFilter): Promise<Ba
   )
   const live = candidates.filter((p) => !fromSnapshot.includes(p))
 
-  const snapshotTotals = await snapshotBalanceTotals(
-    fromSnapshot.map((p) => p.periodeId),
-    filter.segmentDetailIds,
-  )
-
-  const base = await loadBalanceBase(context, target)
+  // The saved totals and the live running sum do not depend on each other: read them together.
+  const [snapshotTotals, base] = await Promise.all([
+    snapshotBalanceTotals(
+      fromSnapshot.map((p) => p.periodeId),
+      filter.segmentDetailIds,
+    ),
+    loadBalanceBase(context, target),
+  ])
   const movementPeriods = base.plan.plan.movementPeriods
   const reachable = new Set(movementPeriods.map((p) => p.periodeId))
   const endStates = live

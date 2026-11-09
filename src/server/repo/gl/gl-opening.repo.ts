@@ -5,7 +5,11 @@ import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
 import { SLICE_CONCURRENCY, chunk, chunkOrAll, mapLimit, sliceCombos } from '~/server/db/chunk'
 import { D } from '~/lib/core/money'
+import { hashIds, memo } from '~/server/cache'
 import type { Id, Money } from '~/lib/core/types'
+
+/** Saved opening balances change only when an ERP user closes a period; the Balance Sheet, its trend and the balance reads ask for the same ones. */
+const OPENING_CACHE_MS = 60 * 1000
 
 export type OpeningBalanceRow = {
   coaId: Id
@@ -52,6 +56,7 @@ function addOpening(resultMap: Map<string, OpeningBalanceRow>, r: OpeningDbRow, 
   resultMap.set(key, { coaId, segmentDetailId, opening })
 }
 
+/** The saved opening balances of one period. The cached array is shared: callers must only read it. */
 export async function openingBalances(opts: OpeningBalancesOptions): Promise<OpeningBalanceRow[]> {
   if (opts.coaIds.length === 0) return []
   if (opts.segIds !== 'all' && opts.segIds.length === 0) return []
@@ -61,6 +66,18 @@ export async function openingBalances(opts: OpeningBalancesOptions): Promise<Ope
     throw new Error('Entity segment is not segment1_id — user decision required')
   }
 
+  const key = [
+    'openings',
+    opts.periodeId,
+    opts.segCol,
+    hashIds(opts.segIds),
+    hashIds(opts.coaIds),
+    String(Boolean(opts.bySegment)),
+  ].join('|')
+  return memo(key, OPENING_CACHE_MS, () => readOpeningBalances(opts))
+}
+
+async function readOpeningBalances(opts: OpeningBalancesOptions): Promise<OpeningBalanceRow[]> {
   const resultMap = new Map<string, OpeningBalanceRow>()
 
   const combos = sliceCombos(chunk(opts.coaIds), chunkOrAll(opts.segIds))
@@ -72,11 +89,14 @@ export async function openingBalances(opts: OpeningBalancesOptions): Promise<Ope
   return Array.from(resultMap.values())
 }
 
-export async function countOpeningRows(periodeId: Id): Promise<number> {
-  const result = await rows<{ n: number | string }>(sql`
-    SELECT COUNT(*) AS n
-    FROM coa_opening_balance_location
-    WHERE periode_id = ${periodeId}
-  `)
-  return toInt(result[0]?.n)
+/** How many opening balance rows a period has (0 = none saved yet). */
+export function countOpeningRows(periodeId: Id): Promise<number> {
+  return memo(`openingCount|${periodeId}`, OPENING_CACHE_MS, async () => {
+    const result = await rows<{ n: number | string }>(sql`
+      SELECT COUNT(*) AS n
+      FROM coa_opening_balance_location
+      WHERE periode_id = ${periodeId}
+    `)
+    return toInt(result[0]?.n)
+  })
 }
