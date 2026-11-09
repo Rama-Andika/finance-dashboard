@@ -272,6 +272,22 @@
     "DIRECT_RETURN_OPEN": {
       "title": "Direct returns still open",
       "body": "{{count}} direct returns (IDR {{amount}}) have not been used against an invoice or a payment yet."
+    },
+    "BS_UNBALANCED": {
+      "title": "Balance sheet does not balance",
+      "body": "Assets and liabilities plus equity differ by IDR {{amount}} on the Balance Sheet. Unposted journals or wrong opening balances are the usual causes."
+    },
+    "BS_EARNINGS_MISMATCH": {
+      "title": "Current year earnings differ from the journals",
+      "body": "The ERP's current year earnings account differs by IDR {{amount}} from the profit added up from the journals. The opening balance of that account in the ERP may be wrong."
+    },
+    "BS_EARNINGS_ACCOUNT_MISSING": {
+      "title": "Earnings accounts not found",
+      "body": "The accounts named by the ERP properties CODE_LABA_TAHUN_BERJALAN and CODE_LABA_TAHUN_LALU are not both in the chart of accounts, so the Balance Sheet shows the earnings on separate lines."
+    },
+    "BS_FISCAL_MONTH_ASSUMED": {
+      "title": "Fiscal year end not set",
+      "body": "The company record has no usable last month of the fiscal year, so the Balance Sheet assumes December."
     }
   },
   "planStatus": {

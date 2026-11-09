@@ -272,6 +272,22 @@
     "DIRECT_RETURN_OPEN": {
       "title": "Retur langsung masih terbuka",
       "body": "{{count}} retur langsung (IDR {{amount}}) belum dipakai untuk mengurangi tagihan atau pembayaran."
+    },
+    "BS_UNBALANCED": {
+      "title": "Neraca tidak seimbang",
+      "body": "Aktiva dan Pasiva pada Neraca berbeda IDR {{amount}}. Penyebab yang biasa: jurnal belum diposting atau saldo awal yang salah."
+    },
+    "BS_EARNINGS_MISMATCH": {
+      "title": "Laba tahun berjalan berbeda dari jurnal",
+      "body": "Akun laba tahun berjalan di ERP berbeda IDR {{amount}} dari laba yang dijumlahkan dari jurnal. Saldo awal akun itu di ERP mungkin salah."
+    },
+    "BS_EARNINGS_ACCOUNT_MISSING": {
+      "title": "Akun laba tidak ditemukan",
+      "body": "Akun yang ditunjuk properti ERP CODE_LABA_TAHUN_BERJALAN dan CODE_LABA_TAHUN_LALU tidak keduanya ada di daftar akun, jadi Neraca menampilkan laba di baris tersendiri."
+    },
+    "BS_FISCAL_MONTH_ASSUMED": {
+      "title": "Akhir tahun buku belum diatur",
+      "body": "Data perusahaan tidak punya bulan terakhir tahun buku yang bisa dipakai, jadi Neraca mengasumsikan Desember."
     }
   },
   "planStatus": {

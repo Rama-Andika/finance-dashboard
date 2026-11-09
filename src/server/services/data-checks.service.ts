@@ -18,6 +18,7 @@ import { computeCashPosition } from '~/server/services/cash/cash-position.servic
 import { computeCashFlow } from '~/server/services/cash/cash-flow.service'
 import { computeApAging } from '~/server/services/ap-ar/ap-aging.service'
 import { computeArAging } from '~/server/services/ap-ar/ar-aging.service'
+import { computeBalanceSheet } from '~/server/services/balance-sheet/balance-sheet.service'
 
 export type { DataCheckItem }
 
@@ -56,6 +57,7 @@ async function computeDataChecksUncached(filter: AppContextFilter): Promise<Data
     apResult,
     arResult,
     arPaymentsWithoutAllocation,
+    balanceSheet,
   ] = await Promise.all([
     settle('apPaidWithoutPayment', checkApPaidWithoutPayment(filter.locationIds), failures),
     settle('cardsWithoutParty', checkCardsWithoutParty(filter.locationIds), failures),
@@ -72,6 +74,7 @@ async function computeDataChecksUncached(filter: AppContextFilter): Promise<Data
     settle('apAging', computeApAging(filter), failures),
     settle('arAging', computeArAging(filter), failures),
     settle('arPaymentsWithoutAllocation', checkArPaymentsWithoutAllocation(filter.locationIds, filter.today), failures),
+    settle('balanceSheet', computeBalanceSheet(filter, 'none'), failures),
   ])
 
   return buildDataChecks({
@@ -91,6 +94,16 @@ async function computeDataChecksUncached(filter: AppContextFilter): Promise<Data
     cardsWithoutParty,
     cardsWithInvalidLocation,
     unpostedJournals: unposted,
+    balanceSheet:
+      balanceSheet?.status === 'ok' && balanceSheet.earnings
+        ? {
+            difference: balanceSheet.statement.totals.difference,
+            earningsDifference: balanceSheet.earnings.difference,
+            earningsAccountsMissing:
+              !balanceSheet.earnings.currentAccountFound || !balanceSheet.earnings.priorAccountFound,
+            fiscalMonthAssumed: balanceSheet.fiscal.assumed,
+          }
+        : null,
     mappingRow: failures.includes('mapping') ? undefined : mappingRow,
     failedChecks: failures,
   })

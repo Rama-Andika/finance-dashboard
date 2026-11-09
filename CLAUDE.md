@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-**Oxy Finance Dashboard** — a TanStack Start (SSR) app that reads a client's **ERP MySQL database directly** (server functions + Drizzle) and shows consolidated finance metrics (Summary, Revenue, Cash Position, Cash Flow, P&L, AP/AR aging, Payment Plan, Budget). Login uses the ERP's own `sysuser` accounts.
+**Oxy Finance Dashboard** — a TanStack Start (SSR) app that reads a client's **ERP MySQL database directly** (server functions + Drizzle) and shows consolidated finance metrics (Summary, Revenue, Cash Position, Cash Flow, P&L, Balance Sheet, AP/AR aging, Payment Plan, Budget). Login uses the ERP's own `sysuser` accounts.
 
 Source-of-truth documents (Indonesian), read the relevant part before touching finance logic:
 
@@ -75,7 +75,7 @@ src/routes/**            file-based routes; loader → queryClient.ensureQueryDa
            └ src/lib/**             pure logic (no DB, no React, no src/server imports) — unit tested
 ```
 
-`src/lib/` layout: `core/` (types, money, compare, i18n labels — depends on nothing), `finance/{coa,period,journal,pnl,cash,ap-ar,entity,checks}/` (metric logic per domain), plus `format/` (number, date, CSV, KPI and donut helpers), `filters/` (URL search schema and filter scope), `table/`, `settings/`. Dependencies point toward `core/`; `format/` and `table/` do not import `finance/`.
+`src/lib/` layout: `core/` (types, money, compare, i18n labels — depends on nothing), `finance/{coa,period,journal,pnl,cash,ap-ar,entity,checks,balance-sheet}/` (metric logic per domain), plus `format/` (number, date, CSV, KPI and donut helpers), `filters/` (URL search schema and filter scope), `table/`, `settings/`. Dependencies point toward `core/`; `format/` and `table/` do not import `finance/`.
 
 - Routes/components never import Drizzle, `mysql2`, or `src/server/**`. Server modules start with `import '@tanstack/react-start/server-only'`; Vitest aliases it to `tests/empty-module.ts`, so they stay unit-testable. Exceptions without the marker are pure helpers that scripts or drizzle-kit also load (`db/in-list|chunk|segment-column|erp-codes|bigint-string`, `dash/schema|tables`, `auth/rate-limit`, `log`, `dash/log`). Auth helpers live in `src/server/auth/`; services sit in one folder per big domain (`services/ap-ar/`, `services/cash/`, `services/pnl/`, `services/drill/`) with the small ones at the services root; helpers shared by several domains (not called from `functions/`) live in `src/server/services/shared/`.
 - Repos are SQL-only, with one allowed exception: they may use `~/server/cache` (`memo`) for shared ERP reads. They do not read `env` or compute "today"; the service passes dates in. Repos sit in one folder per big domain (`repo/ap-ar/`, `repo/cash/`, `repo/gl/`, `repo/master-data/`, `repo/pnl/`) and the small ones stay at the repo root (`auth`, `settings`, `data-checks`). Row types shared with `dash/` live in `repo/ap-ar/types.ts`; AP/AR repos are split by topic (`aging`, `expense-paid`, `party`, `payment-plan`).

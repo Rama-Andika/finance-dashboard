@@ -12,6 +12,12 @@ const clean: DataCheckInputs = {
   cardsWithoutParty: 0,
   cardsWithInvalidLocation: 0,
   unpostedJournals: 0,
+  balanceSheet: {
+    difference: '0.00',
+    earningsDifference: '0.00',
+    earningsAccountsMissing: false,
+    fiscalMonthAssumed: false,
+  },
   mappingRow: { valueprop: '{}' },
   failedChecks: [],
 }
@@ -61,6 +67,52 @@ describe('buildDataChecks', () => {
     expect(checks.map((c) => [c.code, c.amount])).toEqual([
       ['REC_TRANSIT', '5000.00'],
       ['REC_AP', '-12.00'],
+    ])
+  })
+
+  it('reports a balance sheet that does not balance as a danger, with the difference', () => {
+    const checks = buildDataChecks({ ...clean, balanceSheet: { ...clean.balanceSheet!, difference: '-5.00' } })
+    expect(checks).toEqual([
+      { code: 'BS_UNBALANCED', level: 'danger', count: 1, amount: '-5.00', link: '/balance-sheet' },
+    ])
+  })
+
+  it('reports earnings that differ from the journals, missing earnings accounts and an assumed fiscal year end', () => {
+    expect(
+      buildDataChecks({ ...clean, balanceSheet: { ...clean.balanceSheet!, earningsDifference: '-5.00' } }),
+    ).toEqual([{ code: 'BS_EARNINGS_MISMATCH', level: 'warning', count: 1, amount: '-5.00', link: '/balance-sheet' }])
+    expect(codes({ balanceSheet: { ...clean.balanceSheet!, earningsAccountsMissing: true } })).toEqual([
+      'BS_EARNINGS_ACCOUNT_MISSING',
+    ])
+    expect(codes({ balanceSheet: { ...clean.balanceSheet!, fiscalMonthAssumed: true } })).toEqual([
+      'BS_FISCAL_MONTH_ASSUMED',
+    ])
+  })
+
+  it('does not report the balance sheet checks when there is no balance sheet or no comparison of the earnings', () => {
+    expect(codes({ balanceSheet: null })).toEqual([])
+    expect(codes({ balanceSheet: { ...clean.balanceSheet!, earningsDifference: null } })).toEqual([])
+  })
+
+  it('lists the balance sheet checks after the reconciliation checks and before the AR payment check', () => {
+    expect(
+      codes({
+        apReconciliation: { inSync: false, diff: '1.00' },
+        arPaymentsWithoutAllocation: { count: 1, amount: '1.00' },
+        balanceSheet: {
+          difference: '2.00',
+          earningsDifference: '3.00',
+          earningsAccountsMissing: true,
+          fiscalMonthAssumed: true,
+        },
+      }),
+    ).toEqual([
+      'REC_AP',
+      'BS_UNBALANCED',
+      'BS_EARNINGS_MISMATCH',
+      'BS_EARNINGS_ACCOUNT_MISSING',
+      'BS_FISCAL_MONTH_ASSUMED',
+      'AR_PAYMENT_UNALLOC',
     ])
   })
 

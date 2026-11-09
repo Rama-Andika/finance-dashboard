@@ -12,6 +12,15 @@ const checkArPaymentsWithoutAllocation = vi.fn()
 const getMappingRow = vi.fn()
 const computeApAgingMock = vi.fn()
 const computeArAgingMock = vi.fn()
+const computeBalanceSheetMock = vi.fn()
+
+/** A balance sheet that is in order: balanced, earnings agree, both earnings accounts found, fiscal year end known. */
+const balanceSheetOk = {
+  status: 'ok',
+  statement: { totals: { difference: '0.00' } },
+  earnings: { difference: '0.00', currentAccountFound: true, priorAccountFound: true },
+  fiscal: { assumed: false },
+}
 
 vi.mock('~/server/repo/data-checks.repo', () => ({
   checkApPaidWithoutPayment: (...a: unknown[]) => checkApPaidWithoutPayment(...a),
@@ -33,6 +42,9 @@ vi.mock('~/server/services/ap-ar/ap-aging.service', () => ({
 }))
 vi.mock('~/server/services/ap-ar/ar-aging.service', () => ({
   computeArAging: (...a: unknown[]) => computeArAgingMock(...a),
+}))
+vi.mock('~/server/services/balance-sheet/balance-sheet.service', () => ({
+  computeBalanceSheet: (...a: unknown[]) => computeBalanceSheetMock(...a),
 }))
 
 const { computeDataChecks } = await import('./data-checks.service')
@@ -56,6 +68,7 @@ const filter = {
 describe('computeDataChecks', () => {
   beforeEach(() => {
     clearCache()
+    computeBalanceSheetMock.mockResolvedValue(balanceSheetOk)
     vi.spyOn(console, 'error').mockImplementation(() => {})
     checkApPaidWithoutPayment.mockResolvedValue({ count: 0, amount: '0.00' })
     checkCardsWithoutParty.mockResolvedValue(0)
@@ -73,6 +86,45 @@ describe('computeDataChecks', () => {
       directReturns: '0.00',
       directReturnCount: 0,
     })
+  })
+
+  it('reports a balance sheet that does not balance, and asks for it without a comparison', async () => {
+    computeBalanceSheetMock.mockResolvedValue({
+      ...balanceSheetOk,
+      statement: { totals: { difference: '25.00' } },
+    })
+    const checks = await computeDataChecks({ ...filter, asOf: '2026-10-20' })
+    expect(checks.find((c) => c.code === 'BS_UNBALANCED')).toEqual({
+      code: 'BS_UNBALANCED',
+      level: 'danger',
+      count: 1,
+      amount: '25.00',
+      link: '/balance-sheet',
+    })
+    expect(computeBalanceSheetMock).toHaveBeenCalledWith(expect.anything(), 'none')
+  })
+
+  it('reports earnings that differ, missing earnings accounts and an assumed fiscal year end', async () => {
+    computeBalanceSheetMock.mockResolvedValue({
+      ...balanceSheetOk,
+      earnings: { difference: '-5.00', currentAccountFound: true, priorAccountFound: false },
+      fiscal: { assumed: true },
+    })
+    const codes = (await computeDataChecks({ ...filter, asOf: '2026-10-21' })).map((c) => c.code)
+    expect(codes).toEqual(['BS_EARNINGS_MISMATCH', 'BS_EARNINGS_ACCOUNT_MISSING', 'BS_FISCAL_MONTH_ASSUMED'])
+  })
+
+  it('has no balance sheet check when the month has no period', async () => {
+    computeBalanceSheetMock.mockResolvedValue({ ...balanceSheetOk, status: 'no-period', earnings: null })
+    expect(await computeDataChecks({ ...filter, asOf: '2026-10-22' })).toEqual([])
+  })
+
+  it('a failing balance sheet does not hide the other checks', async () => {
+    computeBalanceSheetMock.mockRejectedValue(new Error('boom'))
+    checkUnpostedJournals.mockResolvedValue(2)
+    const codes = (await computeDataChecks({ ...filter, asOf: '2026-10-23' })).map((c) => c.code)
+    expect(codes).toContain('UNPOSTED')
+    expect(codes).toContain('CHECK_FAILED')
   })
 
   it('reports nothing when every check passes', async () => {

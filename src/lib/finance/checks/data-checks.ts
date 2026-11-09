@@ -29,6 +29,17 @@ export type DataCheckInputs = {
   cardsWithoutParty: number | null
   cardsWithInvalidLocation: number | null
   unpostedJournals: number | null
+  /** What the Balance Sheet found; null when it could not be computed or has no report period. */
+  balanceSheet: {
+    /** Assets minus liabilities and equity; zero when the balance sheet balances. */
+    difference: Money
+    /** The ERP earnings account minus the profit added up from the journals; null when they could not be compared. */
+    earningsDifference: Money | null
+    /** The ERP earnings accounts (current and prior years) are not both in the chart of accounts. */
+    earningsAccountsMissing: boolean
+    /** The company record has no usable last month of the fiscal year, so December was assumed. */
+    fiscalMonthAssumed: boolean
+  } | null
   /** The saved mapping row; `undefined` when the read failed (reported as CHECK_FAILED instead). */
   mappingRow: { valueprop: string | null } | null | undefined
   failedChecks: readonly string[]
@@ -100,6 +111,25 @@ const cashFlowUnclassified: Check = (i) => {
   return item('CF_UNCLASSIFIED', 'warning', '/cash-flow', 1, hasUnclassified ? unclassified : null)
 }
 
+// The Balance Sheet checks: a sheet that does not balance is serious; the others explain why it may be off.
+const balanceSheetUnbalanced: Check = (i) =>
+  i.balanceSheet && !D(i.balanceSheet.difference).isZero()
+    ? item('BS_UNBALANCED', 'danger', '/balance-sheet', 1, i.balanceSheet.difference)
+    : null
+
+const balanceSheetEarningsMismatch: Check = (i) => {
+  const difference = i.balanceSheet?.earningsDifference
+  return difference && !D(difference).isZero()
+    ? item('BS_EARNINGS_MISMATCH', 'warning', '/balance-sheet', 1, difference)
+    : null
+}
+
+const balanceSheetEarningsAccounts: Check = (i) =>
+  i.balanceSheet?.earningsAccountsMissing ? item('BS_EARNINGS_ACCOUNT_MISSING', 'warning', '/balance-sheet') : null
+
+const balanceSheetFiscalMonth: Check = (i) =>
+  i.balanceSheet?.fiscalMonthAssumed ? item('BS_FISCAL_MONTH_ASSUMED', 'warning', '/balance-sheet') : null
+
 const arPaymentsUnallocated = registerCheck('AR_PAYMENT_UNALLOC', '/receivables', (i) => i.arPaymentsWithoutAllocation)
 
 // Direct returns wait for the next payment, so this is information, not a warning.
@@ -124,6 +154,10 @@ const CHECKS: readonly Check[] = [
   cashFlowUnclassified,
   reconciliationCheck('REC_TRANSIT', '/cash-position', (i) => i.cashPositionReconciliation),
   reconciliationCheck('REC_AP', '/payables', (i) => i.apReconciliation),
+  balanceSheetUnbalanced,
+  balanceSheetEarningsMismatch,
+  balanceSheetEarningsAccounts,
+  balanceSheetFiscalMonth,
   arPaymentsUnallocated,
   registerCheck('AP_PAID_NO_PAYMENT', '/payables', (i) => i.paidWithoutDetail),
   countCheck('CARD_PARTY_MISSING', '/payables', (i) => i.cardsWithoutParty),

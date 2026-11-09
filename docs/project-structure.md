@@ -4,7 +4,7 @@
 >
 > **Aturan pemeliharaan:** setiap kali ada folder baru di `src`, atau ada aturan penempatan yang berubah, perbarui dokumen ini dan tambahkan baris di [Riwayat Perubahan](#riwayat-perubahan).
 >
-> **Terakhir diperbarui:** 2026-11-03
+> **Terakhir diperbarui:** 2026-11-09
 
 ## 1. Tiga aturan utama
 
@@ -39,16 +39,18 @@ src/
 │  ├─ layout/              kerangka halaman: AppShell, SidebarNav, MetricError, MetricSkeleton, ...
 │  │  └─ top-bar/          TopBar, EntityPicker, PeriodSelect, PrefsToggles
 │  ├─ charts/              grafik yang dipakai lebih dari satu halaman (CashflowChart, DonutBreakdown, EntityDonut)
-│  └─ <halaman>/           aging, budget, cash-flow, cash-position, data-checks, drill, export,
+│  └─ <halaman>/           aging, balance-sheet, budget, cash-flow, cash-position, data-checks, drill, export,
 │                          payment-plan, profit-loss, revenue, settings, summary
 ├─ hooks/                  hook yang dipakai banyak area (use-lang, use-is-desktop, use-table-search, ...)
 ├─ queries/                queryOptions TanStack Query + kunci di keys.ts
 ├─ functions/              server function (*.fn.ts) + middleware.ts
 │  ├─ ap-ar/  cash/  pnl/  halaman metrik per domain
+│  ├─ balance-sheet/       neraca (Balance Sheet)
 │  └─ (root)               summary, drill, settings, filters, snapshot, data-checks, auth, prefs
 ├─ server/
 │  ├─ services/            rangkaian repo + logika; satu folder per domain besar
 │  │  ├─ ap-ar/  cash/  pnl/  drill/
+│  │  ├─ balance-sheet/       neraca (Balance Sheet)
 │  │  └─ shared/           helper yang dipakai beberapa domain (account-mapping.ts)
 │  ├─ repo/                SQL; satu folder per domain besar
 │  │  ├─ ap-ar/  cash/  gl/  master-data/  pnl/
@@ -57,7 +59,7 @@ src/
 │  └─ cache.ts  context.ts  env.ts  log.ts  oid.ts  public-error.ts
 ├─ lib/
 │  ├─ core/                tipe, uang (decimal), compare, label i18n — tidak bergantung pada apa pun
-│  ├─ finance/             logika keuangan murni per domain: ap-ar, cash, checks, coa, entity, journal, period, pnl
+│  ├─ finance/             logika keuangan murni per domain: ap-ar, balance-sheet, cash, checks, coa, entity, journal, period, pnl
 │  ├─ filters/             skema filter URL, token entitas, lingkup filter
 │  ├─ format/              format angka, tanggal, CSV, KPI, donut
 │  ├─ settings/  table/    skema pemetaan akun; kueri tabel dan potongan ekspor
@@ -89,19 +91,20 @@ src/
 
 ## 5. Domain dan lokasinya di tiap lapisan
 
-| Domain                                          | `lib/finance`                | `server/repo`         | `server/services`        | `functions`         | Komponen                              | Route                                              |
-| ----------------------------------------------- | ---------------------------- | --------------------- | ------------------------ | ------------------- | ------------------------------------- | -------------------------------------------------- |
-| Utang/piutang, rencana bayar, biaya dibayar     | `ap-ar/`                     | `ap-ar/`              | `ap-ar/`                 | `ap-ar/`            | `aging/`, `payment-plan/`             | `payables`, `receivables`, `payment-plan`          |
-| Kas (posisi, arus, runway, saldo)               | `cash/`, `period/balance.ts` | `cash/`               | `cash/`                  | `cash/`             | `cash-position/`, `cash-flow/`        | `cash-position`, `cash-flow`                       |
-| Laba rugi (P&L, revenue, biaya tetap, anggaran) | `pnl/`                       | `pnl/`                | `pnl/`                   | `pnl/`              | `profit-loss/`, `revenue/`, `budget/` | `profit-loss`, `revenue`, `budget`                 |
-| Jurnal buku besar                               | `journal/`                   | `gl/`                 | (dipakai semua service)  | —                   | —                                     | —                                                  |
-| Data induk (akun, entitas, periode)             | `coa/`, `entity/`, `period/` | `master-data/`        | `filters.service.ts`     | `filters.fn.ts`     | —                                     | —                                                  |
-| Summary                                         | —                            | —                     | `summary.service.ts`     | `summary.fn.ts`     | `summary/`                            | `summary` (`index` hanya mengarahkan ke `summary`) |
-| Drill-down                                      | —                            | —                     | `drill/`                 | `drill.fn.ts`       | `drill/`                              | (lembar samping, parameter `drill`)                |
-| Cek data                                        | `checks/`                    | `data-checks.repo.ts` | `data-checks.service.ts` | `data-checks.fn.ts` | `data-checks/`                        | —                                                  |
-| Pengaturan pemetaan akun                        | `coa/` dan `lib/settings/`   | `settings.repo.ts`    | `settings.service.ts`    | `settings.fn.ts`    | `settings/`                           | `settings/account-mapping`                         |
-| Snapshot data                                   | —                            | —                     | `snapshot.service.ts`    | `snapshot.fn.ts`    | `layout/DataFreshness.tsx`            | —                                                  |
-| Login                                           | —                            | `auth.repo.ts`        | `server/auth/`           | `auth.fn.ts`        | —                                     | `login`                                            |
+| Domain                                          | `lib/finance`                | `server/repo`                                                              | `server/services`        | `functions`         | Komponen                              | Route                                              |
+| ----------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------- | ------------------------ | ------------------- | ------------------------------------- | -------------------------------------------------- |
+| Utang/piutang, rencana bayar, biaya dibayar     | `ap-ar/`                     | `ap-ar/`                                                                   | `ap-ar/`                 | `ap-ar/`            | `aging/`, `payment-plan/`             | `payables`, `receivables`, `payment-plan`          |
+| Kas (posisi, arus, runway, saldo)               | `cash/`, `period/balance.ts` | `cash/`                                                                    | `cash/`                  | `cash/`             | `cash-position/`, `cash-flow/`        | `cash-position`, `cash-flow`                       |
+| Laba rugi (P&L, revenue, biaya tetap, anggaran) | `pnl/`                       | `pnl/`                                                                     | `pnl/`                   | `pnl/`              | `profit-loss/`, `revenue/`, `budget/` | `profit-loss`, `revenue`, `budget`                 |
+| Neraca (Balance Sheet)                          | `balance-sheet/`             | `master-data/` (tahun buku, properti akun laba); jurnal dibaca lewat `gl/` | `balance-sheet/`         | `balance-sheet/`    | `balance-sheet/`                      | `balance-sheet`                                    |
+| Jurnal buku besar                               | `journal/`                   | `gl/`                                                                      | (dipakai semua service)  | —                   | —                                     | —                                                  |
+| Data induk (akun, entitas, periode)             | `coa/`, `entity/`, `period/` | `master-data/`                                                             | `filters.service.ts`     | `filters.fn.ts`     | —                                     | —                                                  |
+| Summary                                         | —                            | —                                                                          | `summary.service.ts`     | `summary.fn.ts`     | `summary/`                            | `summary` (`index` hanya mengarahkan ke `summary`) |
+| Drill-down                                      | —                            | —                                                                          | `drill/`                 | `drill.fn.ts`       | `drill/`                              | (lembar samping, parameter `drill`)                |
+| Cek data                                        | `checks/`                    | `data-checks.repo.ts`                                                      | `data-checks.service.ts` | `data-checks.fn.ts` | `data-checks/`                        | —                                                  |
+| Pengaturan pemetaan akun                        | `coa/` dan `lib/settings/`   | `settings.repo.ts`                                                         | `settings.service.ts`    | `settings.fn.ts`    | `settings/`                           | `settings/account-mapping`                         |
+| Snapshot data                                   | —                            | —                                                                          | `snapshot.service.ts`    | `snapshot.fn.ts`    | `layout/DataFreshness.tsx`            | —                                                  |
+| Login                                           | —                            | `auth.repo.ts`                                                             | `server/auth/`           | `auth.fn.ts`        | —                                     | `login`                                            |
 
 ## 6. Aturan penamaan file
 
@@ -142,7 +145,8 @@ Nama yang diekspor (fungsi, komponen, tipe) tidak boleh berubah hanya karena fil
 
 ## 9. Riwayat Perubahan
 
-| Tanggal    | Perubahan                                                                                                                                  |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2026-11-03 | Dokumen dibuat bersama penataan ulang folder src: peta folder, tabel keputusan, aturan penamaan, domain per lapisan, dan penjaga otomatis. |
-| 2026-11-05 | Langkah 7 di "Menambah metrik baru" mengarah ke `docs/project-guide.md` (menggantikan dokumen Summary dan Revenue).                        |
+| Tanggal    | Perubahan                                                                                                                                     |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-03 | Dokumen dibuat bersama penataan ulang folder src: peta folder, tabel keputusan, aturan penamaan, domain per lapisan, dan penjaga otomatis.    |
+| 2026-11-05 | Langkah 7 di "Menambah metrik baru" mengarah ke `docs/project-guide.md` (menggantikan dokumen Summary dan Revenue).                           |
+| 2026-11-09 | Domain Balance Sheet (neraca) ditambahkan: `balance-sheet/` di lib/finance, services, functions, dan components, serta route `balance-sheet`. |

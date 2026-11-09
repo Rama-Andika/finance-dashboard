@@ -92,11 +92,11 @@ sysuser → login dashboard
 
 #### `company` — profil perusahaan (1 baris)
 
-| Kolom                             | Dipakai untuk              |
-| --------------------------------- | -------------------------- |
-| `company_id`, `name`              | Judul laporan              |
-| `fiscal_year`, `end_fiscal_month` | Batas tahun buku (Jan–Des) |
-| `booking_currency_id`             | Mata uang dasar (IDR)      |
+| Kolom                             | Dipakai untuk                                                                                                                      |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `company_id`, `name`              | Judul laporan                                                                                                                      |
+| `fiscal_year`, `end_fiscal_month` | Batas tahun buku: `end_fiscal_month` = bulan terakhir tahun buku, angka 0 sampai 11 (11 = Desember); dipakai Balance Sheet (§6.12) |
+| `booking_currency_id`             | Mata uang dasar (IDR)                                                                                                              |
 
 #### `pos_location` — **entitas**
 
@@ -1040,6 +1040,33 @@ CurrentRatio   = saldo(grup('Liquid Assets')) ÷ saldo(grup('Current Liabilities
 
 - Pembagi = 0 → "—".
 - ⚠️ Di data asli, grup Current Liabilities juga memuat folder **Hutang Bank Jangka Panjang** → Current Ratio bisa terlihat lebih buruk. Ditandai ⓘ.
+
+### 6.12 Balance Sheet / Neraca (snapshot per periode)
+
+Halaman `/balance-sheet` (D55 sampai D62). Rumus lengkap, contoh angka, dan pertanyaan konfirmasi ada di `project-guide.md` bagian 8.13. Ringkasan di sini:
+
+```
+Tanggal laporan = akhir periode reguler terakhir pada rentang filter (Periode 13 hanya bila toggle menyala)
+Saldo akun neraca = saldo awal tersimpan + Σ mutasi per period_id × tanda sisi kelompok
+   opening-table : saldo awal periode laporan + mutasi periode itu
+   bridge        : saldo awal periode tepat sesudah Closed terakhir + mutasi semua periode sesudahnya sampai periode laporan
+   full-history  : Σ mutasi posted sejak awal (bila tidak ada saldo awal tersimpan)
+
+Laba periode          = Σ (credit − debet) semua akun kelompok laba rugi periode itu
+Laba Tahun Berjalan   = cara A (saldo awal akun laba di ERP + mutasi akun + laba periode-periode mutasi)
+                        bila saldo awal yang dipakai jatuh di tahun buku laporan; selain itu cara B
+                        (mutasi akun + laba periode dari awal tahun buku sampai tanggal laporan)
+Laba Tahun Lalu       = saldo akun + (cara B saja) laba tahun-tahun sebelumnya yang belum masuk akun ekuitas
+Total Aktiva          = Σ grup Liquid Assets, Fixed Assets, Other Assets
+Total Utang           = Σ grup Current Liabilities, Long Term Liabilities
+Total Ekuitas         = grup Equity (termasuk baris laba bila akunnya tidak ditemukan)
+Selisih               = Total Aktiva − (Total Utang + Total Ekuitas)   → harus tepat 0 (D61)
+```
+
+- Tahun buku berakhir pada bulan `company.end_fiscal_month` (0 sampai 11, 11 = Desember); kosong atau tidak valid → Desember (D59).
+- Akun laba dicari lewat properti sistem `CODE_LABA_TAHUN_BERJALAN` dan `CODE_LABA_TAHUN_LALU` (D60).
+- Pembanding: akhir tahun buku lalu (bawaan), bulan lalu, bulan yang sama tahun lalu, atau tanpa pembanding (D56).
+- ⚠️ Asumsi `end_fiscal_month` 0 sampai 11 berasal dari kode ERP dan perlu dicek di data klien (KF-70); apakah saldo awal Januari sudah memuat penyesuaian Periode 13: O21 dan KF-72.
 
 ---
 
