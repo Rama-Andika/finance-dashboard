@@ -160,7 +160,7 @@ function secondsFromEnv(setting: SecondsSetting): number {
 /**
  * Short-lived memo for computed metrics. Several metrics (and the drill-down) need the same
  * sub-result in one request, e.g. Summary + Runway + Payment Plan all need the cash position.
- * Cleared together with every other memo entry when the account mapping changes.
+ * Cleared (by the `metric:` prefix) when the account mapping changes.
  * Stale-while-revalidate: after METRIC_FRESH_SECONDS the old answer is still served for METRIC_STALE_SECONDS while it is
  * recalculated in the background. A caller that passes its own `ttlMs` gets no stale window.
  */

@@ -75,7 +75,10 @@ export async function saveAccountMapping(input: z.infer<typeof mappingSchema>): 
   }
 
   await upsertMapping(JSON.stringify(updatedMapping))
-  clearCache()
+  // The stored text and every computed metric depend on the mapping. The other cached reads are keyed by explicit account
+  // ids (balances, cash lines, closed-period movements), so they stay valid and are kept.
+  clearCache('mapping:')
+  clearCache('metric:')
 
   return { ok: true, mapping: updatedMapping }
 }

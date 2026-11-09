@@ -16,14 +16,31 @@ export type MappingState = {
   corrupted: boolean
 }
 
-/** The stored mapping row is cached briefly; saving the mapping clears every memo entry. */
+/**
+ * The state built from the stored text, remembered per chart of accounts: the text is parsed once, and every caller gets
+ * the same `mapping` object (so `resolved-baskets.ts` can remember what it resolved from it). A new chart of accounts
+ * (the tree is cached for 10 minutes) or a new stored text builds the state again.
+ */
+const stateCache = new WeakMap<CoaTree, { valueprop: string | null; state: MappingState }>()
+
+/** The stored mapping row is cached briefly; saving the mapping clears that cache. The returned state is shared: read-only. */
 export async function loadMappingState(tree: CoaTree): Promise<MappingState> {
   const row = await memo('mapping:row', MAPPING_TTL_MS, () => getMappingRow())
+  const valueprop = row?.valueprop ? row.valueprop : null
+  const cached = stateCache.get(tree)
+  if (cached && cached.valueprop === valueprop) return cached.state
+
+  const state = buildMappingState(tree, valueprop)
+  stateCache.set(tree, { valueprop, state })
+  return state
+}
+
+function buildMappingState(tree: CoaTree, valueprop: string | null): MappingState {
   const nowIso = new Date().toISOString()
-  if (!row || !row.valueprop) {
+  if (!valueprop) {
     return { mapping: defaultMapping(tree, nowIso), isDefault: true, corrupted: false }
   }
-  const parsed = parseMapping(row.valueprop)
+  const parsed = parseMapping(valueprop)
   if (!parsed) {
     return { mapping: defaultMapping(tree, nowIso), isDefault: false, corrupted: true }
   }

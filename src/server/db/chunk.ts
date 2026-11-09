@@ -24,14 +24,20 @@ export function chunk<T>(items: readonly T[], size: number = IN_LIST_LIMIT): T[]
 export function sliceCombos<A, B>(a: readonly A[], b: readonly B[]): Array<[A, B]>
 export function sliceCombos<A, B, C>(a: readonly A[], b: readonly B[], c: readonly C[]): Array<[A, B, C]>
 export function sliceCombos(...lists: ReadonlyArray<readonly unknown[]>): unknown[][] {
-  return lists.reduce<unknown[][]>((combos, list) => combos.flatMap((combo) => list.map((item) => [...combo, item])), [[]])
+  return lists.reduce<unknown[][]>(
+    (combos, list) => combos.flatMap((combo) => list.map((item) => [...combo, item])),
+    [[]],
+  )
 }
 
 /**
  * Slices for an optional filter: `'all'` / `undefined` → a single `undefined` slice (no filter),
  * otherwise the sliced ids. An empty id list yields no slices (the caller has nothing to query).
  */
-export function chunkOrAll<T>(ids: readonly T[] | 'all' | undefined, size: number = IN_LIST_LIMIT): (T[] | undefined)[] {
+export function chunkOrAll<T>(
+  ids: readonly T[] | 'all' | undefined,
+  size: number = IN_LIST_LIMIT,
+): (T[] | undefined)[] {
   if (ids === undefined || ids === 'all') return [undefined]
   return chunk(ids, size)
 }
@@ -42,6 +48,7 @@ export const SLICE_CONCURRENCY = 3
 /**
  * Runs `fn` on every item with at most `limit` running at once. The results keep the order of the items,
  * so a result built from several slices does not depend on which slice finishes first.
+ * When one item fails the returned promise rejects and no further item is started (the ones already running finish).
  */
 export async function mapLimit<T, R>(
   items: readonly T[],
@@ -50,10 +57,17 @@ export async function mapLimit<T, R>(
 ): Promise<R[]> {
   const results = new Array<R>(items.length)
   let next = 0
+  // Set when one item fails: the call rejects anyway, so the other workers must not start any more items (queries).
+  let failed = false
   const worker = async (): Promise<void> => {
-    while (next < items.length) {
+    while (!failed && next < items.length) {
       const index = next++
-      results[index] = await fn(items[index] as T, index)
+      try {
+        results[index] = await fn(items[index] as T, index)
+      } catch (error) {
+        failed = true
+        throw error
+      }
     }
   }
   await Promise.all(Array.from({ length: Math.min(Math.max(limit, 1), items.length) }, worker))

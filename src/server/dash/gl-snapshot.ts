@@ -3,7 +3,7 @@ import { toInt } from '~/server/db/convert'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
-import { chunk, chunkOrAll, sliceCombos } from '~/server/db/chunk'
+import { SLICE_CONCURRENCY, chunk, chunkOrAll, mapLimit, sliceCombos } from '~/server/db/chunk'
 import { glTablesOf } from '~/server/db/gl-tables'
 import { glTableHasCanceledDate } from '~/server/db/gl-columns'
 import { memo } from '~/server/cache'
@@ -56,13 +56,10 @@ export async function snapshotMovements(periodIds: Id[], opts: SnapshotMovements
   if (periodIds.length === 0) return []
   if (opts.segIds !== 'all' && opts.segIds.length === 0) return []
   const table = sql.identifier(DASH_TABLES.glMonthly)
-  const out: CachedMovementRow[] = []
+  const combos = sliceCombos(chunk(periodIds), chunkOrAll(opts.coaIds), chunkOrAll(opts.segIds))
 
-  for (const [pChunk, cChunk, sChunk] of sliceCombos(
-    chunk(periodIds),
-    chunkOrAll(opts.coaIds),
-    chunkOrAll(opts.segIds),
-  )) {
+  // The slices do not depend on each other: read them together (a few at a time), like the ERP query in gl.repo does.
+  const slices = await mapLimit(combos, SLICE_CONCURRENCY, async ([pChunk, cChunk, sChunk]) => {
     const res = await rows<{
       coaId: string
       periodId: string
@@ -85,18 +82,16 @@ export async function snapshotMovements(periodIds: Id[], opts: SnapshotMovements
         ${sChunk ? sql`AND s.segment_id IN (${inList(sChunk)})` : sql``}
       GROUP BY s.coa_id, s.period_id ${opts.byLocation ? sql`, sd.location_id` : sql``}
     `)
-    for (const r of res) {
-      out.push({
-        coaId: String(r.coaId),
-        periodId: String(r.periodId),
-        locationId: r.locationId ? String(r.locationId) : undefined,
-        // DECIMAL(22,2) sums come back as 2-decimal strings
-        debet: r.debet,
-        credit: r.credit,
-      })
-    }
-  }
-  return out
+    return res.map((r): CachedMovementRow => ({
+      coaId: String(r.coaId),
+      periodId: String(r.periodId),
+      locationId: r.locationId ? String(r.locationId) : undefined,
+      // DECIMAL(22,2) sums come back as 2-decimal strings
+      debet: r.debet,
+      credit: r.credit,
+    }))
+  })
+  return slices.flat()
 }
 
 // ---------------------------------------------------------------------------------------------

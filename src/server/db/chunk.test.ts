@@ -103,4 +103,19 @@ describe('mapLimit', () => {
       }),
     ).rejects.toThrow('boom')
   })
+
+  it('starts no further item once one has failed', async () => {
+    const started: number[] = []
+    await expect(
+      mapLimit([1, 2, 3, 4, 5, 6], 2, async (x) => {
+        started.push(x)
+        // item 1 is slow, item 2 fails at once: the worker of item 1 must stop after it finishes
+        await new Promise((r) => setTimeout(r, x === 1 ? 30 : 1))
+        if (x === 2) throw new Error('boom')
+        return x
+      }),
+    ).rejects.toThrow('boom')
+    await new Promise((r) => setTimeout(r, 60))
+    expect(started).toEqual([1, 2])
+  })
 })
