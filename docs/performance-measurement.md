@@ -1,6 +1,6 @@
 # Pengukuran Performa (Fase 0)
 
-> Terakhir diperbarui: 2026-11-04
+> Terakhir diperbarui: 2026-11-09
 
 Tujuan: tahu **bagian mana yang lambat dan seberapa lambat** sebelum mengoptimalkan apa pun. Dokumen ini menjelaskan alat ukurnya, cara memakainya, dan apa yang dicatat. Semua perintah yang menyentuh database harus dijalankan atas izin user (aturan CLAUDE.md).
 
@@ -348,6 +348,33 @@ Pembanding (§14.2): S0 (join di database sekarang) 95,6 detik, varian database 
 - Catatan yang belum dijelaskan: dalam tes agregat sesudah rebuild, query `SELECT DISTINCT coa_id ... FROM dash_snap_ap_ar_open ... location_id IN (...)` memakan 8,8 detik (log `slow query`), jauh lebih lama dari sebelumnya untuk filter entitas. Mungkin cache dingin sesudah tabel baru dibangun; belum diperiksa.
 - Batas: MariaDB 10.4 pada satu mesin, satu kali jalan.
 
+## 16. Siklus manual lengkap dan dua query hitung, DB lokal `demo`, 2026-11-09
+
+Diukur dengan skrip sementara (di luar repo) yang menjalankan siklus yang sama dengan tombol "Perbarui sekarang" (`runRefreshCycle('manual', { force: true })`) tiga kali berturut-turut, lalu dua query hitung hanya-baca, dan `npm run dash:refresh-hist -- --max 1`. Database: MariaDB 10.4.32; `ap_ar_card` berisi 2.119.106 baris. Server dev tidak berjalan dan tidak ada beban halaman.
+
+| Langkah                   | Percobaan 1 | Percobaan 2 | Percobaan 3 |
+| ------------------------- | ----------- | ----------- | ----------- |
+| Total siklus manual       | 47,4 detik  | 43,0 detik  | 48,6 detik  |
+| `AP/AR snapshot`          | 46,0 detik  | 41,5 detik  | 47,4 detik  |
+| `warm invoice lists`      | 649 ms      | 722 ms      | 544 ms      |
+| `GL snapshot`             | 678 ms      | 702 ms      | 691 ms      |
+| `balance snapshot`        | 9 ms        | 6 ms        | 6 ms        |
+| `cash lines snapshot`     | 33 ms       | 5 ms        | 6 ms        |
+| `AP/AR history`           | 5 ms        | 4 ms        | 3 ms        |
+| Pemindaian detail AP + AR | 7,6 detik   | 5,4 detik   | 5,8 detik   |
+
+- **Hampir seluruh waktu ada di langkah AP/AR** (96% dari total siklus pada ketiga percobaan). Rinciannya konsisten antar percobaan: pemindaian kartu AP 2,8 sampai 2,9 detik, detail AP 2,8 sampai 3,2 detik, pemindaian tagihan AP 5,3 sampai 5,9 detik, detail tagihan AP 4,6 sampai 4,8 detik, pembayaran AP tanpa alokasi 5,5 sampai 7,5 detik, seluruh sisi AR sekitar 9 sampai 11 detik, dan penulisan tabel tagihan terbuka 8,2 sampai 10,5 detik. Angkanya sejalan dengan §15 (45,2 detik).
+- **Pemindaian tabel detail AP + AR** hanya 12 sampai 17% dari langkah AP/AR (7,6 dari 46,0 detik; 5,4 dari 41,5; 5,8 dari 47,4). Menggabungkan kedua pemindaian paling banyak menghemat sekitar 3 detik.
+- **Langkah riwayat** hanya 3 sampai 5 milidetik di ketiga percobaan, dan `npm run dash:refresh-hist -- --max 1` menjawab `Nothing to do`: riwayat sudah mutakhir pada hari pengukuran. Biaya membangun satu bulan **belum diukur langsung**. Perkiraan dari angka di atas (pembacaan 33 sampai 38 detik, yaitu langkah AP/AR dikurangi penulisan, ditambah penulisan sekitar 8 sampai 10 detik): sekitar 45 detik.
+- **D1, voucher aktif** (`Posted`, `Partialy Paid`, `Not Posted`, tipe 0): 39.138 baris, 1,4 detik.
+- **D2, kartu dengan lokasi tidak valid** (anti-join `ap_ar_card` ke `pos_location`): hasil 0, 2,3 detik. Pada 2,1 juta kartu query ini ringan di database ini.
+- **Keputusan:**
+  - R1 (riwayat di refresh manual): tidak terpenuhi (3 sampai 5 ms; satu bulan sekitar 45 detik, di bawah 60 detik) → Tugas 8.2 dilewati; refresh manual tetap menjalankan langkah riwayat, yang saat ini nyaris tanpa biaya. Scheduler membangun satu bulan per siklus, jadi tombol manual jarang menemukan bulan yang belum dibangun.
+  - R2 (gabung pemindaian detail): tidak terpenuhi (12 sampai 17%, ambang 25%) → tidak ada kode.
+  - R3 (voucher aktif): tidak terpenuhi (39.138, ambang 100.000) → `listActivePlanStatuses` tidak diubah.
+  - R4: hanya dicatat; cache pemeriksaan lokasi kartu (Tugas 8.1) sudah dikerjakan.
+- Batas: satu mesin, MariaDB 10.4, tiga percobaan berturut-turut tanpa jeda, riwayat sudah mutakhir, dan belum ada data klien yang lebih besar.
+
 ## Riwayat Perubahan
 
 | Tanggal    | Perubahan                                                                                                                                                                                                                                                                                                                       |
@@ -375,3 +402,4 @@ Pembanding (§14.2): S0 (join di database sekarang) 95,6 detik, varian database 
 | 2026-11-05 | §14.2: varian pemindaian rebuild AP/AR (hanya membaca, hasil identik): pemindaian tagihan 129 detik menjadi 5,3 detik dengan `FORCE INDEX (PRIMARY)`; pemindaian pelunasan hanya turun ke 67 detik dengan urutan join dari indeks penutup.                                                                                      |
 | 2026-11-05 | §14.3: pemindaian pelunasan sebagai dua pemindaian sederhana digabung di Node: 11,2 detik lawan 95,6 detik (join di database), hasil identik; taksiran rebuild AP/AR sekitar 1 menit dengan dua perubahan (belum diukur ujung ke ujung).                                                                                        |
 | 2026-11-05 | §15: hasil Phase 6: rebuild AP/AR paksa 45,2 detik (sebelumnya 3m 28s), jumlah baris sama; paritas terbukti (tes integrasi baru dan tes snapshot lulus, tidak dilewati); sisi AR melambat dari 2,4 ke 8,5 detik.                                                                                                                |
+| 2026-11-09 | §16: siklus manual lengkap (43 sampai 49 detik, 96% di langkah AP/AR), langkah riwayat 3 sampai 5 milidetik, dan dua query hitung (voucher aktif 39.138 baris; kartu dengan lokasi tidak valid 0 baris, 2,3 detik); keputusan R1 sampai R4: tugas 8.2 dilewati, tidak ada perubahan kode.                                       |
