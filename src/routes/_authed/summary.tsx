@@ -2,6 +2,7 @@ import { metricLoaderDeps, drillSearchSchema } from '~/lib/filters/search-schema
 import { searchUpdater } from '~/lib/filters/search-update'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { summaryChartsOptions, summaryHeadOptions, summaryMiniOptions } from '~/queries/metrics.queries'
 import { tableSearchSchema } from '~/lib/table/query'
 import { PAYMENT_BILL_SORT_KEYS } from '~/lib/finance/ap-ar/payment-plan-bills'
@@ -13,7 +14,7 @@ import { BillsTable } from '~/components/summary/BillsTable'
 import { SummaryChartsSection } from '~/components/summary/SummaryChartsSection'
 import { SummaryKpiRow } from '~/components/summary/SummaryKpiRow'
 import { SummaryMiniSection } from '~/components/summary/SummaryMiniSection'
-import { getCompareLabel } from '~/lib/format/date'
+import { compareLabelKey } from '~/lib/format/date'
 
 export const Route = createFileRoute('/_authed/summary')({
   validateSearch: drillSearchSchema.extend(tableSearchSchema(PAYMENT_BILL_SORT_KEYS).shape),
@@ -34,10 +35,11 @@ function SummaryPage() {
   const navigate = useNavigate()
   const { data } = useQuery(summaryHeadOptions(deps))
   const lang = useLang()
+  const { t } = useTranslation()
 
   if (!data) return null
 
-  const compareLabel = getCompareLabel(deps.from && deps.to ? 'custom' : deps.preset, lang)
+  const compareLabel = t(compareLabelKey(deps))
 
   /** Opens another page with the same filters. */
   const goTo = (to: '/cash-position' | '/revenue' | '/profit-loss' | '/payables' | '/cash-flow' | '/payment-plan') =>

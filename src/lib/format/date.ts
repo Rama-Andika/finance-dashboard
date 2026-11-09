@@ -68,22 +68,22 @@ export function diffDays(a: IsoDate, b: IsoDate): number {
   return Math.round((da.getTime() - db.getTime()) / (1000 * 60 * 60 * 24))
 }
 
-export function getCompareLabel(
-  preset: 'this-month' | 'last-month' | 'this-quarter' | 'ytd' | 'last-12m' | string,
-  lang: Lang,
-): string {
-  switch (preset) {
+/** i18n key of the label that names the comparison period of a card ("Last month", "Same period last year", ...). */
+export function compareLabelKey(filter: {
+  preset: string
+  from?: string | undefined
+  to?: string | undefined
+}): string {
+  // A custom range has no named comparison period.
+  if (filter.from && filter.to) return 'comparePeriod.default'
+  switch (filter.preset) {
     case 'this-month':
-      return lang === 'id' ? 'Bulan lalu' : 'Last month'
     case 'last-month':
-      return lang === 'id' ? 'Bulan sebelumnya' : 'Previous month'
     case 'this-quarter':
-      return lang === 'id' ? 'Kuartal lalu' : 'Last quarter'
     case 'ytd':
-      return lang === 'id' ? 'Periode sama tahun lalu' : 'Same period last year'
     case 'last-12m':
-      return lang === 'id' ? '12 bulan sebelumnya' : 'Previous 12 months'
+      return `comparePeriod.${filter.preset}`
     default:
-      return lang === 'id' ? 'Periode sebelumnya' : 'Previous period'
+      return 'comparePeriod.default'
   }
 }

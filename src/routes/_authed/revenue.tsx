@@ -13,13 +13,12 @@ import { useLang } from '~/hooks/use-lang'
 import { MonthlyTrendChart } from '~/components/revenue/MonthlyTrendChart'
 import { RevenueEntityTable, RevenueFolderTable } from '~/components/revenue/RevenueTables'
 import { RevenueKpiRow } from '~/components/revenue/RevenueKpiRow'
-import { formatMonthYear, getCompareLabel } from '~/lib/format/date'
+import { compareLabelKey, formatMonthYear } from '~/lib/format/date'
 
 export const Route = createFileRoute('/_authed/revenue')({
   validateSearch: drillSearchSchema,
   loaderDeps: ({ search }) => metricLoaderDeps(search),
-  loader: ({ context, deps }) =>
-    context.queryClient.ensureQueryData(revenueMetricOptions(deps)),
+  loader: ({ context, deps }) => context.queryClient.ensureQueryData(revenueMetricOptions(deps)),
   pendingComponent: MetricSkeleton,
   errorComponent: MetricError,
   component: RevenuePage,
@@ -34,7 +33,7 @@ function RevenuePage() {
 
   if (!data) return null
 
-  const compareLabel = getCompareLabel(deps.from && deps.to ? 'custom' : deps.preset, lang)
+  const compareLabel = t(compareLabelKey(deps))
 
   const handleSelectFolder = (folderId: string, folderLabel?: string) => {
     const folder = data.byFolder.find((f) => f.id === folderId)

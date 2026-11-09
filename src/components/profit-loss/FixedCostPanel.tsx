@@ -17,6 +17,7 @@ import { PrintButton } from '~/components/export/PrintButton'
 import { useOpenDrill } from '~/components/drill/use-open-drill'
 import { formatAxisShort, formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
 import { formatMonth, formatMonthYear } from '~/lib/format/date'
+import { toChartNumber } from '~/lib/core/money'
 import type { Breakdown, Lang, Money } from '~/lib/core/types'
 
 /** The part of the fixed-cost metric this panel draws. */
@@ -36,12 +37,12 @@ export function FixedCostPanel({ data, lang, scope }: { data: FixedCostPanelData
   const chartData = data.months.map((m) => ({
     month: m.month,
     displayMonth: formatMonth(m.month, lang),
-    fixedNum: Number(m.fixed) || 0,
-    variableNum: Number(m.variable) || 0,
+    fixedNum: toChartNumber(m.fixed),
+    variableNum: toChartNumber(m.variable),
     rawFixed: m.fixed,
     rawVariable: m.variable,
   }))
-  const avgFixedNum = Number(data.averageFixed || 0)
+  const avgFixedNum = toChartNumber(data.averageFixed)
 
   const columns: ColumnDef<Breakdown, unknown>[] = [
     {
@@ -71,14 +72,8 @@ export function FixedCostPanel({ data, lang, scope }: { data: FixedCostPanelData
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--chart-grid)" />
-              <XAxis
-                dataKey="displayMonth"
-                {...categoryAxisProps}
-              />
-              <YAxis
-                {...valueAxisProps}
-                tickFormatter={(val) => formatAxisShort(val, lang)}
-              />
+              <XAxis dataKey="displayMonth" {...categoryAxisProps} />
+              <YAxis {...valueAxisProps} tickFormatter={(val) => formatAxisShort(val, lang)} />
               <RechartsTooltip
                 cursor={{ fill: 'var(--surface-hover)' }}
                 content={({ active, payload }) => {
@@ -102,7 +97,12 @@ export function FixedCostPanel({ data, lang, scope }: { data: FixedCostPanelData
                   y={avgFixedNum}
                   stroke="var(--warning)"
                   strokeDasharray="4 4"
-                  label={{ value: t('ui.profitLoss.averageFixedShort'), fill: 'var(--warning)', fontSize: 10, position: 'top' }}
+                  label={{
+                    value: t('ui.profitLoss.averageFixedShort'),
+                    fill: 'var(--warning)',
+                    fontSize: 10,
+                    position: 'top',
+                  }}
                 />
               )}
               <Bar dataKey="fixedNum" stackId="cost" fill="var(--chart-3)" radius={[0, 0, 0, 0]} maxBarSize={48} />

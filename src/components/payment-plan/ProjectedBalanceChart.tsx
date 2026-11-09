@@ -11,18 +11,27 @@ import {
 } from 'recharts'
 import { formatAxisShort, formatMoneyFull } from '~/lib/format/number'
 import { formatDate } from '~/lib/format/date'
+import { toChartNumber } from '~/lib/core/money'
 import type { Lang } from '~/lib/core/types'
 import type { PaymentPlanDay } from '~/lib/finance/ap-ar/payment-plan'
 
 const CHART_HEIGHT = 260
 
 /** Closing cash balance per day, with a zero line to show where the balance turns negative. */
-export function ProjectedBalanceChart({ days, horizon, lang }: { days: PaymentPlanDay[]; horizon: string; lang: Lang }) {
+export function ProjectedBalanceChart({
+  days,
+  horizon,
+  lang,
+}: {
+  days: PaymentPlanDay[]
+  horizon: string
+  lang: Lang
+}) {
   const { t } = useTranslation()
   const chartData = days.map((d) => ({
     date: d.date,
     displayDate: formatDate(d.date, lang),
-    closingNum: Number(d.closing) || 0,
+    closingNum: toChartNumber(d.closing),
     rawClosing: d.closing,
     isNegative: d.isNegative,
   }))

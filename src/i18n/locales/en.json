@@ -209,6 +209,14 @@
       "vendor": "Vendor"
     }
   },
+  "comparePeriod": {
+    "this-month": "Last month",
+    "last-month": "Previous month",
+    "this-quarter": "Last quarter",
+    "ytd": "Same period last year",
+    "last-12m": "Previous 12 months",
+    "default": "Previous period"
+  },
   "export": {
     "title": "Export to CSV",
     "description": "Choose the delimiter format that matches your spreadsheet software.",
@@ -216,7 +224,9 @@
     "semicolonComma": "Semicolon (;) + decimal comma (Excel Indonesia / European)",
     "download": "Download CSV",
     "cancel": "Cancel",
-    "failed": "The export could not be prepared. Please try again."
+    "failed": "The export could not be prepared. Please try again.",
+    "semicolonCommaHint": "Standard for Microsoft Excel in Indonesia and Europe (1.250,50)",
+    "commaDotHint": "International standard and Google Sheets (1,250.50)"
   },
   "dataChecks": {
     "title": "Data Verification Required",

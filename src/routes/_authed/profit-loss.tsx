@@ -12,7 +12,7 @@ import { useLang } from '~/hooks/use-lang'
 import { PnlStatementTable } from '~/components/profit-loss/PnlStatementTable'
 import { FixedCostPanel } from '~/components/profit-loss/FixedCostPanel'
 import { PnlKpiRow } from '~/components/profit-loss/PnlKpiRow'
-import { getCompareLabel } from '~/lib/format/date'
+import { compareLabelKey } from '~/lib/format/date'
 
 export const Route = createFileRoute('/_authed/profit-loss')({
   validateSearch: drillSearchSchema,
@@ -38,7 +38,7 @@ function ProfitLossPage() {
 
   if (!pnlData) return null
 
-  const compareLabel = getCompareLabel(deps.from && deps.to ? 'custom' : deps.preset, lang)
+  const compareLabel = t(compareLabelKey(deps))
 
   return (
     <div className="space-y-6">

@@ -1,16 +1,9 @@
 import { categoryAxisProps, valueAxisProps } from '~/components/charts/chart-axis'
 import { useTranslation } from 'react-i18next'
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-} from 'recharts'
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip } from 'recharts'
 import { formatAxisShort, formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
 import { formatMonth, formatMonthYear } from '~/lib/format/date'
+import { toChartNumber } from '~/lib/core/money'
 import type { Lang, Money } from '~/lib/core/types'
 
 const CHART_HEIGHT = 260
@@ -33,7 +26,7 @@ export function MonthlyTrendChart({
     month: m.month,
     displayMonth: formatMonth(m.month, lang),
     // Display only: recharts needs a JS number for bar height; the exact amount stays in `rawAmount`.
-    amountNum: Math.max(0, Number(m.amount) || 0),
+    amountNum: Math.max(0, toChartNumber(m.amount)),
     rawAmount: m.amount,
   }))
 
@@ -50,10 +43,7 @@ export function MonthlyTrendChart({
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--chart-grid)" />
-            <XAxis
-              dataKey="displayMonth"
-              {...categoryAxisProps}
-            />
+            <XAxis dataKey="displayMonth" {...categoryAxisProps} />
             <YAxis
               {...valueAxisProps}
               tickFormatter={(val) => formatAxisShort(val, lang)}

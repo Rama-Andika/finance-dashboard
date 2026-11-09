@@ -45,7 +45,12 @@ export type ExportScope = { entity: string; preset: string; from?: string | unde
 
 /** Export file name for a page: a custom range wins over the preset. */
 export function exportFilename(route: string, scope: ExportScope, dateStr?: string) {
-  return formatExportFilename(route, scope.entity, scope.from && scope.to ? `${scope.from}_${scope.to}` : scope.preset, dateStr)
+  return formatExportFilename(
+    route,
+    scope.entity,
+    scope.from && scope.to ? `${scope.from}_${scope.to}` : scope.preset,
+    dateStr,
+  )
 }
 
 export interface ExportCsvDialogProps<T> {
@@ -58,14 +63,7 @@ export interface ExportCsvDialogProps<T> {
   filename: string
 }
 
-export function ExportCsvDialog<T>({
-  open,
-  onOpenChange,
-  rows,
-  loadRows,
-  columns,
-  filename,
-}: ExportCsvDialogProps<T>) {
+export function ExportCsvDialog<T>({ open, onOpenChange, rows, loadRows, columns, filename }: ExportCsvDialogProps<T>) {
   const [loading, setLoading] = useState(false)
   const [failed, setFailed] = useState(false)
   const { t } = useTranslation()
@@ -107,9 +105,7 @@ export function ExportCsvDialog<T>({
             <Download className="w-5 h-5 text-forest" />
             {t('export.title')}
           </DialogTitle>
-          <DialogDescription className="text-sm text-ink-muted">
-            {t('export.description')}
-          </DialogDescription>
+          <DialogDescription className="text-sm text-ink-muted">{t('export.description')}</DialogDescription>
         </DialogHeader>
 
         <div className="py-4 space-y-3">
@@ -129,12 +125,8 @@ export function ExportCsvDialog<T>({
               className="mt-0.5 text-forest focus:ring-forest"
             />
             <div className="space-y-0.5">
-              <span className="text-sm font-medium block">
-                {t('export.semicolonComma')}
-              </span>
-              <span className="text-xs text-ink-muted block">
-                Standar Excel Microsoft di Indonesia & Eropa (1.250,50)
-              </span>
+              <span className="text-sm font-medium block">{t('export.semicolonComma')}</span>
+              <span className="text-xs text-ink-muted block">{t('export.semicolonCommaHint')}</span>
             </div>
           </label>
 
@@ -154,12 +146,8 @@ export function ExportCsvDialog<T>({
               className="mt-0.5 text-forest focus:ring-forest"
             />
             <div className="space-y-0.5">
-              <span className="text-sm font-medium block">
-                {t('export.commaDot')}
-              </span>
-              <span className="text-xs text-ink-muted block">
-                Standar Internasional & Google Sheets (1,250.50)
-              </span>
+              <span className="text-sm font-medium block">{t('export.commaDot')}</span>
+              <span className="text-xs text-ink-muted block">{t('export.commaDotHint')}</span>
             </div>
           </label>
         </div>
@@ -202,12 +190,7 @@ export function ExportCsvButton<T>({
 
   return (
     <>
-      <Button
-        variant={variant}
-        icon={Download}
-        className={className}
-        onClick={() => setOpen(true)}
-      >
+      <Button variant={variant} icon={Download} className={className} onClick={() => setOpen(true)}>
         {t('metric.exportCsv')}
       </Button>
 

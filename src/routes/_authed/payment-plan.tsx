@@ -20,8 +20,7 @@ import { D } from '~/lib/core/money'
 export const Route = createFileRoute('/_authed/payment-plan')({
   validateSearch: paymentPlanSearchSchema.extend(drillSearchSchema.shape),
   loaderDeps: ({ search }) => ({ ...metricLoaderDeps(search), horizon: search.horizon, inflow: search.inflow }),
-  loader: ({ context, deps }) =>
-    context.queryClient.ensureQueryData(paymentPlanMetricOptions(deps)),
+  loader: ({ context, deps }) => context.queryClient.ensureQueryData(paymentPlanMetricOptions(deps)),
   pendingComponent: MetricSkeleton,
   errorComponent: MetricError,
   component: PaymentPlanPage,
@@ -48,7 +47,13 @@ function PaymentPlanPage() {
 
   return (
     <div className="space-y-6">
-      <MetricPageHeader titleKey="nav.paymentPlan" filter={deps} meta={data.meta} lang={lang} showMissingMonths={false} />
+      <MetricPageHeader
+        titleKey="nav.paymentPlan"
+        filter={deps}
+        meta={data.meta}
+        lang={lang}
+        showMissingMonths={false}
+      />
 
       <PaymentPlanControls
         horizon={deps.horizon}
@@ -57,7 +62,7 @@ function PaymentPlanPage() {
         onToggleInflow={() => updateSearch({ inflow: !deps.inflow })}
       />
 
-      {Number(data.overdue) > 0 && (
+      {D(data.overdue).gt(0) && (
         <Notice
           tone="warning"
           title={t('ui.paymentPlan.overdueNotice', { amount: formatMoneyShort(data.overdue, lang) })}

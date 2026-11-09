@@ -4,6 +4,7 @@ import type { TFunction } from 'i18next'
 import type { MetricInput } from '~/lib/filters/search-schema'
 import { AGING_PARTY_SORT_KEYS, type AgingPartyRow } from '~/lib/finance/ap-ar/aging-parties'
 import type { Lang } from '~/lib/core/types'
+import { D } from '~/lib/core/money'
 import { formatMoneyFull } from '~/lib/format/number'
 import { agingPartiesOptions, exportAgingParties } from '~/queries/metrics.queries'
 import { useTableSearch } from '~/hooks/use-table-search'
@@ -59,7 +60,7 @@ function AgingPartyCard({ row, cfg, lang }: { row: AgingPartyRow; cfg: SideConfi
         </div>
         <span className="font-semibold tabular-nums">{formatMoneyFull(row.total, lang)}</span>
       </div>
-      {Number(row.overdue) > 0 && (
+      {D(row.overdue).gt(0) && (
         <div className="text-xs text-warning flex justify-between">
           <span>{t(cfg.keys.overdueLabel)}</span>
           <span>{formatMoneyFull(row.overdue, lang)}</span>

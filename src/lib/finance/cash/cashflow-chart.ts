@@ -1,3 +1,4 @@
+import { toChartNumber } from '../../core/money'
 import type { Lang, Money } from '../../core/types'
 import { formatMonth } from '../../format/date'
 
@@ -25,8 +26,8 @@ export function buildCashflowChartRows(data: readonly CashflowMonthData[], lang:
   return data.map((d) => ({
     monthKey: d.month,
     displayMonth: formatMonth(d.month, lang),
-    cashInNum: Math.abs(Number(d.cashIn) || 0),
-    cashOutNum: -Math.abs(Number(d.cashOut) || 0),
+    cashInNum: Math.abs(toChartNumber(d.cashIn)),
+    cashOutNum: -Math.abs(toChartNumber(d.cashOut)),
     rawIn: d.cashIn,
     rawOut: d.cashOut,
   }))

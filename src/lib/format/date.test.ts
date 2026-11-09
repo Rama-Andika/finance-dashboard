@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import en from '~/i18n/locales/en.json'
+import id from '~/i18n/locales/id.json'
 import {
   addDays,
+  compareLabelKey,
   diffDays,
   formatDate,
   formatDateTime,
@@ -46,5 +49,29 @@ describe('date formatting and math', () => {
 
   it('computes today date in given timezone', () => {
     expect(todayIn('Asia/Jakarta', new Date('2026-10-27T18:30:00Z'))).toBe('2026-10-28')
+  })
+})
+
+describe('compareLabelKey', () => {
+  it('names the comparison period of every preset, and falls back to "previous period"', () => {
+    expect(compareLabelKey({ preset: 'this-month' })).toBe('comparePeriod.this-month')
+    expect(compareLabelKey({ preset: 'last-month' })).toBe('comparePeriod.last-month')
+    expect(compareLabelKey({ preset: 'this-quarter' })).toBe('comparePeriod.this-quarter')
+    expect(compareLabelKey({ preset: 'ytd' })).toBe('comparePeriod.ytd')
+    expect(compareLabelKey({ preset: 'last-12m' })).toBe('comparePeriod.last-12m')
+    expect(compareLabelKey({ preset: 'something-else' })).toBe('comparePeriod.default')
+  })
+
+  it('uses the generic label for a custom range, whatever the preset says', () => {
+    expect(compareLabelKey({ preset: 'ytd', from: '2026-01-01', to: '2026-03-31' })).toBe('comparePeriod.default')
+  })
+
+  it('only returns keys that exist in both language files', () => {
+    const presets = ['this-month', 'last-month', 'this-quarter', 'ytd', 'last-12m', 'custom']
+    for (const preset of presets) {
+      const key = compareLabelKey({ preset }).replace('comparePeriod.', '')
+      expect(Object.keys(en.comparePeriod)).toContain(key)
+      expect(Object.keys(id.comparePeriod)).toContain(key)
+    }
   })
 })

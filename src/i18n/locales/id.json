@@ -209,6 +209,14 @@
       "vendor": "Vendor"
     }
   },
+  "comparePeriod": {
+    "this-month": "Bulan lalu",
+    "last-month": "Bulan sebelumnya",
+    "this-quarter": "Kuartal lalu",
+    "ytd": "Periode sama tahun lalu",
+    "last-12m": "12 bulan sebelumnya",
+    "default": "Periode sebelumnya"
+  },
   "export": {
     "title": "Ekspor ke CSV",
     "description": "Pilih format pemisah yang sesuai dengan perangkat lunak spreadsheet Anda.",
@@ -216,7 +224,9 @@
     "semicolonComma": "Titik koma (;) + koma desimal (Excel Indonesia / Eropa)",
     "download": "Unduh CSV",
     "cancel": "Batal",
-    "failed": "Ekspor gagal disiapkan. Silakan coba lagi."
+    "failed": "Ekspor gagal disiapkan. Silakan coba lagi.",
+    "semicolonCommaHint": "Standar Excel Microsoft di Indonesia & Eropa (1.250,50)",
+    "commaDotHint": "Standar Internasional & Google Sheets (1,250.50)"
   },
   "dataChecks": {
     "title": "Data Perlu Dicek",

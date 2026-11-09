@@ -6,7 +6,7 @@ import type { AgingBucket } from '~/lib/finance/ap-ar/aging'
 import { sum } from '~/lib/core/money'
 import type { Lang, MetricMeta, Money } from '~/lib/core/types'
 import { formatMoneyFull, formatMoneyShort } from '~/lib/format/number'
-import { getCompareLabel } from '~/lib/format/date'
+import { compareLabelKey } from '~/lib/format/date'
 import { Notice } from '~/components/ui/Notice'
 import { KpiCard } from '~/components/ui/KpiCard'
 import { AgingBar } from '~/components/aging/AgingBar'
@@ -85,7 +85,7 @@ export function AgingPage({
     })
   }
 
-  const compareLabel = getCompareLabel(deps.from && deps.to ? 'custom' : deps.preset, lang)
+  const compareLabel = t(compareLabelKey(deps))
 
   return (
     <div className="space-y-6">

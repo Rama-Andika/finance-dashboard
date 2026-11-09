@@ -45,13 +45,7 @@ function TopBarFilters() {
   )
 }
 
-export function TopBar({
-  user,
-  onOpenMobileMenu,
-  onOpenDataChecks,
-  dataChecksCount = 0,
-  className,
-}: TopBarProps) {
+export function TopBar({ user, onOpenMobileMenu, onOpenDataChecks, dataChecksCount = 0, className }: TopBarProps) {
   const { t } = useTranslation()
   const pageTitle = usePageTitle()
   const logout = useLogout()
@@ -87,7 +81,7 @@ export function TopBar({
         </div>
       </div>
 
-      {/* Global filters: Entitas + Periode */}
+      {/* Global filters: entity + period */}
       <TopBarFilters />
 
       {/* Desktop action buttons: Theme, Lang, Notifications, User Profile */}
