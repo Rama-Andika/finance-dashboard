@@ -18,6 +18,8 @@ export const DASH_TABLES = {
   apArHistDates: 'dash_snap_ap_ar_hist_dates',
   cashLines: 'dash_snap_cash_lines',
   cashPeriods: 'dash_snap_cash_periods',
+  balanceMonthly: 'dash_snap_balance_monthly',
+  balancePeriods: 'dash_snap_balance_periods',
 } as const
 
 export const SNAPSHOT_AP_AR = 'ap_ar'

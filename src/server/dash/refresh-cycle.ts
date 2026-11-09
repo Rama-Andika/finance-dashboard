@@ -9,6 +9,7 @@ import { createStepTimer, formatDuration, formatSteps, type StepTimer, type Step
 import { dashMigrationStatus } from './migrate'
 import { refreshApArSnapshot } from './refresh-ap-ar'
 import { refreshGlMonthlySnapshot } from './gl-snapshot'
+import { refreshBalanceSnapshot } from './balance-snapshot'
 import { refreshApArHistSnapshots } from './hist-ap-ar'
 import { warmApArSnapshot } from './snapshot'
 import { clearCachesAfterPeriodChange } from './invalidate'
@@ -86,6 +87,26 @@ async function runGlStep(timer: StepTimer): Promise<void> {
 }
 
 /**
+ * Balance sheet totals of Closed periods (feeds the Balance Sheet trend chart); built from the GL snapshot, so it runs
+ * right after the GL step. A failure is logged and answered with false; the trend then falls back to the live calculation.
+ */
+async function runBalanceStep(timer: StepTimer): Promise<boolean> {
+  try {
+    const balance = await timer.time('balance snapshot', () => refreshBalanceSnapshot())
+    if (balance.ran) {
+      dashLog.info(
+        `balance snapshot built ${balance.built} period(s) (${balance.rebuilt} rebuilt), removed ${balance.removed} in ${Math.round(balance.durationMs / 1000)}s`,
+      )
+      if (balance.rebuilt > 0 || balance.removed > 0) clearCachesAfterPeriodChange()
+    }
+    return true
+  } catch (error) {
+    dashLog.error(`balance snapshot failed (the live calculation is used meanwhile): ${errorText(error)}`)
+    return false
+  }
+}
+
+/**
  * Lines of the cash journals of Closed periods (feeds Cash Flow, Runway and Expense Paid).
  * A failure is logged and answered with false; it does not stop the steps after it, because the live ERP query still
  * answers, only slower.
@@ -121,13 +142,14 @@ async function runHistoryStep(timer: StepTimer): Promise<void> {
 }
 
 /**
- * The steps of one run, in order. Answers false when the cash lines step failed (the run goes on without it).
+ * The steps of one run, in order. Answers false when the balance or the cash lines step failed (the run goes on without it).
  * A failure of any other step is thrown and ends the run.
  */
 async function runSteps(source: RefreshSource, force: boolean, timer: StepTimer): Promise<boolean> {
   if (source === 'manual') dashLog.info('manual snapshot refresh started')
   await runApArStep(timer, force)
   await runGlStep(timer)
+  const balanceOk = await runBalanceStep(timer)
   const cashOk = await runCashLinesStep(timer)
   await runHistoryStep(timer)
   if (source === 'manual') {
@@ -136,7 +158,7 @@ async function runSteps(source: RefreshSource, force: boolean, timer: StepTimer)
     // ... and its period checks look at the ERP again instead of reusing the counts of the previous run
     clearCache(PERIOD_STATS_CACHE_PREFIX)
   }
-  return cashOk
+  return cashOk && balanceOk
 }
 
 /**

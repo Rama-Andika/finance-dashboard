@@ -150,3 +150,4 @@ Nama yang diekspor (fungsi, komponen, tipe) tidak boleh berubah hanya karena fil
 | 2026-11-03 | Dokumen dibuat bersama penataan ulang folder src: peta folder, tabel keputusan, aturan penamaan, domain per lapisan, dan penjaga otomatis.    |
 | 2026-11-05 | Langkah 7 di "Menambah metrik baru" mengarah ke `docs/project-guide.md` (menggantikan dokumen Summary dan Revenue).                           |
 | 2026-11-09 | Domain Balance Sheet (neraca) ditambahkan: `balance-sheet/` di lib/finance, services, functions, dan components, serta route `balance-sheet`. |
+| 2026-11-09 | Snapshot neraca bulanan: `src/server/dash/balance-snapshot.ts` dan `balance-snapshot-read.ts`, skrip `scripts/dash-refresh-balance.ts`.       |

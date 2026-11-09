@@ -24,6 +24,7 @@
     "db:dash:status": "tsx scripts/dash-migrate.ts --status",
     "dash:refresh": "tsx scripts/dash-refresh.ts",
     "dash:refresh-gl": "tsx scripts/dash-refresh-gl.ts",
+    "dash:refresh-balance": "tsx scripts/dash-refresh-balance.ts",
     "dash:refresh-cash": "tsx scripts/dash-refresh-cash.ts",
     "dash:refresh-hist": "tsx scripts/dash-refresh-hist.ts",
     "seed": "tsx scripts/seed/index.ts"

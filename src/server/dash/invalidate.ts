@@ -8,6 +8,7 @@ import { clearCache } from '~/server/cache'
 export function clearCachesAfterPeriodChange(): void {
   clearCache('dash:gl:built')
   clearCache('dash:cash:built')
+  clearCache('dash:balance:built')
   clearCache('periods:all')
   clearCache('cashLines')
   // Also empties the closed-period movement cache.

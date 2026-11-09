@@ -165,6 +165,39 @@ export const dashSnapGlPeriods = mysqlTable('dash_snap_gl_periods', {
 })
 
 /**
+ * Balance sheet totals of CLOSED periods, per (period, entity segment, group): the closing balance of each balance sheet
+ * account group (saved opening balance plus the movements of the period) and the profit of the period under the key
+ * 'Profit'. `segment_id` is `segment1_id` (the entity segment); 0 stands for "no segment". Built by balance-snapshot.ts
+ * from `dash_snap_gl_monthly` and the ERP opening balances; it feeds the Balance Sheet trend chart.
+ */
+export const dashSnapBalanceMonthly = mysqlTable(
+  'dash_snap_balance_monthly',
+  {
+    periodId: bigint('period_id', { mode: 'string' }).notNull(),
+    segmentId: bigint('segment_id', { mode: 'string' }).notNull().default('0'),
+    /** An `account_group` of the balance sheet, or 'Profit' */
+    groupKey: varchar('group_key', { length: 32 }).notNull(),
+    amount: decimal('amount', { precision: 22, scale: 2 }).notNull().default('0.00'),
+  },
+  (t) => [primaryKey({ columns: [t.periodId, t.segmentId, t.groupKey] })],
+)
+
+/** Which closed periods are present in dash_snap_balance_monthly (a period is added in one transaction with its rows). */
+export const dashSnapBalancePeriods = mysqlTable('dash_snap_balance_periods', {
+  periodId: bigint('period_id', { mode: 'string' }).notNull().primaryKey(),
+  builtAt: datetime('built_at', { mode: 'string' }),
+  /** 0 when the period had no saved opening balances: it is marked as built but cannot be used. */
+  rowCount: int('row_count').default(0),
+  durationMs: int('duration_ms').default(0),
+  /** Table, dates and type of the period when it was built (see period-fingerprint.ts) */
+  periodKey: varchar('period_key', { length: 100 }),
+  /** Journal counts of the GL table when it was built */
+  statsKey: varchar('stats_key', { length: 100 }),
+  /** When the journal counts were last compared with the ERP */
+  checkedAt: datetime('checked_at', { mode: 'string' }),
+})
+
+/**
  * Every line of every posted journal that touches a cash account, for CLOSED periods (see cash-lines-build.ts).
  * Same rows the live query `linesOfCashJournals` returns. No primary key: rows are replaced per period, never addressed one by one.
  */

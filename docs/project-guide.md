@@ -126,6 +126,7 @@ Setiap sub-bab halaman di bab 8 memakai urutan yang sama:
   ├─ dash_snap_ap_ar_hist_*                    utang-piutang akhir bulan │
   ├─ dash_snap_gl_monthly / _periods           mutasi GL periode Closed  │
   ├─ dash_snap_cash_lines / _periods           baris jurnal kas Closed   │
+  ├─ dash_snap_balance_monthly / _periods      total neraca per kelompok  │
   └─ dash_snap_meta                            status & "Data as of"     │
          │                                                              │
          ▼                                                              ▼
@@ -578,23 +579,26 @@ Dashboard memakai tabel ini **hanya untuk label status rencana bayar** tagihan (
 | 2026-10-29 | `0004`                 | `dash_snap_ap_ar_hist_*` (3 tabel)                                                                                 | "Bulan lalu" dan pembanding AP/AR timeout karena harus menghitung utang pada tanggal lampau dari nol                             |
 | 2026-11-04 | `0005` (fase 1A)       | Kolom sidik jari periode pada `dash_snap_gl_periods`                                                               | Admin ERP bisa membuka dan menutup ulang periode lama; salinan harus ikut diperbarui                                             |
 | 2026-11-04 | `0006` (fase 1B)       | `dash_snap_cash_lines`, `dash_snap_cash_periods`                                                                   | Runway dan Cash Flow butuh baris jurnal kas yang berat dibaca ulang tiap kali                                                    |
+| 2026-11-09 | `0009` (Balance Sheet) | `dash_snap_balance_periods`, `dash_snap_balance_monthly`                                                           | Tren 12 bulan di Balance Sheet tidak perlu menghitung ulang jurnal setiap kali                                                   |
 
 Fase performa lain (2–6) tidak menambah tabel; lihat bab 9.
 
 ### 5.2 Peta tabel `dash_*`
 
-| Tabel                              | Isi                                                                                 | Dibangun oleh         | Dipakai oleh                                              |
-| ---------------------------------- | ----------------------------------------------------------------------------------- | --------------------- | --------------------------------------------------------- |
-| `dash_snap_meta`                   | Status dan waktu bangun snapshot AP/AR ("Data as of …")                             | `refresh-ap-ar.ts`    | Sidebar, semua pembacaan AP/AR                            |
-| `dash_snap_ap_ar_open`             | Tagihan AP dan AR yang masih punya sisa (hari ini)                                  | `refresh-ap-ar.ts`    | Payables, Receivables, Payment Plan, Summary              |
-| `dash_snap_ap_ar_unallocated`      | Pembayaran/retur yang belum dialokasikan (hari ini)                                 | `refresh-ap-ar.ts`    | Payables, Receivables                                     |
-| `dash_snap_ap_ar_hist_dates`       | Daftar akhir bulan yang sudah punya riwayat                                         | `hist-ap-ar.ts`       | Menentukan apakah riwayat boleh dipakai                   |
-| `dash_snap_ap_ar_hist_open`        | Seperti `…_open`, pada akhir bulan lampau                                           | `hist-ap-ar.ts`       | Payables/Receivables untuk "Bulan lalu", pembanding       |
-| `dash_snap_ap_ar_hist_unallocated` | Seperti `…_unallocated`, pada akhir bulan lampau                                    | `hist-ap-ar.ts`       | Idem                                                      |
-| `dash_snap_gl_periods`             | Penanda periode Closed yang sudah disalin + sidik jarinya                           | `gl-snapshot.ts`      | Menentukan periode mana yang boleh dibaca dari snapshot   |
-| `dash_snap_gl_monthly`             | Jumlah debit/kredit per periode × akun × entitas                                    | `gl-snapshot.ts`      | Revenue, P&L, Budget, Cash Position (via mutasi), Summary |
-| `dash_snap_cash_periods`           | Penanda periode Closed yang baris kasnya sudah disalin + sidik jari + hash akun kas | `cash-lines-build.ts` | Menentukan apakah baris kas boleh dibaca dari snapshot    |
-| `dash_snap_cash_lines`             | Baris jurnal yang menyentuh akun kas                                                | `cash-lines-build.ts` | Cash Flow, Runway, Expense Paid                           |
+| Tabel                              | Isi                                                                                 | Dibangun oleh         | Dipakai oleh                                                |
+| ---------------------------------- | ----------------------------------------------------------------------------------- | --------------------- | ----------------------------------------------------------- |
+| `dash_snap_meta`                   | Status dan waktu bangun snapshot AP/AR ("Data as of …")                             | `refresh-ap-ar.ts`    | Sidebar, semua pembacaan AP/AR                              |
+| `dash_snap_ap_ar_open`             | Tagihan AP dan AR yang masih punya sisa (hari ini)                                  | `refresh-ap-ar.ts`    | Payables, Receivables, Payment Plan, Summary                |
+| `dash_snap_ap_ar_unallocated`      | Pembayaran/retur yang belum dialokasikan (hari ini)                                 | `refresh-ap-ar.ts`    | Payables, Receivables                                       |
+| `dash_snap_ap_ar_hist_dates`       | Daftar akhir bulan yang sudah punya riwayat                                         | `hist-ap-ar.ts`       | Menentukan apakah riwayat boleh dipakai                     |
+| `dash_snap_ap_ar_hist_open`        | Seperti `…_open`, pada akhir bulan lampau                                           | `hist-ap-ar.ts`       | Payables/Receivables untuk "Bulan lalu", pembanding         |
+| `dash_snap_ap_ar_hist_unallocated` | Seperti `…_unallocated`, pada akhir bulan lampau                                    | `hist-ap-ar.ts`       | Idem                                                        |
+| `dash_snap_gl_periods`             | Penanda periode Closed yang sudah disalin + sidik jarinya                           | `gl-snapshot.ts`      | Menentukan periode mana yang boleh dibaca dari snapshot     |
+| `dash_snap_gl_monthly`             | Jumlah debit/kredit per periode × akun × entitas                                    | `gl-snapshot.ts`      | Revenue, P&L, Budget, Cash Position (via mutasi), Summary   |
+| `dash_snap_cash_periods`           | Penanda periode Closed yang baris kasnya sudah disalin + sidik jari + hash akun kas | `cash-lines-build.ts` | Menentukan apakah baris kas boleh dibaca dari snapshot      |
+| `dash_snap_cash_lines`             | Baris jurnal yang menyentuh akun kas                                                | `cash-lines-build.ts` | Cash Flow, Runway, Expense Paid                             |
+| `dash_snap_balance_periods`        | Penanda periode Closed yang total neracanya sudah disalin + sidik jarinya           | `balance-snapshot.ts` | Menentukan periode mana yang boleh dibaca untuk tren neraca |
+| `dash_snap_balance_monthly`        | Total tiap kelompok neraca dan laba per periode × entitas                           | `balance-snapshot.ts` | Tren 12 bulan di Balance Sheet                              |
 
 Skema ada di `src/server/dash/schema.ts` (sumber untuk `drizzle.dash.config.ts`); migrasi SQL di folder `drizzle-dash/` (tabel migrasi bernama `dash_migrations`).
 
@@ -659,6 +663,14 @@ FROM dash_snap_meta WHERE name = 'ap_ar' LIMIT 1
 - **Dipakai hanya bila** daftar akun kas sekarang (hash) sama dengan `cash_hash` dan kolom segmen entitas adalah `segment1_id`; jika tidak, query langsung ke ERP. Mengubah Account Mapping (keranjang kas) otomatis membuat periode dibangun ulang pada siklus berikutnya.
 - **Batas:** snapshot ini hanya dibangun bila jumlah akun kas ≤ 1000 (`CASH_LINES_MAX_ACCOUNTS`).
 
+#### 5.3.7 `dash_snap_balance_periods` dan `dash_snap_balance_monthly`: total neraca periode Closed
+
+- **Tujuan:** untuk setiap periode berstatus **Closed**, total tiap kelompok akun neraca pada akhir periode (saldo awal tersimpan + mutasi periode itu) dan laba periode, per entitas. Dipakai grafik **Tren 12 bulan** di halaman Balance Sheet (8.13) supaya dua belas bulan tidak dihitung dari jutaan baris jurnal setiap kali halaman dibuka.
+- **`dash_snap_balance_monthly`** (kunci `period_id, segment_id, group_key`): `amount`. `group_key` = salah satu dari enam kelompok neraca (`Liquid Assets`, `Fixed Assets`, `Other Assets`, `Current Liabilities`, `Long Term Liabilities`, `Equity`) atau `Profit` (laba periode itu = kredit dikurangi debet semua akun laba rugi). `segment_id` = `segment1_id` (entitas); `0` berarti tanpa segmen.
+- **`dash_snap_balance_periods`** (kunci `period_id`): `built_at`, `row_count`, `duration_ms`, `period_key`, `stats_key` (sidik jari, bagian 5.5), `checked_at`. `row_count = 0` berarti periode itu tidak punya saldo awal tersimpan (periode pertama, atau periode sebelumnya tidak pernah ditutup): ia ditandai sudah dibangun tetapi tidak dipakai.
+- **Dibangun dari** `coa_opening_balance_location` (saldo awal periode itu) dan `dash_snap_gl_monthly` (mutasi), jadi **tidak membaca jurnal**. Karena itu langkah ini berjalan tepat sesudah langkah GL, dan melewati periode yang snapshot GL-nya belum ada (dicoba lagi pada siklus berikutnya). Aturan sidik jari dan bangun ulang sama dengan snapshot GL (5.5) karena memakai mesin yang sama (`closed-period-refresh.ts`).
+- **Pembaca:** `balance-snapshot-read.ts` membaca periode yang ada di `dash_snap_balance_periods` dengan `row_count > 0` dan menjumlahkan di SQL per periode dan kelompok untuk entitas terpilih. Bila tabel belum ada atau kosong, tren memakai perhitungan langsung.
+
 ### 5.4 Siapa yang membangun dan kapan
 
 ```text
@@ -673,19 +685,20 @@ FROM dash_snap_meta WHERE name = 'ap_ar' LIMIT 1
 
 Satu **siklus refresh** (`src/server/dash/refresh-cycle.ts`) menjalankan langkah berikut berurutan; kegagalan dicatat di log dan tidak mematikan server. Riwayat akhir bulan yang berversi rumus lebih lama dari `AP_AR_FORMULA_VERSION` (sekarang 2) dibangun ulang otomatis satu bulan per siklus, dimulai dari yang terbaru:
 
-| #   | Langkah                              | Hasil                                                                                                                     | Kapan benar-benar bekerja                                                                                                |
-| --- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| 0   | Cek migrasi                          | Bila ada migrasi `dash_*` yang belum diterapkan, siklus **dilewati** dan peringatan dicatat                               | Setiap siklus                                                                                                            |
-| 1   | **AP/AR snapshot**                   | Isi `dash_snap_ap_ar_open` dan `…_unallocated`                                                                            | Bila sidik jari ERP berubah, **atau** snapshot untuk hari yang lalu, **atau** umurnya ≥ 1 jam, **atau** manual (`force`) |
-| 2   | Warm invoice lists                   | Memuat snapshot baru ke memori server agar permintaan pertama tidak menunggu                                              | Setiap siklus                                                                                                            |
-| 3   | **GL snapshot**                      | Bangun/bangun ulang/hapus periode di `dash_snap_gl_*`                                                                     | Hanya bila ada periode baru, berubah, atau dibuka ulang                                                                  |
-| 4   | **Cash lines snapshot**              | Sama untuk `dash_snap_cash_*` (kegagalan di sini tidak menghentikan langkah berikutnya; query langsung dipakai sementara) | Idem                                                                                                                     |
-| 5   | **AP/AR history**                    | Satu bulan baru per siklus                                                                                                | Bila ada bulan hilang/provisional yang basi                                                                              |
-| 6   | (manual saja) Kosongkan cache metrik | Pengguna yang menekan tombol langsung melihat angka baru                                                                  | Hanya manual                                                                                                             |
+| #   | Langkah                              | Hasil                                                                                                                                                                           | Kapan benar-benar bekerja                                                                                                |
+| --- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 0   | Cek migrasi                          | Bila ada migrasi `dash_*` yang belum diterapkan, siklus **dilewati** dan peringatan dicatat                                                                                     | Setiap siklus                                                                                                            |
+| 1   | **AP/AR snapshot**                   | Isi `dash_snap_ap_ar_open` dan `…_unallocated`                                                                                                                                  | Bila sidik jari ERP berubah, **atau** snapshot untuk hari yang lalu, **atau** umurnya ≥ 1 jam, **atau** manual (`force`) |
+| 2   | Warm invoice lists                   | Memuat snapshot baru ke memori server agar permintaan pertama tidak menunggu                                                                                                    | Setiap siklus                                                                                                            |
+| 3   | **GL snapshot**                      | Bangun/bangun ulang/hapus periode di `dash_snap_gl_*`                                                                                                                           | Hanya bila ada periode baru, berubah, atau dibuka ulang                                                                  |
+| 3b  | **Balance snapshot**                 | Bangun/bangun ulang/hapus periode di `dash_snap_balance_*` dari snapshot GL (kegagalan di sini tidak menghentikan langkah berikutnya; tren memakai hitungan langsung sementara) | Hanya bila ada periode baru, berubah, atau dibuka ulang                                                                  |
+| 4   | **Cash lines snapshot**              | Sama untuk `dash_snap_cash_*` (kegagalan di sini tidak menghentikan langkah berikutnya; query langsung dipakai sementara)                                                       | Idem                                                                                                                     |
+| 5   | **AP/AR history**                    | Satu bulan baru per siklus                                                                                                                                                      | Bila ada bulan hilang/provisional yang basi                                                                              |
+| 6   | (manual saja) Kosongkan cache metrik | Pengguna yang menekan tombol langsung melihat angka baru                                                                                                                        | Hanya manual                                                                                                             |
 
 Perlindungan agar tidak bentrok:
 
-- **Satu siklus per proses server** (penanda `running`) dan **kunci advisory MySQL** per langkah (`GET_LOCK`: `dash_refresh_ap_ar`, `dash_refresh_gl`, `dash_refresh_cash`, `dash_refresh_ap_ar_hist`) untuk beberapa proses server.
+- **Satu siklus per proses server** (penanda `running`) dan **kunci advisory MySQL** per langkah (`GET_LOCK`: `dash_refresh_ap_ar`, `dash_refresh_gl`, `dash_refresh_balance`, `dash_refresh_cash`, `dash_refresh_ap_ar_hist`) untuk beberapa proses server.
 - **Pool koneksi terpisah** (`DASH_POOL_SIZE`, default 2) untuk pembangunan snapshot, supaya query berat refresh tidak berebut koneksi dengan permintaan pengguna (D46). Sesi refresh mematikan batas waktu per-query (`max_execution_time`, `max_statement_time`).
 - **Cooldown manual 2 menit** dihitung dari `refreshed_at` (`MANUAL_REFRESH_COOLDOWN_MS`), supaya tombol yang ditekan berulang tidak membangun ulang berulang (U8 di `decisions.md`).
 - **Penulisan atomik:** tabel AP/AR hari ini lewat tabel bayangan dan `RENAME`; periode GL/kas dan bulan riwayat dalam satu transaksi dengan penandanya. Pembaca selalu melihat versi lama atau versi baru yang lengkap.
@@ -850,16 +863,52 @@ Penjelasan: subquery `k` mencari jurnal posted periode ini yang punya **setidakn
 
 Memakai B1–B3 untuk `asOf` = akhir bulan, lalu dalam **satu transaksi**: hapus baris bulan itu dari `…_hist_open` dan `…_hist_unallocated`, `INSERT` per 1000 baris dengan kolom `as_of_date` di depan, dan `INSERT … ON DUPLICATE KEY UPDATE` satu baris di `dash_snap_ap_ar_hist_dates` (`is_final` 1/0).
 
+#### B9. Snapshot total neraca per periode (`balance-snapshot.ts`)
+
+```sql
+-- dijalankan dalam satu transaksi per periode
+DELETE FROM dash_snap_balance_monthly WHERE period_id = ?;
+
+INSERT INTO dash_snap_balance_monthly (period_id, segment_id, group_key, amount)
+SELECT :periode, x.segment_id, x.group_key, SUM(x.amount)
+FROM (
+  SELECT COALESCE(o.segment1_id, 0) AS segment_id, c.account_group AS group_key, o.opening_balance AS amount
+  FROM coa_opening_balance_location o
+  JOIN coa c ON c.coa_id = o.coa_id
+  WHERE o.periode_id = :periode AND c.account_group IN (:kelompok_neraca)
+  UNION ALL
+  SELECT s.segment_id, c.account_group,
+         CASE WHEN c.account_group IN (:kelompok_aktiva) THEN s.debet - s.credit ELSE s.credit - s.debet END
+  FROM dash_snap_gl_monthly s
+  JOIN coa c ON c.coa_id = s.coa_id
+  WHERE s.period_id = :periode AND c.account_group IN (:kelompok_neraca)
+  UNION ALL
+  SELECT s.segment_id, 'Profit', s.credit - s.debet
+  FROM dash_snap_gl_monthly s
+  JOIN coa c ON c.coa_id = s.coa_id
+  WHERE s.period_id = :periode AND c.account_group IN (:kelompok_laba_rugi)
+) x
+GROUP BY x.segment_id, x.group_key;
+
+INSERT INTO dash_snap_balance_periods (period_id, built_at, row_count, duration_ms, period_key, stats_key, checked_at)
+VALUES (?, UTC_TIMESTAMP(), ?, ?, ?, ?, UTC_TIMESTAMP())
+ON DUPLICATE KEY UPDATE built_at = VALUES(built_at), row_count = VALUES(row_count), duration_ms = VALUES(duration_ms),
+                        period_key = VALUES(period_key), stats_key = VALUES(stats_key), checked_at = VALUES(checked_at);
+```
+
+Penjelasan: bagian pertama mengambil saldo awal tersimpan periode itu per akun dan entitas, dikelompokkan menurut kelompok akun; bagian kedua menambah mutasi periode itu dari snapshot GL (debet dikurangi kredit untuk kelompok Aktiva, kredit dikurangi debet untuk kelompok Pasiva, sama dengan tanda di bab 6.5); bagian ketiga menyimpan laba periode di bawah kunci `Profit`. Periode yang snapshot GL-nya belum ada dilewati. Periode tanpa baris saldo awal tidak menjalankan `INSERT` isi: hanya penandanya yang ditulis dengan `row_count = 0`, supaya tidak dicoba terus. Sidik jari periode diambil **sebelum** isi dibaca (5.5).
+
 ### 5.7 Query pembacaan snapshot
 
-| Kode | Dari                            | SQL                                                                                                                                                                                                                                                                                                                         | Dipakai                                                                                                                            |
-| ---- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| S1   | `dash_snap_ap_ar_open` (daftar) | `SELECT card_id AS invoiceId, party_id AS partyId, location_id AS locationId, coa_id AS coaId, tx_date AS txDate, due_date AS dueDate, item_type AS itemType, invoice_number AS invoiceNumber, original_amount AS originalAmount, balance AS balance FROM dash_snap_ap_ar_open FORCE INDEX (PRIMARY) WHERE module_type = ?` | Daftar tagihan (tabel tagihan, drill-down); seluruh satu sisi dimuat sekali per versi snapshot lalu disaring per entitas di memori |
-| S2   | `dash_snap_ap_ar_unallocated`   | `SELECT card_id AS cardId, party_id AS partyId, location_id AS locationId, coa_id AS coaId, tx_date AS txDate, balance AS balance FROM dash_snap_ap_ar_unallocated WHERE module_type = ?`                                                                                                                                   | Idem                                                                                                                               |
-| S3   | Riwayat                         | Seperti S1/S2 pada `dash_snap_ap_ar_hist_open` / `…_unallocated` dengan `WHERE as_of_date = ? AND module_type = ?`                                                                                                                                                                                                          | "Bulan lalu", pembanding                                                                                                           |
-| S4   | Aging dan jatuh tempo           | Dijumlahkan langsung di SQL (`snapshot-aggregate.ts`, bab 8.7)                                                                                                                                                                                                                                                              | Payables, Receivables, Payment Plan                                                                                                |
-| S5   | `dash_snap_gl_monthly`          | Pembacaan mutasi (Q12, bab 7)                                                                                                                                                                                                                                                                                               | Revenue, P&L, dst.                                                                                                                 |
-| S6   | `dash_snap_cash_lines`          | Pembacaan baris kas (bab 8.4)                                                                                                                                                                                                                                                                                               | Cash Flow, Runway                                                                                                                  |
+| Kode | Dari                            | SQL                                                                                                                                                                                                                                                                                                                                        | Dipakai                                                                                                                            |
+| ---- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| S1   | `dash_snap_ap_ar_open` (daftar) | `SELECT card_id AS invoiceId, party_id AS partyId, location_id AS locationId, coa_id AS coaId, tx_date AS txDate, due_date AS dueDate, item_type AS itemType, invoice_number AS invoiceNumber, original_amount AS originalAmount, balance AS balance FROM dash_snap_ap_ar_open FORCE INDEX (PRIMARY) WHERE module_type = ?`                | Daftar tagihan (tabel tagihan, drill-down); seluruh satu sisi dimuat sekali per versi snapshot lalu disaring per entitas di memori |
+| S2   | `dash_snap_ap_ar_unallocated`   | `SELECT card_id AS cardId, party_id AS partyId, location_id AS locationId, coa_id AS coaId, tx_date AS txDate, balance AS balance FROM dash_snap_ap_ar_unallocated WHERE module_type = ?`                                                                                                                                                  | Idem                                                                                                                               |
+| S3   | Riwayat                         | Seperti S1/S2 pada `dash_snap_ap_ar_hist_open` / `…_unallocated` dengan `WHERE as_of_date = ? AND module_type = ?`                                                                                                                                                                                                                         | "Bulan lalu", pembanding                                                                                                           |
+| S4   | Aging dan jatuh tempo           | Dijumlahkan langsung di SQL (`snapshot-aggregate.ts`, bab 8.7)                                                                                                                                                                                                                                                                             | Payables, Receivables, Payment Plan                                                                                                |
+| S5   | `dash_snap_gl_monthly`          | Pembacaan mutasi (Q12, bab 7)                                                                                                                                                                                                                                                                                                              | Revenue, P&L, dst.                                                                                                                 |
+| S6   | `dash_snap_cash_lines`          | Pembacaan baris kas (bab 8.4)                                                                                                                                                                                                                                                                                                              | Cash Flow, Runway                                                                                                                  |
+| S7   | `dash_snap_balance_*`           | `SELECT s.period_id AS periodId, s.group_key AS groupKey, SUM(s.amount) AS amount FROM dash_snap_balance_monthly s WHERE s.period_id IN (:periode) [AND s.segment_id IN (:segmen)] GROUP BY s.period_id, s.group_key`, dan daftar periode siap: `SELECT period_id, built_at, row_count FROM dash_snap_balance_periods WHERE row_count > 0` | Tren neraca 12 bulan (Balance Sheet, bagian 8.13)                                                                                  |
 
 ### 5.8 Cara menjaga tabel `dash_*`
 
@@ -873,6 +922,7 @@ Memakai B1–B3 untuk `asOf` = akhir bulan, lalu dalam **satu transaksi**: hapus
 | Bangun snapshot GL periode Closed       | `npm run dash:refresh-gl` (`-- --rebuild <id>` untuk memaksa satu periode) | Idem                              |
 | Bangun snapshot baris kas               | `npm run dash:refresh-cash`                                                | Idem                              |
 | Bangun riwayat akhir bulan              | `npm run dash:refresh-hist` (`-- --max N` membatasi jumlah bulan)          | Idem                              |
+| Bangun total neraca periode Closed      | `npm run dash:refresh-balance` (jalankan sesudah `dash:refresh-gl`)        | Idem                              |
 
 **Aturan penting untuk developer:** tabel `dash_*` baru wajib (a) ditambahkan di `schema.ts` dan `tables.ts`, (b) punya migrasi di `drizzle-dash/`, (c) hanya ditulis lewat `dashTable()`, (d) ditulis dalam dokumen ini (bab 5.2, 5.3, 5.6) beserta riwayat dan pertanyaan konfirmasinya. File baru di `src/server/dash/` tidak boleh mengandung frasa penulisan data (bahkan di komentar) yang dibaca `guard.test.ts` sebagai penulisan ke tabel non-`dash_`.
 
@@ -2738,6 +2788,7 @@ Laba Tahun Berjalan:
 | KF-72 | Apakah saldo awal Januari sudah memuat penyesuaian Periode 13 tahun sebelumnya (O21)?                                                                                              | Dianggap sudah memuat ⚠️                                            |
 | KF-73 | Neraca gabungan menjumlahkan entitas tanpa eliminasi saldo antar-entitas (terkait KF-07): apakah memadai?                                                                          | Tanpa eliminasi, dengan catatan di halaman (D62) ⚠️                 |
 | KF-74 | Selisih Aktiva dan Pasiva sekecil apa pun ditandai bahaya (tepat nol). Perlukah toleransi pembulatan?                                                                              | Tepat nol, tanpa toleransi (D61) ⚠️                                 |
+| KF-75 | Tren neraca: bulan yang belum Closed digambar lebih terang (angka bisa berubah); bulan Closed dari snapshot yang dibangun ulang otomatis. Dapat diterima?                          | Dapat diterima (D63) ⚠️                                             |
 
 **Hasil pencocokan ke database lokal.** 🔵 Pada 2026-11-09, baris Aktiva dan Pasiva halaman ini dicocokkan dengan hitungan SQL independen di database lokal `demo` untuk periode September 2025 (cara `opening-table`) dan Desember 2025 (cara `bridge` dari saldo awal Oktober 2025): selisih antara SQL dan halaman 0,00. Pada kedua periode Aktiva dan Pasiva berbeda (September: 48,29; Desember: 674,22), dan SQL independen menghasilkan selisih yang sama, jadi selisih itu berasal dari data ERP lokal, bukan dari perhitungan halaman. Belum dicocokkan dengan laporan Neraca ERP (KF-69).
 
@@ -2867,18 +2918,18 @@ Masalah yang masih dicatat: tombol "Perbarui sekarang" terasa lama (catatan 2026
 
 ### 10.2 Perintah (`npm run …`)
 
-| Perintah                                                                    | Fungsi                                                                                                | Menyentuh DB?  |
-| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------- |
-| `dev`                                                                       | Server pengembangan di `http://localhost:3000`                                                        | Ya (membaca)   |
-| `build` / `start`                                                           | Bangun dan jalankan server produksi (`scripts/start-server.mjs`, menyajikan `dist/`)                  | Ya             |
-| `typecheck`, `lint`, `lint:fix`, `format`, `format:check`                   | Pemeriksaan kode                                                                                      | Tidak          |
-| `test`                                                                      | Tes unit (Vitest, proyek `unit`)                                                                      | Tidak          |
-| `test:db`                                                                   | Tes integrasi ke DB **lokal** (`tests/integration/**/*.int.test.ts`)                                  | Ya, minta izin |
-| `db:pull`                                                                   | `drizzle-kit pull` dari DB lokal (hanya untuk menyalin struktur tabel ERP)                            | Ya, minta izin |
-| `db:dash:generate`, `db:dash:check`                                         | Membuat dan memeriksa file migrasi `dash_*`                                                           | Tidak          |
-| `db:dash:status`, `db:dash:migrate`                                         | Melihat dan menerapkan migrasi `dash_*`                                                               | Ya, minta izin |
-| `dash:refresh`, `dash:refresh-gl`, `dash:refresh-cash`, `dash:refresh-hist` | Bangun snapshot AP/AR, GL Closed, baris kas, riwayat akhir bulan                                      | Ya, minta izin |
-| `seed`                                                                      | Mengarah ke `scripts/seed/index.ts` yang **belum ada** (hanya pelindung host `scripts/seed/guard.ts`) | —              |
+| Perintah                                                                                            | Fungsi                                                                                                | Menyentuh DB?  |
+| --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------- |
+| `dev`                                                                                               | Server pengembangan di `http://localhost:3000`                                                        | Ya (membaca)   |
+| `build` / `start`                                                                                   | Bangun dan jalankan server produksi (`scripts/start-server.mjs`, menyajikan `dist/`)                  | Ya             |
+| `typecheck`, `lint`, `lint:fix`, `format`, `format:check`                                           | Pemeriksaan kode                                                                                      | Tidak          |
+| `test`                                                                                              | Tes unit (Vitest, proyek `unit`)                                                                      | Tidak          |
+| `test:db`                                                                                           | Tes integrasi ke DB **lokal** (`tests/integration/**/*.int.test.ts`)                                  | Ya, minta izin |
+| `db:pull`                                                                                           | `drizzle-kit pull` dari DB lokal (hanya untuk menyalin struktur tabel ERP)                            | Ya, minta izin |
+| `db:dash:generate`, `db:dash:check`                                                                 | Membuat dan memeriksa file migrasi `dash_*`                                                           | Tidak          |
+| `db:dash:status`, `db:dash:migrate`                                                                 | Melihat dan menerapkan migrasi `dash_*`                                                               | Ya, minta izin |
+| `dash:refresh`, `dash:refresh-gl`, `dash:refresh-cash`, `dash:refresh-hist`, `dash:refresh-balance` | Bangun snapshot AP/AR, GL Closed, baris kas, riwayat akhir bulan, total neraca                        | Ya, minta izin |
+| `seed`                                                                                              | Mengarah ke `scripts/seed/index.ts` yang **belum ada** (hanya pelindung host `scripts/seed/guard.ts`) | —              |
 
 **Aturan izin (dari `CLAUDE.md`):** pemasangan/penghapusan paket, **apa pun yang berjalan ke database** (termasuk satu `SELECT`), commit, dan push **harus mendapat jawaban "ya" dari pemilik proyek lebih dulu**. Skrip `docs/sql/dashboard-indexes.sql` hanya dijalankan manual oleh pemilik proyek. Tidak pernah menjalankan `drizzle-kit push`.
 
@@ -3026,6 +3077,7 @@ Urutan pengecekan yang disarankan, dari penyebab paling umum:
 | KF-72 | S   | 8.13          | Apakah saldo awal Januari sudah memuat penyesuaian Periode 13 tahun sebelumnya (O21)?                                                                                                                                                                                               | Dianggap sudah memuat ⚠️                                                                                           | Belum                                       |                 |         |
 | KF-73 | S   | 8.13          | Neraca gabungan menjumlahkan entitas tanpa eliminasi saldo antar-entitas (terkait KF-07): apakah memadai?                                                                                                                                                                           | Tanpa eliminasi, dengan catatan di halaman (D62) ⚠️                                                                | Belum                                       |                 |         |
 | KF-74 | S   | 8.13          | Selisih Aktiva dan Pasiva sekecil apa pun ditandai bahaya (tepat nol). Perlukah toleransi pembulatan?                                                                                                                                                                               | Tepat nol, tanpa toleransi (D61) ⚠️                                                                                | Belum                                       |                 |         |
+| KF-75 | S   | 8.13          | Tren neraca: kolom bulan yang belum Closed digambar lebih terang karena angkanya bisa berubah, dan bulan Closed dibaca dari snapshot yang dibangun ulang otomatis bila periode dibuka ulang dan diubah. Dapat diterima?                                                             | Dapat diterima (D63) ⚠️                                                                                            | Belum                                       |                 |         |
 
 ### 12.3 Hasil pengecekan ke database lokal (2026-11-05)
 
@@ -3085,6 +3137,7 @@ Pengecekan memakai **tujuh query `SELECT` (hanya baca)** ke database lokal `demo
 | 2026-11-08 | Refactor tabel tagihan Summary: aturan label baris kredit di satu fungsi, kolom ekspor dan kartu mobile dipisah; tampilan dan CSV tidak berubah.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | 2026-11-08 | Mutasi per tanggal (Q9): daftar akun dan entitas dipecah per 150 id supaya optimizer tidak meninggalkan indeks tanggal pada 200 nilai atau lebih; mencegah timeout kartu kas pada klien dengan banyak akun. Angka tidak berubah (bagian 6.9).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 2026-11-09 | Halaman Balance Sheet (Neraca): per akhir periode, pembanding, laba tahun berjalan dua cara, kartu, donut, dan tabel pohon; data check BS_*; bagian 1.2, 3, 4, 7, 8.11, 8.13 dan bab 12 (D55 sampai D62, O21, KF-69 sampai KF-74).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 2026-11-09 | Snapshot neraca bulanan `dash_snap_balance_periods` dan `dash_snap_balance_monthly` (migrasi 0009), langkah baru di siklus refresh, perintah `dash:refresh-balance` (bagian 1.3, 5.1 sampai 5.8, 10.2; D63, KF-75).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ### 14.1 Riwayat ringkas dokumen yang digantikan
 

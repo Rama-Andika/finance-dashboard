@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   refreshApArSnapshot: vi.fn(),
   warmApArSnapshot: vi.fn(),
   refreshGlMonthlySnapshot: vi.fn(),
+  refreshBalanceSnapshot: vi.fn(),
   refreshCashLinesSnapshot: vi.fn(),
   refreshApArHistSnapshots: vi.fn(),
   currentCashAccountIds: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock('./log', () => ({ dashLog: { info: mocks.logInfo, warn: vi.fn(), error: 
 vi.mock('./migrate', () => ({ dashMigrationStatus: mocks.dashMigrationStatus }))
 vi.mock('./refresh-ap-ar', () => ({ refreshApArSnapshot: mocks.refreshApArSnapshot }))
 vi.mock('./gl-snapshot', () => ({ refreshGlMonthlySnapshot: mocks.refreshGlMonthlySnapshot }))
+vi.mock('./balance-snapshot', () => ({ refreshBalanceSnapshot: mocks.refreshBalanceSnapshot }))
 vi.mock('./cash-lines-build', () => ({ refreshCashLinesSnapshot: mocks.refreshCashLinesSnapshot }))
 vi.mock('~/server/services/shared/cash-accounts', () => ({ currentCashAccountIds: mocks.currentCashAccountIds }))
 vi.mock('./hist-ap-ar', () => ({ refreshApArHistSnapshots: mocks.refreshApArHistSnapshots }))
@@ -33,6 +35,7 @@ function quietSteps() {
   mocks.refreshApArSnapshot.mockResolvedValue({ ran: false, reason: 'unchanged' })
   mocks.warmApArSnapshot.mockResolvedValue(undefined)
   mocks.refreshGlMonthlySnapshot.mockResolvedValue({ ran: false, reason: 'nothing-to-do' })
+  mocks.refreshBalanceSnapshot.mockResolvedValue({ ran: false, reason: 'nothing-to-do' })
   mocks.currentCashAccountIds.mockResolvedValue(['11', '12'])
   mocks.refreshCashLinesSnapshot.mockResolvedValue({ ran: false, reason: 'nothing-to-do' })
   mocks.refreshApArHistSnapshots.mockResolvedValue({ ran: false, reason: 'nothing-to-do' })
@@ -45,7 +48,7 @@ beforeEach(() => {
 })
 
 describe('runRefreshCycle', () => {
-  it('runs the AP/AR snapshot, the GL snapshot and the history in that order', async () => {
+  it('runs the AP/AR snapshot, the GL snapshot, the balance snapshot, the cash lines and the history in that order', async () => {
     const order: string[] = []
     mocks.refreshApArSnapshot.mockImplementation(async () => {
       order.push('ap-ar')
@@ -58,6 +61,10 @@ describe('runRefreshCycle', () => {
       order.push('gl')
       return { ran: false, reason: 'nothing-to-do' }
     })
+    mocks.refreshBalanceSnapshot.mockImplementation(async () => {
+      order.push('balance')
+      return { ran: false, reason: 'nothing-to-do' }
+    })
     mocks.refreshCashLinesSnapshot.mockImplementation(async () => {
       order.push('cash')
       return { ran: false, reason: 'nothing-to-do' }
@@ -68,7 +75,7 @@ describe('runRefreshCycle', () => {
     })
 
     await expect(runRefreshCycle('scheduler', { force: false })).resolves.toEqual({ ran: true, ok: true })
-    expect(order).toEqual(['ap-ar', 'warm', 'gl', 'cash', 'history'])
+    expect(order).toEqual(['ap-ar', 'warm', 'gl', 'balance', 'cash', 'history'])
   })
 
   it('passes the force flag on and builds at most one history month per run', async () => {
@@ -168,6 +175,25 @@ describe('runRefreshCycle', () => {
     expect(getRefreshJob()).toEqual({ running: false, lastOk: false, finishedRuns: 1 })
   })
 
+  it('keeps going when the balance snapshot fails: later steps still run and the failure is recorded', async () => {
+    mocks.refreshBalanceSnapshot.mockRejectedValue(new Error('strict mode refused a row'))
+
+    await expect(runRefreshCycle('scheduler', { force: false })).resolves.toEqual({ ran: true, ok: false })
+    expect(mocks.refreshCashLinesSnapshot).toHaveBeenCalledTimes(1)
+    expect(mocks.refreshApArHistSnapshots).toHaveBeenCalledTimes(1)
+    expect(getRefreshJob()).toEqual({ running: false, lastOk: false, finishedRuns: 1 })
+  })
+
+  it('forgets cached answers when a balance snapshot period was rebuilt, but not when it only gained periods', async () => {
+    mocks.refreshBalanceSnapshot.mockResolvedValue({ ran: true, built: 2, rebuilt: 0, removed: 0, durationMs: 5 })
+    await runRefreshCycle('scheduler', { force: false })
+    expect(mocks.clearCachesAfterPeriodChange).not.toHaveBeenCalled()
+
+    mocks.refreshBalanceSnapshot.mockResolvedValue({ ran: true, built: 1, rebuilt: 1, removed: 0, durationMs: 5 })
+    await runRefreshCycle('scheduler', { force: false })
+    expect(mocks.clearCachesAfterPeriodChange).toHaveBeenCalledTimes(1)
+  })
+
   it('hands the current cash accounts to the cash-lines snapshot and forgets caches after a rebuild', async () => {
     mocks.refreshCashLinesSnapshot.mockResolvedValue({ ran: true, built: 1, rebuilt: 1, removed: 0, durationMs: 5 })
     await runRefreshCycle('scheduler', { force: false })
@@ -203,6 +229,7 @@ describe('timing of the steps', () => {
       'AP/AR snapshot',
       'warm invoice lists',
       'GL snapshot',
+      'balance snapshot',
       'cash lines snapshot',
       'AP/AR history',
     ]) {
@@ -214,6 +241,7 @@ describe('timing of the steps', () => {
       'AP/AR snapshot',
       'warm invoice lists',
       'GL snapshot',
+      'balance snapshot',
       'cash lines snapshot',
       'AP/AR history',
     ]) {
