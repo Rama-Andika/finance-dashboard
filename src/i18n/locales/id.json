@@ -222,6 +222,7 @@
     "title": "Data Perlu Dicek",
     "empty": "Semua data konsisten dan tidak ada temuan pemeriksaan.",
     "viewDetail": "Lihat rincian",
+    "openAction": "Buka panel",
     "AP_PAID_NO_PAYMENT": {
       "title": "Tagihan AP non-dagang lunas tanpa rincian transaksi",
       "body": "{{count}} tagihan (IDR {{amount}}) berstatus lunas namun tidak memiliki riwayat kartu pelunasan."

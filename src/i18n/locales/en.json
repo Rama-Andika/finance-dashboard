@@ -222,6 +222,7 @@
     "title": "Data Verification Required",
     "empty": "All data is consistent and no check findings were detected.",
     "viewDetail": "View details",
+    "openAction": "Open panel",
     "AP_PAID_NO_PAYMENT": {
       "title": "Non-trade AP marked paid without payment records",
       "body": "{{count}} bills (IDR {{amount}}) marked as paid without any settlement card history."

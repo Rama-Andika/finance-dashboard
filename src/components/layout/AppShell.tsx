@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { SidebarNav } from '~/components/layout/SidebarNav'
 import { TopBar } from '~/components/layout/top-bar/TopBar'
@@ -17,6 +17,12 @@ export interface AppShellProps {
 export function AppShell({ children, user }: AppShellProps) {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
   const [dataChecksOpen, setDataChecksOpen] = useState(false)
+
+  useEffect(() => {
+    const handleOpen = () => setDataChecksOpen(true)
+    window.addEventListener('open-data-checks', handleOpen)
+    return () => window.removeEventListener('open-data-checks', handleOpen)
+  }, [])
 
   const queryInput = useGlobalMetricInput()
 

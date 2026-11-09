@@ -15,6 +15,7 @@ const PAGE_TITLE_KEYS: Record<string, string> = {
   '/cash-position': 'nav.cashPosition',
   '/cash-flow': 'nav.cashFlow',
   '/profit-loss': 'nav.pnl',
+  '/balance-sheet': 'nav.balanceSheet',
   '/payables': 'nav.payables',
   '/receivables': 'nav.receivables',
   '/payment-plan': 'nav.paymentPlan',
