@@ -630,7 +630,8 @@
     "col": {
       "account": "Akun",
       "change": "Perubahan (IDR)",
-      "changePct": "Perubahan (%)"
+      "changePct": "Perubahan (%)",
+      "level": "Tingkat"
     },
     "line": {
       "sectionAssets": "Aktiva",

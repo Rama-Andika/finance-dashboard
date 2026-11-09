@@ -630,7 +630,8 @@
     "col": {
       "account": "Account",
       "change": "Change (IDR)",
-      "changePct": "Change (%)"
+      "changePct": "Change (%)",
+      "level": "Level"
     },
     "line": {
       "sectionAssets": "Assets",

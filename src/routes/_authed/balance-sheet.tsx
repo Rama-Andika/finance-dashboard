@@ -90,7 +90,7 @@ function BalanceSheetPage() {
             lang={lang}
           />
           <BalanceTrendSection input={trendInput} lang={lang} />
-          <BalanceSheetTable data={data} hideZero={hideZero} lang={lang} />
+          <BalanceSheetTable data={data} hideZero={hideZero} lang={lang} scope={deps} />
         </>
       )}
     </div>

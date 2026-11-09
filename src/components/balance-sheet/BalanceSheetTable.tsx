@@ -2,11 +2,13 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DataTable, type ColumnDef } from '~/components/ui/data-table/DataTable'
 import { useOpenDrill } from '~/components/drill/use-open-drill'
+import { ExportCsvButton, exportFilename, type ExportScope } from '~/components/export/ExportCsvDialog'
 import { PrintButton } from '~/components/export/PrintButton'
+import type { CsvColumn } from '~/lib/format/csv'
 import { formatDate } from '~/lib/format/date'
 import { formatMoneyFull, formatPercent } from '~/lib/format/number'
 import { changeOf, changeRatioOf, type BalanceSheetNode } from '~/lib/finance/balance-sheet/statement'
-import { defaultExpandedIds, tableRows } from '~/lib/finance/balance-sheet/tree-view'
+import { defaultExpandedIds, flattenRows, tableRows } from '~/lib/finance/balance-sheet/tree-view'
 import type { BalanceSheetResult } from '~/lib/finance/balance-sheet/result'
 import type { Lang, Money } from '~/lib/core/types'
 
@@ -39,10 +41,13 @@ export function BalanceSheetTable({
   data,
   hideZero,
   lang,
+  scope,
 }: {
   data: BalanceSheetResult
   hideZero: boolean
   lang: Lang
+  /** The filters of the page, to name the export file. */
+  scope: ExportScope
 }) {
   const { t } = useTranslation()
   const openDrill = useOpenDrill()
@@ -64,6 +69,27 @@ export function BalanceSheetTable({
   }
 
   const compareHeader = data.compare?.period ? asOf(data.compare.period.reportDate) : ''
+  const csvColumns: CsvColumn<BalanceSheetNode>[] = [
+    { header: t('ui.col.accountCode'), value: (r) => r.code, kind: 'text' },
+    { header: t('balanceSheet.col.account'), value: (r) => labelOf(r), kind: 'text' },
+    { header: t('balanceSheet.col.level'), value: (r) => r.level, kind: 'number' },
+    { header: data.period ? asOf(data.period.reportDate) : '', value: (r) => r.amount, kind: 'money' },
+    ...(hasCompare
+      ? ([
+          { header: compareHeader, value: (r) => r.compare, kind: 'money' },
+          { header: t('balanceSheet.col.change'), value: (r) => changeOf(r.amount, r.compare), kind: 'money' },
+          {
+            header: t('balanceSheet.col.changePct'),
+            value: (r) => {
+              const ratio = changeRatioOf(r.amount, r.compare)
+              return ratio === null ? '' : formatPercent(ratio, lang, 1)
+            },
+            kind: 'text',
+          },
+        ] satisfies CsvColumn<BalanceSheetNode>[])
+      : []),
+  ]
+
   const columns: ColumnDef<BalanceSheetNode, unknown>[] = [
     {
       id: 'account',
@@ -118,6 +144,11 @@ export function BalanceSheetTable({
       emptyMessage={t('common.noData')}
       headerActions={
         <div className="flex items-center gap-2">
+          <ExportCsvButton
+            rows={flattenRows(rows)}
+            columns={csvColumns}
+            filename={exportFilename('balance_sheet', scope)}
+          />
           <PrintButton />
         </div>
       }
