@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { BALANCE_COMPARE_MODES } from '~/lib/finance/balance-sheet/targets'
 import { PRESETS, type Preset } from '~/lib/finance/period/presets'
 
 export { PRESETS, type Preset }
@@ -30,6 +31,12 @@ export const paymentPlanSearchSchema = z.object({
   inflow: z.boolean().catch(false), // "Include projected inflows" toggle
 })
 export type PaymentPlanSearch = z.infer<typeof paymentPlanSearchSchema>
+
+/** The only search parameter of the Balance Sheet page besides the global ones: what the report is compared with. */
+export const balanceSheetSearchSchema = z.object({
+  compare: z.enum(BALANCE_COMPARE_MODES).catch('year-end'),
+})
+export type BalanceSheetSearch = z.infer<typeof balanceSheetSearchSchema>
 
 export const drillStepSchema = z.object({
   kind: z.enum([

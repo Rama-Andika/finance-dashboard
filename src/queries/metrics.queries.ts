@@ -1,6 +1,6 @@
 import { keepPreviousData, queryOptions } from '@tanstack/react-query'
 import { qk } from '~/queries/keys'
-import type { MetricInput, PaymentPlanSearch } from '~/lib/filters/search-schema'
+import type { BalanceSheetSearch, MetricInput, PaymentPlanSearch } from '~/lib/filters/search-schema'
 
 import { getSummaryChartsFn, getSummaryHeadFn, getSummaryMiniFn } from '~/functions/summary.fn'
 import { getRevenueFn } from '~/functions/pnl/revenue.fn'
@@ -14,6 +14,7 @@ import { getFixedCostFn } from '~/functions/pnl/fixed-cost.fn'
 import { getPaymentPlanFn } from '~/functions/ap-ar/payment-plan.fn'
 import { getBudgetFn } from '~/functions/pnl/budget.fn'
 import { getRunwayFn } from '~/functions/cash/runway.fn'
+import { getBalanceSheetFn } from '~/functions/balance-sheet/balance-sheet.fn'
 
 export function summaryHeadOptions(input: MetricInput) {
   return queryOptions({
@@ -146,6 +147,13 @@ export function budgetMetricOptions(input: MetricInput) {
   return queryOptions({
     queryKey: qk.metric('budget', input),
     queryFn: () => getBudgetFn({ data: input }),
+  })
+}
+
+export function balanceSheetMetricOptions(input: MetricInput & BalanceSheetSearch) {
+  return queryOptions({
+    queryKey: qk.metric('balanceSheet', input),
+    queryFn: () => getBalanceSheetFn({ data: input }),
   })
 }
 
