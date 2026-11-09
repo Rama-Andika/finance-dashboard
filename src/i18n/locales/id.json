@@ -168,7 +168,8 @@
       "arAging": "Piutang Usaha",
       "fixedCost": "Biaya Tetap",
       "paymentPlan": "Rencana Bayar",
-      "budget": "Anggaran vs Realisasi"
+      "budget": "Anggaran vs Realisasi",
+      "balanceSheet": "Neraca"
     },
     "title": {
       "accounts": "Akun — {{label}}",

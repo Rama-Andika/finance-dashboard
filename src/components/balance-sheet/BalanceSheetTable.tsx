@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DataTable, type ColumnDef } from '~/components/ui/data-table/DataTable'
+import { useOpenDrill } from '~/components/drill/use-open-drill'
 import { PrintButton } from '~/components/export/PrintButton'
 import { formatDate } from '~/lib/format/date'
 import { formatMoneyFull, formatPercent } from '~/lib/format/number'
@@ -44,10 +45,24 @@ export function BalanceSheetTable({
   lang: Lang
 }) {
   const { t } = useTranslation()
+  const openDrill = useOpenDrill()
   const rows = useMemo(() => tableRows(data.statement, { hideZero }), [data.statement, hideZero])
   const hasCompare = data.statement.compareTotals !== null
 
   const asOf = (date: string) => t('balanceSheet.asOf', { date: formatDate(date, lang) })
+  const labelOf = (node: BalanceSheetNode) => (node.labelKey ? t(`balanceSheet.line.${node.labelKey}`) : node.name)
+
+  /** A section or a header opens the accounts below it, an account opens its journal lines; computed lines do nothing. */
+  const openRow = (node: BalanceSheetNode) => {
+    if (node.kind === 'virtual' || node.kind === 'difference') return
+    const label = labelOf(node)
+    if (node.kind === 'section') {
+      openDrill('balanceSheet', [{ kind: 'section', id: node.id.replace('section:', ''), label }])
+    } else {
+      openDrill('balanceSheet', [{ kind: node.isHeader ? 'folder' : 'account', id: node.id, label }])
+    }
+  }
+
   const compareHeader = data.compare?.period ? asOf(data.compare.period.reportDate) : ''
   const columns: ColumnDef<BalanceSheetNode, unknown>[] = [
     {
@@ -99,6 +114,7 @@ export function BalanceSheetTable({
       getSubRows={(r) => r.children}
       getRowId={(r) => r.id}
       defaultExpanded={defaultExpandedIds(rows)}
+      onRowClick={openRow}
       emptyMessage={t('common.noData')}
       headerActions={
         <div className="flex items-center gap-2">

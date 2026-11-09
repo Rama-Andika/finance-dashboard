@@ -9,6 +9,7 @@ import { apArDrill, paymentPlanDrill } from '~/server/services/drill/ap-ar'
 import { cashPositionDrill, inTransitDrill } from '~/server/services/drill/cash'
 import { cashFlowDrill, expensePaidDrill } from '~/server/services/drill/cash-flow'
 import { glMetricDrill } from '~/server/services/drill/gl-metrics'
+import { balanceSheetDrill } from '~/server/services/drill/balance-sheet'
 
 export type { DrillState, DrillStep, DrillStepKind }
 export type { DrillColumn, DrillColumnKind, DrillResult } from '~/server/services/drill/shared'
@@ -66,6 +67,8 @@ export async function computeDrill(
       return cashFlowDrill(ctx, steps)
     case 'expensePaid':
       return expensePaidDrill(ctx, steps)
+    case 'balanceSheet':
+      return balanceSheetDrill(ctx, steps)
     default:
       // revenue, pnl, fixedCost, budget and generic folder drills
       return glMetricDrill(ctx, drill, steps)

@@ -168,7 +168,8 @@
       "arAging": "Accounts Receivable",
       "fixedCost": "Fixed Cost",
       "paymentPlan": "Payment Plan",
-      "budget": "Budget vs Actual"
+      "budget": "Budget vs Actual",
+      "balanceSheet": "Balance Sheet"
     },
     "title": {
       "accounts": "Accounts — {{label}}",

@@ -2652,15 +2652,16 @@ Empat pemeriksaan `BS_*` memakai hasil metrik Balance Sheet tanpa pembanding, ja
 
 Klik angka/baris di halaman membuka **panel samping** (sheet). Statusnya di parameter URL `drill` (metrik + daftar langkah, maksimal 8), jadi bisa dibagikan. Semua level memakai filter yang sama dengan halaman. Kode: `src/server/services/drill/` (`drill.service.ts` memilih jalur menurut `drill.metric`), `src/components/drill/`. Satu halaman data = **200 baris** (`PAGE_SIZE`).
 
-| Metrik (`drill.metric`)                 | Jalur langkah                                                 | Sumber                                             |
-| --------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------- |
-| `revenue`, `pnl`, `fixedCost`, `budget` | bagian/folder → akun → entitas → baris jurnal                 | Q11/Q12 (per akun, per lokasi) dan baris jurnal R5 |
-| `cashPosition`                          | Kas/Bank → folder → akun → (saldo)                            | Q7–Q9                                              |
-| `inTransit`                             | channel → entitas → tanggal → transaksi belum cair            | Q10 dan daftar transaksi (8.3.3 butir 5)           |
-| `cashFlow`                              | laci → sub-baris → akun lawan → jurnal                        | Porsi kas terklasifikasi (8.4)                     |
-| `expensePaid`                           | kategori → vendor/akun → pembayaran                           | E1, E2, porsi kas (8.4.7)                          |
-| `apAging`, `arAging`                    | bucket → vendor/pelanggan → tagihan → riwayat pelunasan kartu | Daftar tagihan snapshot (S1/S2) dan riwayat kartu  |
-| `paymentPlan`                           | hari → daftar tagihan jatuh tempo                             | Daftar tagihan AP                                  |
+| Metrik (`drill.metric`)                 | Jalur langkah                                                 | Sumber                                                                               |
+| --------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `revenue`, `pnl`, `fixedCost`, `budget` | bagian/folder → akun → entitas → baris jurnal                 | Q11/Q12 (per akun, per lokasi) dan baris jurnal R5                                   |
+| `cashPosition`                          | Kas/Bank → folder → akun → (saldo)                            | Q7–Q9                                                                                |
+| `inTransit`                             | channel → entitas → tanggal → transaksi belum cair            | Q10 dan daftar transaksi (8.3.3 butir 5)                                             |
+| `cashFlow`                              | laci → sub-baris → akun lawan → jurnal                        | Porsi kas terklasifikasi (8.4)                                                       |
+| `expensePaid`                           | kategori → vendor/akun → pembayaran                           | E1, E2, porsi kas (8.4.7)                                                            |
+| `apAging`, `arAging`                    | bucket → vendor/pelanggan → tagihan → riwayat pelunasan kartu | Daftar tagihan snapshot (S1/S2) dan riwayat kartu                                    |
+| `paymentPlan`                           | hari → daftar tagihan jatuh tempo                             | Daftar tagihan AP                                                                    |
+| `balanceSheet`                          | bagian (Aktiva atau Pasiva) atau header → akun → baris jurnal | Saldo akun dari Balance Sheet (bagian 8.13) dan baris jurnal R5 pada periode laporan |
 
 - **Riwayat pelunasan satu kartu** (langkah `card`, dari metrik mana pun):
 
@@ -2692,6 +2693,7 @@ Neraca adalah laporan **potret**: posisi harta, utang, dan modal pada **satu tan
 - **Kartu KPI:** Total Aktiva, Total Utang, Total Ekuitas (masing-masing dengan pembanding), dan Selisih (Aktiva dikurangi Pasiva, seharusnya nol).
 - **Dua donut komposisi:** isi Aktiva (Aktiva lancar, Aktiva tetap, Aktiva lainnya) dan isi Pasiva (Utang jangka pendek, Utang jangka panjang, Ekuitas).
 - **Tren 12 bulan:** grafik kolom dan garis di bawah donut (Utang + Ekuitas ditumpuk, Aktiva sebagai garis), dimuat sesudah bagian lain halaman. Bulan yang belum Closed digambar lebih terang.
+- **Drill-down:** klik baris Aktiva, Pasiva, header, atau akun membuka panel samping sampai baris jurnal (bagian 8.12).
 - **Tabel neraca** berbentuk pohon yang bisa dilipat: bagian **Aktiva** dan bagian **Pasiva** dengan totalnya, lalu akun menurut pohon CoA (header = jumlah akun di bawahnya). Kolom: akun, jumlah pada tanggal laporan, dan bila ada pembanding: jumlah pembanding, perubahan, perubahan persen. Awalnya terbuka sampai tingkat kedua. Baris merah "Selisih" muncul hanya bila Aktiva dan Pasiva berbeda (pada tanggal laporan atau pembanding).
 
 #### 8.13.2 Data dan query
@@ -2760,6 +2762,8 @@ Mutasi dikalikan tanda sisi kelompok akun (bab 6.5) dan dijumlah per `period_id`
 - **Bulan laporan dan bulan yang belum Closed** dihitung langsung dengan jumlah berjalan: saldo awal tersimpan, lalu mutasi periode demi periode dari periode saldo awal sampai bulan laporan (satu pembacaan). Bulan laporan selalu dihitung langsung supaya sama persis dengan tabel.
 - **Total per bulan:** Aktiva = Σ tiga kelompok Aktiva; Utang = Σ dua kelompok Utang; Ekuitas = kelompok Equity + laba (kredit dikurangi debet semua akun laba rugi). Untuk bulan tersimpan, laba yang ditambahkan adalah laba bulan itu saja, karena laba bulan-bulan sebelumnya sudah ada di saldo awal akun ekuitas yang dipindahkan ERP saat periode ditutup. Untuk hitungan langsung, laba dijumlahkan sejak periode saldo awal.
 - Kolom bulan yang belum Closed digambar lebih terang dengan catatan "angka bisa berubah" (D63, KF-75). Bulan yang tidak tersimpan dan tidak terjangkau dari saldo awal tidak ditampilkan; jumlahnya dicatat di bawah grafik.
+
+**Drill-down.** Klik baris **Aktiva** atau **Pasiva** membuka daftar akun di bawahnya dengan saldonya pada tanggal laporan (angka sama dengan tabel; akun bernilai nol tidak ditampilkan). Klik **header** membuka akun di bawah header itu. Klik **akun** membuka baris jurnal posted akun itu pada **periode laporan** (dan Periode 13-nya bila ikut): itulah mutasi periode itu, yang bersama saldo awal membentuk saldo. Baris laba yang dibuat laporan sendiri dan baris Selisih tidak bisa dibuka. Drill memakai Balance Sheet tanpa pembanding, jadi angkanya selalu sama dengan tabel. Kode: `src/server/services/drill/balance-sheet.ts` (metrik `balanceSheet`, bagian 8.12).
 
 #### 8.13.4 Contoh angka
 
@@ -3147,6 +3151,7 @@ Pengecekan memakai **tujuh query `SELECT` (hanya baca)** ke database lokal `demo
 | 2026-11-09 | Halaman Balance Sheet (Neraca): per akhir periode, pembanding, laba tahun berjalan dua cara, kartu, donut, dan tabel pohon; data check BS_*; bagian 1.2, 3, 4, 7, 8.11, 8.13 dan bab 12 (D55 sampai D62, O21, KF-69 sampai KF-74).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | 2026-11-09 | Snapshot neraca bulanan `dash_snap_balance_periods` dan `dash_snap_balance_monthly` (migrasi 0009), langkah baru di siklus refresh, perintah `dash:refresh-balance` (bagian 1.3, 5.1 sampai 5.8, 10.2; D63, KF-75).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | 2026-11-09 | Balance Sheet: grafik tren 12 bulan di bawah donut (bagian 8.13.1 dan 8.13.3).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 2026-11-09 | Balance Sheet: drill-down dari bagian, header, dan akun sampai baris jurnal (bagian 8.12 dan 8.13).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ### 14.1 Riwayat ringkas dokumen yang digantikan
 
