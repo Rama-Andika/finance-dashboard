@@ -1,5 +1,6 @@
 import '@tanstack/react-start/server-only'
 import { apArSnapshotCovers, snapshotIgnoredReceipts } from '~/server/dash/snapshot'
+import { memo } from '~/server/cache'
 import { toInt } from '~/server/db/convert'
 import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
@@ -30,8 +31,7 @@ export async function checkApPaidWithoutPayment(locIds: Id[] | 'all'): Promise<C
     return { count: 0, amount: '0.00' }
   }
 
-  const locClause =
-    locIds !== 'all' ? sql`AND c.location_id IN (${inList(locIds)})` : sql``
+  const locClause = locIds !== 'all' ? sql`AND c.location_id IN (${inList(locIds)})` : sql``
 
   const query = sql`
     SELECT COUNT(*) AS n, COALESCE(SUM(c.amount), 0) AS amount
@@ -53,8 +53,7 @@ export async function checkApPaidWithoutPayment(locIds: Id[] | 'all'): Promise<C
 export async function checkCardsWithoutParty(locIds: Id[] | 'all'): Promise<number> {
   if (locIds !== 'all' && locIds.length === 0) return 0
 
-  const locClause =
-    locIds !== 'all' ? sql`AND c.location_id IN (${inList(locIds)})` : sql``
+  const locClause = locIds !== 'all' ? sql`AND c.location_id IN (${inList(locIds)})` : sql``
 
   const queryCustomer = sql`
     SELECT COUNT(*) AS n
@@ -65,7 +64,10 @@ export async function checkCardsWithoutParty(locIds: Id[] | 'all'): Promise<numb
       ${locClause}
   `
 
-  const [apCount, resC] = await Promise.all([apCardsWithUnknownVendor(locIds), rows<{ n: number | string }>(queryCustomer)])
+  const [apCount, resC] = await Promise.all([
+    apCardsWithUnknownVendor(locIds),
+    rows<{ n: number | string }>(queryCustomer),
+  ])
 
   return apCount + toInt(resC[0]?.n)
 }
@@ -94,17 +96,22 @@ async function apCardsWithUnknownVendor(locIds: Id[] | 'all'): Promise<number> {
   return toInt(res.find((r) => toInt(r.moduleType) === MODULE_TYPE.AP)?.n)
 }
 
-/** CARD_LOCATION_INVALID: AP/AR cards whose location is not in the location master. */
-export async function checkCardsWithInvalidLocation(): Promise<number> {
-  const query = sql`
-    SELECT COUNT(*) AS n
-    FROM ap_ar_card c
-    WHERE c.location_id IS NOT NULL AND c.location_id != ''
-      AND NOT EXISTS (SELECT 1 FROM pos_location l WHERE l.location_id = c.location_id)
-  `
+/** The check below ignores the filters, so its answer is shared by every page and every filter for this long. */
+const GLOBAL_CHECK_CACHE_MS = 5 * 60 * 1000
 
-  const res = await rows<{ n: number | string }>(query)
-  return toInt(res[0]?.n)
+/** CARD_LOCATION_INVALID: AP/AR cards whose location is not in the location master (all entities, every filter). */
+export function checkCardsWithInvalidLocation(): Promise<number> {
+  return memo('dataChecks:cardsInvalidLocation', GLOBAL_CHECK_CACHE_MS, async () => {
+    const query = sql`
+      SELECT COUNT(*) AS n
+      FROM ap_ar_card c
+      WHERE c.location_id IS NOT NULL AND c.location_id != ''
+        AND NOT EXISTS (SELECT 1 FROM pos_location l WHERE l.location_id = c.location_id)
+    `
+
+    const res = await rows<{ n: number | string }>(query)
+    return toInt(res[0]?.n)
+  })
 }
 
 /** TRANSIT_OVERDUE: unsettled non-cash payments older than 7 days or dated in the future. */
@@ -123,10 +130,7 @@ export async function checkTransitOverdue(
   if (!isSegmentColumn(segCol)) throw new Error(`Invalid segment column: ${segCol}`)
   const segIdent = sql.identifier(segCol)
 
-  const segClause =
-    segIds !== 'all'
-      ? sql`AND bp.${segIdent} IN (${inList(segIds)})`
-      : sql``
+  const segClause = segIds !== 'all' ? sql`AND bp.${segIdent} IN (${inList(segIds)})` : sql``
 
   const query = sql`
     SELECT COUNT(*) AS n, COALESCE(SUM(bp.amount), 0) AS amount
@@ -164,7 +168,10 @@ export async function checkUnpostedJournals(periods: Period[]): Promise<number> 
 }
 
 /** AR_PAYMENT_UNALLOC: customer payments with no allocation, from today's snapshot; null when the snapshot does not cover today. */
-export async function checkArPaymentsWithoutAllocation(locIds: Id[] | 'all', today: IsoDate): Promise<CheckSummary | null> {
+export async function checkArPaymentsWithoutAllocation(
+  locIds: Id[] | 'all',
+  today: IsoDate,
+): Promise<CheckSummary | null> {
   if (!(await apArSnapshotCovers(today))) return null
   return snapshotIgnoredReceipts(locIds)
 }
