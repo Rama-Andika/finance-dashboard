@@ -10,7 +10,8 @@
     "paymentPlan": "Rencana Bayar",
     "budget": "Anggaran",
     "settingsGroup": "Pengaturan",
-    "accountMapping": "Pemetaan Akun"
+    "accountMapping": "Pemetaan Akun",
+    "balanceSheet": "Neraca"
   },
   "common": {
     "entity": "Entitas",
@@ -596,5 +597,60 @@
     "d31_60": "31 – 60 hari",
     "d61_90": "61 – 90 hari",
     "d90plus": "> 90 hari"
+  },
+  "balanceSheet": {
+    "asOf": "Per {{date}}",
+    "period13": "Termasuk periode 13 (penyesuaian akhir tahun)",
+    "hideZero": "Sembunyikan akun bernilai nol",
+    "compare": {
+      "label": "Bandingkan dengan",
+      "year-end": "Akhir tahun buku lalu",
+      "prev-month": "Bulan lalu",
+      "prev-year": "Bulan yang sama tahun lalu",
+      "none": "Tanpa pembanding",
+      "missing": "Periode pembanding tidak ada, jadi perbandingan tidak ditampilkan."
+    },
+    "col": {
+      "account": "Akun",
+      "change": "Perubahan (IDR)",
+      "changePct": "Perubahan (%)"
+    },
+    "line": {
+      "sectionAssets": "Aktiva",
+      "sectionLiabilitiesEquity": "Pasiva",
+      "difference": "Selisih (Aktiva - Pasiva)",
+      "currentYearEarnings": "Laba Tahun Berjalan",
+      "priorYearsEarnings": "Laba Tahun Lalu"
+    },
+    "group": {
+      "liquidAssets": "Aktiva lancar",
+      "fixedAssets": "Aktiva tetap",
+      "otherAssets": "Aktiva lainnya",
+      "currentLiabilities": "Utang jangka pendek",
+      "longTermLiabilities": "Utang jangka panjang",
+      "equity": "Ekuitas (modal)"
+    },
+    "kpi": {
+      "assets": "Total Aktiva",
+      "liabilities": "Total Utang",
+      "equity": "Total Ekuitas",
+      "difference": "Selisih"
+    },
+    "chart": {
+      "assetsComposition": "Komposisi Aktiva",
+      "liabilitiesEquityComposition": "Komposisi Pasiva",
+      "total": "Total"
+    },
+    "notice": {
+      "noPeriod": "Belum ada periode akuntansi untuk bulan ini, jadi neraca tidak bisa ditampilkan.",
+      "unbalancedTitle": "Aktiva dan Pasiva tidak sama.",
+      "unbalancedBody": "Selisihnya {{amount}}. Buka panel Data perlu dicek untuk melihat kemungkinan penyebabnya.",
+      "bridgeTitle": "Saldo awal periode ini belum tersedia.",
+      "bridgeBody": "Angka dihitung dari saldo awal {{period}} ditambah jurnal sesudahnya. {{count}} periode belum ditutup.",
+      "historyTitle": "Saldo awal tersimpan tidak ditemukan.",
+      "historyBody": "Angka dijumlahkan dari seluruh jurnal sejak awal, jadi pemuatan bisa lebih lama.",
+      "consolidationTitle": "Neraca gabungan {{count}} entitas.",
+      "consolidationBody": "Angka menjumlahkan semua entitas yang dipilih. Saldo antar-entitas tidak dieliminasi."
+    }
   }
 }

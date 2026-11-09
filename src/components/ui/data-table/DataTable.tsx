@@ -48,7 +48,8 @@ export interface DataTableProps<T extends object> {
   title?: string
   headerActions?: React.ReactNode
   className?: string
-  defaultExpanded?: boolean
+  /** `true` opens every row that has sub rows; a record opens the rows whose id is `true` in it. Read once, when the table appears. */
+  defaultExpanded?: boolean | Record<string, boolean>
 }
 
 export function DataTable<T extends object>({
@@ -72,7 +73,9 @@ export function DataTable<T extends object>({
 }: DataTableProps<T>) {
   const { t } = useTranslation()
   const emptyText = emptyMessage ?? t('ui.shell.tableEmpty')
-  const [expanded, setExpanded] = React.useState<ExpandedState>(defaultExpanded ? true : {})
+  const [expanded, setExpanded] = React.useState<ExpandedState>(
+    typeof defaultExpanded === 'object' ? defaultExpanded : defaultExpanded ? true : {},
+  )
 
   const table = useLegacyTable<T>({
     data,

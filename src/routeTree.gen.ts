@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
+import { Route as AuthedBalanceSheetRouteImport } from './routes/_authed/balance-sheet'
 import { Route as AuthedBudgetRouteImport } from './routes/_authed/budget'
 import { Route as AuthedCashFlowRouteImport } from './routes/_authed/cash-flow'
 import { Route as AuthedCashPositionRouteImport } from './routes/_authed/cash-position'
@@ -35,6 +36,11 @@ const LoginRoute = LoginRouteImport.update({
 const AuthedIndexRoute = AuthedIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedBalanceSheetRoute = AuthedBalanceSheetRouteImport.update({
+  id: '/balance-sheet',
+  path: '/balance-sheet',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedBudgetRoute = AuthedBudgetRouteImport.update({
@@ -92,6 +98,7 @@ const AuthedSettingsAccountMappingRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
   '/login': typeof LoginRoute
+  '/balance-sheet': typeof AuthedBalanceSheetRoute
   '/budget': typeof AuthedBudgetRoute
   '/cash-flow': typeof AuthedCashFlowRoute
   '/cash-position': typeof AuthedCashPositionRoute
@@ -105,6 +112,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/balance-sheet': typeof AuthedBalanceSheetRoute
   '/budget': typeof AuthedBudgetRoute
   '/cash-flow': typeof AuthedCashFlowRoute
   '/cash-position': typeof AuthedCashPositionRoute
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authed': typeof AuthedRouteWithChildren
   '/login': typeof LoginRoute
+  '/_authed/balance-sheet': typeof AuthedBalanceSheetRoute
   '/_authed/budget': typeof AuthedBudgetRoute
   '/_authed/cash-flow': typeof AuthedCashFlowRoute
   '/_authed/cash-position': typeof AuthedCashPositionRoute
@@ -138,6 +147,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/balance-sheet'
     | '/budget'
     | '/cash-flow'
     | '/cash-position'
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
+    | '/balance-sheet'
     | '/budget'
     | '/cash-flow'
     | '/cash-position'
@@ -166,6 +177,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_authed'
     | '/login'
+    | '/_authed/balance-sheet'
     | '/_authed/budget'
     | '/_authed/cash-flow'
     | '/_authed/cash-position'
@@ -205,6 +217,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthedIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/balance-sheet': {
+      id: '/_authed/balance-sheet'
+      path: '/balance-sheet'
+      fullPath: '/balance-sheet'
+      preLoaderRoute: typeof AuthedBalanceSheetRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/budget': {
@@ -281,6 +300,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthedRouteChildren {
+  AuthedBalanceSheetRoute: typeof AuthedBalanceSheetRoute
   AuthedBudgetRoute: typeof AuthedBudgetRoute
   AuthedCashFlowRoute: typeof AuthedCashFlowRoute
   AuthedCashPositionRoute: typeof AuthedCashPositionRoute
@@ -295,6 +315,7 @@ interface AuthedRouteChildren {
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
+  AuthedBalanceSheetRoute: AuthedBalanceSheetRoute,
   AuthedBudgetRoute: AuthedBudgetRoute,
   AuthedCashFlowRoute: AuthedCashFlowRoute,
   AuthedCashPositionRoute: AuthedCashPositionRoute,

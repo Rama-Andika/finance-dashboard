@@ -13,6 +13,7 @@ import {
   CalendarDays,
   Target,
   ListTree,
+  Scale,
 } from 'lucide-react'
 import { cn } from '~/lib/cn'
 
@@ -28,6 +29,7 @@ export const MAIN_NAV_ITEMS: NavItemDef[] = [
   { labelKey: 'nav.cashPosition', to: '/cash-position', icon: Wallet },
   { labelKey: 'nav.cashFlow', to: '/cash-flow', icon: ArrowLeftRight },
   { labelKey: 'nav.pnl', to: '/profit-loss', icon: ChartColumn },
+  { labelKey: 'nav.balanceSheet', to: '/balance-sheet', icon: Scale },
   { labelKey: 'nav.payables', to: '/payables', icon: Receipt },
   { labelKey: 'nav.receivables', to: '/receivables', icon: HandCoins },
   { labelKey: 'nav.paymentPlan', to: '/payment-plan', icon: CalendarDays },

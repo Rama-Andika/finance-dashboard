@@ -10,7 +10,8 @@
     "paymentPlan": "Payment Plan",
     "budget": "Budget vs Actual",
     "settingsGroup": "Settings",
-    "accountMapping": "Account Mapping"
+    "accountMapping": "Account Mapping",
+    "balanceSheet": "Balance Sheet"
   },
   "common": {
     "entity": "Entity",
@@ -596,5 +597,60 @@
     "d31_60": "31 – 60 days",
     "d61_90": "61 – 90 days",
     "d90plus": "> 90 days"
+  },
+  "balanceSheet": {
+    "asOf": "As of {{date}}",
+    "period13": "Includes period 13 (year-end adjustments)",
+    "hideZero": "Hide zero accounts",
+    "compare": {
+      "label": "Compare with",
+      "year-end": "End of last fiscal year",
+      "prev-month": "Previous month",
+      "prev-year": "Same month last year",
+      "none": "No comparison",
+      "missing": "The comparison period does not exist, so the comparison is left out."
+    },
+    "col": {
+      "account": "Account",
+      "change": "Change (IDR)",
+      "changePct": "Change (%)"
+    },
+    "line": {
+      "sectionAssets": "Assets",
+      "sectionLiabilitiesEquity": "Liabilities and Equity",
+      "difference": "Difference (Assets - Liabilities and Equity)",
+      "currentYearEarnings": "Current Year Earnings",
+      "priorYearsEarnings": "Prior Years Earnings"
+    },
+    "group": {
+      "liquidAssets": "Liquid assets",
+      "fixedAssets": "Fixed assets",
+      "otherAssets": "Other assets",
+      "currentLiabilities": "Current liabilities",
+      "longTermLiabilities": "Long-term liabilities",
+      "equity": "Equity"
+    },
+    "kpi": {
+      "assets": "Total Assets",
+      "liabilities": "Total Liabilities",
+      "equity": "Total Equity",
+      "difference": "Difference"
+    },
+    "chart": {
+      "assetsComposition": "Assets composition",
+      "liabilitiesEquityComposition": "Liabilities and equity composition",
+      "total": "Total"
+    },
+    "notice": {
+      "noPeriod": "There is no accounting period for this month, so there is no balance sheet to show.",
+      "unbalancedTitle": "Assets and liabilities plus equity do not match.",
+      "unbalancedBody": "The difference is {{amount}}. Open the data checks for the likely causes.",
+      "bridgeTitle": "The opening balances of this period are not available yet.",
+      "bridgeBody": "The balance is the saved opening balance of {{period}} plus the journals after it. {{count}} periods are not closed yet.",
+      "historyTitle": "No saved opening balances were found.",
+      "historyBody": "The balance is added up from every journal since the start, so it can take longer to load.",
+      "consolidationTitle": "Combined balance sheet of {{count}} entities.",
+      "consolidationBody": "The figures add up all the selected entities. Balances between the entities are not eliminated."
+    }
   }
 }
