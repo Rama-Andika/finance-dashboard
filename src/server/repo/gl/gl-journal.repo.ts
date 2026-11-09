@@ -3,11 +3,12 @@ import { sql } from 'drizzle-orm'
 import { toInt } from '~/server/db/convert'
 import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
-import { chunk } from '~/server/db/chunk'
+import { SLICE_CONCURRENCY, chunk, mapLimit } from '~/server/db/chunk'
 import { assertSegmentColumn } from '~/server/db/segment-column'
 import { glTablesOf, groupPeriodsByTable } from '~/server/db/gl-tables'
 import { notCanceledClause, prefetchCanceledDateColumns } from '~/server/db/gl-columns'
 import { D } from '~/lib/core/money'
+import { hashIds, memo } from '~/server/cache'
 import { mergeJournalPages } from '~/lib/finance/journal/journal-page'
 import type { Id, IsoDate, Money, Period } from '~/lib/core/types'
 
@@ -53,11 +54,32 @@ function journalTables(opts: JournalLinesOptions): Map<string, Period[]> {
   return new Map(tables.map((t) => [t, []]))
 }
 
+/** A page of journal lines is shared for this long: a drill-down that is opened again, or paged back, asks for the same page. */
+const JOURNAL_CACHE_MS = 60 * 1000
+
 /**
  * One page of journal lines, newest first. When the periods span several GL tables, each table
  * returns its first `offset + limit` lines and the pages are merged into one global order.
+ * The cached page is shared: callers must only read it.
  */
-export async function journalLines(opts: JournalLinesOptions): Promise<JournalLineRow[]> {
+export function journalLines(opts: JournalLinesOptions): Promise<JournalLineRow[]> {
+  const key = [
+    'journalLines',
+    hashIds(opts.periods?.map((p) => p.periodeId)),
+    hashIds(opts.coaIds),
+    opts.segCol ?? '',
+    hashIds(opts.segIds),
+    opts.startDate ?? '',
+    opts.endDate ?? '',
+    String(Boolean(opts.bySegment)),
+    hashIds(opts.tables),
+    String(opts.limit ?? 200),
+    String(opts.offset ?? 0),
+  ].join('|')
+  return memo(key, JOURNAL_CACHE_MS, () => readJournalLines(opts))
+}
+
+async function readJournalLines(opts: JournalLinesOptions): Promise<JournalLineRow[]> {
   const limit = opts.limit ?? 200
   const offset = opts.offset ?? 0
 
@@ -169,27 +191,34 @@ export type JournalHeaderRow = {
   memo: string
 }
 
-/** Journal header fields for a page of gl_ids (drill-down leaves built from cash portions). */
-export async function journalHeaders(opts: { tables: string[]; glIds: Id[] }): Promise<JournalHeaderRow[]> {
-  if (opts.tables.length === 0 || opts.glIds.length === 0) return []
-  const queries = opts.tables.flatMap((tableName) => {
+/**
+ * Journal header fields for a list of gl_ids (drill-down leaves built from cash portions). The drill-down asks for the
+ * headers of every journal of a leaf on each page, so the answer is shared for a minute. The cached array is read-only.
+ */
+export function journalHeaders(opts: { tables: string[]; glIds: Id[] }): Promise<JournalHeaderRow[]> {
+  if (opts.tables.length === 0 || opts.glIds.length === 0) return Promise.resolve([])
+  const key = `journalHeaders|${opts.tables.join(',')}|${hashIds(opts.glIds)}`
+  return memo(key, JOURNAL_CACHE_MS, () => readJournalHeaders(opts))
+}
+
+async function readJournalHeaders(opts: { tables: string[]; glIds: Id[] }): Promise<JournalHeaderRow[]> {
+  const slices = opts.tables.flatMap((tableName) => chunk(opts.glIds).map((slice) => ({ tableName, slice })))
+  // The slices do not depend on each other: read them together, a few at a time.
+  const parts = await mapLimit(slices, SLICE_CONCURRENCY, async ({ tableName, slice }) => {
     const { gl } = glTablesOf(tableName)
-    return chunk(opts.glIds).map((slice) =>
-      rows<{
-        glId: string
-        journalNumber: string | null
-        transDate: string
-        journalType: number | string
-        memo: string | null
-      }>(sql`
-        SELECT g.gl_id AS glId, g.journal_number AS journalNumber, DATE(g.trans_date) AS transDate,
-               g.journal_type AS journalType, g.memo AS memo
-        FROM ${sql.identifier(gl)} g
-        WHERE g.gl_id IN (${inList(slice)})
-      `),
-    )
+    return rows<{
+      glId: string
+      journalNumber: string | null
+      transDate: string
+      journalType: number | string
+      memo: string | null
+    }>(sql`
+      SELECT g.gl_id AS glId, g.journal_number AS journalNumber, DATE(g.trans_date) AS transDate,
+             g.journal_type AS journalType, g.memo AS memo
+      FROM ${sql.identifier(gl)} g
+      WHERE g.gl_id IN (${inList(slice)})
+    `)
   })
-  const parts = await Promise.all(queries)
   return parts.flat().map((r) => ({
     glId: String(r.glId),
     journalNumber: r.journalNumber ?? '',

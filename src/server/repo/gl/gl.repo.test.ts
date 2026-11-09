@@ -23,8 +23,8 @@ vi.mock('~/server/dash/gl-snapshot', () => ({
   snapshotMovements: (...args: unknown[]) => snapshotMovements(...args),
 }))
 
-const { movementsByPeriods, movementsByDate, journalLines } = await import('./gl.repo')
-const { glMovementsCache } = await import('~/server/cache')
+const { movementsByPeriods, movementsByDate, journalLines, journalHeaders } = await import('./gl.repo')
+const { clearCache, glMovementsCache } = await import('~/server/cache')
 
 const period = (periodeId: string, status: Period['status'] = 'Closed'): Period => ({
   periodeId,
@@ -159,6 +159,7 @@ const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 describe('reads over several GL tables', () => {
   beforeEach(() => {
+    clearCache() // journal pages and headers are shared for a minute
     rowsMock.mockReset()
   })
 
@@ -238,6 +239,50 @@ describe('reads over several GL tables', () => {
     const plain = await journalLines({ tables: ['gl'], segCol: 'segment1_id', segIds: 'all' })
     expect(grouped.map((r) => r.segmentDetailId)).toEqual(['s7'])
     expect(plain.map((r) => r.segmentDetailId)).toEqual([''])
+  })
+
+  it('journalLines answers the same page from the cache for a minute, and another page with another query', async () => {
+    rowsMock.mockResolvedValue([
+      {
+        glId: '1',
+        journalNumber: 'J1',
+        transDate: '2026-10-01',
+        journalType: 1,
+        memo: '',
+        coaId: '10',
+        debet: '1',
+        credit: '0',
+      },
+    ])
+    const opts = { tables: ['gl'], startDate: '2026-10-01', endDate: '2026-10-31', limit: 200, offset: 0 }
+    const first = await journalLines(opts)
+    const again = await journalLines({ ...opts })
+    expect(again).toBe(first)
+    expect(rowsMock).toHaveBeenCalledTimes(1)
+
+    await journalLines({ ...opts, offset: 200 })
+    expect(rowsMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('journalHeaders reads every 1,000 ids in a query of its own, and keeps the answer for a minute', async () => {
+    rowsMock.mockResolvedValue([
+      { glId: '1', journalNumber: 'J1', transDate: '2026-10-01', journalType: 1, memo: null },
+    ])
+    const glIds = Array.from({ length: 2500 }, (_, i) => String(i + 1))
+
+    const headers = await journalHeaders({ tables: ['gl'], glIds })
+    expect(rowsMock).toHaveBeenCalledTimes(3) // 1,000 + 1,000 + 500 ids
+    expect(headers).toHaveLength(3) // each mocked query answers one row
+    expect(headers[0]).toEqual({ glId: '1', journalNumber: 'J1', transDate: '2026-10-01', journalType: 1, memo: '' })
+
+    await journalHeaders({ tables: ['gl'], glIds })
+    expect(rowsMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('journalHeaders reads nothing for no ids or no tables', async () => {
+    expect(await journalHeaders({ tables: ['gl'], glIds: [] })).toEqual([])
+    expect(await journalHeaders({ tables: [], glIds: ['1'] })).toEqual([])
+    expect(rowsMock).not.toHaveBeenCalled()
   })
 })
 

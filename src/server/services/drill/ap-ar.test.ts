@@ -2,11 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildCoaTree } from '~/lib/finance/coa/coa-tree'
 import type { AppContextFilter } from '~/server/context'
 import type { DrillState, DrillStep, DrillStepKind } from '~/lib/filters/search-schema'
+import type { PaymentPlanBill } from '~/lib/finance/ap-ar/payment-plan'
 import type { DrillContext, DrillResult } from './shared'
 
 const apOpenInvoices = vi.fn()
 const arOpenInvoices = vi.fn()
 const listCustomers = vi.fn()
+const computePaymentPlan = vi.fn()
+vi.mock('~/server/services/ap-ar/payment-plan.service', () => ({
+  computePaymentPlan: (...a: unknown[]) => computePaymentPlan(...a),
+}))
 vi.mock('~/server/repo/ap-ar/aging.repo', () => ({
   apOpenInvoices: (...a: unknown[]) => apOpenInvoices(...a),
   arOpenInvoices: (...a: unknown[]) => arOpenInvoices(...a),
@@ -94,10 +99,25 @@ describe('apArDrill: invoices of one vendor', () => {
   })
 })
 
-describe('paymentPlanDrill: bills of one day', () => {
+const planBill = (invoiceId: string, o: Partial<PaymentPlanBill> = {}): PaymentPlanBill => ({
+  invoiceId,
+  vendorId: 'v1',
+  vendorName: 'Vendor 1',
+  entityName: 'Store B',
+  invoiceNumber: `INV-${invoiceId}`,
+  dueDate: '2026-10-15',
+  balance: '100.00',
+  status: 'notSubmitted',
+  overdue: false,
+  kind: 'bill',
+  ...o,
+})
+const plan = (bills: PaymentPlanBill[]) => ({ bills })
+
+describe('paymentPlanDrill: bills of one day (rows come from the payment plan)', () => {
   beforeEach(() => {
-    apOpenInvoices.mockReset()
-    apOpenInvoices.mockResolvedValue([invoice('1', 'locB', '2026-10-02')])
+    computePaymentPlan.mockReset()
+    computePaymentPlan.mockResolvedValue(plan([planBill('1')]))
   })
 
   it('names the owning entity of every bill when several entities are in scope', async () => {
@@ -113,73 +133,63 @@ describe('paymentPlanDrill: bills of one day', () => {
     expect(res.rows[0]).not.toHaveProperty('entityName')
   })
 
-  it('includes credit rows for bills reduced by vendor credit in the same entity', async () => {
-    apOpenInvoices.mockResolvedValue([
-      {
-        invoiceId: 'b1',
-        invoiceNumber: 'INV-B1',
-        vendorId: 'v1',
-        locationId: 'locA',
-        coaId: '1',
-        txDate: '2026-10-01',
-        dueDate: '2026-10-15',
-        itemType: 0,
-        originalAmount: '100.00',
-        balance: '100.00',
-      },
-      {
-        invoiceId: 'c1',
-        invoiceNumber: 'RT-1',
-        vendorId: 'v1',
-        locationId: 'locA',
-        coaId: '1',
-        txDate: '2026-10-05',
-        dueDate: '2026-10-05',
-        itemType: 2,
-        originalAmount: '-30.00',
-        balance: '-30.00',
-      },
-    ])
+  it('shows a bill and the credit row that reduces it, in due date then id order, with the plan status', async () => {
+    computePaymentPlan.mockResolvedValue(
+      plan([
+        planBill('credit:b1', { kind: 'credit', balance: '-30.00', invoiceNumber: '', status: 'approved' }),
+        planBill('b1', { status: 'approved' }),
+      ]),
+    )
     const res = await paymentPlanDrill(ctxWith(1), dayStep)
-    expect(res.rows).toHaveLength(2)
-    expect(res.rows[0]?.id).toBe('b1')
-    expect(res.rows[0]?.balance).toBe('100.00')
-    expect(res.rows[1]?.id).toBe('credit:b1')
-    expect(res.rows[1]?.balance).toBe('-30.00')
-    expect(res.rows[1]?.invoiceNumber).toBe('')
+    expect(res.rows.map((r) => r.id)).toEqual(['b1', 'credit:b1'])
+    expect(res.rows[0]).toMatchObject({
+      balance: '100.00',
+      invoiceNumber: 'INV-b1',
+      status: 'approved',
+      dueDate: '2026-10-15',
+    })
+    expect(res.rows[1]).toMatchObject({ balance: '-30.00', invoiceNumber: '', status: 'approved' })
+    expect(res.titleKey).toBe('drill.title.dueBills')
+    expect(res.nextKind).toBe('card')
   })
 
-  it('does not apply vendor credits from a different entity', async () => {
-    apOpenInvoices.mockResolvedValue([
-      {
-        invoiceId: 'b1',
-        invoiceNumber: 'INV-B1',
-        vendorId: 'v1',
-        locationId: 'locA',
-        coaId: '1',
-        txDate: '2026-10-01',
-        dueDate: '2026-10-15',
-        itemType: 0,
-        originalAmount: '100.00',
-        balance: '100.00',
-      },
-      {
-        invoiceId: 'c1',
-        invoiceNumber: 'RT-1',
-        vendorId: 'v1',
-        locationId: 'locB',
-        coaId: '1',
-        txDate: '2026-10-05',
-        dueDate: '2026-10-05',
-        itemType: 2,
-        originalAmount: '-30.00',
-        balance: '-30.00',
-      },
-    ])
-    const res = await paymentPlanDrill(ctxWith(1), dayStep)
-    expect(res.rows).toHaveLength(1)
-    expect(res.rows[0]?.id).toBe('b1')
-    expect(res.rows[0]?.balance).toBe('100.00')
+  it('shows the overdue bills on day 0 (today) only', async () => {
+    computePaymentPlan.mockResolvedValue(
+      plan([
+        planBill('old', { dueDate: '2026-10-10', overdue: true }),
+        planBill('today'),
+        planBill('tomorrow', { dueDate: '2026-10-16' }),
+      ]),
+    )
+    const day0 = await paymentPlanDrill(ctxWith(1), dayStep) // dayStep is today (2026-10-15)
+    expect(day0.rows.map((r) => r.id)).toEqual(['old', 'today'])
+
+    const day1 = await paymentPlanDrill(ctxWith(1), { kind: 'day', id: '2026-10-16', label: '16 Oct' })
+    expect(day1.rows.map((r) => r.id)).toEqual(['tomorrow'])
+  })
+
+  it('asks for the smallest plan horizon that reaches the day, without inflows', async () => {
+    const ask = async (day: string) => {
+      computePaymentPlan.mockClear()
+      await paymentPlanDrill(ctxWith(1), { kind: 'day', id: day, label: day })
+      return computePaymentPlan.mock.calls[0]
+    }
+    const filter = filterWith(1)
+    expect(await ask('2026-10-15')).toEqual([filter, { horizon: '7', inflow: false }]) // day 1
+    expect(await ask('2026-10-21')).toEqual([filter, { horizon: '7', inflow: false }]) // day 7
+    expect(await ask('2026-10-22')).toEqual([filter, { horizon: '14', inflow: false }]) // day 8
+    expect(await ask('2026-10-28')).toEqual([filter, { horizon: '14', inflow: false }]) // day 14
+    expect(await ask('2026-10-29')).toEqual([filter, { horizon: '30', inflow: false }]) // day 15
+  })
+
+  it('cuts the page after sorting and says whether more rows follow', async () => {
+    computePaymentPlan.mockResolvedValue(plan(Array.from({ length: 250 }, (_, n) => planBill(String(1000 + n)))))
+    const first = await paymentPlanDrill(ctxWith(1), dayStep)
+    expect(first.rows).toHaveLength(200)
+    expect(first.hasMore).toBe(true)
+    const second = await paymentPlanDrill({ ...ctxWith(1), offset: 200 }, dayStep)
+    expect(second.rows).toHaveLength(50)
+    expect(second.hasMore).toBe(false)
   })
 })
 

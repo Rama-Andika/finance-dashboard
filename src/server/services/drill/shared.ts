@@ -54,7 +54,12 @@ export const JOURNAL_COLUMNS = [
   col('debet', 'money'),
   col('credit', 'money'),
 ]
-export const PORTION_COLUMNS = [col('docNumber', 'code'), col('transDate', 'date'), col('memo', 'text'), col('amount', 'money')]
+export const PORTION_COLUMNS = [
+  col('docNumber', 'code'),
+  col('transDate', 'date'),
+  col('memo', 'text'),
+  col('amount', 'money'),
+]
 
 export type DrillContext = {
   filter: AppContextFilter
@@ -213,11 +218,11 @@ export async function portionJournalRows(
   const byGl = new Map<Id, Decimal>()
   for (const p of portions) byGl.set(p.glId, (byGl.get(p.glId) ?? D(0)).plus(D(p.portion).times(sign)))
   const glIds = Array.from(byGl.keys())
-  const page = glIds.slice(ctx.offset, ctx.offset + PAGE_SIZE)
   const tables = Array.from(new Set(ctx.activePeriods.map((p) => p.tableName)))
-  const headers = await journalHeaders({ tables: tables.length > 0 ? tables : ['gl'], glIds: page })
+  // "Newest first" holds over all the journals, so the dates of all of them are needed before the page is cut.
+  const headers = await journalHeaders({ tables: tables.length > 0 ? tables : ['gl'], glIds })
   const headerMap = new Map(headers.map((h) => [h.glId, h]))
-  const rows = page.map((glId) => {
+  const all = glIds.map((glId) => {
     const h = headerMap.get(glId)
     return {
       id: glId,
@@ -227,14 +232,19 @@ export async function portionJournalRows(
       amount: (byGl.get(glId) ?? D(0)).toFixed(2),
     }
   })
-  rows.sort((a, b) => (b.transDate ?? '').localeCompare(a.transDate ?? ''))
+  // Same date: the higher journal id first (ids are digits: a longer id is a bigger one), so the order never changes between pages.
+  all.sort(
+    (a, b) =>
+      (b.transDate ?? '').localeCompare(a.transDate ?? '') || b.id.length - a.id.length || b.id.localeCompare(a.id),
+  )
+  const { page, hasMore } = pageOf(all, ctx.offset)
   return {
     titleKey: 'drill.title.journals',
     titleLabel: label,
     columns: PORTION_COLUMNS,
-    rows,
+    rows: page,
     nextKind: null,
-    hasMore: ctx.offset + PAGE_SIZE < glIds.length,
+    hasMore,
   }
 }
 
@@ -260,4 +270,3 @@ export async function statusMapFor(invoiceIds: Id[]): Promise<Map<Id, string>> {
   for (const id of invoiceIds) result.set(id, planStatus(grouped.get(id) ?? []))
   return result
 }
-
