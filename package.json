@@ -27,6 +27,7 @@
     "dash:refresh-balance": "tsx scripts/dash-refresh-balance.ts",
     "dash:refresh-cash": "tsx scripts/dash-refresh-cash.ts",
     "dash:refresh-hist": "tsx scripts/dash-refresh-hist.ts",
+    "logs:find": "tsx scripts/logs-find.ts",
     "seed": "tsx scripts/seed/index.ts"
   },
   "dependencies": {
