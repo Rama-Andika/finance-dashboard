@@ -97,6 +97,8 @@
     "errorTitle": "Terjadi kesalahan saat memuat data.",
     "errorBody": "Gagal memuat data metrik dari server.",
     "sessionExpired": "Sesi Anda sudah berakhir. Silakan masuk kembali.",
+    "errorDbUnavailable": "Database tidak dapat dihubungi saat ini. Silakan coba lagi sebentar lagi.",
+    "errorTimeout": "Permintaan terlalu lama. Coba lagi, atau persempit periode atau filter entitas.",
     "tryAgain": "Coba lagi",
     "exportCsv": "Ekspor CSV",
     "print": "Cetak",
