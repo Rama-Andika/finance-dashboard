@@ -6,7 +6,8 @@ import { qk } from '~/queries/keys'
 import { snapshotInfoOptions } from '~/queries/snapshot.queries'
 
 /** Why a press of the button did not start a refresh; shown under the button. */
-export type RefreshNotice = { kind: 'cooldown'; seconds: number } | { kind: 'unavailable' } | { kind: 'error' }
+export type RefreshNotice =
+  { kind: 'cooldown'; seconds: number } | { kind: 'unavailable' } | { kind: 'error'; error: unknown }
 
 /** Queries that show numbers built from the snapshot tables; reloaded (when on screen) once a refresh is over. */
 const DATA_QUERY_KEYS = [qk.allMetrics(), qk.allDrills(), qk.allDataChecks()] as const
@@ -39,9 +40,9 @@ export function useSnapshotRefresh() {
         void queryClient.invalidateQueries({ queryKey: snapshotInfoOptions().queryKey })
       }
     },
-    onError: () => {
+    onError: (error) => {
       runsAtPress.current = null
-      setNotice({ kind: 'error' })
+      setNotice({ kind: 'error', error })
     },
   })
 

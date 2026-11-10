@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { BalanceTrendChart } from '~/components/balance-sheet/BalanceTrendChart'
 import { Notice } from '~/components/ui/Notice'
+import { ErrorReference } from '~/components/layout/ErrorReference'
 import { Skeleton } from '~/components/ui/Skeleton'
 import { balanceTrendMetricOptions } from '~/queries/metrics.queries'
 import type { MetricInput } from '~/lib/filters/search-schema'
@@ -14,11 +15,14 @@ export function BalanceTrendSection({ input, lang }: { input: MetricInput; lang:
 
   if (trend.isError) {
     return (
-      <Notice
-        tone="warning"
-        title={t('balanceSheet.trend.failed')}
-        action={{ label: t('metric.tryAgain'), onClick: () => void trend.refetch() }}
-      />
+      <div className="space-y-2">
+        <Notice
+          tone="warning"
+          title={t('balanceSheet.trend.failed')}
+          action={{ label: t('metric.tryAgain'), onClick: () => void trend.refetch() }}
+        />
+        <ErrorReference error={trend.error} />
+      </div>
     )
   }
   if (!trend.data) return <Skeleton className="h-80 rounded-lg" />

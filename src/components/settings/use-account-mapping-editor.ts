@@ -21,6 +21,7 @@ export function useAccountMappingEditor(search: Parameters<typeof coaTreeQueryOp
   const [currentMapping, setCurrentMapping] = useState<AccountMapping | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [saveError, setSaveError] = useState<unknown>(null)
 
   // Initialize mapping when query data loads
   useEffect(() => {
@@ -79,6 +80,7 @@ export function useAccountMappingEditor(search: Parameters<typeof coaTreeQueryOp
     if (validation.blocking.length > 0) return
 
     setIsSaving(true)
+    setSaveError(null)
     setSaveSuccess(false)
 
     try {
@@ -96,6 +98,8 @@ export function useAccountMappingEditor(search: Parameters<typeof coaTreeQueryOp
         // Only the mapping changed (not the chart of accounts); refresh it in the background
         void queryClient.invalidateQueries({ queryKey: qk.accountMapping() })
       }
+    } catch (error) {
+      setSaveError(error)
     } finally {
       setIsSaving(false)
     }
@@ -113,6 +117,7 @@ export function useAccountMappingEditor(search: Parameters<typeof coaTreeQueryOp
     validation,
     isSaving,
     saveSuccess,
+    saveError,
     toggle,
     save,
   }

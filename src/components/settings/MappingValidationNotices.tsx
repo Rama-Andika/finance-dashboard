@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Notice } from '~/components/ui/Notice'
+import { ErrorReference } from '~/components/layout/ErrorReference'
+import { errorMessageKey } from '~/lib/error-message'
 import type { CoaTree } from '~/lib/finance/coa/coa-tree'
 import type { validateMapping } from '~/lib/settings/mapping-validate'
 import type { BasketKey } from '~/lib/core/types'
@@ -9,10 +11,13 @@ export function MappingValidationNotices({
   validation,
   tree,
   saveSuccess,
+  saveError,
 }: {
   validation: ReturnType<typeof validateMapping>
   tree: CoaTree
   saveSuccess: boolean
+  /** The error of the latest failed save; null when there is none */
+  saveError: unknown
 }) {
   const { t } = useTranslation()
 
@@ -42,6 +47,17 @@ export function MappingValidationNotices({
       })}
 
       {saveSuccess && <Notice tone="success" title={t('settings.saveSuccess')} />}
+
+      {saveError !== null && (
+        <div className="space-y-2">
+          <Notice
+            tone="danger"
+            title={t('settings.saveFailed')}
+            body={t(errorMessageKey(saveError, 'common.errorBody'))}
+          />
+          <ErrorReference error={saveError} />
+        </div>
+      )}
     </div>
   )
 }

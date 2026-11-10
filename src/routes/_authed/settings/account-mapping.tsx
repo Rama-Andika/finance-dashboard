@@ -49,11 +49,7 @@ function AccountMappingPage() {
       {editor.corrupted && <Notice tone="danger" title={t('settings.corruptedNotice')} />}
 
       {/* Tabs */}
-      <Tabs
-        tabs={tabsConfig}
-        value={editor.activeBasket}
-        onChange={(id) => editor.setActiveBasket(id as BasketKey)}
-      />
+      <Tabs tabs={tabsConfig} value={editor.activeBasket} onChange={(id) => editor.setActiveBasket(id as BasketKey)} />
 
       {/* Two Column Layout: CoaTreePicker + BasketPreview */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -66,7 +62,12 @@ function AccountMappingPage() {
         </div>
       </div>
 
-      <MappingValidationNotices validation={editor.validation} tree={tree} saveSuccess={editor.saveSuccess} />
+      <MappingValidationNotices
+        validation={editor.validation}
+        tree={tree}
+        saveSuccess={editor.saveSuccess}
+        saveError={editor.saveError}
+      />
 
       {/* Actions Footer */}
       <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">

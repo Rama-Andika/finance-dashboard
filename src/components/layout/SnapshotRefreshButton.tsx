@@ -1,6 +1,7 @@
 import { RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '~/components/ui/Button'
+import { ErrorReference } from '~/components/layout/ErrorReference'
 import { useSnapshotRefresh } from '~/components/layout/use-snapshot-refresh'
 
 /** "Refresh now" for the snapshot tables, shown inside the "Data as of ..." card. */
@@ -23,6 +24,7 @@ export function SnapshotRefreshButton() {
         {busy ? t('ui.shell.refreshingNow') : t('ui.shell.refreshNow')}
       </Button>
       {message && <span role="status">{message}</span>}
+      {notice?.kind === 'error' && <ErrorReference error={notice.error} />}
     </>
   )
 }

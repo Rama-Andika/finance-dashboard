@@ -34,7 +34,12 @@
     "entitiesSelected": "{{count}} dari {{total}}",
     "notFoundTitle": "Halaman tidak ditemukan",
     "notFoundBody": "Halaman yang Anda cari tidak ada atau sudah dipindahkan.",
-    "backToDashboard": "Kembali ke dasbor"
+    "backToDashboard": "Kembali ke dasbor",
+    "errorTitle": "Terjadi kesalahan",
+    "errorBody": "Terjadi kesalahan yang tidak terduga. Bila terus berulang, kirim kode referensi ke tim dukungan.",
+    "errorReference": "Kode referensi",
+    "copy": "Salin",
+    "copied": "Tersalin"
   },
   "auth": {
     "title": "Sign In",
@@ -43,7 +48,8 @@
     "submit": "Masuk",
     "invalid": "Nama pengguna atau kata sandi salah",
     "tooMany": "Terlalu banyak percobaan gagal. Silakan coba lagi nanti.",
-    "logout": "Keluar"
+    "logout": "Keluar",
+    "failed": "Tidak dapat masuk saat ini. Silakan coba lagi sebentar lagi."
   },
   "period": {
     "thisMonth": "Bulan Ini",
@@ -74,6 +80,7 @@
     "save": "Simpan Pemetaan",
     "saving": "Menyimpan...",
     "saveSuccess": "Pemetaan akun berhasil disimpan.",
+    "saveFailed": "Pemetaan akun tidak dapat disimpan.",
     "conflictError": "Akun berikut terdaftar di lebih dari satu keranjang likuiditas (Kas, Bank, Deposito, Dana dalam pencairan):",
     "cashBankEmptyWarning": "Keranjang Kas dan Bank saat ini kosong. Posisi Kas akan bernilai 0.",
     "missingAccountsWarning": "Beberapa akun yang dipetakan sudah tidak ada di CoA dan diabaikan.",

@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { getCurrentUserFn, loginFn } from '~/functions/auth.fn'
 import { Button } from '~/components/ui/Button'
 import { Notice } from '~/components/ui/Notice'
+import { ErrorReference } from '~/components/layout/ErrorReference'
 import { ThemeToggle, LangToggle } from '~/components/layout/top-bar/PrefsToggles'
 
 const searchSchema = z.object({
@@ -32,7 +33,9 @@ function LoginPage() {
 
   const [loginId, setLoginId] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<'invalid' | 'tooMany' | null>(null)
+  const [error, setError] = useState<'invalid' | 'tooMany' | 'failed' | null>(null)
+  // The error thrown by the server function when `error` is 'failed'; carries the reference code.
+  const [failure, setFailure] = useState<unknown>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -45,6 +48,7 @@ function LoginPage() {
 
     setIsSubmitting(true)
     setError(null)
+    setFailure(null)
 
     try {
       const res = await loginFn({
@@ -62,8 +66,9 @@ function LoginPage() {
 
       await router.invalidate()
       router.history.push(search.redirect)
-    } catch {
-      setError('invalid')
+    } catch (caught) {
+      setError('failed')
+      setFailure(caught)
       setIsSubmitting(false)
     }
   }
@@ -86,7 +91,17 @@ function LoginPage() {
         {/* Card */}
         <div className="nr-card w-full p-6 shadow-sm">
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && <Notice tone="danger" title={error === 'tooMany' ? t('auth.tooMany') : t('auth.invalid')} />}
+            {error && (
+              <div className="space-y-2">
+                <Notice
+                  tone="danger"
+                  title={
+                    error === 'tooMany' ? t('auth.tooMany') : error === 'failed' ? t('auth.failed') : t('auth.invalid')
+                  }
+                />
+                {error === 'failed' && <ErrorReference error={failure} />}
+              </div>
+            )}
 
             <div className="space-y-1">
               <label htmlFor="loginId" className="block text-xs font-semibold text-ink-muted uppercase tracking-wider">

@@ -34,7 +34,12 @@
     "entitiesSelected": "{{count}} of {{total}}",
     "notFoundTitle": "Page not found",
     "notFoundBody": "The page you are looking for does not exist or has moved.",
-    "backToDashboard": "Back to dashboard"
+    "backToDashboard": "Back to dashboard",
+    "errorTitle": "Something went wrong",
+    "errorBody": "An unexpected error occurred. If it keeps happening, send the reference code to the support team.",
+    "errorReference": "Reference code",
+    "copy": "Copy",
+    "copied": "Copied"
   },
   "auth": {
     "title": "Sign in",
@@ -43,7 +48,8 @@
     "submit": "Sign In",
     "invalid": "Invalid username or password",
     "tooMany": "Too many failed attempts. Please try again later.",
-    "logout": "Sign Out"
+    "logout": "Sign Out",
+    "failed": "Could not sign in right now. Please try again in a moment."
   },
   "period": {
     "thisMonth": "This Month",
@@ -74,6 +80,7 @@
     "save": "Save Mapping",
     "saving": "Saving...",
     "saveSuccess": "Account mapping saved successfully.",
+    "saveFailed": "The account mapping could not be saved.",
     "conflictError": "The following accounts are assigned to multiple liquid baskets (Cash, Bank, Deposit, In Transit):",
     "cashBankEmptyWarning": "Cash and Bank baskets are currently empty. Cash Position will report 0.",
     "missingAccountsWarning": "Some mapped accounts no longer exist in the CoA and are ignored.",

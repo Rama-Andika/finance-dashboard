@@ -10,6 +10,7 @@ import { useGlobalMetricInput } from '~/hooks/use-global-metric-input'
 import { dataChecksOptions } from '~/queries/data-checks.queries'
 import { formatMoneyFull } from '~/lib/format/number'
 import { errorMessageKey } from '~/lib/error-message'
+import { ErrorReference } from '~/components/layout/ErrorReference'
 import { useLang } from '~/hooks/use-lang'
 
 export interface DataChecksPanelProps {
@@ -24,7 +25,11 @@ export function DataChecksPanel({ open, onOpenChange }: DataChecksPanelProps) {
 
   const queryInput = useGlobalMetricInput()
 
-  const { data: checks, isLoading, error } = useQuery({
+  const {
+    data: checks,
+    isLoading,
+    error,
+  } = useQuery({
     ...dataChecksOptions(queryInput),
     enabled: open,
   })
@@ -43,9 +48,7 @@ export function DataChecksPanel({ open, onOpenChange }: DataChecksPanelProps) {
         className="w-full sm:max-w-xl md:max-w-2xl p-0 flex flex-col gap-0 border-l border-line bg-surface overflow-hidden"
         showCloseButton={false}
       >
-        <SheetTitle className="sr-only">
-          {t('dataChecks.title')}
-        </SheetTitle>
+        <SheetTitle className="sr-only">{t('dataChecks.title')}</SheetTitle>
 
         {/* Header */}
         <div className="p-4 sm:p-6 border-b border-line flex items-center justify-between">
@@ -54,9 +57,7 @@ export function DataChecksPanel({ open, onOpenChange }: DataChecksPanelProps) {
               <AlertTriangle className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-ink m-0">
-                {t('dataChecks.title')}
-              </h2>
+              <h2 className="text-base font-semibold text-ink m-0">{t('dataChecks.title')}</h2>
               <span className="text-xs text-ink-muted">
                 {checks ? t('ui.shell.findingsCount', { count: checks.length }) : t('ui.shell.checking')}
               </span>
@@ -81,22 +82,21 @@ export function DataChecksPanel({ open, onOpenChange }: DataChecksPanelProps) {
               <Skeleton className="h-24 w-full rounded-lg" />
             </div>
           ) : error ? (
-            <Notice
-              tone="danger"
-              title={t('ui.shell.loadFailed')}
-              body={t(errorMessageKey(error, 'ui.shell.systemError'))}
-            />
+            <div className="space-y-3">
+              <Notice
+                tone="danger"
+                title={t('ui.shell.loadFailed')}
+                body={t(errorMessageKey(error, 'ui.shell.systemError'))}
+              />
+              <ErrorReference error={error} />
+            </div>
           ) : !checks || checks.length === 0 ? (
             <div className="py-12 text-center space-y-3">
               <div className="w-12 h-12 rounded-full bg-positive/10 text-positive mx-auto flex items-center justify-center">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
-              <h3 className="text-base font-medium text-ink">
-                {t('ui.shell.dataChecksEmptyTitle')}
-              </h3>
-              <p className="text-xs text-ink-muted max-w-sm mx-auto">
-                {t('ui.shell.dataChecksEmptyBody')}
-              </p>
+              <h3 className="text-base font-medium text-ink">{t('ui.shell.dataChecksEmptyTitle')}</h3>
+              <p className="text-xs text-ink-muted max-w-sm mx-auto">{t('ui.shell.dataChecksEmptyBody')}</p>
             </div>
           ) : (
             checks.map((item) => {
@@ -109,11 +109,7 @@ export function DataChecksPanel({ open, onOpenChange }: DataChecksPanelProps) {
 
               return (
                 <div key={item.code} className="space-y-2">
-                  <Notice
-                    tone={item.level}
-                    title={title}
-                    body={body}
-                  />
+                  <Notice tone={item.level} title={title} body={body} />
                   <div className="flex justify-end pr-1">
                     <button
                       type="button"

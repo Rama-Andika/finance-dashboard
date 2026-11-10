@@ -3,6 +3,7 @@ import { Notice } from '~/components/ui/Notice'
 import { Button } from '~/components/ui/Button'
 import { useTranslation } from 'react-i18next'
 import { errorMessageKey } from '~/lib/error-message'
+import { ErrorReference } from '~/components/layout/ErrorReference'
 
 export function MetricError({ error, reset }: ErrorComponentProps) {
   const router = useRouter()
@@ -10,11 +11,8 @@ export function MetricError({ error, reset }: ErrorComponentProps) {
 
   return (
     <div className="space-y-4">
-      <Notice
-        tone="danger"
-        title={t('metric.errorTitle')}
-        body={t(errorMessageKey(error, 'metric.errorBody'))}
-      />
+      <Notice tone="danger" title={t('metric.errorTitle')} body={t(errorMessageKey(error, 'metric.errorBody'))} />
+      <ErrorReference error={error} />
       <div>
         <Button
           variant="primary"
