@@ -33,7 +33,7 @@ if (env.DB_QUERY_TIMEOUT_MS > 0) {
     const done = (err: { message: string } | null) => {
       if (err) errors.push(err.message)
       // Both failing means the server has neither variable: then there is no time limit at all.
-      if (errors.length === 2) createLogger('db').warn(`no query time limit could be set: ${errors[0]}`)
+      if (errors.length === 2) createLogger('db').warn({ reason: errors[0] }, 'no query time limit could be set')
     }
     conn.query('SET SESSION max_execution_time = ?', [env.DB_QUERY_TIMEOUT_MS], done)
     conn.query('SET SESSION max_statement_time = ?', [env.DB_QUERY_TIMEOUT_MS / 1000], done)

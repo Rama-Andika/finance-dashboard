@@ -104,7 +104,7 @@ describe('refreshClosedPeriods', () => {
     expect(built).toEqual(['3', '2', '1'])
     expect(result).toMatchObject({ ran: true, built: 3, rebuilt: 0, removed: 0 })
     expect(mocks.glPeriodStatsSharedMany).not.toHaveBeenCalled()
-    expect(mocks.info).toHaveBeenCalledWith(expect.stringContaining('test snapshot 1/3: Period 3'))
+    expect(mocks.info).toHaveBeenCalledWith(expect.anything(), expect.stringContaining('test snapshot 1/3: Period 3'))
     expect(statements(conn, 'SELECT RELEASE_LOCK')).toHaveLength(1)
     expect(conn.release).toHaveBeenCalledTimes(1)
   })
@@ -153,7 +153,7 @@ describe('refreshClosedPeriods', () => {
 
     expect(build).toHaveBeenCalledTimes(1)
     expect(result).toMatchObject({ ran: true, built: 1, rebuilt: 1, removed: 0 })
-    expect(mocks.info).toHaveBeenCalledWith(expect.stringContaining('(rebuilt)'))
+    expect(mocks.info).toHaveBeenCalledWith(expect.anything(), expect.stringContaining('(rebuilt)'))
   })
 
   it('rebuilds a period whose extra marker column no longer matches, without asking the ERP for counts', async () => {

@@ -260,7 +260,7 @@ describe('log context of a run', () => {
 })
 
 describe('timing of the steps', () => {
-  const infoLines = () => mocks.logInfo.mock.calls.map((call) => String(call[0]))
+  const infoLines = () => mocks.logInfo.mock.calls.map((call) => String(call[1]))
 
   it('says which step a manual refresh is in, and sums up where the time went', async () => {
     await runRefreshCycle('manual', { force: true })
@@ -322,7 +322,7 @@ describe('timing of the steps', () => {
       order.push('gl')
       return { ran: false, reason: 'nothing-to-do' }
     })
-    mocks.logInfo.mockImplementation((line: string) => {
+    mocks.logInfo.mockImplementation((_fields: unknown, line: string) => {
       if (line.startsWith('AP/AR snapshot refreshed')) order.push('ap-ar logged')
     })
 
@@ -336,7 +336,7 @@ describe('timing of the steps', () => {
 })
 
 describe('what a run logs and clears around its steps', () => {
-  const infoLines = () => mocks.logInfo.mock.calls.map((call) => String(call[0]))
+  const infoLines = () => mocks.logInfo.mock.calls.map((call) => String(call[1]))
 
   it('says that a manual run started before its first step, and says nothing of the kind for a scheduled run', async () => {
     await runRefreshCycle('manual', { force: true })

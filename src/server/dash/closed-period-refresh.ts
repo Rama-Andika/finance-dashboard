@@ -165,6 +165,7 @@ async function buildPeriods(
     const t0 = Date.now()
     await buildPeriod(conn, period)
     dashLog.info(
+      { label: spec.label, durationMs: Date.now() - t0 },
       `${spec.label} ${index + 1}/${toBuild.length}: ${period.name}${replaced.has(period.periodeId) ? ' (rebuilt)' : ''} (${Math.round((Date.now() - t0) / 1000)}s)`,
     )
   }

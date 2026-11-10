@@ -92,28 +92,16 @@ function childFor(scope: string | undefined): PinoLogger {
   return child
 }
 
-/**
- * One log method. The structured form is `log.error({ err, fn }, 'message')`. The older form `log.error('message', cause)`
- * still works until every call site is converted, then it is removed.
- */
-export type LogMethod = {
-  (fields: LogFields, message: string): void
-  (message: string, cause?: unknown): void
-}
+/** One log method: `log.error({ err, fn }, 'message')`. The fields come first and may be empty; the message is plain text. */
+export type LogMethod = (fields: LogFields, message: string) => void
 
 export type Logger = Record<'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal', LogMethod>
 
 type MethodName = keyof Logger
 
 function makeMethod(scope: string | undefined, level: MethodName): LogMethod {
-  return (first: LogFields | string, second?: unknown) => {
-    const logger = childFor(scope)
-    if (typeof first === 'string') {
-      if (second === undefined) logger[level](first)
-      else logger[level]({ err: second }, first)
-    } else {
-      logger[level](first, second as string)
-    }
+  return (fields, message) => {
+    childFor(scope)[level](fields, message)
   }
 }
 

@@ -26,6 +26,7 @@ export async function refreshCashLinesSnapshot(cashCoaIds: Id[]): Promise<CashLi
   if (cashCoaIds.length === 0) return { ran: false, reason: 'no-cash-accounts' }
   if (cashCoaIds.length > CASH_LINES_MAX_ACCOUNTS) {
     dashLog.warn(
+      {},
       `cash-lines snapshot skipped: ${cashCoaIds.length} cash accounts is above the limit of ${CASH_LINES_MAX_ACCOUNTS}`,
     )
     return { ran: false, reason: 'too-many-accounts' }

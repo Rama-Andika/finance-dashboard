@@ -1,7 +1,7 @@
 import '@tanstack/react-start/server-only'
 import { activePeriodsOf } from '~/lib/filters/filter-scope'
 import { memoMetric } from '~/server/cache'
-import { createLogger, errorText } from '~/server/log'
+import { createLogger } from '~/server/log'
 import { buildDataChecks, type DataCheckItem } from '~/lib/finance/checks/data-checks'
 import { type AppContextFilter, getCachedPeriods } from '~/server/context'
 import { D } from '~/lib/core/money'
@@ -29,7 +29,7 @@ export async function settle<T>(name: string, work: Promise<T>, failures: string
   try {
     return await work
   } catch (error) {
-    log.error(`Data check "${name}" failed: ${errorText(error)}`)
+    log.error({ err: error, label: name }, 'data check failed')
     failures.push(name)
     return null
   }

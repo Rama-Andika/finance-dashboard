@@ -1,6 +1,5 @@
 import '@tanstack/react-start/server-only'
 import { env } from '~/server/env'
-import { errorText } from '~/server/log'
 import { todayIn } from '~/lib/format/date'
 import { currentRequestId, runWithLogContext } from '~/server/logging/log-context'
 import { currentLogTimeZone } from '~/server/logging/log-time'
@@ -46,6 +45,7 @@ const SUMMARY_MIN_MS = 5_000
 function logCycleSummary(source: RefreshSource, steps: readonly StepTiming[], totalMs: number, ok: boolean): void {
   if (source !== 'manual' && ok && totalMs < SUMMARY_MIN_MS) return
   dashLog.info(
+    { source, ok, durationMs: totalMs },
     `refresh cycle (${source}) ${ok ? 'finished' : 'finished with errors'} in ${formatDuration(totalMs)}: ${formatSteps(steps)}`,
   )
 }
@@ -72,6 +72,7 @@ async function runApArStep(timer: StepTimer, force: boolean): Promise<void> {
   const result = await timer.time('AP/AR snapshot', () => refreshApArSnapshot(today(), { force }))
   if (result.ran) {
     dashLog.info(
+      { durationMs: result.durationMs },
       `AP/AR snapshot refreshed in ${formatDuration(result.durationMs)} (${result.openRows} open invoices, ${result.unallocatedRows} unallocated): ${formatSteps(result.steps)}`,
     )
   }
@@ -83,6 +84,7 @@ async function runGlStep(timer: StepTimer): Promise<void> {
   const gl = await timer.time('GL snapshot', () => refreshGlMonthlySnapshot())
   if (!gl.ran) return
   dashLog.info(
+    { durationMs: gl.durationMs },
     `GL snapshot built ${gl.built} period(s) (${gl.rebuilt} rebuilt), removed ${gl.removed} in ${Math.round(gl.durationMs / 1000)}s`,
   )
   // A period that was rebuilt or dropped may have served older numbers: forget what was derived from it.
@@ -98,13 +100,14 @@ async function runBalanceStep(timer: StepTimer): Promise<boolean> {
     const balance = await timer.time('balance snapshot', () => refreshBalanceSnapshot())
     if (balance.ran) {
       dashLog.info(
+        { durationMs: balance.durationMs },
         `balance snapshot built ${balance.built} period(s) (${balance.rebuilt} rebuilt), removed ${balance.removed} in ${Math.round(balance.durationMs / 1000)}s`,
       )
       if (balance.rebuilt > 0 || balance.removed > 0) clearCachesAfterPeriodChange()
     }
     return true
   } catch (error) {
-    dashLog.error(`balance snapshot failed (the live calculation is used meanwhile): ${errorText(error)}`)
+    dashLog.error({ err: error }, 'balance snapshot failed (the live calculation is used meanwhile)')
     return false
   }
 }
@@ -121,13 +124,14 @@ async function runCashLinesStep(timer: StepTimer): Promise<boolean> {
     )
     if (cash.ran) {
       dashLog.info(
+        { durationMs: cash.durationMs },
         `cash lines snapshot built ${cash.built} period(s) (${cash.rebuilt} rebuilt), removed ${cash.removed} in ${Math.round(cash.durationMs / 1000)}s`,
       )
       if (cash.rebuilt > 0 || cash.removed > 0) clearCachesAfterPeriodChange()
     }
     return true
   } catch (error) {
-    dashLog.error(`cash lines snapshot failed (the live query is used meanwhile): ${errorText(error)}`)
+    dashLog.error({ err: error }, 'cash lines snapshot failed (the live query is used meanwhile)')
     return false
   }
 }
@@ -140,6 +144,7 @@ async function runHistoryStep(timer: StepTimer): Promise<void> {
   if (!hist.ran) return
   clearCache('dash:ap-ar:hist')
   dashLog.info(
+    { durationMs: hist.durationMs },
     `AP/AR history built ${hist.built.length} month(s), removed ${hist.pruned} in ${Math.round(hist.durationMs / 1000)}s`,
   )
 }
@@ -149,7 +154,7 @@ async function runHistoryStep(timer: StepTimer): Promise<void> {
  * A failure of any other step is thrown and ends the run.
  */
 async function runSteps(source: RefreshSource, force: boolean, timer: StepTimer): Promise<boolean> {
-  if (source === 'manual') dashLog.info('manual snapshot refresh started')
+  if (source === 'manual') dashLog.info({}, 'manual snapshot refresh started')
   await runApArStep(timer, force)
   await runGlStep(timer)
   const balanceOk = await runBalanceStep(timer)
@@ -196,7 +201,7 @@ async function runRefreshCycleInContext(
   const startedAt = Date.now()
   // A manual run has somebody waiting for it: say which step is running, so the log shows where a long wait is.
   const timer = createStepTimer(
-    source === 'manual' ? { onStart: (name) => dashLog.info(`manual refresh: ${name} started`) } : {},
+    source === 'manual' ? { onStart: (name) => dashLog.info({}, `manual refresh: ${name} started`) } : {},
   )
   let migrationsPending = false
   let ok = true
@@ -205,6 +210,7 @@ async function runRefreshCycleInContext(
     if (status.pending.length > 0) {
       migrationsPending = true
       dashLog.warn(
+        {},
         `${status.pending.length} migration(s) pending (${status.pending.join(', ')}); run "npm run db:dash:migrate". Snapshot refresh skipped.`,
       )
     } else {
@@ -212,7 +218,7 @@ async function runRefreshCycleInContext(
     }
   } catch (error) {
     ok = false
-    dashLog.error(`snapshot refresh failed: ${errorText(error)}`)
+    dashLog.error({ err: error }, 'snapshot refresh failed')
   } finally {
     job.running = false
     if (!migrationsPending) {

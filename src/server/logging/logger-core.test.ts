@@ -73,17 +73,6 @@ describe('createLogger', () => {
     expect(written).not.toContain('secret-value')
   })
 
-  it('still accepts the older form: message first, cause second', () => {
-    const capture = captureLogs()
-    createLogger('cache').warn('background reload failed', new Error('db down'))
-    createLogger('cache').info('plain')
-    const [first, second] = capture.entries()
-    capture.stop()
-    expect(first).toMatchObject({ level: 'warn', msg: 'background reload failed', err: { message: 'db down' } })
-    expect(second).toMatchObject({ level: 'info', msg: 'plain' })
-    expect(second).not.toHaveProperty('err')
-  })
-
   it('adds the request context to every line written inside it', async () => {
     const capture = captureLogs()
     const log = createLogger('x')

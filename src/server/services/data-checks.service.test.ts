@@ -69,7 +69,6 @@ describe('computeDataChecks', () => {
   beforeEach(() => {
     clearCache()
     computeBalanceSheetMock.mockResolvedValue(balanceSheetOk)
-    vi.spyOn(console, 'error').mockImplementation(() => {})
     checkApPaidWithoutPayment.mockResolvedValue({ count: 0, amount: '0.00' })
     checkCardsWithoutParty.mockResolvedValue(0)
     checkCardsWithInvalidLocation.mockResolvedValue(0)

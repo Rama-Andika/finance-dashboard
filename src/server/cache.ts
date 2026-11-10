@@ -1,6 +1,6 @@
 import '@tanstack/react-start/server-only'
 import { createHash } from 'node:crypto'
-import { createLogger, errorText } from '~/server/log'
+import { createLogger } from '~/server/log'
 import { METRIC_FRESH_SETTING, METRIC_STALE_SETTING, type SecondsSetting } from '~/server/metric-settings'
 import { timed } from '~/server/perf'
 
@@ -112,7 +112,7 @@ function startReload<T>(
     load.catch((error: unknown) => {
       const entry = memoryCache.get(key)
       if (entry && startedAt === generation) entry.expiresAt = Date.now() + BACKGROUND_RETRY_MS
-      log.warn(`background reload of ${key} failed: ${errorText(error)}`)
+      log.warn({ err: error, cacheKey: key, background: true }, 'background reload failed')
     })
   }
   return load

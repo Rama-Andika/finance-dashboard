@@ -88,6 +88,7 @@ export async function refreshApArHistSnapshots(
       const isFinal = isFinalMonthEnd(wanted.indexOf(asOfDate), asOfDate, closedMonthEnds)
       const { rowCount, steps } = await buildMonth(conn, asOfDate, isFinal)
       dashLog.info(
+        { durationMs: Date.now() - t0 },
         `AP/AR history ${index + 1}/${plan.build.length}: ${asOfDate} (${rowCount} rows, ${formatDuration(Date.now() - t0)}): ${formatSteps(steps)}`,
       )
     }

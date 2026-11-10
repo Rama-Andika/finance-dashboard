@@ -20,7 +20,6 @@ import type { SnapshotProblem } from '~/lib/finance/ap-ar/snapshot-state'
 import { DASH_TABLES, SNAPSHOT_AP_AR } from './tables'
 import { FULL_SCAN_HINT } from '~/server/dash/scan-hint'
 import { dashLog } from './log'
-import { errorText } from '~/server/log'
 
 export type SnapshotInfo = {
   /** The day the numbers describe */
@@ -78,7 +77,8 @@ export async function apArSnapshotInfo(): Promise<SnapshotInfo | null> {
       if (!warnedMissing) {
         warnedMissing = true
         dashLog.warn(
-          `snapshot tables are not available (${errorText(error)}); using the slow live ERP queries. Run "npm run db:dash:migrate".`,
+          { err: error },
+          'snapshot tables are not available; using the slow live ERP queries. Run "npm run db:dash:migrate".',
         )
       }
       return null

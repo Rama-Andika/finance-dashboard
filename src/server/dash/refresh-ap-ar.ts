@@ -407,7 +407,7 @@ export async function refreshApArSnapshot(today: string, options: { force?: bool
     }
   } catch (error) {
     const message = errorText(error)
-    dashLog.error(`AP/AR snapshot refresh failed: ${message}`)
+    dashLog.error({ err: error }, 'AP/AR snapshot refresh failed')
     if (locked)
       await setMeta(conn, { status: 'failed', error: message.slice(0, DASH_MAX_ERROR_LENGTH) }).catch(() => {})
     throw error
