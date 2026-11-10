@@ -2,6 +2,9 @@ import '@tanstack/react-start/server-only'
 import { env } from '~/server/env'
 import { errorText } from '~/server/log'
 import { todayIn } from '~/lib/format/date'
+import { currentRequestId, runWithLogContext } from '~/server/logging/log-context'
+import { currentLogTimeZone } from '~/server/logging/log-time'
+import { createJobId } from '~/server/logging/request-id'
 import { clearCache } from '~/server/cache'
 import { dashLog } from './log'
 import { PERIOD_STATS_CACHE_PREFIX } from './tables'
@@ -169,7 +172,19 @@ async function runSteps(source: RefreshSource, force: boolean, timer: StepTimer)
  * `force` rebuilds the AP/AR snapshot even when the ERP fingerprint looks unchanged.
  * Never throws: a failure is logged and recorded in the job state.
  */
-export async function runRefreshCycle(
+export function runRefreshCycle(source: RefreshSource, options: { force: boolean }): Promise<RefreshCycleOutcome> {
+  // Every log line of a run carries the job id. A manual run also names the request that started it. A scheduled run
+  // names none: it must not inherit the id of whichever request happened to start the scheduler.
+  return runWithLogContext(
+    {
+      jobId: createJobId(new Date(), currentLogTimeZone()),
+      ...(source === 'manual' ? { parentReqId: currentRequestId() } : {}),
+    },
+    () => runRefreshCycleInContext(source, options),
+  )
+}
+
+async function runRefreshCycleInContext(
   source: RefreshSource,
   options: { force: boolean },
 ): Promise<RefreshCycleOutcome> {

@@ -2,6 +2,7 @@ import handler, { createServerEntry } from '@tanstack/react-start/server-entry'
 import { createLogger } from '~/server/log'
 import { startFileLogging } from '~/server/logging/file-destination'
 import { installProcessHandlers } from '~/server/logging/process-handlers'
+import { handleRequestWithLog } from '~/server/logging/request-log'
 
 // The daily log file (LOG_TO_FILE=1) and the handlers for errors nobody caught. Both are safe to start twice (hot reload).
 const fileLogging = startFileLogging()
@@ -15,7 +16,8 @@ void import('~/server/dash/scheduler')
   .catch((error: unknown) => createLogger('boot').error({ err: error }, 'scheduler could not be started'))
 
 export default createServerEntry({
-  fetch(request) {
-    return handler.fetch(request)
+  // Every request gets an id that all its log lines carry, an X-Request-Id header, and one access line.
+  fetch(request, opts) {
+    return handleRequestWithLog(request, () => handler.fetch(request, opts))
   },
 })

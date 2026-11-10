@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { LogContext } from '~/server/logging/log-context'
 
 const mocks = vi.hoisted(() => ({
   dashMigrationStatus: vi.fn(),
@@ -215,6 +216,46 @@ describe('runRefreshCycle', () => {
     mocks.clearCache.mockClear()
     await runRefreshCycle('scheduler', { force: false })
     expect(mocks.clearCache).not.toHaveBeenCalledWith('dash:period-stats:')
+  })
+})
+
+const { getLogContext, runWithLogContext } = await import('~/server/logging/log-context')
+
+describe('log context of a run', () => {
+  /** Runs one cycle and answers the log context that the first step saw. */
+  async function contextSeenBy(run: () => Promise<unknown>): Promise<LogContext | undefined> {
+    let seen: LogContext | undefined
+    mocks.refreshApArSnapshot.mockImplementation(async () => {
+      seen = getLogContext()
+      return { ran: false, reason: 'unchanged' }
+    })
+    await run()
+    return seen
+  }
+
+  it('gives a manual run a job id and the id of the request that started it', async () => {
+    const seen = await contextSeenBy(() =>
+      runWithLogContext({ reqId: '20261110-144459-t8w3y' }, () => runRefreshCycle('manual', { force: true })),
+    )
+    expect(seen?.jobId).toMatch(/^job-\d{8}-\d{6}-[a-hjkmnp-z2-9]{5}$/)
+    expect(seen?.parentReqId).toBe('20261110-144459-t8w3y')
+    expect(seen?.reqId).toBeUndefined()
+  })
+
+  it('gives a scheduled run a job id and none of the ids of the request that happened to start the scheduler', async () => {
+    const seen = await contextSeenBy(() =>
+      runWithLogContext({ reqId: '20261110-144459-t8w3y' }, () => runRefreshCycle('scheduler', { force: false })),
+    )
+    expect(seen?.jobId).toMatch(/^job-/)
+    expect(seen?.parentReqId).toBeUndefined()
+    expect(seen?.reqId).toBeUndefined()
+  })
+
+  it('gives every run its own job id', async () => {
+    const first = await contextSeenBy(() => runRefreshCycle('scheduler', { force: false }))
+    const second = await contextSeenBy(() => runRefreshCycle('scheduler', { force: false }))
+    expect(first?.jobId).toBeDefined()
+    expect(second?.jobId).not.toBe(first?.jobId)
   })
 })
 

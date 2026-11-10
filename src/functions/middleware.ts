@@ -3,15 +3,18 @@ import { dashLog } from '~/server/dash/log'
 import { errorText } from '~/server/log'
 
 /** Required on ALL server functions except login/logout/getCurrentUser/prefs (G31). */
-export const authMiddleware = createMiddleware({ type: 'function' }).server(async ({ next }) => {
+export const authMiddleware = createMiddleware({ type: 'function' }).server(async ({ next, serverFnMeta }) => {
   const { getAppSession } = await import('~/server/auth/session')
   const { isUserStillAllowed } = await import('~/server/auth/user-check')
+  const { noteServerFn, setLogUser } = await import('~/server/logging/log-context')
 
+  noteServerFn(serverFnMeta.name)
   const session = await getAppSession()
   if (!session.userId) throw new Error('UNAUTHORIZED')
 
   // A user deactivated in the ERP loses access within a minute, not after the 8-hour session.
   const userId = session.userId
+  setLogUser(userId)
   if (!(await isUserStillAllowed(userId))) {
     session.destroy()
     throw new Error('UNAUTHORIZED')
