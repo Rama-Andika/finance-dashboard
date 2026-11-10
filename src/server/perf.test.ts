@@ -1,30 +1,35 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { logIfSlow, sqlSummary, timed } from './perf'
+import { captureLogs, resetLoggerForTests } from '~/server/logging/logger-core'
+import { logIfSlow, logPoolWait, sqlSummary, timed } from './perf'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+  resetLoggerForTests()
+})
 
 describe('timed', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs()
-    vi.restoreAllMocks()
-  })
-
-  it('returns the result and logs nothing when PERF_LOG is off', async () => {
-    const info = vi.spyOn(console, 'log').mockImplementation(() => {})
-    expect(await timed('metric x', async () => 42)).toBe(42)
-    expect(info).not.toHaveBeenCalled()
-  })
-
-  it('logs the label and the duration when PERF_LOG=1', async () => {
-    vi.stubEnv('PERF_LOG', '1')
-    const info = vi.spyOn(console, 'log').mockImplementation(() => {})
+  it('returns the result and logs the label and the duration at debug level', async () => {
+    const capture = captureLogs()
     expect(await timed('metric x', async () => 'ok')).toBe('ok')
-    expect(info).toHaveBeenCalledWith(expect.stringMatching(/^perf: metric x \d+ms$/))
+    const [entry] = capture.entries()
+    capture.stop()
+    expect(entry).toMatchObject({ level: 'debug', scope: 'perf', msg: 'timed', label: 'metric x' })
+    expect(typeof entry?.durationMs).toBe('number')
+  })
+
+  it('writes nothing at the default info level', async () => {
+    const capture = captureLogs('info')
+    await timed('metric x', async () => 42)
+    expect(capture.entries()).toEqual([])
+    capture.stop()
   })
 
   it('logs and rethrows when the work fails', async () => {
-    vi.stubEnv('PERF_LOG', '1')
-    const info = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const capture = captureLogs()
     await expect(timed('metric y', () => Promise.reject(new Error('boom')))).rejects.toThrow('boom')
-    expect(info).toHaveBeenCalledWith(expect.stringContaining('metric y'))
+    const [entry] = capture.entries()
+    capture.stop()
+    expect(entry).toMatchObject({ label: 'metric y' })
   })
 })
 
@@ -36,21 +41,40 @@ describe('sqlSummary', () => {
 })
 
 describe('logIfSlow', () => {
-  afterEach(() => vi.restoreAllMocks())
-
   it('logs only a query at or above the threshold, and never builds the text otherwise', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const capture = captureLogs()
     const text = vi.fn(() => 'SELECT 1')
     logIfSlow(999, 1000, text)
     expect(text).not.toHaveBeenCalled()
     logIfSlow(1500, 1000, text)
-    expect(warn).toHaveBeenCalledWith('perf: slow query 1500ms: SELECT 1')
+    const entries = capture.entries()
+    capture.stop()
+    expect(entries).toHaveLength(1)
+    expect(entries[0]).toMatchObject({
+      level: 'warn',
+      scope: 'perf',
+      msg: 'slow query',
+      durationMs: 1500,
+      sql: 'SELECT 1',
+    })
   })
 
   it('is off for a threshold of 0 or a missing threshold', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const capture = captureLogs()
     logIfSlow(99_999, 0, () => 'SELECT 1')
     logIfSlow(99_999, undefined as unknown as number, () => 'SELECT 1')
-    expect(warn).not.toHaveBeenCalled()
+    const entries = capture.entries()
+    capture.stop()
+    expect(entries).toEqual([])
+  })
+})
+
+describe('logPoolWait', () => {
+  it('logs at debug level', () => {
+    const capture = captureLogs()
+    logPoolWait()
+    const [entry] = capture.entries()
+    capture.stop()
+    expect(entry).toMatchObject({ level: 'debug', scope: 'perf' })
   })
 })

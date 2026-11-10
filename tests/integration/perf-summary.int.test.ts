@@ -11,7 +11,7 @@ const presets = ['this-month', 'last-month', 'ytd'] as const
 describe.skipIf(process.env.PERF_PROBE !== '1')('Summary timing probe', () => {
   for (const preset of presets) {
     it(`cold then warm: ${preset}, all entities`, { timeout: TEST_TIMEOUT }, async () => {
-      process.env.PERF_LOG = '1'
+      process.env.LOG_LEVEL = 'debug'
       clearCache()
       const filter = await resolveFilter({ entity: 'all', preset, p13: false })
 

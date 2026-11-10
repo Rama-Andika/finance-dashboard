@@ -48,8 +48,28 @@ const envSchema = z.object({
     (v) => (v === '' ? undefined : v),
     z.coerce.number().int().min(0).max(3_600_000).default(1000),
   ),
-  // 1 = log the duration of every computed metric (cache hits are not logged) and pool waits. Off by default.
-  PERF_LOG: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['0', '1']).default('0')),
+  // Logging. src/server/log.ts reads these straight from process.env (this file only checks their shape).
+  // LOG_LEVEL=debug also logs the duration of every computed metric (cache hits are not logged) and every pool wait.
+  LOG_LEVEL: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent']).default('info'),
+  ),
+  // 1 = also write the log lines to the daily file in LOG_DIR (src/server/logging/file-destination.ts)
+  LOG_TO_FILE: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['0', '1']).default('1')),
+  LOG_DIR: z.preprocess((v) => (v === '' ? undefined : v), z.string().default('logs')),
+  // Daily log files older than this many days are removed
+  LOG_RETENTION_DAYS: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.coerce.number().int().min(1).max(3650).default(30),
+  ),
+  // Name of this deployment, written on every log line as "client": lowercase letters, digits and dashes
+  CLIENT_ID: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9-]{0,63}$/)
+      .optional(),
+  ),
   // Computed metrics stay "fresh" this many seconds; after that the old answer is still served for METRIC_STALE_SECONDS
   // while one recalculation runs in the background (0 = never serve an old answer). cache.ts reads both straight from process.env.
   METRIC_FRESH_SECONDS: z.preprocess(

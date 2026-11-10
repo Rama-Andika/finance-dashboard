@@ -40,7 +40,7 @@ if (env.DB_QUERY_TIMEOUT_MS > 0) {
   })
 }
 
-// A query that has to queue because all pooled connections are busy (shown with PERF_LOG=1).
+// A query that has to queue because all pooled connections are busy (shown with LOG_LEVEL=debug).
 pool.pool.on('enqueue', logPoolWait)
 
 export const db = drizzle(pool, { mode: 'default' })

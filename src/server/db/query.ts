@@ -12,7 +12,7 @@ export async function rows<T>(query: SQL): Promise<T[]> {
   const startedAt = performance.now()
   // drizzle types `execute` loosely; with mysql2 it resolves to [rows, fields]
   const result = (await db.execute(query)) as unknown as [T[], unknown]
-  // The time includes any wait for a free pooled connection; `PERF_LOG=1` shows those waits separately.
+  // The time includes any wait for a free pooled connection; `LOG_LEVEL=debug` shows those waits separately.
   logIfSlow(performance.now() - startedAt, env.SLOW_QUERY_MS, () => dialect.sqlToQuery(query).sql)
   return result[0] || []
 }

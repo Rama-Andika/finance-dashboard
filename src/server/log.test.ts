@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { createLogger, errorText } from './log'
+import { captureLogs, resetLoggerForTests } from './logging/logger-core'
 
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => resetLoggerForTests())
 
 describe('errorText', () => {
   it('uses the message of an Error and the text of anything else', () => {
@@ -13,23 +14,16 @@ describe('errorText', () => {
 })
 
 describe('createLogger', () => {
-  it('prefixes every line with the scope', () => {
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const logger = createLogger('dash')
-    logger.info('built')
-    logger.warn('pending')
-    logger.error('failed')
-    expect(log).toHaveBeenCalledWith('dash: built')
-    expect(warn).toHaveBeenCalledWith('dash: pending')
-    expect(error).toHaveBeenCalledWith('dash: failed')
-  })
-
-  it('has no prefix without a scope and passes the cause on untouched', () => {
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const cause = new Error('db down')
-    createLogger().error('query failed:', cause)
-    expect(error).toHaveBeenCalledWith('query failed:', cause)
+  it('writes the scope, the fields and the message as one JSON object', () => {
+    const capture = captureLogs()
+    createLogger('dash').info({ durationMs: 5 }, 'built')
+    createLogger('dash').warn({}, 'pending')
+    createLogger().error({ err: new Error('db down') }, 'query failed')
+    const entries = capture.entries()
+    capture.stop()
+    expect(entries[0]).toMatchObject({ level: 'info', scope: 'dash', msg: 'built', durationMs: 5 })
+    expect(entries[1]).toMatchObject({ level: 'warn', scope: 'dash', msg: 'pending' })
+    expect(entries[2]).toMatchObject({ level: 'error', msg: 'query failed', err: { message: 'db down' } })
+    expect(entries[2]).not.toHaveProperty('scope')
   })
 })
