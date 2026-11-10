@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { balanceSheetCoaRows } from 'tests/fixtures/balance-sheet.fixture'
 import { buildCoaTree } from '../coa/coa-tree'
 import { buildBalanceSheet, type BalanceSheetNode } from './statement'
-import { defaultExpandedIds, flattenRows, pruneZeroNodes, tableRows } from './tree-view'
+import { defaultExpandedIds, pruneZeroNodes, tableRows } from './tree-view'
 import type { Id, Money } from '../../core/types'
 
 const tree = buildCoaTree(balanceSheetCoaRows)
@@ -108,21 +108,5 @@ describe('defaultExpandedIds', () => {
   it('does not list a row without children', () => {
     const rows = tableRows(statement, { hideZero: true })
     expect(defaultExpandedIds(rows)).not.toHaveProperty('cash')
-  })
-})
-
-describe('flattenRows', () => {
-  it('lists every row, parents before their children', () => {
-    const rows = tableRows(statement, { hideZero: true })
-    expect(flattenRows(rows).map((r) => r.id)).toEqual([
-      'section:assets',
-      'A',
-      'A1',
-      'cash',
-      'ar',
-      'section:liabilitiesEquity',
-      'L',
-      'ap',
-    ])
   })
 })

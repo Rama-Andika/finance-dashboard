@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { formatAmountShort, formatAxisShort, formatMoneyFull, formatMoneyShort, formatPercent } from './number'
+import Decimal from 'decimal.js'
+import {
+  formatAmountShort,
+  formatAxisShort,
+  formatChangePercent,
+  formatMoneyFull,
+  formatMoneyShort,
+  formatPercent,
+} from './number'
 
 describe('formatMoneyShort', () => {
   it('uses the same units and separators in every language', () => {
@@ -80,5 +88,59 @@ describe('formatAmountShort', () => {
   it('abbreviates without the currency prefix', () => {
     expect(formatAmountShort('42560118400', 'id')).toBe('42.56B')
     expect(formatAmountShort('-1200000')).toBe('(1.20M)')
+  })
+})
+
+describe('formatChangePercent', () => {
+  it('formats null (no comparison amount) to em-dash and zero to 0.0%', () => {
+    expect(formatChangePercent(null)).toBe('—')
+    expect(formatChangePercent('')).toBe('—')
+    expect(formatChangePercent('0')).toBe('0.0%')
+  })
+
+  it('uses one decimal from 0.1% up and puts a negative change in parentheses', () => {
+    expect(formatChangePercent('0.25')).toBe('25.0%')
+    expect(formatChangePercent('-0.125')).toBe('(12.5%)')
+    expect(formatChangePercent('0.001')).toBe('0.1%')
+    expect(formatChangePercent('1.2345')).toBe('123.5%')
+  })
+
+  it('adds decimals until the first digit that is not zero shows', () => {
+    expect(formatChangePercent('0.0005')).toBe('0.05%')
+    expect(formatChangePercent('0.0000143')).toBe('0.001%')
+    expect(formatChangePercent('-0.0000143')).toBe('(0.001%)')
+    expect(formatChangePercent('0.000001')).toBe('0.0001%')
+  })
+
+  it('leaves out the zero at the end when rounding carries into the next power of ten', () => {
+    expect(formatChangePercent('0.000999')).toBe('0.1%')
+    expect(formatChangePercent('0.0000999')).toBe('0.01%')
+    expect(formatChangePercent('0.00000999')).toBe('0.001%')
+    expect(formatChangePercent('-0.000999')).toBe('(0.1%)')
+    expect(formatChangePercent('0.000949')).toBe('0.09%')
+  })
+
+  it('writes "<0.0001%" for a change too small to show', () => {
+    expect(formatChangePercent('0.0000000382')).toBe('<0.0001%')
+    expect(formatChangePercent('-0.000000035')).toBe('(<0.0001%)')
+  })
+
+  it('reads a ratio written with an exponent', () => {
+    expect(formatChangePercent('3.82e-7')).toBe('<0.0001%')
+    expect(formatChangePercent('-2.28e-6')).toBe('(0.0002%)')
+  })
+
+  it('gives readable results for six balance sheet rows with large balances', () => {
+    // change divided by the comparison amount: [change, comparison amount]
+    const rows: [string, string][] = [
+      ['150000', '360000000000'],
+      ['130000', '56000000000'],
+      ['130000', '9000000000'],
+      ['-1300', '37000000000'],
+      ['0', '10000000000'],
+      ['1300', '37000000000'],
+    ]
+    const texts = rows.map(([change, compare]) => formatChangePercent(new Decimal(change).div(compare).toString()))
+    expect(texts).toEqual(['<0.0001%', '0.0002%', '0.001%', '(<0.0001%)', '0.0%', '<0.0001%'])
   })
 })

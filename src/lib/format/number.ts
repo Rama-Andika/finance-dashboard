@@ -93,6 +93,40 @@ export function formatPercent(ratio: string | null, _lang?: Lang, decimals: numb
   return `${rounded}%`
 }
 
+/** Percent points (not a ratio) under which a change is written as "<0.0001%" instead of a long run of zeros. */
+const TINY_PERCENT = new Decimal('0.0001')
+/** Percent points from which a change is written with one decimal, like every other percent in the app. */
+const PLAIN_PERCENT = new Decimal('0.1')
+
+/**
+ * A change as percent text that never looks like zero when it is not zero (the change column of the balance sheet):
+ * - null (no comparison amount) gives "—" and exactly zero gives "0.0%";
+ * - 0.1% and above: one decimal ("12.5%");
+ * - from 0.0001% up to 0.1%: as many decimals as it takes to show the first digit that is not zero ("0.001%");
+ * - under 0.0001%: "<0.0001%";
+ * - a negative change is in parentheses, like every negative amount ("(12.5%)", "(<0.0001%)").
+ */
+export function formatChangePercent(ratio: string | null): string {
+  if (ratio === null || ratio === '') return '—'
+  const percent = new Decimal(ratio).times(100)
+  if (percent.isZero()) return '0.0%'
+  const abs = percent.abs()
+  let text: string
+  if (abs.lt(TINY_PERCENT)) {
+    text = `<${TINY_PERCENT.toFixed()}%`
+  } else if (abs.gte(PLAIN_PERCENT)) {
+    text = `${abs.toFixed(1, Decimal.ROUND_HALF_UP)}%`
+  } else {
+    // abs.e is the power of ten of the first digit that is not zero (-3 for 0.0014), so -abs.e decimals show that digit.
+    const decimals = -abs.e
+    const rounded = abs.toFixed(decimals, Decimal.ROUND_HALF_UP)
+    // Rounding can carry into the next power of ten (0.0996 becomes 0.10): then the zero at the end is left out.
+    const carried = new Decimal(rounded).e > abs.e
+    text = `${carried ? abs.toFixed(decimals - 1, Decimal.ROUND_HALF_UP) : rounded}%`
+  }
+  return percent.isNegative() ? `(${text})` : text
+}
+
 export function formatAxisShort(value: number, _lang?: Lang): string {
   const d = new Decimal(value)
   if (d.isZero()) return '0'

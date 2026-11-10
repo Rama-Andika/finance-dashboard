@@ -10,7 +10,7 @@
 >
 > **Bila dokumen ini berbeda dengan `docs/decisions.md` atau `docs/data-model.md`, kedua dokumen itu yang menang** (lalu perbaiki dokumen ini). Keduanya tetap menjadi sumber keputusan (D#, O#) dan rincian kolom per tabel ERP.
 >
-> **Terakhir diperbarui:** 2026-11-09
+> **Terakhir diperbarui:** 2026-11-10
 
 ## Daftar isi
 
@@ -1045,7 +1045,7 @@ Kode akun **tidak ditulis mati** di program (S1), karena nomor akun berbeda di t
 
 - Semua uang berupa **teks desimal** dan dihitung dengan `decimal.js` (`src/lib/core/money.ts`). Dilarang `+ − × ÷`, `Number()`, `parseFloat()` pada uang. Pembulatan 2 desimal hanya di akhir/di tampilan.
 - Semua ID berupa **teks**: ID ERP seperti `504404509311573860` melebihi batas aman angka JavaScript (±9×10¹⁵).
-- Persentase perubahan = `(angka − pembanding) ÷ |pembanding| × 100`; pembanding 0 → tidak ditampilkan.
+- Persentase perubahan = `(angka − pembanding) ÷ |pembanding| × 100`; pembanding 0 → tidak ditampilkan. Di tabel Balance Sheet, persen yang sangat kecil ditulis dengan aturan khusus supaya tidak tampil 0,0% (bagian 8.13.3, U10).
 - Kartu menampilkan **angka singkat** dengan angka penuh di tooltip; tabel menampilkan angka penuh, rata kanan. Angka negatif di mana pun (kartu, sumbu grafik, tabel) ditulis dalam kurung, mis. (29,19 M), bukan dengan tanda minus. Singkatan mengikuti bahasa (Indonesia: Rb/Jt/M/T; Inggris: K/M/B/T). ⚠️ "M" berarti **Miliar** di Indonesia, tetapi **Million** di Inggris (U3).
 
 ### 6.9 Aturan penulisan SQL
@@ -2697,8 +2697,8 @@ Neraca adalah laporan **potret**: posisi harta, utang, dan modal pada **satu tan
 - **Dua donut komposisi:** isi Aktiva (Aktiva lancar, Aktiva tetap, Aktiva lainnya) dan isi Pasiva (Utang jangka pendek, Utang jangka panjang, Ekuitas).
 - **Tren 12 bulan:** grafik kolom dan garis di bawah donut (Utang + Ekuitas ditumpuk, Aktiva sebagai garis), dimuat sesudah bagian lain halaman. Bulan yang belum Closed digambar lebih terang.
 - **Drill-down:** klik baris Aktiva, Pasiva, header, atau akun membuka panel samping sampai baris jurnal (bagian 8.12).
-- **Ekspor CSV dan Cetak:** tombol di kepala tabel; CSV memuat semua baris tabel dengan kolom kode, nama, tingkat, jumlah, dan pembanding.
-- **Tabel neraca** berbentuk pohon yang bisa dilipat: bagian **Aktiva** dan bagian **Pasiva** dengan totalnya, lalu akun menurut pohon CoA (header = jumlah akun di bawahnya). Kolom: akun, jumlah pada tanggal laporan, dan bila ada pembanding: jumlah pembanding, perubahan, perubahan persen. Awalnya terbuka sampai tingkat kedua. Baris merah "Selisih" muncul hanya bila Aktiva dan Pasiva berbeda (pada tanggal laporan atau pembanding).
+- **Ekspor CSV dan Cetak:** tombol di kepala tabel; CSV memuat semua baris tabel sebagai pohon akun yang menjorok, dengan kolom kode, nama, jumlah, dan pembanding; induk hanya judul dan totalnya di baris "Total …" (bagian 8.13.3, U9).
+- **Tabel neraca** berbentuk pohon yang bisa dilipat: bagian **Aktiva** dan bagian **Pasiva** dengan totalnya, lalu akun menurut pohon CoA (header = jumlah akun di bawahnya). Kolom: akun, jumlah pada tanggal laporan, dan bila ada pembanding: jumlah pembanding, perubahan, perubahan persen (perubahan yang sangat kecil tetap terlihat: bagian 8.13.3, U10). Awalnya terbuka sampai tingkat kedua. Baris merah "Selisih" muncul hanya bila Aktiva dan Pasiva berbeda (pada tanggal laporan atau pembanding).
 
 #### 8.13.2 Data dan query
 
@@ -2758,6 +2758,28 @@ Mutasi dikalikan tanda sisi kelompok akun (bab 6.5) dan dijumlah per `period_id`
 
 **Jumlah dan selisih.** Header = jumlah akun di bawahnya yang termasuk sisi itu; header yang memuat akun Aktiva dan Pasiva muncul di kedua sisi dengan bagiannya masing-masing. Total Aktiva = Σ tiga kelompok Aktiva; Total Utang = Σ dua kelompok Utang; Total Ekuitas = kelompok Equity (termasuk baris laba bila akunnya tidak ditemukan). **Selisih = Aktiva − (Utang + Ekuitas) harus tepat nol** (D61); bila tidak, baris merah, notice bahaya, dan data check `BS_UNBALANCED`. Perubahan persen = (jumlah − pembanding) ÷ |pembanding|; kosong bila pembanding nol.
 
+**Tulisan perubahan persen di layar (U10).** ✅ Dicek dari kode dan tes unit (`formatChangePercent` di `src/lib/format/number.ts`, `number.test.ts`). Saldo neraca sangat besar (miliar sampai ratusan miliar rupiah), sehingga perubahan yang nyata sering hanya sepersekian persen. Dengan satu desimal, perubahan itu tampil 0,0% (atau "-0,0%") dan terlihat seperti tidak ada perubahan. Aturannya, dihitung dari nilai mutlak persen (poin persen, bukan rasio):
+
+| Nilai mutlak persen                  | Ditulis                                                       | Contoh                       |
+| ------------------------------------ | ------------------------------------------------------------- | ---------------------------- |
+| Tanpa pembanding atau pembanding nol | `—`                                                           | `—`                          |
+| Tepat nol                            | `0.0%`                                                        | `0.0%`                       |
+| 0,1% ke atas                         | satu desimal                                                  | `12.5%`                      |
+| Dari 0,0001% sampai di bawah 0,1%    | desimal ditambah sampai angka pertama yang bukan nol terlihat | `0.05%`, `0.001%`, `0.0002%` |
+| Di bawah 0,0001%                     | `<0.0001%`                                                    | `<0.0001%`                   |
+
+Perubahan yang turun ditulis seluruhnya dalam kurung, seperti angka negatif lain (bagian 6.8): `(12.5%)` dan `(<0.0001%)`. Pemisah desimal di layar tetap titik. Bila pembulatan menaikkan angkanya ke batas berikutnya (0,0996% menjadi 0,1%), nol di belakang dibuang: ditulis `0.1%`, bukan `0.10%`. Contoh (angka rekaan; saldo dan perubahan dalam rupiah):
+
+| Perubahan | Saldo pembanding | Persen sebenarnya | Dulu di layar | Sekarang     |
+| --------- | ---------------- | ----------------- | ------------- | ------------ |
+| 150.000   | 360 miliar       | 0,0000417%        | 0.0%          | `<0.0001%`   |
+| 130.000   | 56 miliar        | 0,000232%         | 0.0%          | `0.0002%`    |
+| 130.000   | 9 miliar         | 0,001444%         | 0.0%          | `0.001%`     |
+| (1.300)   | 37 miliar        | (0,0000035%)      | -0.0%         | `(<0.0001%)` |
+| 0         | 10 miliar        | 0%                | 0.0%          | `0.0%`       |
+
+Batas `0.0001%` adalah satu konstanta (`TINY_PERCENT`) di kode; mengubahnya tidak memengaruhi angka lain.
+
 **Entitas.** Penjumlahan biasa semua entitas terpilih, tanpa eliminasi antar-entitas (bab 6.4, D2, D62).
 
 **Tren 12 bulan** (grafik di bawah donut). Dua belas periode reguler yang berakhir pada bulan laporan (kurang bila periodenya belum sebanyak itu), satu kolom per bulan: **Utang dan Ekuitas ditumpuk** (tingginya sama dengan Aktiva) dan **Aktiva sebagai garis putus-putus**, sehingga bulan yang tidak seimbang terlihat sebagai celah antara kolom dan garis. Grafik dimuat sesudah bagian lain halaman (kerangka abu-abu dulu) dan tidak ikut dimuat ulang saat pembanding diganti. Kode: `balance-trend.service.ts`, `balance-trend.fn.ts`, `trend.ts`, komponen `BalanceTrendSection` dan `BalanceTrendChart`.
@@ -2769,7 +2791,33 @@ Mutasi dikalikan tanda sisi kelompok akun (bab 6.5) dan dijumlah per `period_id`
 
 **Drill-down.** Klik baris **Aktiva** atau **Pasiva** membuka daftar akun di bawahnya dengan saldonya pada tanggal laporan (angka sama dengan tabel; akun bernilai nol tidak ditampilkan). Klik **header** membuka akun di bawah header itu. Klik **akun** membuka baris jurnal posted akun itu pada **periode laporan** (dan Periode 13-nya bila ikut): itulah mutasi periode itu, yang bersama saldo awal membentuk saldo. Baris laba yang dibuat laporan sendiri dan baris Selisih tidak bisa dibuka. Drill memakai Balance Sheet tanpa pembanding, jadi angkanya selalu sama dengan tabel. Kode: `src/server/services/drill/balance-sheet.ts` (metrik `balanceSheet`, bagian 8.12).
 
-**Ekspor dan cetak.** Tombol Ekspor CSV menulis semua baris tabel (termasuk yang sedang dilipat; mengikuti tombol "Sembunyikan akun bernilai nol"), induk lebih dulu daripada anaknya, dengan kolom: kode akun, nama akun, tingkat, jumlah pada tanggal laporan, dan bila ada pembanding: jumlah pembanding, perubahan, dan perubahan persen. Nama file memuat `balance_sheet` dan filter halaman. Tombol Cetak memakai gaya cetak yang sudah ada. Kode: `BalanceSheetTable.tsx` dan `flattenRows` di `tree-view.ts`.
+**Ekspor dan cetak.** Tombol Ekspor CSV menulis semua baris tabel (termasuk yang sedang dilipat; mengikuti tombol "Sembunyikan akun bernilai nol") sebagai pohon akun yang menjorok, tanpa kolom Tingkat; aturan barisnya ada di sub-bagian "Isi file CSV" di bawah. Nama file memuat `balance_sheet` dan filter halaman. Tombol Cetak memakai gaya cetak yang sudah ada. Kode: `BalanceSheetTable.tsx` (tombol dan teks), `csv-export.ts` (baris dan kolom, dengan tes `csv-export.test.ts`), dan `ratioForCsv` di `src/lib/format/csv.ts`.
+
+**Isi file CSV (U9).** ✅ Dicek dari kode dan tes unit (`csv-export.test.ts`, `csv.test.ts`). Belum dibuka di Excel oleh finance (KF-76).
+
+- **Kolom:** kode akun, nama akun, jumlah pada tanggal laporan, dan bila ada pembanding: jumlah pembanding, perubahan (rupiah), dan perubahan persen. Kolom Tingkat sudah tidak ada.
+- **Pohon akun:** nama akun diberi spasi di depan, dua spasi untuk setiap tingkat (Aktiva dan Pasiva tanpa spasi, akun tingkat 1 dua spasi, tingkat 2 empat spasi, dan seterusnya). Kolom kode akun tidak ikut menjorok. Karena selnya diawali spasi, CSV memberinya tanda kutip; Excel tetap membaca spasinya.
+- **Tiga jenis baris:** _judul_ (bagian Aktiva dan Pasiva, dan kelompok akun yang punya akun di bawahnya): kode dan nama, jumlah **kosong**. _Rincian_ (akun biasa dan baris buatan laporan: Laba Tahun Berjalan, Laba Tahun Lalu, Selisih): lengkap dengan jumlah. _Total_ (jumlah satu judul): ditulis tepat di bawah baris terakhir anak-anaknya, namanya "Total" + nama judul dan menjorok sama dengan judulnya, **kode akun kosong**.
+- **Aktiva dan Pasiva** selalu punya judul dan total, walau semua akun di bawahnya disembunyikan (di layar, bagian juga selalu tampil). Kelompok yang semua anaknya tersembunyi karena bersaldo nol tidak ditulis sama sekali.
+- **Menjumlahkan di Excel:** menjumlahkan seluruh kolom jumlah menghitung tiap akun dua kali (di barisnya dan di baris Total). Untuk menjumlahkan akun saja, saring baris yang namanya diawali "Total".
+- **Perubahan persen di CSV:** angka desimal asli (0,25 berarti 25%), bukan teks. Dipotong pada 10 angka berarti dan tidak pernah ditulis dengan eksponen (3,8 × 10⁻⁷ ditulis `0.00000038`). Kosong bila pembanding nol atau tidak ada pembanding. Pada format titik koma, titik desimal menjadi koma. Di Excel, kolomnya diformat sebagai persen bila ingin melihat tanda %.
+- **Jumlah:** 2 desimal, negatif dengan tanda minus (angka mentah supaya bisa dijumlah, bukan kurung).
+- **Tanpa baris catatan:** judul kolom ada di baris pertama sehingga pivot dan filter Excel langsung bisa dipakai. Tanggal laporan, entitas, dan filter ada di nama file.
+- **Batas yang diketahui:** akun berstatus POSTABLE yang punya anak (tidak diharapkan menurut `docs/data-model.md`, POSTABLE = akun daun) diperlakukan seperti kelompok: barisnya menjadi judul tanpa jumlah dan saldonya sendiri hanya masuk ke baris Total.
+
+Contoh potongan CSV dengan pembanding (format koma + titik desimal; angka rekaan):
+
+```text
+Kode Akun,Akun,Per 10 Nov 2026,Per 31 Des 2025,Perubahan (IDR),Perubahan (%)
+,Aktiva,,,,
+1,"  Harta",,,,
+11,"    Kas",,,,
+111,"      Kas Besar",1000000.00,800000.00,200000.00,0.25
+112,"      Kas Kecil",250000.00,200000.00,50000.00,0.25
+,"    Total Kas",1250000.00,1000000.00,250000.00,0.25
+,"  Total Harta",1250000.00,1000000.00,250000.00,0.25
+,Total Aktiva,1250000.00,1000000.00,250000.00,0.25
+```
 
 #### 8.13.4 Contoh angka
 
@@ -2807,6 +2855,7 @@ Laba Tahun Berjalan:
 | KF-73 | Neraca gabungan menjumlahkan entitas tanpa eliminasi saldo antar-entitas (terkait KF-07): apakah memadai?                                                                          | Tanpa eliminasi, dengan catatan di halaman (D62) ⚠️                 |
 | KF-74 | Selisih Aktiva dan Pasiva sekecil apa pun ditandai bahaya (tepat nol). Perlukah toleransi pembulatan?                                                                              | Tepat nol, tanpa toleransi (D61) ⚠️                                 |
 | KF-75 | Tren neraca: bulan yang belum Closed digambar lebih terang (angka bisa berubah); bulan Closed dari snapshot yang dibangun ulang otomatis. Dapat diterima?                          | Dapat diterima (D63) ⚠️                                             |
+| KF-76 | CSV Balance Sheet: induk hanya judul, total di baris "Total …", nama akun menjorok dengan spasi. Cocok untuk finance, dan apakah ada yang membukanya di Google Sheets?             | Susunan ini dipakai (U9, U10) ⚠️                                    |
 
 **Hasil pencocokan ke database lokal.** 🔵 Pada 2026-11-09, baris Aktiva dan Pasiva halaman ini dicocokkan dengan hitungan SQL independen di database lokal `demo` untuk periode September 2025 (cara `opening-table`) dan Desember 2025 (cara `bridge` dari saldo awal Oktober 2025): selisih antara SQL dan halaman 0,00. Pada kedua periode Aktiva dan Pasiva berbeda (September: 48,29; Desember: 674,22), dan SQL independen menghasilkan selisih yang sama, jadi selisih itu berasal dari data ERP lokal, bukan dari perhitungan halaman. Belum dicocokkan dengan laporan Neraca ERP (KF-69).
 
@@ -3100,6 +3149,7 @@ Urutan pengecekan yang disarankan, dari penyebab paling umum:
 | KF-73 | S   | 8.13          | Neraca gabungan menjumlahkan entitas tanpa eliminasi saldo antar-entitas (terkait KF-07): apakah memadai?                                                                                                                                                                           | Tanpa eliminasi, dengan catatan di halaman (D62) ⚠️                                                                | Belum                                       |                 |         |
 | KF-74 | S   | 8.13          | Selisih Aktiva dan Pasiva sekecil apa pun ditandai bahaya (tepat nol). Perlukah toleransi pembulatan?                                                                                                                                                                               | Tepat nol, tanpa toleransi (D61) ⚠️                                                                                | Belum                                       |                 |         |
 | KF-75 | S   | 8.13          | Tren neraca: kolom bulan yang belum Closed digambar lebih terang karena angkanya bisa berubah, dan bulan Closed dibaca dari snapshot yang dibangun ulang otomatis bila periode dibuka ulang dan diubah. Dapat diterima?                                                             | Dapat diterima (D63) ⚠️                                                                                            | Belum                                       |                 |         |
+| KF-76 | R   | 8.13          | CSV Balance Sheet: induk hanya judul, total di baris "Total …", nama akun menjorok dengan spasi. Cocok untuk finance, dan apakah ada yang membukanya di Google Sheets?                                                                                                              | Susunan ini dipakai (U9, U10) ⚠️                                                                                   |
 
 ### 12.3 Hasil pengecekan ke database lokal (2026-11-05)
 
@@ -3170,6 +3220,7 @@ Pengecekan memakai **tujuh query `SELECT` (hanya baca)** ke database lokal `demo
 | 2026-11-09 | Balance Sheet dan pembacaan saldo: hitungan baris saldo awal dan saldo awal per periode di-cache 60 detik (`gl-opening.repo.ts`) sehingga tabel, pembanding, dan grafik tren tidak membacanya berulang; grafik tren membaca total tersimpan dan jumlah berjalan bersamaan (bagian 9.3). Angka tidak berubah.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | 2026-11-09 | Drill-down: drill hari Payment Plan memakai rencana halaman yang sama (computePaymentPlan) sehingga tidak ada logika kredit ganda; daftar jurnal leaf Cash Flow dan Expense Paid diurutkan terbaru dulu atas semua jurnal sebelum dipotong per halaman (sebelumnya hanya di dalam halaman); halaman baris jurnal dan header jurnal di-cache 60 detik; drill aging tidak membuat objek Decimal per baris untuk menguji saldo positif (bagian 8.12, 9.3). Angka tidak berubah.                                                                                                                                                                                                                                                                                                                   |
 | 2026-11-09 | Data perlu dicek: pemeriksaan "lokasi kartu tidak valid" (CARD_LOCATION_INVALID), yang tidak bergantung pada filter, dibaca sekali per 5 menit untuk semua kombinasi filter (bagian 9.3). SQL dan angka tidak berubah.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 2026-11-10 | Balance Sheet: CSV berupa pohon akun yang menjorok dengan judul tanpa jumlah dan baris "Total …", tanpa kolom Tingkat; perubahan persen di CSV berupa angka desimal asli; perubahan persen di layar tidak lagi tampil 0,0% untuk perubahan kecil (bagian 6.8, 8.13.1, 8.13.3; U9, U10, KF-76). Angka neraca tidak berubah.                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 ### 14.1 Riwayat ringkas dokumen yang digantikan
 

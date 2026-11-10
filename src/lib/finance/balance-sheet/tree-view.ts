@@ -94,8 +94,3 @@ export function defaultExpandedIds(rows: readonly BalanceSheetNode[]): Record<st
   rows.forEach(visit)
   return expanded
 }
-
-/** Every row in display order with its depth, for the CSV export (sections and accounts, parents before children). */
-export function flattenRows(rows: readonly BalanceSheetNode[]): BalanceSheetNode[] {
-  return rows.flatMap((row) => [row, ...flattenRows(row.children)])
-}

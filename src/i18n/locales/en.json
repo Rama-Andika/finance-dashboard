@@ -630,6 +630,7 @@
     "asOf": "As of {{date}}",
     "period13": "Includes period 13 (year-end adjustments)",
     "hideZero": "Hide zero accounts",
+    "csvTotal": "Total {{name}}",
     "compare": {
       "label": "Compare with",
       "year-end": "End of last fiscal year",
@@ -641,8 +642,7 @@
     "col": {
       "account": "Account",
       "change": "Change (IDR)",
-      "changePct": "Change (%)",
-      "level": "Level"
+      "changePct": "Change (%)"
     },
     "line": {
       "sectionAssets": "Assets",

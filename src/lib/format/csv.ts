@@ -9,11 +9,18 @@ export type CsvColumn<T> = {
   kind: 'text' | 'money' | 'date' | 'number'
 }
 
-export function buildCsv<T>(
-  rows: T[],
-  columns: CsvColumn<T>[],
-  format: CsvFormat,
-): string {
+/**
+ * A ratio (for example a change divided by the comparison amount) as a plain decimal number for a CSV cell: kept to 10
+ * significant digits and never written with an exponent (a spreadsheet may not read "3.8e-7"). Null or empty gives an
+ * empty cell.
+ */
+export function ratioForCsv(ratio: string | null): string {
+  if (ratio === null || ratio === '') return ''
+  const value = new Decimal(ratio)
+  return value.isZero() ? '0' : value.toSignificantDigits(10).toFixed()
+}
+
+export function buildCsv<T>(rows: T[], columns: CsvColumn<T>[], format: CsvFormat): string {
   const delimiter = format === 'comma-dot' ? ',' : ';'
   const fields = columns.map((col) => col.header)
 
@@ -37,10 +44,7 @@ export function buildCsv<T>(
     }),
   )
 
-  const csv = Papa.unparse(
-    { fields, data },
-    { delimiter, newline: '\r\n', quotes: false },
-  )
+  const csv = Papa.unparse({ fields, data }, { delimiter, newline: '\r\n', quotes: false })
 
   return `\uFEFF${csv}`
 }

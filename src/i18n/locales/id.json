@@ -630,6 +630,7 @@
     "asOf": "Per {{date}}",
     "period13": "Termasuk periode 13 (penyesuaian akhir tahun)",
     "hideZero": "Sembunyikan akun bernilai nol",
+    "csvTotal": "Total {{name}}",
     "compare": {
       "label": "Bandingkan dengan",
       "year-end": "Akhir tahun buku lalu",
@@ -641,8 +642,7 @@
     "col": {
       "account": "Akun",
       "change": "Perubahan (IDR)",
-      "changePct": "Perubahan (%)",
-      "level": "Tingkat"
+      "changePct": "Perubahan (%)"
     },
     "line": {
       "sectionAssets": "Aktiva",
