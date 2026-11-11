@@ -1,10 +1,11 @@
-import { useMemo, type ReactNode } from 'react'
+import { useEffect, useMemo, type ReactNode } from 'react'
 import type { QueryClient } from '@tanstack/react-query'
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from '@tanstack/react-router'
 import { I18nextProvider } from 'react-i18next'
 import { getPrefsFn } from '~/functions/prefs.fn'
 import { createI18n } from '~/i18n'
 import { APP_NAME } from '~/lib/brand'
+import { installWindowErrorReporting } from '~/components/layout/client-error-reporting'
 import { PrefsProvider, type Prefs } from '~/components/layout/prefs-context'
 import appCss from '~/styles/app.css?url'
 
@@ -32,6 +33,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 })
 
 function RootComponent() {
+  // Reports errors that no component caught (a script error, a rejected promise nobody handled). Runs in the browser only.
+  useEffect(() => installWindowErrorReporting(), [])
   return (
     <RootDocument>
       <Outlet />
@@ -43,9 +46,7 @@ function RootDocument({ children }: { children: ReactNode }) {
   const { prefs: initialPrefs } = Route.useRouteContext()
 
   return (
-    <PrefsProvider initial={initialPrefs}>
-      {(prefs) => <Document prefs={prefs}>{children}</Document>}
-    </PrefsProvider>
+    <PrefsProvider initial={initialPrefs}>{(prefs) => <Document prefs={prefs}>{children}</Document>}</PrefsProvider>
   )
 }
 
@@ -58,9 +59,7 @@ function Document({ prefs, children }: { prefs: Prefs; children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <I18nextProvider i18n={i18nInstance}>
-          {children}
-        </I18nextProvider>
+        <I18nextProvider i18n={i18nInstance}>{children}</I18nextProvider>
         <Scripts />
       </body>
     </html>
