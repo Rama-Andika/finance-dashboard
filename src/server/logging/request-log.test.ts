@@ -143,4 +143,62 @@ describe('handleRequestWithLog', () => {
       expect(entry.userId).toBe(String(index + 1))
     }
   })
+
+  describe('under a deployment prefix', () => {
+    const prefixed = { ...options, basePath: '/oxy-client-a-finance-dashboard' }
+
+    it('writes the path without the prefix, with the page filters', async () => {
+      const capture = captureLogs()
+      const request = new Request(
+        'http://localhost:3000/oxy-client-a-finance-dashboard/summary?entity=all&preset=ytd&secret=1',
+      )
+      await handleRequestWithLog(request, () => new Response('ok'), prefixed)
+      const [entry] = capture.entries()
+      capture.stop()
+      expect(entry).toMatchObject({ path: '/summary', filters: { entity: 'all', preset: 'ytd' } })
+    })
+
+    it('still recognises a server function call: no page filters', async () => {
+      const capture = captureLogs()
+      const request = new Request(
+        'http://localhost:3000/oxy-client-a-finance-dashboard/_serverFn/abc?payload=%7B%22entity%22%3A%22all%22%7D',
+      )
+      await handleRequestWithLog(request, () => new Response('ok'), prefixed)
+      const [entry] = capture.entries()
+      capture.stop()
+      expect(entry).toMatchObject({ path: '/_serverFn/abc' })
+      expect(entry).not.toHaveProperty('filters')
+    })
+
+    it('writes the prefix itself as the root path', async () => {
+      const capture = captureLogs()
+      await handleRequestWithLog(
+        new Request('http://localhost:3000/oxy-client-a-finance-dashboard'),
+        () => new Response('ok'),
+        prefixed,
+      )
+      const [entry] = capture.entries()
+      capture.stop()
+      expect(entry).toMatchObject({ path: '/' })
+    })
+
+    it('keeps a path outside the prefix as it is', async () => {
+      const capture = captureLogs()
+      await handleRequestWithLog(new Request('http://localhost:3000/other/summary'), () => new Response('ok'), prefixed)
+      const [entry] = capture.entries()
+      capture.stop()
+      expect(entry).toMatchObject({ path: '/other/summary' })
+    })
+
+    it('keeps the full path when the prefix is empty', async () => {
+      const capture = captureLogs()
+      await handleRequestWithLog(new Request('http://localhost:3000/summary?entity=all'), () => new Response('ok'), {
+        ...options,
+        basePath: '',
+      })
+      const [entry] = capture.entries()
+      capture.stop()
+      expect(entry).toMatchObject({ path: '/summary', filters: { entity: 'all' } })
+    })
+  })
 })

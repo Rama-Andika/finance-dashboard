@@ -1,4 +1,5 @@
 import { reportClientErrorFn } from '~/functions/client-error.fn'
+import { stripBasePath } from '~/lib/core/base-path'
 import { createClientErrorReporter, type ClientErrorReporter } from '~/lib/client-errors/client-error-reporter'
 
 let reporter: ClientErrorReporter | null = null
@@ -18,7 +19,7 @@ const IGNORED_MESSAGES = ['ResizeObserver loop', 'Script error.']
  */
 export function installWindowErrorReporting(): () => void {
   const context = (origin: 'window' | 'promise') =>
-    ({ origin, route: window.location.pathname, userAgent: navigator.userAgent }) as const
+    ({ origin, route: stripBasePath(window.location.pathname), userAgent: navigator.userAgent }) as const
 
   const onError = (event: ErrorEvent) => {
     if (IGNORED_MESSAGES.some((text) => event.message.startsWith(text))) return

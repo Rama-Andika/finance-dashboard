@@ -1,3 +1,5 @@
+import { basePath as buildBasePath } from '~/lib/core/base-path'
+import { removePrefix } from '~/lib/core/client-base'
 import type { LogFields } from './log-fields'
 import { runWithLogContext, type LogContext } from './log-context'
 import { createLogger } from './logger-core'
@@ -17,6 +19,8 @@ const MAX_PATH = 200
 export type RequestLogOptions = {
   now?: () => Date
   timeZone?: string
+  /** URL prefix of this deployment ('' at the root). Defaults to the prefix of the build; tests pass their own. */
+  basePath?: string
 }
 
 /** First address of X-Forwarded-For (start-server.mjs sets it), or undefined when it does not look like an address. */
@@ -25,9 +29,12 @@ function clientIp(request: Request): string | undefined {
   return first && IP_PATTERN.test(first) ? first : undefined
 }
 
-/** The page filters of a page request; server function calls (path /_serverFn/...) carry their data elsewhere and get none. */
-function pageFilters(url: URL): Record<string, string> | undefined {
-  if (url.pathname.startsWith('/_serverFn/')) return undefined
+/**
+ * The page filters of a page request. `path` is the request path without the deployment prefix; server function calls
+ * (path /_serverFn/...) carry their data elsewhere and get none.
+ */
+function pageFilters(url: URL, path: string): Record<string, string> | undefined {
+  if (path.startsWith('/_serverFn/')) return undefined
   const filters: Record<string, string> = {}
   for (const key of LOGGED_FILTER_KEYS) {
     const value = url.searchParams.get(key)
@@ -60,6 +67,8 @@ export async function handleRequestWithLog(
 ): Promise<Response> {
   const startedAt = performance.now()
   const url = new URL(request.url)
+  // The access line writes the path without the deployment prefix: every line already carries the `client` field.
+  const path = removePrefix(options.basePath ?? buildBasePath, url.pathname)
   const reqId = createRequestId((options.now ?? (() => new Date()))(), options.timeZone ?? currentLogTimeZone())
   const context: LogContext = { reqId }
   const upstream = request.headers.get('x-request-id')
@@ -80,14 +89,14 @@ export async function handleRequestWithLog(
 
     const fields: LogFields = {
       method: request.method,
-      path: url.pathname.slice(0, MAX_PATH),
+      path: path.slice(0, MAX_PATH),
       status: finished.status,
       durationMs: Math.round(performance.now() - startedAt),
     }
     const ip = clientIp(request)
     if (ip) fields.ip = ip
     if (context.fns?.length) fields.fns = context.fns
-    const filters = pageFilters(url)
+    const filters = pageFilters(url, path)
     if (filters) fields.filters = filters
     if (finished.status >= 500) log.error(fields, 'request')
     else log.info(fields, 'request')
