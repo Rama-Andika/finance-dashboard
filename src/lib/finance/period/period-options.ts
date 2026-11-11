@@ -1,5 +1,5 @@
 /** How many months the period picker lists at most (the newest ones). */
-export const MAX_PERIOD_OPTIONS = 12
+const MAX_PERIOD_OPTIONS = 12
 
 /**
  * The newest `max` months of a newest-first list. Months in `keep` (the range that is currently

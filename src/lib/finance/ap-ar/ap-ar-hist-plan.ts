@@ -2,9 +2,9 @@ import { addDays } from '~/lib/format/date'
 import type { IsoDate } from '../../core/types'
 
 /** The newest month-ends can still change (late entries), so they are rebuilt until they are final. */
-export const PROVISIONAL_MONTHS = 2
+const PROVISIONAL_MONTHS = 2
 /** A provisional snapshot that is at least this old (in hours) is rebuilt. */
-export const PROVISIONAL_MAX_AGE_HOURS = 24
+const PROVISIONAL_MAX_AGE_HOURS = 24
 
 /**
  * Version of the formula behind the month-end AP/AR rows. Raise it whenever a change makes old rows wrong

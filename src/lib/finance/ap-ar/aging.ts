@@ -18,11 +18,11 @@ export const AGING_BUCKETS: readonly AgingBucket[] = [
 export const OVERDUE_BUCKETS: readonly AgingBucket[] = ['overdue0_30', 'overdue31_60', 'overdue61_90', 'overdue90plus']
 
 /** A day count far beyond any real date difference: stands for "no limit" at the open end of a bucket range. */
-export const DAYS_OPEN_END = 100_000_000
+const DAYS_OPEN_END = 100_000_000
 
 /**
- * Whole-day range (asOf minus due date) of every aging bucket, both ends included. The one definition behind the
- * TypeScript `bucketOf` and the SQL of the aggregate query, so the two cannot drift apart (aging-bucket-days.test.ts).
+ * Whole-day range (asOf minus due date) of every aging bucket, both ends included. The SQL of the aggregate query is
+ * built from these ranges. `bucketOf` below repeats the same limits as plain numbers (it runs once per invoice), and the test aging-bucket-days.test.ts fails when the two disagree.
  */
 export const AGING_BUCKET_DAYS: Record<AgingBucket, { min: number; max: number }> = {
   overdue0_30: { min: 0, max: 30 },

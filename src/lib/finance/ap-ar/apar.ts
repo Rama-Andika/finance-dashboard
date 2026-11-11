@@ -1,6 +1,13 @@
 import Decimal from 'decimal.js'
 import { D } from '../../core/money'
-import { type AgingBucket, AGING_BUCKETS, OVERDUE_BUCKETS, RETURN_ITEM_TYPE, bucketOf } from './aging'
+import {
+  type AgingBucket,
+  AGING_BUCKETS,
+  NON_TRADE_ITEM_TYPE,
+  OVERDUE_BUCKETS,
+  RETURN_ITEM_TYPE,
+  bucketOf,
+} from './aging'
 import type { Id, IsoDate, Money } from '../../core/types'
 import type { CoaTree } from '../coa/coa-tree'
 
@@ -121,7 +128,7 @@ function accumulateAging(input: {
     if (bal.gt(0)) unpaid = unpaid.plus(bal)
     else credits = credits.plus(bal)
 
-    if (a.itemType === 3) nonTrade = nonTrade.plus(bal)
+    if (a.itemType === NON_TRADE_ITEM_TYPE) nonTrade = nonTrade.plus(bal)
     if (a.itemType === RETURN_ITEM_TYPE && bal.lt(0)) {
       itemReturns = itemReturns.plus(bal)
       itemReturnCount += 1

@@ -11,19 +11,12 @@ import { D } from '~/lib/core/money'
 import { hashIds, memo } from '~/server/cache'
 import { CASH_LINES_MAX_ACCOUNTS, SNAPSHOT_SEGMENT_COLUMN } from '~/server/dash/tables'
 import { builtCashPeriods, snapshotCashLines } from '~/server/dash/cash-lines-read'
-import type { Id, Money, Period } from '~/lib/core/types'
+import type { Id, Period } from '~/lib/core/types'
+import type { CashJournalLineRow } from '~/server/repo/cash/cash-line-types'
 
 const CASH_LINES_CACHE_MS = 60 * 1000
 
-export type CashJournalLineRow = {
-  glId: Id
-  journalType: number
-  periodId: Id
-  coaId: Id
-  segmentDetailId: Id | null
-  debet: Money
-  credit: Money
-}
+export type { CashJournalLineRow }
 
 export type LinesOfCashJournalsOptions = {
   periods: Period[]

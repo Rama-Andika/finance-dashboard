@@ -7,7 +7,7 @@ import { SLICE_CONCURRENCY, chunk, chunkOrAll, mapLimit, sliceCombos } from '~/s
 import { D } from '~/lib/core/money'
 import { readSnapshotIndex } from './built-index'
 import type { Id } from '~/lib/core/types'
-import type { CashJournalLineRow } from '~/server/repo/cash/cashflow.repo'
+import type { CashJournalLineRow } from '~/server/repo/cash/cash-line-types'
 import { DASH_TABLES } from './tables'
 
 const BUILT_TTL_MS = 30_000

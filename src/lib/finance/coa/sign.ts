@@ -2,7 +2,7 @@ import type Decimal from 'decimal.js'
 import { D } from '../../core/money'
 import type { AccountGroup, Money } from '../../core/types'
 
-export const DEBIT_SIDE_GROUPS: readonly AccountGroup[] = [
+const DEBIT_SIDE_GROUPS: readonly AccountGroup[] = [
   'Liquid Assets',
   'Fixed Assets',
   'Other Assets',

@@ -196,7 +196,8 @@ function monthlyTrend(journals: SettledJournal[], periods: Period[], months: str
   )
 
   for (const j of journals) {
-    const period = periodById.get(j.ourCash[0]!.periodId)
+    const firstCashLine = j.ourCash[0]
+    const period = firstCashLine ? periodById.get(firstCashLine.periodId) : undefined
     const total = totals.get(period ? period.startDate.slice(0, 7) : '')
     if (!total) continue
     if (j.netCash.gt(0)) total.cashIn = total.cashIn.plus(j.netCash)

@@ -2,10 +2,7 @@ import { PERIOD_TYPE, isPeriodOpen } from './period-type'
 import type { Preset } from './presets'
 import type { IsoDate, Period, ResolvedFilter } from '../../core/types'
 
-export type ResolvedPeriod = Pick<
-  ResolvedFilter,
-  'd1' | 'asOf' | 'periodIds' | 'compare' | 'today'
-> & {
+export type ResolvedPeriod = Pick<ResolvedFilter, 'd1' | 'asOf' | 'periodIds' | 'compare' | 'today'> & {
   months: string[] // 'YYYY-MM' months in range
   missingMonths: string[] // months without a type-0 period row
   hasOpenPeriod: boolean // range contains an Open/Pre Closed period
@@ -71,12 +68,18 @@ export type MonthRange = { from?: string; to?: string }
 
 const MAX_RANGE_MONTHS = 60
 
+/** `YYYY-MM` as [year, month]. A part that is missing becomes NaN, so a malformed value never counts as a valid range. */
+function yearMonthOf(value: string): [number, number] {
+  const [year = Number.NaN, month = Number.NaN] = value.split('-').map(Number)
+  return [year, month]
+}
+
 /** Number of months from `from` to `to` inclusive, or 0 when the range is invalid. */
 function rangeLength(range: MonthRange | undefined): number {
   if (!range?.from || !range.to) return 0
-  const [fy, fm] = range.from.split('-').map(Number)
-  const [ty, tm] = range.to.split('-').map(Number)
-  const count = (ty! - fy!) * 12 + (tm! - fm!) + 1
+  const [fy, fm] = yearMonthOf(range.from)
+  const [ty, tm] = yearMonthOf(range.to)
+  const count = (ty - fy) * 12 + (tm - fm) + 1
   return count >= 1 && count <= MAX_RANGE_MONTHS ? count : 0
 }
 
@@ -91,9 +94,9 @@ type PeriodWindow = {
 }
 
 /** Comparison = the range of the same length that ends right before this one. */
-function customWindow(range: MonthRange, count: number, today: IsoDate): PeriodWindow {
-  const [fy, fm] = range.from!.split('-').map(Number) as [number, number]
-  const [ty, tm] = range.to!.split('-').map(Number) as [number, number]
+function customWindow(from: string, to: string, count: number, today: IsoDate): PeriodWindow {
+  const [fy, fm] = yearMonthOf(from)
+  const [ty, tm] = yearMonthOf(to)
   const end = lastDayOfMonth(ty, tm)
 
   const prevIndex = fy * 12 + (fm - 1) - count
@@ -207,7 +210,9 @@ export function resolvePeriod(
   const customCount = rangeLength(range)
   const isP13Allowed = customCount > 0 || preset === 'ytd' || preset === 'last-12m'
   const { months, d1, asOf, compareMonths, compareD1, compareAsOf } =
-    customCount > 0 ? customWindow(range!, customCount, today) : presetWindow(preset, today)
+    customCount > 0 && range?.from && range.to
+      ? customWindow(range.from, range.to, customCount, today)
+      : presetWindow(preset, today)
 
   const withP13 = includeP13 && isP13Allowed
   const currentResolution = resolvePeriodIds({ months, d1, asOf }, withP13, periods)

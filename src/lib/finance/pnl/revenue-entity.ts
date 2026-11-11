@@ -5,9 +5,9 @@ import { compareAsc } from '../../core/compare'
 import type { Id, Money } from '../../core/types'
 
 /** The ring shows at most this many entities; the rest merge into one "Other" segment. */
-export const ENTITY_RING_MAX = 10
+const ENTITY_RING_MAX = 10
 /** The legend lists this many segments; the remaining ones are summed in one extra row. */
-export const ENTITY_LEGEND_SIZE = 5
+const ENTITY_LEGEND_SIZE = 5
 export const OTHER_SEGMENT_ID = 'other'
 export const UNASSIGNED_ROW_ID = 'unassigned'
 

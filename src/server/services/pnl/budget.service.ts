@@ -39,7 +39,11 @@ async function computeBudgetUncached(filter: AppContextFilter): Promise<BudgetRe
   const tree = await getCachedCoaTree()
   // 1. Identify target CoA IDs
   const targetCoaIds: Id[] = postableAccountIds(tree, PNL_ACCOUNT_GROUPS)
-  const coaGroupMap = new Map<Id, AccountGroup>(targetCoaIds.map((id) => [id, tree.byId.get(id)!.accountGroup]))
+  const coaGroupMap = new Map<Id, AccountGroup>()
+  for (const id of targetCoaIds) {
+    const node = tree.byId.get(id)
+    if (node) coaGroupMap.set(id, node.accountGroup)
+  }
 
   if (targetCoaIds.length === 0 || filter.periodIds.length === 0) {
     return {

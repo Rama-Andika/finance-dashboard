@@ -23,7 +23,7 @@ export interface NavItemDef {
   icon: React.ComponentType<{ className?: string; size?: number; strokeWidth?: number }>
 }
 
-export const MAIN_NAV_ITEMS: NavItemDef[] = [
+const MAIN_NAV_ITEMS: NavItemDef[] = [
   { labelKey: 'nav.summary', to: '/summary', icon: LayoutDashboard },
   { labelKey: 'nav.revenue', to: '/revenue', icon: TrendingUp },
   { labelKey: 'nav.cashPosition', to: '/cash-position', icon: Wallet },
@@ -36,7 +36,7 @@ export const MAIN_NAV_ITEMS: NavItemDef[] = [
   { labelKey: 'nav.budget', to: '/budget', icon: Target },
 ]
 
-export const SETTINGS_NAV_ITEMS: NavItemDef[] = [
+const SETTINGS_NAV_ITEMS: NavItemDef[] = [
   { labelKey: 'nav.accountMapping', to: '/settings/account-mapping', icon: ListTree },
 ]
 
@@ -46,18 +46,18 @@ export interface SidebarNavProps {
   isTabletCollapsed?: boolean
 }
 
-export function SidebarNav({
-  onNavigate,
-  className,
-  isTabletCollapsed = false,
-}: SidebarNavProps) {
+export function SidebarNav({ onNavigate, className, isTabletCollapsed = false }: SidebarNavProps) {
   const { t } = useTranslation()
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
 
   return (
     <nav
-      className={cn('nr-sidebar h-full min-h-0 flex flex-col', isTabletCollapsed && 'md:w-16 lg:w-(--sidebar-width)', className)}
+      className={cn(
+        'nr-sidebar h-full min-h-0 flex flex-col',
+        isTabletCollapsed && 'md:w-16 lg:w-(--sidebar-width)',
+        className,
+      )}
       aria-label={t('ui.shell.mainMenu')}
     >
       <div className="nr-brand flex-none">
@@ -76,22 +76,15 @@ export function SidebarNav({
               onClick={onNavigate}
               aria-current={isActive ? 'page' : undefined}
               aria-label={t(item.labelKey)}
-              className={cn(
-                'nr-nav-item',
-                isTabletCollapsed && 'md:justify-center md:px-0 lg:justify-start lg:px-3',
-              )}
+              className={cn('nr-nav-item', isTabletCollapsed && 'md:justify-center md:px-0 lg:justify-start lg:px-3')}
             >
               <Icon className="nr-icon" size={18} strokeWidth={1.75} aria-hidden="true" />
-              <span className={cn(isTabletCollapsed && 'md:hidden lg:inline')}>
-                {t(item.labelKey)}
-              </span>
+              <span className={cn(isTabletCollapsed && 'md:hidden lg:inline')}>{t(item.labelKey)}</span>
             </Link>
           )
         })}
 
-        <div className={cn('nr-nav-group', isTabletCollapsed && 'md:hidden lg:block')}>
-          {t('nav.settingsGroup')}
-        </div>
+        <div className={cn('nr-nav-group', isTabletCollapsed && 'md:hidden lg:block')}>{t('nav.settingsGroup')}</div>
 
         {SETTINGS_NAV_ITEMS.map((item) => {
           const Icon = item.icon
@@ -103,15 +96,10 @@ export function SidebarNav({
               onClick={onNavigate}
               aria-current={isActive ? 'page' : undefined}
               aria-label={t(item.labelKey)}
-              className={cn(
-                'nr-nav-item',
-                isTabletCollapsed && 'md:justify-center md:px-0 lg:justify-start lg:px-3',
-              )}
+              className={cn('nr-nav-item', isTabletCollapsed && 'md:justify-center md:px-0 lg:justify-start lg:px-3')}
             >
               <Icon className="nr-icon" size={18} strokeWidth={1.75} aria-hidden="true" />
-              <span className={cn(isTabletCollapsed && 'md:hidden lg:inline')}>
-                {t(item.labelKey)}
-              </span>
+              <span className={cn(isTabletCollapsed && 'md:hidden lg:inline')}>{t(item.labelKey)}</span>
             </Link>
           )
         })}
