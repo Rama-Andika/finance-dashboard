@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '~/lib/cn'
 import { limitMonthOptions } from '~/lib/finance/period/period-options'
@@ -54,11 +54,6 @@ export function CustomRangeForm({
   const { t } = useTranslation()
   const [draftFrom, setDraftFrom] = useState(from ?? months[0]?.month ?? '')
   const [draftTo, setDraftTo] = useState(to ?? months[0]?.month ?? '')
-  useEffect(() => {
-    // The month list arrives after the first render, and the URL range can change from outside
-    setDraftFrom(from ?? months[0]?.month ?? '')
-    setDraftTo(to ?? months[0]?.month ?? '')
-  }, [from, to, months])
 
   const draftInvalid = !draftFrom || !draftTo || draftFrom > draftTo
   // Only the newest 12 months are listed; the range that is selected right now always stays listed.
@@ -67,8 +62,7 @@ export function CustomRangeForm({
     [months, from, to, draftFrom, draftTo],
   )
 
-  const statusLabel = (status: PeriodMonthOption['status']) =>
-    t(`period.picker.${STATUS_KEY[status]}`)
+  const statusLabel = (status: PeriodMonthOption['status']) => t(`period.picker.${STATUS_KEY[status]}`)
   const monthLabel = (month: string) => formatMonthYear(`${month}-01`, lang)
 
   const monthSelect = (value: string, onChange: (month: string) => void) => (
@@ -95,7 +89,9 @@ export function CustomRangeForm({
         </label>
       </div>
       {draftFrom > draftTo && (
-        <p className="text-[11px] text-danger" role="alert">{t('period.picker.invalidRange')}</p>
+        <p className="text-[11px] text-danger" role="alert">
+          {t('period.picker.invalidRange')}
+        </p>
       )}
       <button
         type="button"

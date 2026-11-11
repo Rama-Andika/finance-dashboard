@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -23,10 +23,11 @@ function useCoaTreeView(tree: CoaTree) {
   const [expandedIds, setExpandedIds] = useState<Set<Id>>(() => new Set(tree.roots.map((r) => r.coaId)))
   const [collapsedInSearch, setCollapsedInSearch] = useState<Set<Id>>(() => new Set())
 
-  // Reset collapsed set when search query changes
-  useEffect(() => {
+  // A new search starts with every folder on the way to a hit open again.
+  const changeSearch = (value: string) => {
+    setSearchQuery(value)
     setCollapsedInSearch(new Set())
-  }, [searchQuery])
+  }
 
   // Ids to keep while searching (hits, ancestors, and descendants); null when there is no search
   const matchingIds = useMemo(() => matchingCoaIds(tree, searchQuery), [tree, searchQuery])
@@ -54,7 +55,7 @@ function useCoaTreeView(tree: CoaTree) {
     [tree, expandedIds, matchingIds, collapsedInSearch],
   )
 
-  return { searchQuery, setSearchQuery, toggleExpand, visibleItems }
+  return { searchQuery, setSearchQuery: changeSearch, toggleExpand, visibleItems }
 }
 
 function CoaSearchBar({ value, onChange }: { value: string; onChange: (value: string) => void }) {

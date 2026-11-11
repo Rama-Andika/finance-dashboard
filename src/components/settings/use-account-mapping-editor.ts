@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { qk } from '~/queries/keys'
 import { accountMappingQueryOptions, coaTreeQueryOptions } from '~/queries/settings.queries'
@@ -18,17 +18,12 @@ export function useAccountMappingEditor(search: Parameters<typeof coaTreeQueryOp
   const coaQuery = useQuery(coaTreeQueryOptions(search))
 
   const [activeBasket, setActiveBasket] = useState<BasketKey>('cash')
-  const [currentMapping, setCurrentMapping] = useState<AccountMapping | null>(null)
+  // The edit in progress: null until the first change, so the saved mapping is what is shown until then.
+  const [editedMapping, setEditedMapping] = useState<AccountMapping | null>(null)
+  const currentMapping = editedMapping ?? mappingQuery.data?.mapping ?? null
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [saveError, setSaveError] = useState<unknown>(null)
-
-  // Initialize mapping when query data loads
-  useEffect(() => {
-    if (mappingQuery.data?.mapping && !currentMapping) {
-      setCurrentMapping(mappingQuery.data.mapping)
-    }
-  }, [mappingQuery.data?.mapping, currentMapping])
 
   // Build CoA tree from nodes
   const tree = useMemo(() => {
@@ -65,7 +60,7 @@ export function useAccountMappingEditor(search: Parameters<typeof coaTreeQueryOp
     const currentInclude = currentMapping.baskets[activeBasket]?.include ?? []
     const nextInclude = toggleNode(currentInclude, tree, coaId)
 
-    setCurrentMapping({
+    setEditedMapping({
       ...currentMapping,
       baskets: {
         ...currentMapping.baskets,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Building2, ChevronDown } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/shadcn/popover'
@@ -15,12 +15,7 @@ export interface EntityPickerProps {
   disabled?: boolean
 }
 
-export function EntityPicker({
-  entities,
-  selectedToken,
-  onApply,
-  disabled = false,
-}: EntityPickerProps) {
+export function EntityPicker({ entities, selectedToken, onApply, disabled = false }: EntityPickerProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const isDesktop = useIsDesktop()
@@ -31,19 +26,23 @@ export function EntityPicker({
     if (!selectedToken || selectedToken === 'all') {
       return new Set(entities.map((e) => e.id))
     }
-    const codes = selectedToken.split(',').map((c) => c.trim()).filter(Boolean)
+    const codes = selectedToken
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean)
     return new Set(codes)
   }, [selectedToken, entities])
 
   const [tempSelected, setTempSelected] = useState<Set<string>>(initialSelected)
 
-  // Reset temp selection when opening
-  useEffect(() => {
-    if (open) {
+  // Opening starts from the applied selection with an empty search; closing keeps nothing.
+  const handleOpenChange = (next: boolean) => {
+    if (next) {
       setTempSelected(initialSelected)
       setSearchQuery('')
     }
-  }, [open, initialSelected])
+    setOpen(next)
+  }
 
   const handleToggle = (id: string) => {
     const next = new Set(tempSelected)
@@ -60,7 +59,12 @@ export function EntityPicker({
     if (tempSelected.size === entities.length) {
       onApply('all')
     } else {
-      onApply(entities.filter((e) => tempSelected.has(e.id)).map((e) => e.id).join(','))
+      onApply(
+        entities
+          .filter((e) => tempSelected.has(e.id))
+          .map((e) => e.id)
+          .join(','),
+      )
     }
     setOpen(false)
   }
@@ -111,12 +115,9 @@ export function EntityPicker({
 
   if (isDesktop) {
     return (
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>{triggerButton}</PopoverTrigger>
-        <PopoverContent
-          align="start"
-          className="w-auto p-0 border border-line shadow-pop rounded-md overflow-hidden"
-        >
+        <PopoverContent align="start" className="w-auto p-0 border border-line shadow-pop rounded-md overflow-hidden">
           {pickerContent}
         </PopoverContent>
       </Popover>
@@ -124,7 +125,7 @@ export function EntityPicker({
   }
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>{triggerButton}</SheetTrigger>
       <SheetContent side="bottom" className="p-0 rounded-t-xl max-h-[90vh] flex flex-col">
         <SheetHeader className="p-3 border-b border-line">

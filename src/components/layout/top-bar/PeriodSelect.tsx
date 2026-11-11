@@ -149,6 +149,7 @@ export function PeriodSelect({
 
               {months.length > 0 && onRangeChange && (
                 <CustomRangeForm
+                  key={`${from ?? ''}|${to ?? ''}|${months.length}|${months[0]?.month ?? ''}`}
                   months={months}
                   from={from}
                   to={to}
