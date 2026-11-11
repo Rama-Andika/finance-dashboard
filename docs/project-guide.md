@@ -283,91 +283,92 @@ Tampilan memakai **rupiah (IDR) saja**. Kolom `debet`/`credit` di ERP sudah dala
 
 Istilah teknis dan istilah finance yang dipakai di dokumen dan di layar. "Lihat" menunjuk ke bab tempat penjelasannya.
 
-| Istilah                                   | Arti sederhana                                                                                                                      | Lihat          |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| **Account Mapping**                       | Halaman Settings tempat admin memilih akun mana yang dihitung sebagai Kas, Bank, Deposito, Dana dalam pencairan, dan Biaya Tetap.   | 8.10           |
-| **Accrual**                               | Pencatatan pendapatan/biaya saat terjadi, bukan saat uang bergerak.                                                                 | 2.5            |
-| **Aging / Umur**                          | Pengelompokan tagihan menurut berapa hari terlambat dari jatuh tempo.                                                               | 8.7            |
-| **Aktiva / Pasiva**                       | Dua sisi Neraca. Aktiva = apa yang dimiliki (harta). Pasiva = dari mana dananya (utang + ekuitas). Keduanya harus sama.             | 8.13           |
-| **AP**                                    | _Accounts Payable_, utang usaha.                                                                                                    | 2.8            |
-| **AR**                                    | _Accounts Receivable_, piutang usaha.                                                                                               | 2.8            |
-| **`asOf` (tanggal acuan)**                | Tanggal yang dipakai untuk angka potret. Ditentukan filter periode, maksimal hari ini.                                              | 6.1            |
-| **`ap_ar_card`**                          | Tabel ERP berisi tagihan dan pembayaran utang/piutang.                                                                              | 4.4            |
-| **Bank Payment PO**                       | Alur pembayaran utang di ERP (voucher → pembayaran).                                                                                | 4.6            |
-| **Basket / Keranjang akun**               | Kumpulan akun yang dihitung sebagai satu kelompok (Kas, Bank, Deposito, Dana dalam pencairan, Biaya Tetap).                         | 6.6            |
-| **Bucket**                                | Satu kelompok umur dalam aging (mis. 31–60 hari).                                                                                   | 8.7            |
-| **Budget vs Actual**                      | Anggaran dibandingkan realisasi.                                                                                                    | 8.6            |
-| **Burn (laju bakar)**                     | Rata-rata uang bersih yang keluar per bulan. Dipakai untuk Runway.                                                                  | 8.4.6          |
-| **Cash Flow (arus kas)**                  | Uang yang benar-benar masuk dan keluar selama periode.                                                                              | 8.4            |
-| **Cash Position**                         | Saldo Kas + Bank pada tanggal acuan.                                                                                                | 8.3            |
-| **Closed / Open / Pre Closed**            | Status periode akuntansi.                                                                                                           | 2.6            |
-| **CoA**                                   | _Chart of Accounts_, daftar akun berbentuk pohon.                                                                                   | 2.2            |
-| **Cost Of Sales (HPP)**                   | Harga pokok penjualan, biaya langsung barang yang terjual.                                                                          | 2.3            |
-| **Current Ratio**                         | Aset lancar ÷ kewajiban lancar. Ukuran kemampuan membayar utang jangka pendek.                                                      | 8.4.6          |
-| **`dash_*`**                              | Tabel milik dashboard (salinan hasil hitung).                                                                                       | 5              |
-| **Dana dalam pencairan (in transit)**     | Uang pembayaran kartu/QRIS/e-wallet yang sudah dibayar pelanggan tetapi belum masuk rekening bank.                                  | 8.3            |
-| **Data as of**                            | Kartu di sidebar yang menunjukkan kapan tabel `dash_*` terakhir dibangun.                                                           | 10.4           |
-| **Debit / Kredit**                        | Dua sisi pencatatan jurnal.                                                                                                         | 2.1            |
-| **Deposito**                              | Simpanan berjangka. Baris terpisah di Cash Position, tidak masuk angka utama.                                                       | 8.3            |
-| **Draft**                                 | Jurnal yang belum diposting. Tidak dihitung.                                                                                        | 2.7            |
-| **Drill-down**                            | Membuka rincian sebuah angka sampai baris jurnal.                                                                                   | 8.12           |
-| **EDC**                                   | Mesin gesek kartu di kasir. Pembayarannya termasuk dana dalam pencairan.                                                            | 8.3            |
-| **Ekuitas (modal)**                       | Hak pemilik atas perusahaan: modal disetor, laba ditahan, dan laba tahun berjalan. Sama dengan Aktiva dikurangi utang.              | 8.13           |
-| **Eliminasi intercompany**                | Menghapus transaksi antar-entitas dalam satu grup agar tidak terhitung dua kali. **Tidak dilakukan** di dashboard.                  | 2.9            |
-| **Entitas**                               | Satu lokasi (`pos_location`), mewakili satu anak perusahaan/cabang.                                                                 | 2.9            |
-| **ERP**                                   | Sistem pencatatan transaksi klien yang menjadi sumber data.                                                                         | 1.1            |
-| **Expense Paid**                          | Biaya operasional yang sudah dibayar kas.                                                                                           | 8.4.7          |
-| **Fingerprint (sidik jari)**              | Ringkasan kecil kondisi data ERP yang disimpan bersama snapshot. Bila berubah, snapshot dibangun ulang.                             | 5.1            |
-| **Fixed Cost (Biaya Tetap)**              | Biaya tetap bulanan; akunnya dipilih di Account Mapping.                                                                            | 8.5            |
-| **Flow**                                  | Angka yang mengalir selama periode.                                                                                                 | 2.4            |
-| **`gl`, `gl_detail`**                     | Kepala dan baris jurnal buku besar di ERP.                                                                                          | 4.3            |
-| **Giro / Cek beredar**                    | Pembayaran dengan giro/cek yang sudah dicatat tetapi belum dicairkan bank. Hanya informasi di Cash Position.                        | 8.3            |
-| **Gross Profit / Margin**                 | Laba kotor (Revenue − HPP) dan rasionya terhadap Revenue.                                                                           | 2.3            |
-| **HEADER / POSTABLE**                     | Akun folder / akun tempat jurnal dicatat.                                                                                           | 2.2            |
-| **HPP**                                   | Harga pokok penjualan (Cost Of Sales).                                                                                              | 2.3            |
-| **`in_out`**                              | Kolom kartu utang/piutang: `1` menambah saldo, `-1` mengurangi, `0` abaikan.                                                        | 4.4            |
-| **Jatuh tempo (`due_date`)**              | Tanggal tagihan harus dibayar.                                                                                                      | 8.7            |
-| **Jurnal pembalik (reversal)**            | Jurnal yang membatalkan jurnal lain. Dihitung bersama aslinya.                                                                      | 6.2            |
-| **Konsinyasi**                            | Barang titipan; hutangnya muncul dari penjualan (nomor `…/SLS/…`).                                                                  | 4.4            |
-| **Konsolidasi**                           | Penjumlahan banyak entitas.                                                                                                         | 2.9            |
-| **Kredit vendor**                         | Semua item AP yang sisanya negatif: retur, memo kredit, kelebihan bayar. Memotong utang.                                            | 8.7            |
-| **Laba Rugi (P&L)**                       | Laporan untung/rugi selama periode.                                                                                                 | 2.3            |
-| **Laba Tahun Berjalan / Laba Tahun Lalu** | Dua akun ekuitas penampung laba: laba tahun buku yang sedang berjalan sampai tanggal laporan, dan laba tahun-tahun buku sebelumnya. | 8.13.3         |
-| **MDR**                                   | Biaya yang dipotong penyedia pembayaran dari transaksi kartu/QRIS. Kolomnya tidak dipakai.                                          | 4.5            |
-| **NBAL (non-balancing)**                  | Segmen Lokasi tidak memaksa jurnal seimbang per lokasi, jadi saldo kas/utang per entitas bisa terlihat janggal.                     | 6.4            |
-| **Neraca**                                | Laporan posisi harta, utang, modal pada satu tanggal.                                                                               | 2.3, 8.13      |
-| **Net Profit / Margin**                   | Laba bersih dan rasionya terhadap Revenue.                                                                                          | 2.3            |
-| **OCI**                                   | _Other Comprehensive Income_. Fitur **dinonaktifkan sementara** (D39, O4).                                                          | 8.5            |
-| **Operating Profit**                      | Laba usaha: Laba Kotor − Beban Operasional.                                                                                         | 2.3            |
-| **Other Revenue / Other Expense**         | Pendapatan/beban di luar usaha utama (jasa giro, bunga, selisih kurs). Tidak masuk Revenue.                                         | 2.3            |
-| **Overdue**                               | Tagihan yang sudah lewat jatuh tempo. Kartu Payables memakai tagihan positif saja; halaman Payables memakai neto per bucket.        | 8.7            |
-| **Payment Plan**                          | Rencana pembayaran harian ke depan (7/14/30 hari).                                                                                  | 8.9            |
-| **Pembayaran belum dialokasikan**         | Hanya AP: kartu pelunasan (tipe 7–14) tanpa detail sama sekali; mengurangi utang.                                                   | 8.7            |
-| **Pengakuan Biaya**                       | Dokumen ERP (`bankpo_payment` tipe 0) tempat finance memilih beberapa tagihan satu vendor untuk dibayar bersamaan. Bukan "voucher". | 4.6            |
-| **Periode 13**                            | Periode tambahan akhir tahun untuk penyesuaian/audit.                                                                               | 2.6            |
-| **`period_id`**                           | Periode pencatatan sebuah jurnal. Dasar angka bulanan.                                                                              | 6.3            |
-| **Posted**                                | Jurnal yang sudah diposting. Hanya ini yang dihitung.                                                                               | 2.7            |
-| **`pos_location`**                        | Tabel ERP berisi lokasi = entitas.                                                                                                  | 4.2            |
-| **Preset periode**                        | Pilihan cepat filter: Bulan ini, Bulan lalu, Kuartal ini, YTD, 12 bulan.                                                            | 6.1            |
-| **QRIS / e-wallet**                       | Pembayaran non-tunai; termasuk dana dalam pencairan.                                                                                | 8.3            |
-| **Realisasi (Actual)**                    | Angka sebenarnya dari jurnal, lawan dari anggaran.                                                                                  | 8.6            |
-| **Retur dengan nota**                     | Retur AR yang langsung menunjuk faktur (kartu retur memegang detailnya sendiri). Sudah selesai saat dibuat.                         | 8.8            |
-| **Retur langsung**                        | Kartu retur tanpa baris detail sendiri: berdiri sendiri, belum dikaitkan ke tagihan. Terpakai bila ada alokasi pelunasan.           | 8.7, 8.8       |
-| **Refresh now (Perbarui sekarang)**       | Tombol di sidebar untuk membangun ulang tabel `dash_*` sekarang.                                                                    | 10.4           |
-| **Repo / Service / Server function**      | Lapisan kode: repo = SQL, service = merangkai repo dan rumus, server function = pintu masuk dari browser.                           | 1.3            |
-| **Revenue (Pendapatan)**                  | Pendapatan usaha utama (grup akun Revenue, bukan Other Revenue).                                                                    | 8.2            |
-| **Runway**                                | Berapa bulan kas bertahan bila laju bakar tetap.                                                                                    | 8.4.6          |
-| **Saldo awal**                            | Saldo akun pada awal sebuah periode, ditulis ERP saat periode sebelumnya ditutup (`coa_opening_balance_location`).                  | 4.2, 7.2, 8.13 |
-| **`segment1_id` / segmen**                | Kolom baris jurnal yang menunjuk lokasi.                                                                                            | 4.2            |
-| **Seleksi Invoice**                       | Menu ERP untuk memilih tagihan yang akan dibayar; menghasilkan Pengakuan Biaya.                                                     | 4.6            |
-| **Snapshot**                              | (1) potret angka pada satu tanggal; (2) tabel `dash_snap_*` berisi salinan hasil hitung.                                            | 2.4, 5         |
-| **SWR (_stale-while-revalidate_)**        | Menampilkan angka lama seketika sambil menghitung ulang di belakang layar.                                                          | 9              |
-| **`sysuser`**                             | Tabel akun ERP yang dipakai login dashboard.                                                                                        | 4.7            |
-| **`system_main`**                         | Tabel pengaturan ERP; menyimpan Account Mapping.                                                                                    | 4.7            |
-| **Tahun buku**                            | Satu tahun pembukuan perusahaan. Bulan terakhirnya dibaca dari `company.end_fiscal_month` (bisa bukan Desember).                    | 8.13.3         |
-| **Tanpa entitas**                         | Baris pendapatan/jurnal yang tidak punya lokasi.                                                                                    | 8.2            |
-| **`trans_date`**                          | Tanggal transaksi jurnal. Dasar angka harian.                                                                                       | 6.3            |
-| **YTD**                                   | _Year To Date_, dari Januari sampai sekarang.                                                                                       | 6.1            |
+| Istilah                                   | Arti sederhana                                                                                                                               | Lihat          |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| **Account Mapping**                       | Halaman Settings tempat admin memilih akun mana yang dihitung sebagai Kas, Bank, Deposito, Dana dalam pencairan, dan Biaya Tetap.            | 8.10           |
+| **Accrual**                               | Pencatatan pendapatan/biaya saat terjadi, bukan saat uang bergerak.                                                                          | 2.5            |
+| **Aging / Umur**                          | Pengelompokan tagihan menurut berapa hari terlambat dari jatuh tempo.                                                                        | 8.7            |
+| **Aktiva / Pasiva**                       | Dua sisi Neraca. Aktiva = apa yang dimiliki (harta). Pasiva = dari mana dananya (utang + ekuitas). Keduanya harus sama.                      | 8.13           |
+| **AP**                                    | _Accounts Payable_, utang usaha.                                                                                                             | 2.8            |
+| **AR**                                    | _Accounts Receivable_, piutang usaha.                                                                                                        | 2.8            |
+| **`asOf` (tanggal acuan)**                | Tanggal yang dipakai untuk angka potret. Ditentukan filter periode, maksimal hari ini.                                                       | 6.1            |
+| **`ap_ar_card`**                          | Tabel ERP berisi tagihan dan pembayaran utang/piutang.                                                                                       | 4.4            |
+| **Bank Payment PO**                       | Alur pembayaran utang di ERP (voucher → pembayaran).                                                                                         | 4.6            |
+| **Basket / Keranjang akun**               | Kumpulan akun yang dihitung sebagai satu kelompok (Kas, Bank, Deposito, Dana dalam pencairan, Biaya Tetap).                                  | 6.6            |
+| **Bucket**                                | Satu kelompok umur dalam aging (mis. 31–60 hari).                                                                                            | 8.7            |
+| **Budget vs Actual**                      | Anggaran dibandingkan realisasi.                                                                                                             | 8.6            |
+| **Burn (laju bakar)**                     | Rata-rata uang bersih yang keluar per bulan. Dipakai untuk Runway.                                                                           | 8.4.6          |
+| **Cash Flow (arus kas)**                  | Uang yang benar-benar masuk dan keluar selama periode.                                                                                       | 8.4            |
+| **Cash Position**                         | Saldo Kas + Bank pada tanggal acuan.                                                                                                         | 8.3            |
+| **Closed / Open / Pre Closed**            | Status periode akuntansi.                                                                                                                    | 2.6            |
+| **CoA**                                   | _Chart of Accounts_, daftar akun berbentuk pohon.                                                                                            | 2.2            |
+| **Cost Of Sales (HPP)**                   | Harga pokok penjualan, biaya langsung barang yang terjual.                                                                                   | 2.3            |
+| **Current Ratio**                         | Aset lancar ÷ kewajiban lancar. Ukuran kemampuan membayar utang jangka pendek.                                                               | 8.4.6          |
+| **`dash_*`**                              | Tabel milik dashboard (salinan hasil hitung).                                                                                                | 5              |
+| **Dana dalam pencairan (in transit)**     | Uang pembayaran kartu/QRIS/e-wallet yang sudah dibayar pelanggan tetapi belum masuk rekening bank.                                           | 8.3            |
+| **Data as of**                            | Kartu di sidebar yang menunjukkan kapan tabel `dash_*` terakhir dibangun.                                                                    | 10.4           |
+| **Debit / Kredit**                        | Dua sisi pencatatan jurnal.                                                                                                                  | 2.1            |
+| **Deposito**                              | Simpanan berjangka. Baris terpisah di Cash Position, tidak masuk angka utama.                                                                | 8.3            |
+| **Draft**                                 | Jurnal yang belum diposting. Tidak dihitung.                                                                                                 | 2.7            |
+| **Drill-down**                            | Membuka rincian sebuah angka sampai baris jurnal.                                                                                            | 8.12           |
+| **EDC**                                   | Mesin gesek kartu di kasir. Pembayarannya termasuk dana dalam pencairan.                                                                     | 8.3            |
+| **Ekuitas (modal)**                       | Hak pemilik atas perusahaan: modal disetor, laba ditahan, dan laba tahun berjalan. Sama dengan Aktiva dikurangi utang.                       | 8.13           |
+| **Eliminasi intercompany**                | Menghapus transaksi antar-entitas dalam satu grup agar tidak terhitung dua kali. **Tidak dilakukan** di dashboard.                           | 2.9            |
+| **Entitas**                               | Satu lokasi (`pos_location`), mewakili satu anak perusahaan/cabang.                                                                          | 2.9            |
+| **ERP**                                   | Sistem pencatatan transaksi klien yang menjadi sumber data.                                                                                  | 1.1            |
+| **Expense Paid**                          | Biaya operasional yang sudah dibayar kas.                                                                                                    | 8.4.7          |
+| **Fingerprint (sidik jari)**              | Ringkasan kecil kondisi data ERP yang disimpan bersama snapshot. Bila berubah, snapshot dibangun ulang.                                      | 5.1            |
+| **Fixed Cost (Biaya Tetap)**              | Biaya tetap bulanan; akunnya dipilih di Account Mapping.                                                                                     | 8.5            |
+| **Flow**                                  | Angka yang mengalir selama periode.                                                                                                          | 2.4            |
+| **`gl`, `gl_detail`**                     | Kepala dan baris jurnal buku besar di ERP.                                                                                                   | 4.3            |
+| **Giro / Cek beredar**                    | Pembayaran dengan giro/cek yang sudah dicatat tetapi belum dicairkan bank. Hanya informasi di Cash Position.                                 | 8.3            |
+| **Gross Profit / Margin**                 | Laba kotor (Revenue − HPP) dan rasionya terhadap Revenue.                                                                                    | 2.3            |
+| **HEADER / POSTABLE**                     | Akun folder / akun tempat jurnal dicatat.                                                                                                    | 2.2            |
+| **HPP**                                   | Harga pokok penjualan (Cost Of Sales).                                                                                                       | 2.3            |
+| **`in_out`**                              | Kolom kartu utang/piutang: `1` menambah saldo, `-1` mengurangi, `0` abaikan.                                                                 | 4.4            |
+| **Jatuh tempo (`due_date`)**              | Tanggal tagihan harus dibayar.                                                                                                               | 8.7            |
+| **Jurnal pembalik (reversal)**            | Jurnal yang membatalkan jurnal lain. Dihitung bersama aslinya.                                                                               | 6.2            |
+| **Kode referensi (request ID)**           | Kode di layar saat terjadi error (mis. 20261110-143551-k7q2m). Developer memakainya untuk menemukan catatan lengkap error itu di log server. | 10.6           |
+| **Konsinyasi**                            | Barang titipan; hutangnya muncul dari penjualan (nomor `…/SLS/…`).                                                                           | 4.4            |
+| **Konsolidasi**                           | Penjumlahan banyak entitas.                                                                                                                  | 2.9            |
+| **Kredit vendor**                         | Semua item AP yang sisanya negatif: retur, memo kredit, kelebihan bayar. Memotong utang.                                                     | 8.7            |
+| **Laba Rugi (P&L)**                       | Laporan untung/rugi selama periode.                                                                                                          | 2.3            |
+| **Laba Tahun Berjalan / Laba Tahun Lalu** | Dua akun ekuitas penampung laba: laba tahun buku yang sedang berjalan sampai tanggal laporan, dan laba tahun-tahun buku sebelumnya.          | 8.13.3         |
+| **MDR**                                   | Biaya yang dipotong penyedia pembayaran dari transaksi kartu/QRIS. Kolomnya tidak dipakai.                                                   | 4.5            |
+| **NBAL (non-balancing)**                  | Segmen Lokasi tidak memaksa jurnal seimbang per lokasi, jadi saldo kas/utang per entitas bisa terlihat janggal.                              | 6.4            |
+| **Neraca**                                | Laporan posisi harta, utang, modal pada satu tanggal.                                                                                        | 2.3, 8.13      |
+| **Net Profit / Margin**                   | Laba bersih dan rasionya terhadap Revenue.                                                                                                   | 2.3            |
+| **OCI**                                   | _Other Comprehensive Income_. Fitur **dinonaktifkan sementara** (D39, O4).                                                                   | 8.5            |
+| **Operating Profit**                      | Laba usaha: Laba Kotor − Beban Operasional.                                                                                                  | 2.3            |
+| **Other Revenue / Other Expense**         | Pendapatan/beban di luar usaha utama (jasa giro, bunga, selisih kurs). Tidak masuk Revenue.                                                  | 2.3            |
+| **Overdue**                               | Tagihan yang sudah lewat jatuh tempo. Kartu Payables memakai tagihan positif saja; halaman Payables memakai neto per bucket.                 | 8.7            |
+| **Payment Plan**                          | Rencana pembayaran harian ke depan (7/14/30 hari).                                                                                           | 8.9            |
+| **Pembayaran belum dialokasikan**         | Hanya AP: kartu pelunasan (tipe 7–14) tanpa detail sama sekali; mengurangi utang.                                                            | 8.7            |
+| **Pengakuan Biaya**                       | Dokumen ERP (`bankpo_payment` tipe 0) tempat finance memilih beberapa tagihan satu vendor untuk dibayar bersamaan. Bukan "voucher".          | 4.6            |
+| **Periode 13**                            | Periode tambahan akhir tahun untuk penyesuaian/audit.                                                                                        | 2.6            |
+| **`period_id`**                           | Periode pencatatan sebuah jurnal. Dasar angka bulanan.                                                                                       | 6.3            |
+| **Posted**                                | Jurnal yang sudah diposting. Hanya ini yang dihitung.                                                                                        | 2.7            |
+| **`pos_location`**                        | Tabel ERP berisi lokasi = entitas.                                                                                                           | 4.2            |
+| **Preset periode**                        | Pilihan cepat filter: Bulan ini, Bulan lalu, Kuartal ini, YTD, 12 bulan.                                                                     | 6.1            |
+| **QRIS / e-wallet**                       | Pembayaran non-tunai; termasuk dana dalam pencairan.                                                                                         | 8.3            |
+| **Realisasi (Actual)**                    | Angka sebenarnya dari jurnal, lawan dari anggaran.                                                                                           | 8.6            |
+| **Retur dengan nota**                     | Retur AR yang langsung menunjuk faktur (kartu retur memegang detailnya sendiri). Sudah selesai saat dibuat.                                  | 8.8            |
+| **Retur langsung**                        | Kartu retur tanpa baris detail sendiri: berdiri sendiri, belum dikaitkan ke tagihan. Terpakai bila ada alokasi pelunasan.                    | 8.7, 8.8       |
+| **Refresh now (Perbarui sekarang)**       | Tombol di sidebar untuk membangun ulang tabel `dash_*` sekarang.                                                                             | 10.4           |
+| **Repo / Service / Server function**      | Lapisan kode: repo = SQL, service = merangkai repo dan rumus, server function = pintu masuk dari browser.                                    | 1.3            |
+| **Revenue (Pendapatan)**                  | Pendapatan usaha utama (grup akun Revenue, bukan Other Revenue).                                                                             | 8.2            |
+| **Runway**                                | Berapa bulan kas bertahan bila laju bakar tetap.                                                                                             | 8.4.6          |
+| **Saldo awal**                            | Saldo akun pada awal sebuah periode, ditulis ERP saat periode sebelumnya ditutup (`coa_opening_balance_location`).                           | 4.2, 7.2, 8.13 |
+| **`segment1_id` / segmen**                | Kolom baris jurnal yang menunjuk lokasi.                                                                                                     | 4.2            |
+| **Seleksi Invoice**                       | Menu ERP untuk memilih tagihan yang akan dibayar; menghasilkan Pengakuan Biaya.                                                              | 4.6            |
+| **Snapshot**                              | (1) potret angka pada satu tanggal; (2) tabel `dash_snap_*` berisi salinan hasil hitung.                                                     | 2.4, 5         |
+| **SWR (_stale-while-revalidate_)**        | Menampilkan angka lama seketika sambil menghitung ulang di belakang layar.                                                                   | 9              |
+| **`sysuser`**                             | Tabel akun ERP yang dipakai login dashboard.                                                                                                 | 4.7            |
+| **`system_main`**                         | Tabel pengaturan ERP; menyimpan Account Mapping.                                                                                             | 4.7            |
+| **Tahun buku**                            | Satu tahun pembukuan perusahaan. Bulan terakhirnya dibaca dari `company.end_fiscal_month` (bisa bukan Desember).                             | 8.13.3         |
+| **Tanpa entitas**                         | Baris pendapatan/jurnal yang tidak punya lokasi.                                                                                             | 8.2            |
+| **`trans_date`**                          | Tanggal transaksi jurnal. Dasar angka harian.                                                                                                | 6.3            |
+| **YTD**                                   | _Year To Date_, dari Januari sampai sekarang.                                                                                                | 6.1            |
 
 ---
 
@@ -1347,6 +1348,7 @@ Setiap sub-bab memakai urutan di bab 0.3. Aturan umum (jurnal posted, periode, e
 - ⚠️ Password di `sysuser` tersimpan **plain text** (tabel lama ERP). Ini risiko di sisi ERP (O8), bukan di dashboard.
 - Kode status yang boleh login: `user_status` ∈ {0, 1, 2} (`LOGIN_ALLOWED_STATUSES`). Dashboard memeriksa ulang status tiap permintaan (di-cache 1 menit), jadi akun yang dinonaktifkan kehilangan akses dalam sekitar semenit.
 - Pembatas percobaan login: **5 kali per menit** per kunci (`loginLimiter`).
+- Login berhasil, logout, sesi yang dihentikan karena akun dinonaktifkan, dan login gagal dicatat di log (scope `auth`). Untuk login gagal, nama yang diketik **tidak** ditulis: hanya hash 8 karakter dan panjangnya, karena orang kadang mengetik kata sandi di kolom nama. Alasan gagal (`invalid-credentials`, `inactive-user`, `too-many-attempts`) hanya ada di log; pengguna tetap menerima jawaban yang sama untuk semua kegagalan. Bila sistem gagal (mis. database tidak terjangkau), layar login menampilkan teks "tidak dapat masuk saat ini" beserta kode referensi (bab 10.6).
 - Sesi: cookie terenkripsi `nr_session` (`httpOnly`, `SameSite=Lax`, `secure` di produksi), berlaku **8 jam**.
 - **Semua akun yang aktif punya akses penuh**; tidak ada peran (U6, S9). Tidak ada pembatasan siapa boleh mengubah Account Mapping atau menekan "Perbarui sekarang".
 
@@ -1368,6 +1370,7 @@ FROM sysuser WHERE user_id = :id LIMIT 1
 - **Judul halaman metrik** (`MetricPageHeader`): judul cetak dan banner peringatan: **periode Open/Pre Closed** ("angka bisa berubah") dan **bulan tanpa periode**.
 - **Cetak dan ekspor:** cetak/PDF lewat CSS cetak (tata letak A4 tetap tabel); ekspor CSV dengan dialog pilihan format (koma + titik desimal, atau titik koma + koma desimal; selalu UTF-8 BOM) (U4, U5).
 - **Pemuatan:** halaman memuat data di server (SSR) lalu mengisi cache klien; Summary memuat bertahap (8.1).
+- **Error di layar:** kartu error (halaman metrik, bagian Summary, panel "Data perlu dicek", tren Balance Sheet, tombol "Perbarui sekarang", simpan Account Mapping) menampilkan pesan sesuai kode (sesi berakhir, database tidak terjangkau, permintaan terlalu lama, atau pesan umum) dan baris **Kode referensi** dengan tombol Salin. Error di luar halaman metrik memakai halaman error global. Kode itu dipakai developer untuk mencari catatan lengkapnya di log (bab 10.6).
 
 #### 8.0.3 Bahasa dan istilah di layar
 
@@ -2951,9 +2954,9 @@ Masalah yang masih dicatat: tombol "Perbarui sekarang" terasa lama (catatan 2026
 ### 9.6 Pengukuran dan log
 
 - `SLOW_QUERY_MS` (bawaan 1000): query lebih lambat dari ini dicatat sebagai peringatan (hanya teks SQL, **tanpa parameter**). `0` = mati.
-- `PERF_LOG=1`: mencatat durasi tiap metrik yang benar-benar dihitung (cache hit tidak dicatat) dan antrean tunggu koneksi.
+- `LOG_LEVEL=debug`: mencatat durasi tiap metrik yang benar-benar dihitung (cache hit tidak dicatat) dan antrean tunggu koneksi. Variabel `PERF_LOG` sudah **dihapus** (2026-11-10).
 - `DB_QUERY_TIMEOUT_MS` (bawaan 120.000): batas waktu satu `SELECT`; pekerjaan refresh mematikan batas ini pada sesinya sendiri.
-- Log server memakai `createLogger`/`dashLog` (bukan `console`).
+- Log server memakai `createLogger`/`dashLog` (bukan `console`), berupa satu objek JSON per baris. Format, file, cara mencari, dan prasyarat server ada di [bab 10.6](#106-log-dan-kode-referensi-error).
 
 ---
 
@@ -2963,29 +2966,34 @@ Masalah yang masih dicatat: tombol "Perbarui sekarang" terasa lama (catatan 2026
 
 > Isi `.env` **tidak pernah** dibaca atau dicetak oleh Claude Code (skrip pengecekan sementara memuat `.env` di prosesnya sendiri dan tidak mencetak isinya). Nilai bawaan berasal dari `src/server/env.ts`.
 
-| Variabel                                                                      | Bawaan                 | Arti                                                                                              |
-| ----------------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                                                                | (wajib)                | Alamat database `mysql://USER:PASSWORD@HOST:PORT/DATABASE`. Pengembangan: database **lokal** saja |
-| `DB_POOL_SIZE`                                                                | 5 (1–10)               | Jumlah koneksi untuk permintaan pengguna                                                          |
-| `DB_QUERY_TIMEOUT_MS`                                                         | 120000                 | Batas waktu satu `SELECT` (0 = tanpa batas)                                                       |
-| `SLOW_QUERY_MS`                                                               | 1000                   | Batas peringatan query lambat (0 = mati)                                                          |
-| `PERF_LOG`                                                                    | 0                      | 1 = catat durasi metrik dan antrean koneksi                                                       |
-| `METRIC_FRESH_SECONDS`                                                        | 60 (5–3600)            | Lama hasil metrik dianggap segar                                                                  |
-| `METRIC_STALE_SECONDS`                                                        | 180 (0–86400)          | Lama tambahan hasil lama masih dipakai sambil dihitung ulang                                      |
-| `SESSION_SECRET`                                                              | (wajib, ≥ 32 karakter) | Kunci enkripsi cookie sesi                                                                        |
-| `APP_TIMEZONE`                                                                | `Asia/Jakarta`         | Zona waktu untuk menentukan "hari ini"                                                            |
-| `APP_TODAY`                                                                   | kosong                 | "Hari ini" tetap (`YYYY-MM-DD`) untuk rekonsiliasi data lama; **kosongkan di produksi**           |
-| `IN_TRANSIT_ALERT_DAYS`                                                       | 3 (0–120)              | Ambang umur dana belum cair yang ditandai di Cash Position                                        |
-| `ERP_APP_ID_INDEX`                                                            | 7 (0–99)               | Indeks aplikasi untuk membuat id baris `system_main` baru (pola ERP)                              |
-| `DASH_REFRESH_ENABLED`                                                        | 1                      | 0 = matikan refresh snapshot (tombol "Perbarui sekarang" disembunyikan)                           |
-| `DASH_REFRESH_MINUTES`                                                        | 10 (1–1440)            | Interval refresh snapshot                                                                         |
-| `DASH_AP_AR_HIST_MONTHS`                                                      | 13 (0–36)              | Jumlah akhir bulan riwayat AP/AR (0 = matikan dan kosongkan)                                      |
-| `DASH_POOL_SIZE`                                                              | 2 (1–5)                | Koneksi khusus refresh; server membuka `DB_POOL_SIZE + DASH_POOL_SIZE` koneksi                    |
-| `AUTO_MIGRATE`                                                                | 0                      | 1 = terapkan migrasi `dash_*` saat server mulai                                                   |
-| `DASH_MIGRATIONS_DIR`                                                         | `./drizzle-dash`       | Folder file migrasi                                                                               |
-| `PORT`, `HOST`                                                                | 3000, `0.0.0.0`        | Server produksi (`npm start`)                                                                     |
-| `TRUST_PROXY`                                                                 | 0                      | 1 hanya bila ada reverse proxy yang mengisi `X-Forwarded-For`                                     |
-| `TEST_TODAY`, `TEST_DATABASE_URL`, `SEED_DEMO_LOGIN_ID`, `SEED_DEMO_PASSWORD` | (lihat `.env.example`) | Hanya untuk tes integrasi dan seed, wajib host lokal                                              |
+| Variabel                                                                      | Bawaan                 | Arti                                                                                                                                            |
+| ----------------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                                                | (wajib)                | Alamat database `mysql://USER:PASSWORD@HOST:PORT/DATABASE`. Pengembangan: database **lokal** saja                                               |
+| `DB_POOL_SIZE`                                                                | 5 (1–10)               | Jumlah koneksi untuk permintaan pengguna                                                                                                        |
+| `DB_QUERY_TIMEOUT_MS`                                                         | 120000                 | Batas waktu satu `SELECT` (0 = tanpa batas)                                                                                                     |
+| `SLOW_QUERY_MS`                                                               | 1000                   | Batas peringatan query lambat (0 = mati)                                                                                                        |
+| `LOG_LEVEL`                                                                   | info                   | `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `silent`. `debug` juga mencatat durasi metrik dan antrean koneksi (menggantikan `PERF_LOG`) |
+| `LOG_TO_FILE`                                                                 | 1                      | 0 = log hanya ke layar proses, tanpa file harian                                                                                                |
+| `LOG_DIR`                                                                     | `logs`                 | Folder file log harian (relatif terhadap folder tempat server dijalankan)                                                                       |
+| `LOG_RETENTION_DAYS`                                                          | 30 (1–3650)            | File log yang lebih tua dari ini dihapus                                                                                                        |
+| `CLIENT_ID`                                                                   | kosong                 | Nama deployment, ditulis di tiap baris log sebagai `client` (huruf kecil, angka, tanda hubung)                                                  |
+| `TZ` (variabel OS, bukan `.env`)                                              | zona OS                | Samakan dengan `APP_TIMEZONE`: file log harian berganti pada tengah malam menurut zona proses Node                                              |
+| `METRIC_FRESH_SECONDS`                                                        | 60 (5–3600)            | Lama hasil metrik dianggap segar                                                                                                                |
+| `METRIC_STALE_SECONDS`                                                        | 180 (0–86400)          | Lama tambahan hasil lama masih dipakai sambil dihitung ulang                                                                                    |
+| `SESSION_SECRET`                                                              | (wajib, ≥ 32 karakter) | Kunci enkripsi cookie sesi                                                                                                                      |
+| `APP_TIMEZONE`                                                                | `Asia/Jakarta`         | Zona waktu untuk menentukan "hari ini"                                                                                                          |
+| `APP_TODAY`                                                                   | kosong                 | "Hari ini" tetap (`YYYY-MM-DD`) untuk rekonsiliasi data lama; **kosongkan di produksi**                                                         |
+| `IN_TRANSIT_ALERT_DAYS`                                                       | 3 (0–120)              | Ambang umur dana belum cair yang ditandai di Cash Position                                                                                      |
+| `ERP_APP_ID_INDEX`                                                            | 7 (0–99)               | Indeks aplikasi untuk membuat id baris `system_main` baru (pola ERP)                                                                            |
+| `DASH_REFRESH_ENABLED`                                                        | 1                      | 0 = matikan refresh snapshot (tombol "Perbarui sekarang" disembunyikan)                                                                         |
+| `DASH_REFRESH_MINUTES`                                                        | 10 (1–1440)            | Interval refresh snapshot                                                                                                                       |
+| `DASH_AP_AR_HIST_MONTHS`                                                      | 13 (0–36)              | Jumlah akhir bulan riwayat AP/AR (0 = matikan dan kosongkan)                                                                                    |
+| `DASH_POOL_SIZE`                                                              | 2 (1–5)                | Koneksi khusus refresh; server membuka `DB_POOL_SIZE + DASH_POOL_SIZE` koneksi                                                                  |
+| `AUTO_MIGRATE`                                                                | 0                      | 1 = terapkan migrasi `dash_*` saat server mulai                                                                                                 |
+| `DASH_MIGRATIONS_DIR`                                                         | `./drizzle-dash`       | Folder file migrasi                                                                                                                             |
+| `PORT`, `HOST`                                                                | 3000, `0.0.0.0`        | Server produksi (`npm start`)                                                                                                                   |
+| `TRUST_PROXY`                                                                 | 0                      | 1 hanya bila ada reverse proxy yang mengisi `X-Forwarded-For`                                                                                   |
+| `TEST_TODAY`, `TEST_DATABASE_URL`, `SEED_DEMO_LOGIN_ID`, `SEED_DEMO_PASSWORD` | (lihat `.env.example`) | Hanya untuk tes integrasi dan seed, wajib host lokal                                                                                            |
 
 ### 10.2 Perintah (`npm run …`)
 
@@ -3000,6 +3008,7 @@ Masalah yang masih dicatat: tombol "Perbarui sekarang" terasa lama (catatan 2026
 | `db:dash:generate`, `db:dash:check`                                                                 | Membuat dan memeriksa file migrasi `dash_*`                                                           | Tidak          |
 | `db:dash:status`, `db:dash:migrate`                                                                 | Melihat dan menerapkan migrasi `dash_*`                                                               | Ya, minta izin |
 | `dash:refresh`, `dash:refresh-gl`, `dash:refresh-cash`, `dash:refresh-hist`, `dash:refresh-balance` | Bangun snapshot AP/AR, GL Closed, baris kas, riwayat akhir bulan, total neraca                        | Ya, minta izin |
+| `logs:find`                                                                                         | Mencari baris log berdasarkan request ID, level, waktu, pengguna, atau path (bab 10.6)                | Tidak          |
 | `seed`                                                                                              | Mengarah ke `scripts/seed/index.ts` yang **belum ada** (hanya pelindung host `scripts/seed/guard.ts`) | —              |
 
 **Aturan izin (dari `CLAUDE.md`):** pemasangan/penghapusan paket, **apa pun yang berjalan ke database** (termasuk satu `SELECT`), commit, dan push **harus mendapat jawaban "ya" dari pemilik proyek lebih dulu**. Skrip `docs/sql/dashboard-indexes.sql` hanya dijalankan manual oleh pemilik proyek. Tidak pernah menjalankan `drizzle-kit push`.
@@ -3027,6 +3036,83 @@ Masalah yang masih dicatat: tombol "Perbarui sekarang" terasa lama (catatan 2026
 | `src/server/dash/pool-usage.test.ts`              | Kode `dash` tidak memakai koneksi dari pool pengguna                                                                                              |
 | `src/i18n/keys.test.ts`                           | Kunci `en.json` dan `id.json` identik                                                                                                             |
 | `src/lib/finance/ap-ar/aging-bucket-days.test.ts` | Batas bucket SQL dan JavaScript sama                                                                                                              |
+
+### 10.6 Log dan kode referensi error
+
+Tujuan: ketika sesuatu gagal di production, developer bisa menemukan penyebabnya dengan cepat, dan pengguna melihat **kode referensi** yang bisa dicari. Rencana implementasinya ada di `plans/00_phase-logger-core.md` sampai `plans/08_phase-docs-and-final-checks.md` (file `plans/` tidak ikut git).
+
+#### 10.6.1 Bentuk log
+
+Satu **objek JSON per baris**, ditulis ke layar proses (stdout) dan ke file harian. Field tetap: `level`, `time` (ISO 8601 dengan offset zona, mis. `2026-11-10T22:35:51.093+08:00`; zona = `APP_TIMEZONE`, bila kosong zona OS), `client` (dari `CLIENT_ID`), `scope`, `msg`. Field konteks ditambah otomatis di setiap baris yang ditulis selama sebuah request atau job: `reqId`, `userId`, `upstreamId` (header `X-Request-Id` dari proxy, hanya bila bentuknya aman), atau `jobId` dan `parentReqId` untuk siklus refresh snapshot. Field lain mengikuti daftar tertutup di `src/server/logging/log-fields.ts`.
+
+| `scope`                                  | Isi                                                                                                                                                                                                                                                                                                                                                     |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `http`                                   | satu baris per request aplikasi: `method`, `path` (tanpa query), `status`, `durationMs` (sampai header respons siap), `ip`, `fns` (server function yang dipanggil), `filters` (hanya filter halaman: `entity`, `preset`, `from`, `to`, `p13`, `compare`, `horizon`, `inflow`, `drill`). Status 500 ke atas di level `error`. Aset statis tidak dicatat. |
+| `fn`                                     | satu server function gagal: `fn`, `publicCode`, dan `err` (jenis, pesan, SQL **tanpa nilai parameter**, stack, penyebab).                                                                                                                                                                                                                               |
+| `auth`                                   | login berhasil, logout, sesi dihentikan karena akun dinonaktifkan, login gagal (`usernameHash`, `usernameLength`, `reason`).                                                                                                                                                                                                                            |
+| `dash`                                   | siklus refresh snapshot, dengan `jobId`.                                                                                                                                                                                                                                                                                                                |
+| `client`                                 | error yang dilaporkan browser (10.6.6).                                                                                                                                                                                                                                                                                                                 |
+| `cache`, `db`, `perf`, `boot`, `process` | peringatan cache, koneksi database, query lambat (`SLOW_QUERY_MS`) dan pengukuran (`LOG_LEVEL=debug`), server menyala, error fatal.                                                                                                                                                                                                                     |
+
+Contoh satu request yang gagal (dua baris, dipotong):
+
+```json
+{"level":"error","time":"2026-11-10T22:35:51.093+08:00","client":"client-a","scope":"fn","reqId":"20261110-223551-k7q2m","userId":"17","err":{"type":"DrizzleQueryError","message":"Failed query","sql":"SELECT ... WHERE x = ?","cause":{"type":"Error","message":"connect ETIMEDOUT","code":"ETIMEDOUT"}},"fn":"getCashPositionFn","publicCode":"DB_UNAVAILABLE","msg":"server function failed"}
+{"level":"info","time":"2026-11-10T22:35:51.101+08:00","client":"client-a","scope":"http","reqId":"20261110-223551-k7q2m","userId":"17","method":"POST","path":"/_serverFn/...","status":200,"durationMs":10012,"fns":["getCashPositionFn"],"msg":"request"}
+```
+
+Catatan: server function yang gagal tetap dijawab dengan status HTTP 200 (cara kerja TanStack Start); kegagalannya terlihat dari baris `fn` yang ber-`reqId` sama, bukan dari `status` baris `http`.
+
+#### 10.6.2 Kode referensi (request ID)
+
+- Bentuk: `YYYYMMDD-HHmmss-xxxxx`: waktu lokal log, lalu 5 karakter acak tanpa `i`, `l`, `o`, `0`, `1` (supaya tidak salah baca). Job: `job-` di depannya. Hari di dalam ID memberi tahu file log mana yang harus dibuka.
+- Dibuat **server** di `src/server-entry.ts`. Header `X-Request-Id` dari luar **tidak** dipakai sebagai ID utama (bisa dipalsukan).
+- Setiap respons membawa header `X-Request-Id` (terlihat di tab Network).
+- Di layar: bila server function gagal, pesan errornya `KODE#ID` (mis. `DB_UNAVAILABLE#20261110-223551-k7q2m`); TanStack Start hanya mengirim `message` dari sebuah `Error` ke browser, jadi ID dibawa di dalam pesan. Browser memecahnya dan menampilkan "Kode referensi" dengan tombol Salin.
+- Empat kode publik: `UNAUTHORIZED` (sesi berakhir), `DB_UNAVAILABLE` (database tidak terjangkau: ECONNREFUSED, ETIMEDOUT, koneksi terputus, dsb.), `TIMEOUT` (query terlalu lama: errno 3024 MySQL 5.7, 1969 MariaDB, 1317), `INTERNAL_ERROR` (lainnya). Detail SQL, stack, dan nilai parameter tidak pernah dikirim ke browser.
+- Tombol "Perbarui sekarang": request yang menekannya punya ID; siklus yang dimulainya membawa `jobId` baru dan `parentReqId` = ID request itu. Siklus terjadwal tidak punya `parentReqId`.
+
+#### 10.6.3 File log
+
+- Lokasi: `LOG_DIR/app.<yyyy-MM-dd>.<n>.log` (bawaan `logs/app.2026-11-10.1.log`). Hanya server yang menulis file; `npm run dash:refresh` dan skrip sejenis hanya menulis ke layar.
+- Rotasi tiap tengah malam, dilakukan di dalam aplikasi (`pino-roll`). **Catatan zona:** rotasi mengikuti zona proses Node (`TZ`), bukan `APP_TIMEZONE`; jadi atur `TZ` sama dengan `APP_TIMEZONE`. Bila berbeda, hanya tanggal di **nama file** yang bisa bergeser sehari; isi baris tetap benar, dan `npm run logs:find` selalu memeriksa satu hari lebih banyak di kedua sisi.
+- Retensi: file lebih tua dari `LOG_RETENTION_DAYS` (30) hari dihapus saat server menyala dan tiap 6 jam. Tidak ada kompresi: file tetap teks yang bisa dibuka langsung.
+- Tahan gagal: bila file tidak bisa dibuka atau ditulis (izin, disk penuh), aplikasi **tidak berhenti**. Log tetap ke layar proses, satu peringatan ditulis ke stderr, dan pembukaan file dicoba lagi tiap 60 detik.
+- Error yang lolos dari semua `try/catch` (`uncaughtException`, `unhandledRejection`) dicatat sebagai `fatal`, buffer file ditulis ke disk, dan di production (`NODE_ENV=production`) proses **keluar** supaya process manager menjalankan yang baru. Di pengembangan hanya dicatat.
+- Isi file memuat user ID dan IP; siapa pun yang bisa membuka server bisa membacanya. Folder log tidak boleh berada di `dist/` atau folder yang dilayani web.
+
+#### 10.6.4 Mencari
+
+```bash
+npm run logs:find -- 20261110-223551-k7q2m
+npm run logs:find -- --level error --since 14:00 --until 14:30
+npm run logs:find -- --user 17 --path /summary
+```
+
+Pilihan: `<id>` (request ID atau job ID; request ID juga menemukan job yang dimulainya), `--level`, `--since`, `--until` (`14:30`, `"2026-11-10 14:30"`, atau `2026-11-10`; dibandingkan dengan waktu yang tertulis di log), `--user`, `--path`, `--days` (bawaan 1), `--limit` (bawaan 500), `--dir`, `--raw`. Tanpa id dan tanpa filter, yang tampil hanya peringatan dan error beberapa hari terakhir. Mencari langsung juga bisa: `grep 20261110-223551-k7q2m logs/app.*.log`, atau `tail -f` untuk mengikuti log secara langsung.
+
+#### 10.6.5 Yang tidak pernah dicatat
+
+Nilai parameter SQL (pesan Drizzle "Failed query" memuatnya, jadi serializer membuangnya dan hanya menyimpan SQL dengan placeholder), pesan MySQL yang bisa memuat data (hanya `code`, `errno`, `sqlState`), kata sandi, cookie, isi request, dan nama yang diketik saat login gagal (hanya hash dan panjang). Filter halaman yang dicatat dibatasi daftar di atas.
+
+#### 10.6.6 Error yang terjadi di browser
+
+Error yang hanya terjadi di browser (komponen yang melempar error, error skrip, promise yang ditolak tanpa penanganan) dilaporkan ke server lewat `reportClientErrorFn`, **hanya untuk pengguna yang sudah login**. Batas: tiap teks punya panjang maksimum (laporan di bawah ±15 KB); satu pengguna maksimal 20 laporan per 10 menit di server, dan satu muat-halaman maksimal 10 laporan dari browser; error yang sama dilaporkan sekali. Server menulis satu baris `error` (scope `client`, field `clientError`, `componentStack`, `route`, `userAgent`); request ID laporan itu menjadi kode referensi di layar. Noise yang dikenal (`ResizeObserver loop ...`, `Script error.`) diabaikan.
+
+#### 10.6.7 Prasyarat server (Linux, tanpa Docker)
+
+- **Process manager yang menjalankan ulang proses** (pm2 atau systemd). Wajib, karena proses sengaja keluar setelah error fatal. Contoh pm2: `pm2 start scripts/start-server.mjs --name finance-dashboard`, lalu `pm2 save`. Contoh systemd: `Restart=always` dan `RestartSec=3`.
+- Lingkungan: `NODE_ENV=production`, `TZ` = `APP_TIMEZONE`, `CLIENT_ID`, `LOG_DIR` (disarankan di luar folder aplikasi, mis. `/var/log/finance-dashboard`), dan satu proses per client. Pengaturan log boleh berada di `.env` seperti pengaturan lain: logger memuatnya lebih awal dengan aturan yang sama dengan `env.ts` (dimuat bila `DATABASE_URL` belum ada di lingkungan proses; variabel yang sudah ada selalu menang). `TZ` dan `NODE_ENV` harus berasal dari lingkungan proses, bukan `.env`.
+- Izin: folder log dimiliki user yang menjalankan aplikasi dengan mode `750`.
+- Pantau ruang disk. Satu request biasa sekitar 250 byte; pada saat database mati, **setiap** request mencatat error dengan stack penuh (sengaja tanpa penyaring pengulangan), jadi file hari itu bisa membesar.
+- Satu proses per client: bila suatu hari dijalankan beberapa proses di satu folder log, nama file perlu memuat PID (belum didukung).
+
+#### 10.6.8 Pertanyaan untuk pemilik produk
+
+Bukan pertanyaan finance (tidak masuk tabel `KF`), tetapi perlu dijawab sebelum klien pertama memakai produk ini:
+
+1. Apakah masa simpan log 30 hari sesuai kebijakan klien? (Bawaan: `LOG_RETENTION_DAYS=30`.)
+2. Apakah klien keberatan user ID dan alamat IP pengguna tercatat di file log di server? (Bawaan: keduanya dicatat; siapa pun yang punya akses ke server bisa membaca file itu.)
 
 ---
 
@@ -3221,6 +3307,7 @@ Pengecekan memakai **tujuh query `SELECT` (hanya baca)** ke database lokal `demo
 | 2026-11-09 | Drill-down: drill hari Payment Plan memakai rencana halaman yang sama (computePaymentPlan) sehingga tidak ada logika kredit ganda; daftar jurnal leaf Cash Flow dan Expense Paid diurutkan terbaru dulu atas semua jurnal sebelum dipotong per halaman (sebelumnya hanya di dalam halaman); halaman baris jurnal dan header jurnal di-cache 60 detik; drill aging tidak membuat objek Decimal per baris untuk menguji saldo positif (bagian 8.12, 9.3). Angka tidak berubah.                                                                                                                                                                                                                                                                                                                   |
 | 2026-11-09 | Data perlu dicek: pemeriksaan "lokasi kartu tidak valid" (CARD_LOCATION_INVALID), yang tidak bergantung pada filter, dibaca sekali per 5 menit untuk semua kombinasi filter (bagian 9.3). SQL dan angka tidak berubah.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | 2026-11-10 | Balance Sheet: CSV berupa pohon akun yang menjorok dengan judul tanpa jumlah dan baris "Total …", tanpa kolom Tingkat; perubahan persen di CSV berupa angka desimal asli; perubahan persen di layar tidak lagi tampil 0,0% untuk perubahan kecil (bagian 6.8, 8.13.1, 8.13.3; U9, U10, KF-76). Angka neraca tidak berubah.                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 2026-11-10 | Log dan kode referensi error: log JSON satu baris dengan waktu sesuai `APP_TIMEZONE`, file harian `LOG_DIR/app.<tanggal>.<n>.log` (30 hari), request ID di setiap baris dan header `X-Request-Id`, access log, error publik `KODE#ID` tanpa stack (`UNAUTHORIZED`, `DB_UNAVAILABLE`, `TIMEOUT`, `INTERNAL_ERROR`), kode referensi di semua kartu error, halaman login, tombol "Perbarui sekarang" dan simpan Account Mapping, laporan error dari browser, audit login, dan perintah `npm run logs:find`. Variabel baru `LOG_LEVEL`, `LOG_TO_FILE`, `LOG_DIR`, `LOG_RETENTION_DAYS`, `CLIENT_ID`; `PERF_LOG` dihapus (bab 3, 8.0, 9.6, 10.1, 10.2, 10.6). Angka metrik tidak berubah.                                                                                                           |
 
 ### 14.1 Riwayat ringkas dokumen yang digantikan
 

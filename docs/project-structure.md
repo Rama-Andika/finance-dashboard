@@ -4,7 +4,7 @@
 >
 > **Aturan pemeliharaan:** setiap kali ada folder baru di `src`, atau ada aturan penempatan yang berubah, perbarui dokumen ini dan tambahkan baris di [Riwayat Perubahan](#riwayat-perubahan).
 >
-> **Terakhir diperbarui:** 2026-11-09
+> **Terakhir diperbarui:** 2026-11-10
 
 ## 1. Tiga aturan utama
 
@@ -46,7 +46,7 @@ src/
 ├─ functions/              server function (*.fn.ts) + middleware.ts
 │  ├─ ap-ar/  cash/  pnl/  halaman metrik per domain
 │  ├─ balance-sheet/       neraca (Balance Sheet)
-│  └─ (root)               summary, drill, settings, filters, snapshot, data-checks, auth, prefs
+│  └─ (root)               summary, drill, settings, filters, snapshot, data-checks, auth, prefs, client-error
 ├─ server/
 │  ├─ services/            rangkaian repo + logika; satu folder per domain besar
 │  │  ├─ ap-ar/  cash/  pnl/  drill/
@@ -56,13 +56,15 @@ src/
 │  │  ├─ ap-ar/  cash/  gl/  master-data/  pnl/
 │  │  └─ (root)            auth, settings, data-checks, dan sql-guard.test.ts
 │  ├─ db/  dash/  auth/    koneksi/pembantu DB, tabel snapshot dash_*, login & sesi
-│  └─ cache.ts  context.ts  env.ts  log.ts  metric-settings.ts  oid.ts  public-error.ts
+│  ├─ logging/             logger pino, request ID, konteks log, file harian, pencarian log (src/server/logging/)
+│  └─ cache.ts  context.ts  env.ts  error-classify.ts  log.ts  metric-settings.ts  oid.ts  public-error.ts
 ├─ lib/
 │  ├─ core/                tipe, uang (decimal), compare, label i18n — tidak bergantung pada apa pun
 │  ├─ finance/             logika keuangan murni per domain: ap-ar, balance-sheet, cash, checks, coa, entity, journal, period, pnl
 │  ├─ filters/             skema filter URL, token entitas, lingkup filter
 │  ├─ format/              format angka, tanggal, CSV, KPI, donut
 │  ├─ settings/  table/    skema pemetaan akun; kueri tabel dan potongan ekspor
+│  ├─ client-errors/       skema laporan error browser dan reporter (murni, dipakai browser dan server)
 │  └─ brand.ts  cn.ts  error-message.ts
 ├─ i18n/                   en.json (default) dan id.json
 └─ styles/                 tokens.css, neraca.css (kelas nr-*), print.css, app.css
@@ -70,24 +72,25 @@ src/
 
 ## 4. Tabel keputusan: file baru ditaruh di mana?
 
-| Saya ingin menambah...                                                                                   | Taruh di                                                                 | Catatan                                                                                                    |
-| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| Komponen dasar yang bisa dipakai di mana saja tanpa peduli domain (dialog, tombol, kartu, tabel generik) | `src/components/ui/`                                                     | Tidak boleh mengimpor halaman, layout, charts, `lib/finance`, `functions`, atau `queries` (dijaga ESLint). |
-| Komponen shadcn baru                                                                                     | `src/components/ui/shadcn/`                                              | Dibuat oleh `npx shadcn add`; izin user diperlukan.                                                        |
-| Bagian dari kerangka aplikasi (sidebar, top bar, footer, pembungkus halaman)                             | `src/components/layout/`                                                 |                                                                                                            |
-| Grafik yang dipakai oleh lebih dari satu halaman                                                         | `src/components/charts/`                                                 | Grafik yang hanya dipakai satu halaman tinggal di folder halaman itu.                                      |
-| Komponen khusus satu halaman                                                                             | `src/components/<halaman>/`                                              |                                                                                                            |
-| Komponen yang dipakai dua halaman atau lebih tetapi punya makna domain                                   | Folder halaman yang memiliki konsepnya; halaman lain mengimpor dari sana | Contoh: `CashBalanceCard` ada di `cash-position/` dan dipakai juga oleh Summary.                           |
-| Hook yang dipakai banyak area                                                                            | `src/hooks/use-*.ts`                                                     |                                                                                                            |
-| Hook milik satu fitur                                                                                    | Di sebelah fiturnya, mis. `src/components/drill/use-drill-data.ts`       |                                                                                                            |
-| Fungsi perhitungan murni (tanpa DB, tanpa React)                                                         | `src/lib/finance/<domain>/` atau `src/lib/format/`                       | Wajib ada test di sebelahnya.                                                                              |
-| Tipe atau helper uang yang dipakai semua lapisan                                                         | `src/lib/core/`                                                          | Hanya yang benar-benar universal.                                                                          |
-| Query SQL                                                                                                | `src/server/repo/<domain>/<topik>.repo.ts`                               | Satu-satunya tempat SQL. Harus lolos `sql-guard.test.ts`.                                                  |
-| Rangkaian beberapa repo + logika menjadi satu hasil                                                      | `src/server/services/<domain>/<topik>.service.ts`                        | Mengembalikan objek sederhana yang bisa diserialisasi.                                                     |
-| Helper server yang dipakai beberapa domain                                                               | `src/server/services/shared/`                                            |                                                                                                            |
-| Pintu masuk dari klien ke server                                                                         | `src/functions/<domain>/<topik>.fn.ts`                                   | Urutan: `authMiddleware`, validasi zod, `resolveFilter`, service.                                          |
-| Opsi TanStack Query                                                                                      | `src/queries/`                                                           | Kunci cache selalu lewat `qk` di `keys.ts`.                                                                |
-| Teks tampilan                                                                                            | `src/i18n/locales/en.json` dan `id.json`                                 | Kedua file harus punya kunci yang sama.                                                                    |
+| Saya ingin menambah...                                                                                   | Taruh di                                                                                                | Catatan                                                                                                                                    |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Komponen dasar yang bisa dipakai di mana saja tanpa peduli domain (dialog, tombol, kartu, tabel generik) | `src/components/ui/`                                                                                    | Tidak boleh mengimpor halaman, layout, charts, `lib/finance`, `functions`, atau `queries` (dijaga ESLint).                                 |
+| Menulis log, atau menambah field log                                                                     | Memanggil: `createLogger` dari `src/server/log.ts`. Nama field baru: `src/server/logging/log-fields.ts` | Bentuk panggilan `log.error({ err, fn }, 'pesan')`; jangan `console.*`, jangan `errorText(error)` di dalam pesan (bab 10.6 project-guide). |
+| Komponen shadcn baru                                                                                     | `src/components/ui/shadcn/`                                                                             | Dibuat oleh `npx shadcn add`; izin user diperlukan.                                                                                        |
+| Bagian dari kerangka aplikasi (sidebar, top bar, footer, pembungkus halaman)                             | `src/components/layout/`                                                                                |                                                                                                                                            |
+| Grafik yang dipakai oleh lebih dari satu halaman                                                         | `src/components/charts/`                                                                                | Grafik yang hanya dipakai satu halaman tinggal di folder halaman itu.                                                                      |
+| Komponen khusus satu halaman                                                                             | `src/components/<halaman>/`                                                                             |                                                                                                                                            |
+| Komponen yang dipakai dua halaman atau lebih tetapi punya makna domain                                   | Folder halaman yang memiliki konsepnya; halaman lain mengimpor dari sana                                | Contoh: `CashBalanceCard` ada di `cash-position/` dan dipakai juga oleh Summary.                                                           |
+| Hook yang dipakai banyak area                                                                            | `src/hooks/use-*.ts`                                                                                    |                                                                                                                                            |
+| Hook milik satu fitur                                                                                    | Di sebelah fiturnya, mis. `src/components/drill/use-drill-data.ts`                                      |                                                                                                                                            |
+| Fungsi perhitungan murni (tanpa DB, tanpa React)                                                         | `src/lib/finance/<domain>/` atau `src/lib/format/`                                                      | Wajib ada test di sebelahnya.                                                                                                              |
+| Tipe atau helper uang yang dipakai semua lapisan                                                         | `src/lib/core/`                                                                                         | Hanya yang benar-benar universal.                                                                                                          |
+| Query SQL                                                                                                | `src/server/repo/<domain>/<topik>.repo.ts`                                                              | Satu-satunya tempat SQL. Harus lolos `sql-guard.test.ts`.                                                                                  |
+| Rangkaian beberapa repo + logika menjadi satu hasil                                                      | `src/server/services/<domain>/<topik>.service.ts`                                                       | Mengembalikan objek sederhana yang bisa diserialisasi.                                                                                     |
+| Helper server yang dipakai beberapa domain                                                               | `src/server/services/shared/`                                                                           |                                                                                                                                            |
+| Pintu masuk dari klien ke server                                                                         | `src/functions/<domain>/<topik>.fn.ts`                                                                  | Urutan: `authMiddleware`, validasi zod, `resolveFilter`, service.                                                                          |
+| Opsi TanStack Query                                                                                      | `src/queries/`                                                                                          | Kunci cache selalu lewat `qk` di `keys.ts`.                                                                                                |
+| Teks tampilan                                                                                            | `src/i18n/locales/en.json` dan `id.json`                                                                | Kedua file harus punya kunci yang sama.                                                                                                    |
 
 ## 5. Domain dan lokasinya di tiap lapisan
 
@@ -145,10 +148,11 @@ Nama yang diekspor (fungsi, komponen, tipe) tidak boleh berubah hanya karena fil
 
 ## 9. Riwayat Perubahan
 
-| Tanggal    | Perubahan                                                                                                                                     |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-11-03 | Dokumen dibuat bersama penataan ulang folder src: peta folder, tabel keputusan, aturan penamaan, domain per lapisan, dan penjaga otomatis.    |
-| 2026-11-05 | Langkah 7 di "Menambah metrik baru" mengarah ke `docs/project-guide.md` (menggantikan dokumen Summary dan Revenue).                           |
-| 2026-11-09 | Domain Balance Sheet (neraca) ditambahkan: `balance-sheet/` di lib/finance, services, functions, dan components, serta route `balance-sheet`. |
-| 2026-11-09 | Snapshot neraca bulanan: `src/server/dash/balance-snapshot.ts` dan `balance-snapshot-read.ts`, skrip `scripts/dash-refresh-balance.ts`.       |
-| 2026-11-09 | `src/server/metric-settings.ts`: batas dan nilai bawaan pengaturan cache metrik, dipakai `env.ts` dan `cache.ts`.                             |
+| Tanggal    | Perubahan                                                                                                                                                                                                                        |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-03 | Dokumen dibuat bersama penataan ulang folder src: peta folder, tabel keputusan, aturan penamaan, domain per lapisan, dan penjaga otomatis.                                                                                       |
+| 2026-11-05 | Langkah 7 di "Menambah metrik baru" mengarah ke `docs/project-guide.md` (menggantikan dokumen Summary dan Revenue).                                                                                                              |
+| 2026-11-09 | Domain Balance Sheet (neraca) ditambahkan: `balance-sheet/` di lib/finance, services, functions, dan components, serta route `balance-sheet`.                                                                                    |
+| 2026-11-09 | Snapshot neraca bulanan: `src/server/dash/balance-snapshot.ts` dan `balance-snapshot-read.ts`, skrip `scripts/dash-refresh-balance.ts`.                                                                                          |
+| 2026-11-09 | `src/server/metric-settings.ts`: batas dan nilai bawaan pengaturan cache metrik, dipakai `env.ts` dan `cache.ts`.                                                                                                                |
+| 2026-11-10 | Folder baru: `src/server/logging/` (logger, request ID, konteks, file log, pencarian), `src/lib/client-errors/`; file `src/server/error-classify.ts` dan `src/functions/client-error.fn.ts`, serta skrip `scripts/logs-find.ts`. |

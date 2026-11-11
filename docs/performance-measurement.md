@@ -1,6 +1,8 @@
 # Pengukuran Performa (Fase 0)
 
-> Terakhir diperbarui: 2026-11-09
+> Terakhir diperbarui: 2026-11-10
+>
+> **Catatan (2026-11-10):** `PERF_LOG` sudah dihapus. Pengukuran durasi kini level `debug`: jalankan dengan `LOG_LEVEL=debug`. Semua penyebutan `PERF_LOG=1` di dokumen ini dibaca sebagai `LOG_LEVEL=debug`. Barisnya kini JSON, mis. `{"scope":"perf","label":"metric summary","durationMs":1234,"msg":"timed"}` (dulu `perf: metric summary 1234ms`). Query lambat tetap `warn` lewat `SLOW_QUERY_MS` dengan field `sql` dan `durationMs`. Lihat project-guide bab 9.6 dan 10.6.
 
 Tujuan: tahu **bagian mana yang lambat dan seberapa lambat** sebelum mengoptimalkan apa pun. Dokumen ini menjelaskan alat ukurnya, cara memakainya, dan apa yang dicatat. Semua perintah yang menyentuh database harus dijalankan atas izin user (aturan CLAUDE.md).
 

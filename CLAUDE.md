@@ -29,6 +29,7 @@ npm run lint:fix
 npx prettier --write <files>   # Prettier (setup matches the code style; the old code is NOT reformatted, only format files you change)
 npm test               # unit tests (Vitest project "unit": src/**/*.test.ts, scripts/**/*.test.ts)
 npm run test:db        # integration tests against the LOCAL DB (tests/integration/**/*.int.test.ts)
+npm run logs:find -- <request-id>   # find the log lines of one request (more: --level, --since, --until, --user, --path)
 ```
 
 Single test file / single test:
@@ -81,6 +82,7 @@ src/routes/**            file-based routes; loader → queryClient.ensureQueryDa
 - Routes/components never import Drizzle, `mysql2`, or `src/server/**`. Server modules start with `import '@tanstack/react-start/server-only'`; Vitest aliases it to `tests/empty-module.ts`, so they stay unit-testable. Exceptions without the marker are pure helpers that scripts or drizzle-kit also load (`db/in-list|chunk|segment-column|erp-codes|bigint-string`, `dash/schema|tables`, `auth/rate-limit`, `log`, `dash/log`). Auth helpers live in `src/server/auth/`; services sit in one folder per big domain (`services/ap-ar/`, `services/cash/`, `services/pnl/`, `services/drill/`) with the small ones at the services root; helpers shared by several domains (not called from `functions/`) live in `src/server/services/shared/`.
 - Repos are SQL-only, with one allowed exception: they may use `~/server/cache` (`memo`) for shared ERP reads. They do not read `env` or compute "today"; the service passes dates in. Repos sit in one folder per big domain (`repo/ap-ar/`, `repo/cash/`, `repo/gl/`, `repo/master-data/`, `repo/pnl/`) and the small ones stay at the repo root (`auth`, `settings`, `data-checks`). Row types shared with `dash/` live in `repo/ap-ar/types.ts`; AP/AR repos are split by topic (`aging`, `expense-paid`, `party`, `payment-plan`).
 - `authMiddleware` (`src/functions/middleware.ts`) is required on every server function except login/logout/getCurrentUser/prefs. It re-checks `sysuser.user_status` (cached 1 min) and starts the snapshot scheduler as a safety net (it normally starts at server boot from `src/server-entry.ts`). Server functions follow the same domain folders as the services (`src/functions/ap-ar/`, `cash/`, `pnl/`); the other `*.fn.ts` files sit at the `functions/` root.
+- Logging and error ids: every request gets an id (`YYYYMMDD-HHmmss-xxxxx`) in `src/server-entry.ts` (`handleRequestWithLog`); it is on every log line of the request (through `AsyncLocalStorage`), in the `X-Request-Id` response header, and in one access line. A server function error reaches the browser only as a public error whose message is `CODE#id` (`src/server/public-error.ts`, `src/lib/error-message.ts`; TanStack Start sends only the message of an Error); the raw error stays in the log under the same id. `authMiddleware` includes `publicErrorMiddleware`, and a server function without `authMiddleware` must use `publicErrorMiddleware`. Log files are `LOG_DIR/app.<date>.<n>.log`, searched with `npm run logs:find`. Details: `docs/project-guide.md` chapter 10.6.
 - Global filters live in the URL: `src/lib/filters/search-schema.ts` (`entity`, `preset`, `from`/`to`, `p13`, `drill`, …). `src/server/context.ts#resolveFilter` turns them into a `ResolvedFilter` (location ids, segment-detail ids, date range, period ids, comparison period, "today"). Entity tokens in the URL are location **ids**.
 - "Today" = `APP_TODAY` if set, else today in `APP_TIMEZONE`. Integration tests pin it (`TEST_TODAY`, default `2025-10-15`) to fit the local `demo` data.
 - Server functions return money as strings, dates as `YYYY-MM-DD`; never `Decimal`, `Date`, `Map`, `Set`, `bigint`. Labels are sent as neutral keys and translated on the client.
@@ -127,6 +129,7 @@ Accounting
 
 Security / sensitive data
 
+- Logs never contain SQL parameter values, passwords, or the login name that was typed (a failed login logs an 8-character hash and the length only). Errors go into the log as the `err` field, which `src/server/logging/error-serializer.ts` cleans (a Drizzle "Failed query" error repeats its parameter values in its message).
 - `sysuser.password` is selected in exactly one login function, compared with `timingSafeEqual`, never logged/returned/cached. Select columns explicitly.
 - From `vendor`/`customer` select only id, `code`, `name` — never bank account/NPWP/ID columns. Do not write account numbers, loan numbers, shareholder or client company names anywhere (code, tests, logs, docs, commits).
 
@@ -141,7 +144,7 @@ Language
 
 ## Conventions
 
-- Server logs go through `createLogger` / `errorText` in `src/server/log.ts` (`dashLog` for the snapshot code), not `console.*`.
+- Server logs go through `createLogger` in `src/server/log.ts` (`dashLog` for the snapshot code), not `console.*`. One JSON object per line (pino). The call is `log.error({ err, fn }, 'message')`: the fields first (only names listed in `src/server/logging/log-fields.ts`; add a name there before using it), then the message. A caught error goes in as `err: error`, never as `errorText(error)` inside the message. Request and job ids come from the request context (`src/server/logging/log-context.ts`), not from the caller. Time is written in `APP_TIMEZONE` with its offset.
 - Import alias `~/` → `src/`. Files `kebab-case.ts` (hooks `use-*.ts`), components `PascalCase.tsx`, tests next to the file (`*.test.ts`); integration tests in `tests/integration/*.int.test.ts` with fixtures in `tests/fixtures/`.
 - TypeScript strict + `noUncheckedIndexedAccess`, `noUnusedLocals`, `noUnusedParameters` (remove dead imports and props instead of leaving them); no `any` (use `unknown` + zod). Core types in `src/lib/core/types.ts` (`Id`, `Money`, `IsoDate`, `ResolvedFilter`, …).
 - **Prettier on changed files is expected, `.md` files and this one included.** It re-pads tables and turns `*text*` into `_text_`; that diff noise is accepted. Do not put backticks inside inline code (a template-literal tag written between backticks): Prettier strips the spaces around it and garbles the sentence. Say it in words instead (the `sql` template tag).
