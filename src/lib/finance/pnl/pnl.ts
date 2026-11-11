@@ -1,19 +1,12 @@
 import Decimal from 'decimal.js'
-import { D, safeDiv } from '../../core/money'
+import { D, addTo, safeDiv } from '../../core/money'
 import type { AccountGroup, Breakdown, Id, Money } from '../../core/types'
 import { type CoaTree, ORPHAN_FOLDER_ID, postableDescendants } from '../coa/coa-tree'
 import { groupFolders } from './revenue'
 import { accountSide } from '../coa/sign'
 
 export type PnlLineKey =
-  | 'revenue'
-  | 'cogs'
-  | 'grossProfit'
-  | 'opex'
-  | 'operatingProfit'
-  | 'otherRevenue'
-  | 'otherExpense'
-  | 'netProfit'
+  'revenue' | 'cogs' | 'grossProfit' | 'opex' | 'operatingProfit' | 'otherRevenue' | 'otherExpense' | 'netProfit'
 
 export type PnlLine = {
   key: PnlLineKey
@@ -92,7 +85,7 @@ function computeLine(ctx: PnlContext, accountGroup: AccountGroup): LineComponent
 
     total = total.plus(signed(totals.totalDebet, totals.totalCredit))
     for (const [periodId, p] of totals.byPeriod) {
-      byPeriod.set(periodId, (byPeriod.get(periodId) ?? D(0)).plus(signed(p.debet, p.credit)))
+      addTo(byPeriod, periodId, signed(p.debet, p.credit))
     }
   }
 
@@ -113,10 +106,7 @@ function computeLine(ctx: PnlContext, accountGroup: AccountGroup): LineComponent
   }
 }
 
-export function buildPnl(input: {
-  tree: CoaTree
-  movements: PnlMovement[]
-}): {
+export function buildPnl(input: { tree: CoaTree; movements: PnlMovement[] }): {
   lines: PnlLine[]
 } {
   const { tree, movements } = input

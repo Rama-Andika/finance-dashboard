@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js'
-import { D } from '../../core/money'
+import { D, addTo } from '../../core/money'
 import type { Breakdown, Id, Money } from '../../core/types'
 import { type CoaTree, postableDescendants } from '../coa/coa-tree'
 import { groupFolders } from '../pnl/revenue'
@@ -42,7 +42,7 @@ function vendorCategory(
   let total = D(0)
   for (const { vendorId, amount } of amounts) {
     total = total.plus(amount)
-    byVendor.set(vendorId, (byVendor.get(vendorId) ?? D(0)).plus(amount))
+    addTo(byVendor, vendorId, amount)
   }
 
   const children: Breakdown[] = Array.from(byVendor, ([vendorId, amount]) => {
@@ -65,7 +65,7 @@ function directCategories(direct: DirectExpensePortion[], tree: CoaTree): { cate
     if (isDirectExpenseGroup(item.accountGroup) && D(item.portion).lt(0)) {
       const amount = D(item.portion).abs()
       total = total.plus(amount)
-      byCoa.set(item.counterCoaId, (byCoa.get(item.counterCoaId) ?? D(0)).plus(amount))
+      addTo(byCoa, item.counterCoaId, amount)
     }
   }
 

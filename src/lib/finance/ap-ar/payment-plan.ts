@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js'
-import { D, sum } from '../../core/money'
+import { D, addTo, sum } from '../../core/money'
 import { addDays } from '~/lib/format/date'
 import type { Id, IsoDate, Money } from '../../core/types'
 import type { PlanStatus } from './aging'
@@ -41,10 +41,6 @@ const statusToMoney = (status: StatusAmounts): PaymentPlanDay['status'] => ({
   submitted: status.submitted.toFixed(2),
   notSubmitted: status.notSubmitted.toFixed(2),
 })
-
-function addTo<K>(map: Map<K, Decimal>, key: K, amount: Decimal): void {
-  map.set(key, (map.get(key) ?? D(0)).plus(amount))
-}
 
 /**
  * Open bills (balance > 0) split into the overdue ones (due before today, per plan status)
@@ -116,7 +112,9 @@ export function buildPaymentPlan(input: {
 
   const { overdue, overdueStatus, apByDate } = splitApByDueDate(apItems, today)
   const arByDate = includeInflow ? indexArByDate(arItems) : new Map<IsoDate, Decimal>()
-  const bankInflowByDate = includeInflow ? indexBankInflowByDate(unsettled, today, settlementLags) : new Map<IsoDate, Decimal>()
+  const bankInflowByDate = includeInflow
+    ? indexBankInflowByDate(unsettled, today, settlementLags)
+    : new Map<IsoDate, Decimal>()
 
   const days: PaymentPlanDay[] = []
   let opening = D(openingCash)

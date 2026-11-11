@@ -1,6 +1,6 @@
 import '@tanstack/react-start/server-only'
 import Decimal from 'decimal.js'
-import { D } from '~/lib/core/money'
+import { D, addTo } from '~/lib/core/money'
 import { buildEntityCaptions, countEntitiesInScope } from '~/lib/finance/entity/entity-owner'
 import { type Entity, type Id, type IsoDate, type Period } from '~/lib/core/types'
 import { type AppContextFilter } from '~/server/context'
@@ -113,7 +113,7 @@ export async function accountRows(ctx: DrillContext, coaIds: Id[], label: string
   })
   const byCoa = new Map<Id, Decimal>()
   for (const m of movements) {
-    byCoa.set(m.coaId, (byCoa.get(m.coaId) ?? D(0)).plus(signedFor(ctx.tree, m.coaId, m.debet, m.credit)))
+    addTo(byCoa, m.coaId, signedFor(ctx.tree, m.coaId, m.debet, m.credit))
   }
   const rows: Array<Record<string, string | null>> = []
   for (const id of coaIds) {
@@ -146,7 +146,7 @@ export async function entityRows(ctx: DrillContext, coaIds: Id[], label: string)
   const byLoc = new Map<Id, Decimal>()
   for (const m of movements) {
     const key = m.locationId ?? ''
-    byLoc.set(key, (byLoc.get(key) ?? D(0)).plus(signedFor(ctx.tree, m.coaId, m.debet, m.credit)))
+    addTo(byLoc, key, signedFor(ctx.tree, m.coaId, m.debet, m.credit))
   }
   const rows: Array<Record<string, string | null>> = []
   for (const ent of ctx.entities) {
@@ -216,7 +216,7 @@ export async function portionJournalRows(
   sign: 1 | -1,
 ): Promise<DrillResult> {
   const byGl = new Map<Id, Decimal>()
-  for (const p of portions) byGl.set(p.glId, (byGl.get(p.glId) ?? D(0)).plus(D(p.portion).times(sign)))
+  for (const p of portions) addTo(byGl, p.glId, D(p.portion).times(sign))
   const glIds = Array.from(byGl.keys())
   const tables = Array.from(new Set(ctx.activePeriods.map((p) => p.tableName)))
   // "Newest first" holds over all the journals, so the dates of all of them are needed before the page is cut.

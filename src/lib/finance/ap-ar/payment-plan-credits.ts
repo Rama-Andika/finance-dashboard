@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js'
-import { D } from '../../core/money'
+import { D, addTo } from '../../core/money'
 import type { Id, IsoDate, Money } from '../../core/types'
 import type { PlanStatus } from './aging'
 
@@ -47,7 +47,7 @@ export function applyCredits(
     const amount = D(pool.amount)
     if (amount.lte(0)) continue
     const key = poolKey(pool.partyId, pool.locationId)
-    available.set(key, (available.get(key) ?? D(0)).plus(amount))
+    addTo(available, key, amount)
   }
 
   const byPool = new Map<string, CreditableBill[]>()
@@ -197,7 +197,7 @@ export function applyCreditData(
 /** The amount the reductions took off each bill, by bill id. */
 export function reductionsByInvoice(reductions: readonly CreditReduction[]): Map<Id, Money> {
   const sums = new Map<Id, Decimal>()
-  for (const r of reductions) sums.set(r.invoiceId, (sums.get(r.invoiceId) ?? D(0)).plus(D(r.amount)))
+  for (const r of reductions) addTo(sums, r.invoiceId, D(r.amount))
   return new Map(Array.from(sums, ([invoiceId, amount]) => [invoiceId, amount.toFixed(2)] as const))
 }
 

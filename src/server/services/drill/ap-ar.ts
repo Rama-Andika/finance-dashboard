@@ -1,6 +1,6 @@
 import '@tanstack/react-start/server-only'
 import Decimal from 'decimal.js'
-import { D } from '~/lib/core/money'
+import { D, addTo } from '~/lib/core/money'
 import { buildEntityCaptions } from '~/lib/finance/entity/entity-owner'
 import { compareMoney } from '~/lib/table/query'
 import { addDays, diffDays } from '~/lib/format/date'
@@ -135,7 +135,7 @@ async function partyTotalsPage(
   const totals = new Map<Id, Decimal>()
   for (const a of items) {
     const partyId = partyIdOf(a)
-    totals.set(partyId, (totals.get(partyId) ?? D(0)).plus(D(a.balance)))
+    addTo(totals, partyId, D(a.balance))
   }
   const ranked = Array.from(totals.entries()).sort(([, a], [, b]) => b.cmp(a))
   const { page: shownParties, hasMore } = pageOf(ranked, ctx.offset)

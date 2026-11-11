@@ -1,6 +1,6 @@
 import '@tanstack/react-start/server-only'
 import Decimal from 'decimal.js'
-import { D } from '~/lib/core/money'
+import { D, addTo } from '~/lib/core/money'
 import { addDays } from '~/lib/format/date'
 import { type Id, type IsoDate } from '~/lib/core/types'
 import { expensePaidAllocated, expensePaidUnallocated } from '~/server/repo/ap-ar/expense-paid.repo'
@@ -9,7 +9,17 @@ import { isDirectExpenseGroup } from '~/lib/finance/coa/account-groups'
 import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
 import { loadClassifiedPortions } from '~/server/services/cash/cash-flow.service'
 import { type DrillStep, type DrillStepKind } from '~/lib/filters/search-schema'
-import { AP_BILL_ITEM_TYPES, col, ACCOUNT_COLUMNS, NAMED_TOTAL_COLUMNS, empty, accountIdsOf, portionJournalRows, type DrillContext, type DrillResult } from '~/server/services/drill/shared'
+import {
+  AP_BILL_ITEM_TYPES,
+  col,
+  ACCOUNT_COLUMNS,
+  NAMED_TOTAL_COLUMNS,
+  empty,
+  accountIdsOf,
+  portionJournalRows,
+  type DrillContext,
+  type DrillResult,
+} from '~/server/services/drill/shared'
 
 // ---------------------------------------------------------------------------
 // Cash flow & expense paid (built on classified cash portions)
@@ -26,7 +36,7 @@ export async function cashFlowDrill(ctx: DrillContext, steps: Map<DrillStepKind,
 
   if (!subrowStep) {
     const bySub = new Map<string, Decimal>()
-    for (const p of scoped) bySub.set(p.subGroup, (bySub.get(p.subGroup) ?? D(0)).plus(D(p.portion)))
+    for (const p of scoped) addTo(bySub, p.subGroup, D(p.portion))
     return {
       titleKey: 'drill.title.subrows',
       titleLabel: sectionStep.label,
@@ -41,7 +51,7 @@ export async function cashFlowDrill(ctx: DrillContext, steps: Map<DrillStepKind,
 
   if (!accountStep) {
     const byCoa = new Map<Id, Decimal>()
-    for (const p of scoped) byCoa.set(p.counterCoaId, (byCoa.get(p.counterCoaId) ?? D(0)).plus(D(p.portion)))
+    for (const p of scoped) addTo(byCoa, p.counterCoaId, D(p.portion))
     return {
       titleKey: 'drill.title.counterAccounts',
       titleLabel: subrowStep.label,
@@ -55,7 +65,12 @@ export async function cashFlowDrill(ctx: DrillContext, steps: Map<DrillStepKind,
     }
   }
 
-  return portionJournalRows(ctx, scoped.filter((p) => p.counterCoaId === accountStep.id), accountStep.label, 1)
+  return portionJournalRows(
+    ctx,
+    scoped.filter((p) => p.counterCoaId === accountStep.id),
+    accountStep.label,
+    1,
+  )
 }
 
 type PaymentCard = { cardId: Id; cardNumber: string; txDate: IsoDate; vendorId: Id; amount: Decimal }
@@ -96,14 +111,19 @@ async function vendorPaymentsDrill(
       rows: Array.from(cards.values())
         .filter((c) => c.vendorId === vendorStep.id)
         .sort((a, b) => b.txDate.localeCompare(a.txDate))
-        .map((c) => ({ id: c.cardId, docNumber: c.cardNumber || c.cardId, txDate: c.txDate, amount: c.amount.toFixed(2) })),
+        .map((c) => ({
+          id: c.cardId,
+          docNumber: c.cardNumber || c.cardId,
+          txDate: c.txDate,
+          amount: c.amount.toFixed(2),
+        })),
       nextKind: null,
       hasMore: false,
     }
   }
 
   const byVendor = new Map<Id, Decimal>()
-  for (const c of cards.values()) byVendor.set(c.vendorId, (byVendor.get(c.vendorId) ?? D(0)).plus(c.amount))
+  for (const c of cards.values()) addTo(byVendor, c.vendorId, c.amount)
   const vendors = new Map((await listVendors(Array.from(byVendor.keys()).filter(Boolean))).map((v) => [v.vendorId, v]))
   return {
     titleKey: 'drill.title.vendors',
@@ -138,11 +158,16 @@ async function directExpenseDrill(ctx: DrillContext, steps: Map<DrillStepKind, D
   })
 
   if (accountStep) {
-    return portionJournalRows(ctx, paid.filter((p) => p.counterCoaId === accountStep.id), accountStep.label, -1)
+    return portionJournalRows(
+      ctx,
+      paid.filter((p) => p.counterCoaId === accountStep.id),
+      accountStep.label,
+      -1,
+    )
   }
 
   const byCoa = new Map<Id, Decimal>()
-  for (const p of paid) byCoa.set(p.counterCoaId, (byCoa.get(p.counterCoaId) ?? D(0)).plus(D(p.portion).negated()))
+  for (const p of paid) addTo(byCoa, p.counterCoaId, D(p.portion).negated())
   return {
     titleKey: 'drill.title.accounts',
     titleLabel: scopeStep.label,

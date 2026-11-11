@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js'
-import { D, sum } from '../../core/money'
+import { D, addTo, sum } from '../../core/money'
 import { signedAmount, signedDecimal } from '../coa/sign'
 import type { AccountGroup, Breakdown, Id, Money } from '../../core/types'
 import { type CoaTree, type CoaNode, ORPHAN_FOLDER_ID, postableDescendants } from '../coa/coa-tree'
@@ -82,10 +82,7 @@ export function buildRevenueBreakdown(
   const result: Breakdown[] = []
 
   for (const folder of folders) {
-    const descIds =
-      folder.status === 'POSTABLE'
-        ? [folder.coaId]
-        : postableDescendants(tree, folder.coaId)
+    const descIds = folder.status === 'POSTABLE' ? [folder.coaId] : postableDescendants(tree, folder.coaId)
 
     const children: Breakdown[] = []
     let folderSum = D(0)
@@ -156,14 +153,16 @@ export function aggregateRevenue(rows: readonly RevenueMovement[]): RevenueAggre
     const coa = byCoa.get(r.coaId) ?? { debet: D(0), credit: D(0) }
     byCoa.set(r.coaId, { debet: coa.debet.plus(D(r.debet)), credit: coa.credit.plus(D(r.credit)) })
 
-    if (r.periodId) byPeriod.set(r.periodId, (byPeriod.get(r.periodId) ?? D(0)).plus(net))
-    if (r.locationId) byLocation.set(r.locationId, (byLocation.get(r.locationId) ?? D(0)).plus(net))
+    if (r.periodId) addTo(byPeriod, r.periodId, net)
+    if (r.locationId) addTo(byLocation, r.locationId, net)
   }
   return { total, byCoa, byPeriod, byLocation }
 }
 
 /** Debit and credit per account as 2-decimal strings, the shape `buildRevenueBreakdown` takes. */
-export function movementsByCoaOf(byCoa: ReadonlyMap<Id, { debet: Decimal; credit: Decimal }>): Map<Id, { debet: Money; credit: Money }> {
+export function movementsByCoaOf(
+  byCoa: ReadonlyMap<Id, { debet: Decimal; credit: Decimal }>,
+): Map<Id, { debet: Money; credit: Money }> {
   return new Map(Array.from(byCoa, ([coaId, m]) => [coaId, { debet: m.debet.toFixed(2), credit: m.credit.toFixed(2) }]))
 }
 
@@ -177,7 +176,7 @@ export function revenueTrend(
   const byMonth = new Map<string, Decimal>()
   for (const [periodId, amount] of byPeriod) {
     const month = monthOfPeriod.get(periodId)
-    if (month !== undefined) byMonth.set(month, (byMonth.get(month) ?? D(0)).plus(amount))
+    if (month !== undefined) addTo(byMonth, month, amount)
   }
   return months.map((month) => ({ month, amount: (byMonth.get(month) ?? D(0)).toFixed(2) }))
 }

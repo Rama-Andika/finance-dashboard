@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { safeDiv, sum, toChartNumber, largestByAmount } from './money'
+import type Decimal from 'decimal.js'
+import { addTo, D, safeDiv, sum, toChartNumber, largestByAmount } from './money'
 
 describe('money helpers', () => {
   it('sums float-like values accurately', () => {
@@ -44,6 +45,23 @@ describe('largestByAmount', () => {
   })
 
   it('keeps the first item on a tie', () => {
-    expect(largestByAmount([{ id: 'a', amount: '5.00' }, { id: 'b', amount: '5.00' }])?.id).toBe('a')
+    expect(
+      largestByAmount([
+        { id: 'a', amount: '5.00' },
+        { id: 'b', amount: '5.00' },
+      ])?.id,
+    ).toBe('a')
+  })
+})
+
+describe('addTo', () => {
+  it('starts a missing key at zero and adds to an existing one, with exact decimals', () => {
+    const totals = new Map<string, Decimal>()
+    addTo(totals, 'a', D('0.10'))
+    addTo(totals, 'a', D('0.20'))
+    addTo(totals, 'b', '5')
+    expect(totals.get('a')?.toFixed(2)).toBe('0.30')
+    expect(totals.get('b')?.toFixed(2)).toBe('5.00')
+    expect(totals.size).toBe(2)
   })
 })

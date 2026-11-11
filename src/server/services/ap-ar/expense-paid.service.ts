@@ -1,7 +1,7 @@
 import '@tanstack/react-start/server-only'
 import { activePeriodsOf, entitiesOfFilter } from '~/lib/filters/filter-scope'
 import Decimal from 'decimal.js'
-import { D } from '~/lib/core/money'
+import { D, addTo } from '~/lib/core/money'
 import { addDays } from '~/lib/format/date'
 import type { Breakdown, Id, MetricMeta, Money } from '~/lib/core/types'
 import {
@@ -83,7 +83,7 @@ async function computeExpensePaidUncached(filter: AppContextFilter): Promise<Exp
     const accountGroup = tree.byId.get(p.counterCoaId)?.accountGroup ?? ''
     const loc = p.counterSegmentId ? segToLoc.get(p.counterSegmentId) : undefined
     if (loc && isDirectExpenseGroup(accountGroup) && D(p.portion).lt(0)) {
-      directByLocation.set(loc, (directByLocation.get(loc) ?? D(0)).plus(D(p.portion).abs()))
+      addTo(directByLocation, loc, D(p.portion).abs())
     }
     return { counterCoaId: p.counterCoaId, accountGroup, portion: p.portion }
   })
@@ -95,15 +95,12 @@ async function computeExpensePaidUncached(filter: AppContextFilter): Promise<Exp
   const apByLocation = new Map<Id, Decimal>()
   for (const a of allocated) {
     if (AP_BILL_ITEM_TYPES.has(a.itemType)) {
-      apByLocation.set(a.locationId, (apByLocation.get(a.locationId) ?? D(0)).plus(D(a.detailSum).negated()))
+      addTo(apByLocation, a.locationId, D(a.detailSum).negated())
     }
   }
   const unallocatedByLocation = new Map<Id, Decimal>()
   for (const u of unallocated) {
-    unallocatedByLocation.set(
-      u.locationId,
-      (unallocatedByLocation.get(u.locationId) ?? D(0)).plus(D(u.signedAmount).negated()),
-    )
+    addTo(unallocatedByLocation, u.locationId, D(u.signedAmount).negated())
   }
 
   const targetEntities = entitiesOfFilter(entities, filter.locationIds)

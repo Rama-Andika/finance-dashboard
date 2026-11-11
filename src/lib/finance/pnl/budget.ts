@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js'
 import { isIncomeGroup } from '../coa/account-groups'
 import { signedDecimal } from '../coa/sign'
-import { D, safeDiv } from '../../core/money'
+import { D, addTo, safeDiv } from '../../core/money'
 import { formatPercent } from '~/lib/format/number'
 import type { AccountGroup, Id, Money } from '../../core/types'
 import { type CoaTree, type CoaNode, ORPHAN_FOLDER_ID } from '../coa/coa-tree'
@@ -36,7 +36,10 @@ export function isHigherBetter(group: AccountGroup): boolean {
 /**
  * Computes variance and percentage.
  */
-export function computeVariance(actual: Money, budget: Money): {
+export function computeVariance(
+  actual: Money,
+  budget: Money,
+): {
   variance: Money
   variancePercent: string | null
 } {
@@ -80,11 +83,7 @@ export function buildBudgetTree(input: {
     // Find all postable accounts for this group
     const postables: CoaNode[] = []
     for (const node of tree.byId.values()) {
-      if (
-        node.status === 'POSTABLE' &&
-        node.accountGroup === group &&
-        node.coaId !== ORPHAN_FOLDER_ID
-      ) {
+      if (node.status === 'POSTABLE' && node.accountGroup === group && node.coaId !== ORPHAN_FOLDER_ID) {
         postables.push(node)
       }
     }
@@ -117,10 +116,7 @@ export function buildBudgetTree(input: {
       })
     }
 
-    const { variance: gVar, variancePercent: gVarPct } = computeVariance(
-      groupActual.toFixed(2),
-      groupBudget.toFixed(2),
-    )
+    const { variance: gVar, variancePercent: gVarPct } = computeVariance(groupActual.toFixed(2), groupBudget.toFixed(2))
 
     results.push({
       coaId: `group_${group}`,
@@ -150,7 +146,7 @@ export function actualByCoaOf(
   const sums = new Map<Id, Decimal>()
   for (const m of movements) {
     const net = signedDecimal(groupByCoa.get(m.coaId) ?? 'Expense', m.debet, m.credit)
-    sums.set(m.coaId, (sums.get(m.coaId) ?? D(0)).plus(net))
+    addTo(sums, m.coaId, net)
   }
   return new Map(Array.from(sums, ([coaId, amount]) => [coaId, amount.toFixed(2)]))
 }
@@ -158,7 +154,7 @@ export function actualByCoaOf(
 /** Budget amount per account (a row is one account and month). */
 export function budgetByCoaOf(rows: readonly { coaId: Id; amount: Money }[]): Map<Id, Money> {
   const sums = new Map<Id, Decimal>()
-  for (const b of rows) sums.set(b.coaId, (sums.get(b.coaId) ?? D(0)).plus(D(b.amount)))
+  for (const b of rows) addTo(sums, b.coaId, D(b.amount))
   return new Map(Array.from(sums, ([coaId, amount]) => [coaId, amount.toFixed(2)]))
 }
 

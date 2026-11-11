@@ -2,7 +2,7 @@ import '@tanstack/react-start/server-only'
 import { isRegularPeriod } from '~/lib/finance/period/period-type'
 import Decimal from 'decimal.js'
 import { postableAccountIds } from '~/lib/finance/coa/coa-tree'
-import { D, sum } from '~/lib/core/money'
+import { D, addTo, sum } from '~/lib/core/money'
 import type { Id, MetricMeta, Money, Period } from '~/lib/core/types'
 import { type AppContextFilter, buildMetricMeta, getCachedCoaTree, getCachedPeriods } from '~/server/context'
 import { memoMetric } from '~/server/cache'
@@ -59,7 +59,7 @@ async function averageBurn(filter: AppContextFilter, periods: Period[], cashEqui
   const monthNetMap = new Map<string, Decimal>(priorMonths.map((m) => [m, D(0)]))
   for (const p of portions) {
     const m = periodMonthMap.get(p.periodId)
-    if (m) monthNetMap.set(m, (monthNetMap.get(m) ?? D(0)).plus(D(p.portion)))
+    if (m) addTo(monthNetMap, m, D(p.portion))
   }
 
   return computeAvgBurn(priorMonths.map((m) => (monthNetMap.get(m) ?? D(0)).toFixed(2)))

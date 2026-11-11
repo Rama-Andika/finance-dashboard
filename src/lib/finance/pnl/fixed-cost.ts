@@ -1,6 +1,6 @@
 import { i18nLabel } from '../../core/i18n-label'
 import Decimal from 'decimal.js'
-import { D } from '../../core/money'
+import { D, addTo } from '../../core/money'
 import { signedAmount } from '../coa/sign'
 import type { Breakdown, Id, Money } from '../../core/types'
 import { type CoaTree } from '../coa/coa-tree'
@@ -31,10 +31,6 @@ export type FixedCostCalculation = {
   averageFixed: Money
   byFolder: Breakdown[]
   basketEmpty: boolean
-}
-
-function addTo<K>(map: Map<K, Decimal>, key: K, amount: Decimal): void {
-  map.set(key, (map.get(key) ?? D(0)).plus(amount))
 }
 
 /**

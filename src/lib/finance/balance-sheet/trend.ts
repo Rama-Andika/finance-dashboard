@@ -1,5 +1,5 @@
 import type Decimal from 'decimal.js'
-import { D, sum } from '../../core/money'
+import { D, addTo, sum } from '../../core/money'
 import {
   ASSET_GROUPS,
   BALANCE_SHEET_GROUPS,
@@ -116,7 +116,7 @@ export function cumulativeGroupAmounts(input: {
       const group = groupOf(m.coaId)
       if (!group) continue
       if (isBalanceSheetGroup(group)) {
-        groups.set(group, (groups.get(group) ?? D(0)).plus(signedDecimal(group, m.debet, m.credit)))
+        addTo(groups, group, signedDecimal(group, m.debet, m.credit))
       } else if (PNL_ACCOUNT_GROUPS.includes(group)) {
         profit = profit.plus(D(m.credit)).minus(D(m.debet))
       }

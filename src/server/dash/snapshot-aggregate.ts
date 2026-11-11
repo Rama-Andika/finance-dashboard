@@ -6,7 +6,7 @@ import { inList } from '~/server/db/in-list'
 import { SLICE_CONCURRENCY, chunk, chunkOrAll, mapLimit, sliceCombos } from '~/server/db/chunk'
 import { AGING_SIDES, type AgingSide } from '~/server/db/erp-codes'
 import { idOrEmpty } from '~/server/repo/ap-ar/shared'
-import { D } from '~/lib/core/money'
+import { D, addTo } from '~/lib/core/money'
 import {
   AGING_BUCKETS,
   AGING_BUCKET_DAYS,
@@ -233,7 +233,7 @@ async function readDueTotals(
   const totals = new Map<IsoDate, Decimal>()
   for (const r of parts.flat()) {
     const day = String(r.dueDate).slice(0, 10)
-    totals.set(day, (totals.get(day) ?? D(0)).plus(D(r.total)))
+    addTo(totals, day, D(r.total))
   }
   return new Map(Array.from(totals, ([day, total]) => [day, total.toFixed(2)] as const))
 }
