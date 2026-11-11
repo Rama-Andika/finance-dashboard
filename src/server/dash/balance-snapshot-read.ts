@@ -12,7 +12,8 @@ const BUILT_TTL_MS = 30_000
 
 /**
  * Closed periods whose balance totals are in the snapshot and usable (built from saved opening balances, so with at least
- * one row): period id → "version" (build time and row count). Empty when the tables do not exist yet; any other read error is logged and also answers empty (not remembered).
+ * one row): period id → "version" (build time and row count). Empty when the tables do not exist yet. Any other read
+ * error is logged and also answers empty (not remembered, and not tried again for a few seconds).
  */
 export function builtBalancePeriods(): Promise<Map<Id, string>> {
   return readSnapshotIndex('dash:balance:built', BUILT_TTL_MS, 'balance snapshot index', async () => {

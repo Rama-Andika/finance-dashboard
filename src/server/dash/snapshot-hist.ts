@@ -21,7 +21,8 @@ const HIST_MEMO_TTL_MS = 30 * 60 * 1000
 
 /**
  * Month-ends present in the history tables (day -> when it was built, ISO UTC).
- * Empty when the tables do not exist yet (migration not applied); any other read error is logged and also answers empty (not remembered). The returned Map is shared: never change it.
+ * Empty when the tables do not exist yet (migration not applied). Any other read error is logged and also answers
+ * empty (not remembered, and not tried again for a few seconds). The returned Map is shared: never change it.
  */
 export function apArHistDates(): Promise<Map<IsoDate, string>> {
   return readSnapshotIndex('dash:ap-ar:hist:dates', DATES_TTL_MS, 'ap/ar history dates', async () => {

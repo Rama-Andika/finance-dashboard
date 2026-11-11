@@ -68,7 +68,7 @@ export type MonthRange = { from?: string; to?: string }
 
 const MAX_RANGE_MONTHS = 60
 
-/** `YYYY-MM` as [year, month]. A part that is missing becomes NaN, so a malformed value never counts as a valid range. */
+/** `YYYY-MM` as [year, month]. A part that is missing becomes NaN, so a malformed value never makes a valid range. */
 function yearMonthOf(value: string): [number, number] {
   const [year = Number.NaN, month = Number.NaN] = value.split('-').map(Number)
   return [year, month]

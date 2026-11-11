@@ -95,10 +95,10 @@ function sharedInputsKey(input: BalanceInput): string {
 }
 
 /**
- * The saved opening balances and the movements of ALL accounts for one date and entity filter, read once. Cash Position,
- * Cash Flow, Runway and the reconciliations ask for the same date with different account lists; the movement query
- * reads every journal line of the window anyway (it starts from the journal dates), so one unfiltered read costs about
- * the same as one narrow read, and every account list is then answered from it.
+ * The saved opening balances and the movements of ALL accounts for one date and entity filter, read once. Cash
+ * Position, Cash Flow, Runway and the reconciliations ask for the same date with different account lists. The
+ * movement query reads every journal line of the window anyway (it starts from the journal dates), so one unfiltered
+ * read costs about the same as one narrow read, and every account list is then answered from it.
  * Answers null when the shared read does not apply: no saved opening balances (the trial-balance fallback keeps its
  * narrow read) or a window longer than SHARED_READ_MAX_DAYS.
  */

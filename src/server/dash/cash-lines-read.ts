@@ -25,7 +25,8 @@ const toMoney = (value: number | string | null | undefined): string =>
 
 /**
  * Closed periods whose cash lines are in the snapshot, built for exactly this cash account list (`cashHash`):
- * period id → "version" (build time and row count). Empty when the tables do not exist yet; any other read error is logged and also answers empty (not remembered).
+ * period id → "version" (build time and row count). Empty when the tables do not exist yet. Any other read error is
+ * logged and also answers empty (not remembered, and not tried again for a few seconds).
  */
 export function builtCashPeriods(cashHash: string): Promise<Map<Id, string>> {
   return readSnapshotIndex(`dash:cash:built:${cashHash}`, BUILT_TTL_MS, 'cash lines snapshot index', async () => {

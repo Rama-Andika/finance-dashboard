@@ -182,8 +182,8 @@ function planWindowOf(today: IsoDate, opts: PaymentPlanOptions): { horizon: numb
 }
 
 /**
- * The part of the result that both entry points build the same way: the projection and the totals around it. They differ
- * only in how the AP and AR items were read (invoice by invoice, or summed per due date by the database).
+ * The part of the result that both entry points build the same way: the projection and the totals around it. They
+ * differ only in how the AP and AR items were read (invoice by invoice, or summed per due date by the database).
  */
 function assemblePlan(input: {
   meta: MetricMeta

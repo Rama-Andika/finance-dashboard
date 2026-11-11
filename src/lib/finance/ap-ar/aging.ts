@@ -22,7 +22,8 @@ const DAYS_OPEN_END = 100_000_000
 
 /**
  * Whole-day range (asOf minus due date) of every aging bucket, both ends included. The SQL of the aggregate query is
- * built from these ranges. `bucketOf` below repeats the same limits as plain numbers (it runs once per invoice), and the test aging-bucket-days.test.ts fails when the two disagree.
+ * built from these ranges. `bucketOf` below repeats the same limits as plain numbers (it runs once per invoice), and
+ * the test aging-bucket-days.test.ts fails when the two disagree.
  */
 export const AGING_BUCKET_DAYS: Record<AgingBucket, { min: number; max: number }> = {
   overdue0_30: { min: 0, max: 30 },

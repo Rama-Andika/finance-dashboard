@@ -6,6 +6,19 @@ import { dashLog } from './log'
 const NO_SUCH_TABLE_ERRNO = 1146
 /** How many `cause` links of an error are followed (Drizzle wraps the mysql2 error). */
 const MAX_CAUSE_DEPTH = 5
+/**
+ * After an unexpected read error the snapshot counts as absent for this long. Without the pause, an error that does
+ * not go away (a refused permission, say) would repeat the failing query and the log line on every call.
+ */
+const FAILURE_PAUSE_MS = 10_000
+
+/** Reader key → time until which the read is not tried again. */
+const pausedUntil = new Map<string, number>()
+
+/** Forgets every pause (tests). */
+export function clearSnapshotIndexPauses(): void {
+  pausedUntil.clear()
+}
 
 /** True when the error, or one of its causes, says that a table does not exist. */
 export function isMissingTableError(error: unknown): boolean {
@@ -21,26 +34,38 @@ export function isMissingTableError(error: unknown): boolean {
 /**
  * Reads the list of periods (or month-ends) that a snapshot holds, remembered for `ttlMs`.
  * - The snapshot table does not exist yet (migration not applied): an empty list, remembered. This is a normal state.
- * - Any other error: written to the log and answered with an empty list too, so the caller falls back to the ERP
- *   tables as before, but the empty list is NOT remembered: the next call asks the database again.
+ * - Any other error: written to the log once and answered with an empty list too, so the caller falls back to the ERP
+ *   tables as before. The empty list is NOT remembered as a result, but the read is not tried again for
+ *   FAILURE_PAUSE_MS: calls inside that pause answer empty at once, without a query and without a log line.
  * `label` names the reader in the log line.
  */
-export function readSnapshotIndex<K, V>(
+export async function readSnapshotIndex<K, V>(
   key: string,
   ttlMs: number,
   label: string,
   load: () => Promise<Map<K, V>>,
 ): Promise<Map<K, V>> {
-  const remembered = memo(key, ttlMs, async () => {
-    try {
-      return await load()
-    } catch (error) {
-      if (isMissingTableError(error)) return new Map<K, V>()
-      throw error
+  const pausedTill = pausedUntil.get(key)
+  if (pausedTill !== undefined) {
+    if (pausedTill > Date.now()) return new Map<K, V>()
+    pausedUntil.delete(key)
+  }
+
+  try {
+    return await memo(key, ttlMs, async () => {
+      try {
+        return await load()
+      } catch (error) {
+        if (isMissingTableError(error)) return new Map<K, V>()
+        throw error
+      }
+    })
+  } catch (error) {
+    // Callers that waited for the same failed read all come here: only the first one logs and starts the pause.
+    if (!pausedUntil.has(key)) {
+      pausedUntil.set(key, Date.now() + FAILURE_PAUSE_MS)
+      dashLog.warn({ err: error, label }, 'snapshot index could not be read; the ERP tables are used instead')
     }
-  })
-  return remembered.catch((error: unknown) => {
-    dashLog.warn({ err: error, label }, 'snapshot index could not be read; the ERP tables are used instead')
     return new Map<K, V>()
-  })
+  }
 }
