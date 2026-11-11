@@ -94,7 +94,7 @@ sysuser → login dashboard
 
 | Kolom                             | Dipakai untuk                                                                                                                      |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `company_id`, `name`              | Judul laporan                                                                                                                      |
+| `company_id`, `name`              | Judul laporan; `name` juga ditampilkan sebagai nama client di sidebar dan judul tab setelah login (U11)                            |
 | `fiscal_year`, `end_fiscal_month` | Batas tahun buku: `end_fiscal_month` = bulan terakhir tahun buku, angka 0 sampai 11 (11 = Desember); dipakai Balance Sheet (§6.12) |
 | `booking_currency_id`             | Mata uang dasar (IDR)                                                                                                              |
 
