@@ -4,7 +4,7 @@ import { rows } from '~/server/db/query'
 import { inList } from '~/server/db/in-list'
 import { SLICE_CONCURRENCY, chunk, chunkOrAll, mapLimit, sliceCombos } from '~/server/db/chunk'
 import { D } from '~/lib/core/money'
-import { memo } from '~/server/cache'
+import { readSnapshotIndex } from './built-index'
 import type { Id, Money } from '~/lib/core/types'
 import { DASH_TABLES } from './tables'
 
@@ -12,22 +12,18 @@ const BUILT_TTL_MS = 30_000
 
 /**
  * Closed periods whose balance totals are in the snapshot and usable (built from saved opening balances, so with at least
- * one row): period id → "version" (build time and row count). Empty when the tables do not exist yet.
+ * one row): period id → "version" (build time and row count). Empty when the tables do not exist yet; any other read error is logged and also answers empty (not remembered).
  */
 export function builtBalancePeriods(): Promise<Map<Id, string>> {
-  return memo('dash:balance:built', BUILT_TTL_MS, async () => {
-    try {
-      const res = await rows<{ id: string; builtAt: string | null; rowCount: number | string | null }>(sql`
-        SELECT CAST(period_id AS CHAR) AS id,
-               DATE_FORMAT(built_at, '%Y-%m-%dT%H:%i:%sZ') AS builtAt,
-               row_count AS rowCount
-        FROM ${sql.identifier(DASH_TABLES.balancePeriods)}
-        WHERE row_count > 0
-      `)
-      return new Map(res.map((r) => [String(r.id), `${r.builtAt ?? ''}#${r.rowCount ?? 0}`] as const))
-    } catch {
-      return new Map<Id, string>()
-    }
+  return readSnapshotIndex('dash:balance:built', BUILT_TTL_MS, 'balance snapshot index', async () => {
+    const res = await rows<{ id: string; builtAt: string | null; rowCount: number | string | null }>(sql`
+      SELECT CAST(period_id AS CHAR) AS id,
+             DATE_FORMAT(built_at, '%Y-%m-%dT%H:%i:%sZ') AS builtAt,
+             row_count AS rowCount
+      FROM ${sql.identifier(DASH_TABLES.balancePeriods)}
+      WHERE row_count > 0
+    `)
+    return new Map(res.map((r) => [String(r.id), `${r.builtAt ?? ''}#${r.rowCount ?? 0}`] as const))
   })
 }
 

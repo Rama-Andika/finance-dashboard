@@ -20,7 +20,12 @@ describe('builtBalancePeriods', () => {
   })
 
   it('is empty when the tables do not exist yet', async () => {
-    rowsMock.mockRejectedValue(new Error("Table 'dash_snap_balance_periods' doesn't exist"))
+    rowsMock.mockRejectedValue(
+      Object.assign(new Error("Table 'dash_snap_balance_periods' doesn't exist"), {
+        errno: 1146,
+        code: 'ER_NO_SUCH_TABLE',
+      }),
+    )
     expect((await builtBalancePeriods()).size).toBe(0)
   })
 

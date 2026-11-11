@@ -9,6 +9,7 @@ import { sql } from 'drizzle-orm'
 import { rows } from '~/server/db/query'
 import { AGING_SIDES, type AgingSide } from '~/server/db/erp-codes'
 import { memo } from '~/server/cache'
+import { readSnapshotIndex } from './built-index'
 import type { Id, IsoDate } from '~/lib/core/types'
 import type { AgingInvoice, AgingUnallocated } from '~/server/repo/ap-ar/types'
 import { byLocation } from './snapshot'
@@ -20,20 +21,16 @@ const HIST_MEMO_TTL_MS = 30 * 60 * 1000
 
 /**
  * Month-ends present in the history tables (day -> when it was built, ISO UTC).
- * Empty when the tables do not exist yet (migration not applied). The returned Map is shared: never change it.
+ * Empty when the tables do not exist yet (migration not applied); any other read error is logged and also answers empty (not remembered). The returned Map is shared: never change it.
  */
-export async function apArHistDates(): Promise<Map<IsoDate, string>> {
-  return memo('dash:ap-ar:hist:dates', DATES_TTL_MS, async () => {
-    try {
-      const res = await rows<{ asOfDate: string; builtAt: string }>(sql`
-        SELECT DATE_FORMAT(as_of_date, '%Y-%m-%d') AS asOfDate,
-               DATE_FORMAT(built_at, '%Y-%m-%dT%H:%i:%sZ') AS builtAt
-        FROM ${sql.identifier(DASH_TABLES.apArHistDates)}
-      `)
-      return new Map<IsoDate, string>(res.map((r) => [String(r.asOfDate), String(r.builtAt)] as const))
-    } catch {
-      return new Map<IsoDate, string>()
-    }
+export function apArHistDates(): Promise<Map<IsoDate, string>> {
+  return readSnapshotIndex('dash:ap-ar:hist:dates', DATES_TTL_MS, 'ap/ar history dates', async () => {
+    const res = await rows<{ asOfDate: string; builtAt: string }>(sql`
+      SELECT DATE_FORMAT(as_of_date, '%Y-%m-%d') AS asOfDate,
+             DATE_FORMAT(built_at, '%Y-%m-%dT%H:%i:%sZ') AS builtAt
+      FROM ${sql.identifier(DASH_TABLES.apArHistDates)}
+    `)
+    return new Map<IsoDate, string>(res.map((r) => [String(r.asOfDate), String(r.builtAt)] as const))
   })
 }
 

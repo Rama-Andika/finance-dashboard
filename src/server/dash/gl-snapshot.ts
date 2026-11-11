@@ -6,7 +6,7 @@ import { inList } from '~/server/db/in-list'
 import { SLICE_CONCURRENCY, chunk, chunkOrAll, mapLimit, sliceCombos } from '~/server/db/chunk'
 import { glTablesOf } from '~/server/db/gl-tables'
 import { glTableHasCanceledDate } from '~/server/db/gl-columns'
-import { memo } from '~/server/cache'
+import { readSnapshotIndex } from './built-index'
 import type { AccountGroup, Id, Period } from '~/lib/core/types'
 import type { CachedMovementRow } from '~/server/cache'
 import { DASH_TABLES, SNAPSHOT_SEGMENT_COLUMN, dashTable } from './tables'
@@ -23,21 +23,17 @@ const BUILT_TTL_MS = 30_000
 /**
  * Closed periods that are fully present in dash_snap_gl_monthly, as period id → "version" (build time and row count).
  * The version goes into cache keys, so a period that was rebuilt never answers from rows cached for its older build.
- * Empty when the tables do not exist yet.
+ * Empty when the tables do not exist yet; any other read error is logged and also answers empty (not remembered).
  */
-export async function builtGlPeriods(): Promise<Map<string, string>> {
-  return memo('dash:gl:built', BUILT_TTL_MS, async () => {
-    try {
-      const res = await rows<{ id: string; builtAt: string | null; rowCount: number | string | null }>(sql`
-        SELECT CAST(period_id AS CHAR) AS id,
-               DATE_FORMAT(built_at, '%Y-%m-%dT%H:%i:%sZ') AS builtAt,
-               row_count AS rowCount
-        FROM ${sql.identifier(DASH_TABLES.glPeriods)}
-      `)
-      return new Map(res.map((r) => [String(r.id), `${r.builtAt ?? ''}#${r.rowCount ?? 0}`] as const))
-    } catch {
-      return new Map<string, string>()
-    }
+export function builtGlPeriods(): Promise<Map<string, string>> {
+  return readSnapshotIndex('dash:gl:built', BUILT_TTL_MS, 'gl snapshot index', async () => {
+    const res = await rows<{ id: string; builtAt: string | null; rowCount: number | string | null }>(sql`
+      SELECT CAST(period_id AS CHAR) AS id,
+             DATE_FORMAT(built_at, '%Y-%m-%dT%H:%i:%sZ') AS builtAt,
+             row_count AS rowCount
+      FROM ${sql.identifier(DASH_TABLES.glPeriods)}
+    `)
+    return new Map(res.map((r) => [String(r.id), `${r.builtAt ?? ''}#${r.rowCount ?? 0}`] as const))
   })
 }
 

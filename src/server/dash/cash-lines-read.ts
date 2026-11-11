@@ -5,7 +5,7 @@ import { inList } from '~/server/db/in-list'
 import { toInt } from '~/server/db/convert'
 import { SLICE_CONCURRENCY, chunk, chunkOrAll, mapLimit, sliceCombos } from '~/server/db/chunk'
 import { D } from '~/lib/core/money'
-import { memo } from '~/server/cache'
+import { readSnapshotIndex } from './built-index'
 import type { Id } from '~/lib/core/types'
 import type { CashJournalLineRow } from '~/server/repo/cash/cashflow.repo'
 import { DASH_TABLES } from './tables'
@@ -25,22 +25,18 @@ const toMoney = (value: number | string | null | undefined): string =>
 
 /**
  * Closed periods whose cash lines are in the snapshot, built for exactly this cash account list (`cashHash`):
- * period id → "version" (build time and row count). Empty when the tables do not exist yet.
+ * period id → "version" (build time and row count). Empty when the tables do not exist yet; any other read error is logged and also answers empty (not remembered).
  */
 export function builtCashPeriods(cashHash: string): Promise<Map<Id, string>> {
-  return memo(`dash:cash:built:${cashHash}`, BUILT_TTL_MS, async () => {
-    try {
-      const res = await rows<{ id: string; builtAt: string | null; rowCount: number | string | null }>(sql`
-        SELECT CAST(period_id AS CHAR) AS id,
-               DATE_FORMAT(built_at, '%Y-%m-%dT%H:%i:%sZ') AS builtAt,
-               row_count AS rowCount
-        FROM ${sql.identifier(DASH_TABLES.cashPeriods)}
-        WHERE cash_hash = ${cashHash}
-      `)
-      return new Map(res.map((r) => [String(r.id), `${r.builtAt ?? ''}#${r.rowCount ?? 0}`] as const))
-    } catch {
-      return new Map<Id, string>()
-    }
+  return readSnapshotIndex(`dash:cash:built:${cashHash}`, BUILT_TTL_MS, 'cash lines snapshot index', async () => {
+    const res = await rows<{ id: string; builtAt: string | null; rowCount: number | string | null }>(sql`
+      SELECT CAST(period_id AS CHAR) AS id,
+             DATE_FORMAT(built_at, '%Y-%m-%dT%H:%i:%sZ') AS builtAt,
+             row_count AS rowCount
+      FROM ${sql.identifier(DASH_TABLES.cashPeriods)}
+      WHERE cash_hash = ${cashHash}
+    `)
+    return new Map(res.map((r) => [String(r.id), `${r.builtAt ?? ''}#${r.rowCount ?? 0}`] as const))
   })
 }
 

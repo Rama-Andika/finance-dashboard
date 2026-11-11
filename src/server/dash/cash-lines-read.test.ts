@@ -26,7 +26,7 @@ describe('builtCashPeriods', () => {
   })
 
   it('is empty when the snapshot tables do not exist', async () => {
-    rowsMock.mockRejectedValue(new Error('no such table'))
+    rowsMock.mockRejectedValue(Object.assign(new Error('no such table'), { errno: 1146, code: 'ER_NO_SUCH_TABLE' }))
     expect((await builtCashPeriods('abc')).size).toBe(0)
   })
 })
@@ -56,7 +56,15 @@ describe('snapshotCashLines', () => {
 
   it('keeps money that already has two decimals as it is and rounds anything else like decimal.js', async () => {
     rowsMock.mockResolvedValue([
-      { glId: 1, journalType: 1, periodId: 7, coaId: 5, segmentDetailId: null, debet: '12345678901234567890.12', credit: '-5.50' },
+      {
+        glId: 1,
+        journalType: 1,
+        periodId: 7,
+        coaId: 5,
+        segmentDetailId: null,
+        debet: '12345678901234567890.12',
+        credit: '-5.50',
+      },
       { glId: 2, journalType: 1, periodId: 7, coaId: 5, segmentDetailId: null, debet: '0.00', credit: '3' },
       { glId: 3, journalType: 1, periodId: 7, coaId: 5, segmentDetailId: null, debet: null, credit: 4.5 },
       { glId: 4, journalType: 1, periodId: 7, coaId: 5, segmentDetailId: null, debet: '007.5', credit: '1.005' },
