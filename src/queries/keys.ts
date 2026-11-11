@@ -6,6 +6,7 @@ export const qk = {
   drill: (input: unknown) => ['drill', input] as const,
   dataChecks: (input: unknown) => ['data-checks', input] as const,
   snapshotInfo: () => ['snapshot-info'] as const,
+  currentUser: () => ['current-user'] as const,
   // Prefixes: invalidating one of these reaches every query of that kind (keys.test.ts keeps them in step with the above).
   allMetrics: () => ['metric'] as const,
   allDrills: () => ['drill'] as const,

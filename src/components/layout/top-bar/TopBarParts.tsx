@@ -1,7 +1,9 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useRouter, useRouterState } from '@tanstack/react-router'
 import { Bell, ChevronDown, LogOut } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { logoutFn } from '~/functions/auth.fn'
+import { qk } from '~/queries/keys'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,10 +47,13 @@ export function initialsOf(name: string): string {
 /** Signs out and returns to the login page, which sends the user back here afterwards. */
 export function useLogout(): () => Promise<void> {
   const router = useRouter()
+  const queryClient = useQueryClient()
   return async () => {
     // Read the page BEFORE logging out: invalidate() makes the auth guard bounce to /login at once.
     const here = router.state.location.href
     await logoutFn()
+    // The remembered user would let the guard keep the page open after signing out.
+    queryClient.removeQueries({ queryKey: qk.currentUser() })
     await router.invalidate()
     router.navigate({ to: '/login', search: { redirect: here } })
   }

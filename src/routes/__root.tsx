@@ -10,9 +10,9 @@ import { PrefsProvider, type Prefs } from '~/components/layout/prefs-context'
 import appCss from '~/styles/app.css?url'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  beforeLoad: async () => ({
-    prefs: await getPrefsFn(),
-  }),
+  // Read once per page load: the preferences live in cookies the browser cannot read, and the provider keeps them after that.
+  loader: () => getPrefsFn(),
+  staleTime: Number.POSITIVE_INFINITY,
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
@@ -43,7 +43,7 @@ function RootComponent() {
 }
 
 function RootDocument({ children }: { children: ReactNode }) {
-  const { prefs: initialPrefs } = Route.useRouteContext()
+  const initialPrefs = Route.useLoaderData()
 
   return (
     <PrefsProvider initial={initialPrefs}>{(prefs) => <Document prefs={prefs}>{children}</Document>}</PrefsProvider>

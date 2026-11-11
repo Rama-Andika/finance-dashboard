@@ -1,5 +1,5 @@
 import { Outlet, createFileRoute, redirect, retainSearchParams } from '@tanstack/react-router'
-import { getCurrentUserFn } from '~/functions/auth.fn'
+import { currentUserOptions } from '~/queries/auth.queries'
 import { AppShell } from '~/components/layout/AppShell'
 import { globalSearchSchema } from '~/lib/filters/search-schema'
 
@@ -8,8 +8,8 @@ export const Route = createFileRoute('/_authed')({
   search: {
     middlewares: [retainSearchParams(['entity', 'preset', 'p13', 'from', 'to'])],
   },
-  beforeLoad: async ({ location }) => {
-    const user = await getCurrentUserFn()
+  beforeLoad: async ({ location, context }) => {
+    const user = await context.queryClient.fetchQuery(currentUserOptions())
     if (!user) {
       throw redirect({
         to: '/login',
