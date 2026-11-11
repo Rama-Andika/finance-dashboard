@@ -1,3 +1,4 @@
+import { withBasePath } from '~/lib/core/base-path'
 import { safeRedirectSchema } from '~/lib/filters/safe-redirect'
 import { AppFooter } from '~/components/layout/AppFooter'
 import { APP_NAME } from '~/lib/brand'
@@ -20,7 +21,8 @@ export const Route = createFileRoute('/login')({
   beforeLoad: async ({ search }) => {
     const user = await getCurrentUserFn()
     if (user) {
-      throw redirect({ href: search.redirect })
+      // `href` and the browser history are raw URLs: unlike `to`, they do not add the base path by themselves.
+      throw redirect({ href: withBasePath(search.redirect) })
     }
   },
   component: LoginPage,
@@ -65,7 +67,7 @@ function LoginPage() {
       }
 
       await router.invalidate()
-      router.history.push(search.redirect)
+      router.history.push(withBasePath(search.redirect))
     } catch (caught) {
       setError('failed')
       setFailure(caught)

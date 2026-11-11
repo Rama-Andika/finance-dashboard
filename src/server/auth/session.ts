@@ -1,6 +1,7 @@
 import '@tanstack/react-start/server-only'
 import { getIronSession, type CookieStore } from 'iron-session'
 import { getCookie, setCookie } from '@tanstack/react-start/server'
+import { cookieName, cookiePath } from '~/lib/core/base-path'
 import { env } from '~/server/env'
 
 export type SessionData = { userId?: string; name?: string }
@@ -20,14 +21,14 @@ export function getAppSession() {
   }
 
   return getIronSession<SessionData>(cookieStore, {
-    cookieName: 'nr_session',
+    cookieName: cookieName('nr_session'),
     password: env.SESSION_SECRET,
     ttl: EIGHT_HOURS,
     cookieOptions: {
       httpOnly: true,
       secure: env.NODE_ENV === 'production',
       sameSite: 'lax',
-      path: '/',
+      path: cookiePath,
     },
   })
 }

@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { withBasePath } from '~/lib/core/base-path'
 
 /** Router-wide 404 page; rendered inside the root document, so i18n and the theme are available. */
 export function NotFound() {
@@ -10,7 +11,7 @@ export function NotFound() {
         <h1 className="text-2xl font-bold tracking-tight">{t('common.notFoundTitle')}</h1>
         <p className="text-sm text-ink-muted mt-2">{t('common.notFoundBody')}</p>
         {/* A plain anchor: each page has its own search schema, so a typed <Link> would need per-route params. */}
-        <a href="/summary" className="nr-btn nr-btn-primary mt-6 inline-flex">
+        <a href={withBasePath('/summary')} className="nr-btn nr-btn-primary mt-6 inline-flex">
           {t('common.backToDashboard')}
         </a>
       </div>

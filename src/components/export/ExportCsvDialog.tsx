@@ -10,9 +10,11 @@ import {
   DialogFooter,
 } from '~/components/ui/shadcn/dialog'
 import { Button } from '~/components/ui/Button'
+import { basePath } from '~/lib/core/base-path'
 import { buildCsv, type CsvColumn, type CsvFormat } from '~/lib/format/csv'
 
-const STORAGE_KEY = 'nr-csv-format'
+// localStorage is shared by every path of one host, so the key carries the deployment's prefix (empty at the root).
+const STORAGE_KEY = `nr-csv-format${basePath}`
 
 export function getSavedCsvFormat(): CsvFormat {
   try {
