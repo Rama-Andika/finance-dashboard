@@ -1,5 +1,6 @@
 import { DataFreshness } from '~/components/layout/DataFreshness'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 import { Link, useRouterState } from '@tanstack/react-router'
 import {
   Asterisk,
@@ -16,6 +17,7 @@ import {
   Scale,
 } from 'lucide-react'
 import { cn } from '~/lib/cn'
+import { companyInfoOptions } from '~/queries/company.queries'
 
 export interface NavItemDef {
   labelKey: string
@@ -50,6 +52,7 @@ export function SidebarNav({ onNavigate, className, isTabletCollapsed = false }:
   const { t } = useTranslation()
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
+  const companyName = useQuery(companyInfoOptions()).data?.name ?? null
 
   return (
     <nav
@@ -60,9 +63,19 @@ export function SidebarNav({ onNavigate, className, isTabletCollapsed = false }:
       )}
       aria-label={t('ui.shell.mainMenu')}
     >
-      <div className="nr-brand flex-none">
-        <Asterisk className="nr-icon" size={18} strokeWidth={1.75} aria-hidden="true" />
-        <span className={cn(isTabletCollapsed && 'md:hidden lg:inline')}>Dashboard</span>
+      <div className="flex-none flex flex-col gap-1">
+        <div className="nr-brand">
+          <Asterisk className="nr-icon" size={18} strokeWidth={1.75} aria-hidden="true" />
+          <span className={cn(isTabletCollapsed && 'md:hidden lg:inline')}>Dashboard</span>
+        </div>
+        {companyName && (
+          <div
+            className={cn('px-2 text-xs leading-4 text-ink-muted truncate', isTabletCollapsed && 'md:hidden lg:block')}
+            title={companyName}
+          >
+            {companyName}
+          </div>
+        )}
       </div>
 
       <div className="nr-nav flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
