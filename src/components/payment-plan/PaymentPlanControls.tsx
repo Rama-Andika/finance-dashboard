@@ -24,7 +24,7 @@ export function PaymentPlanControls({
             <button
               key={h}
               type="button"
-              className="nr-tab"
+              className="nr-tab whitespace-nowrap"
               role="tab"
               aria-selected={horizon === h}
               onClick={() => onHorizonChange(h)}
