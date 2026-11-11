@@ -1,5 +1,6 @@
 import '@tanstack/react-start/server-only'
 import { z } from 'zod'
+import { CLIENT_ID_PATTERN } from '~/lib/core/client-base'
 import { METRIC_FRESH_SETTING, METRIC_STALE_SETTING } from '~/server/metric-settings'
 
 if (!process.env.DATABASE_URL) {
@@ -62,14 +63,10 @@ const envSchema = z.object({
     (v) => (v === '' ? undefined : v),
     z.coerce.number().int().min(1).max(3650).default(30),
   ),
-  // Name of this deployment, written on every log line as "client": lowercase letters, digits and dashes
-  CLIENT_ID: z.preprocess(
-    (v) => (v === '' ? undefined : v),
-    z
-      .string()
-      .regex(/^[a-z0-9][a-z0-9-]{0,63}$/)
-      .optional(),
-  ),
+  // Name of this deployment, written on every log line as "client": lowercase letters, digits and dashes.
+  // The URL prefix /oxy-<CLIENT_ID>-finance-dashboard/ is fixed at BUILD time from the same value (vite.config.ts),
+  // so the build and the running server must use the same CLIENT_ID.
+  CLIENT_ID: z.preprocess((v) => (v === '' ? undefined : v), z.string().regex(CLIENT_ID_PATTERN).optional()),
   // Computed metrics stay "fresh" this many seconds; after that the old answer is still served for METRIC_STALE_SECONDS
   // while one recalculation runs in the background (0 = never serve an old answer). cache.ts reads both straight from process.env.
   METRIC_FRESH_SECONDS: z.preprocess(

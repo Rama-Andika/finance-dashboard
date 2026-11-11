@@ -8,6 +8,8 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
+    "build:client": "node scripts/build-client.mjs",
+    "smoke:build": "node scripts/smoke-build.mjs",
     "start": "node scripts/start-server.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

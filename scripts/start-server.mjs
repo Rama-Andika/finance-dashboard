@@ -1,7 +1,7 @@
 // Production Node server: serves the built client assets and forwards every other request
 // to the TanStack Start fetch handler in dist/server/server-entry.js. No extra dependencies.
 import { createServer } from 'node:http'
-import { createReadStream, existsSync } from 'node:fs'
+import { createReadStream, existsSync, readFileSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { extname, join, resolve, sep } from 'node:path'
 import { Readable } from 'node:stream'
@@ -18,6 +18,13 @@ const { default: serverEntry } = await import(pathToFileURL(serverEntryPath).hre
 if (!serverEntry || typeof serverEntry.fetch !== 'function') {
   throw new Error(`No fetch handler exported by ${serverEntryPath}. Run "npm run build" first.`)
 }
+
+// URL prefix of this build (the build writes it from CLIENT_ID): '' at the root, else '/oxy-<client>-finance-dashboard'.
+// The proxy in front forwards the full path, so every request starts with this prefix; the files on disk do not.
+const basePathFile = join(root, 'dist', 'base-path.json')
+const basePrefix = existsSync(basePathFile)
+  ? String(JSON.parse(readFileSync(basePathFile, 'utf8')).base ?? '/').replace(/\/+$/, '')
+  : ''
 
 const port = Number(process.env.PORT ?? 3000)
 const host = process.env.HOST ?? '0.0.0.0'
@@ -84,15 +91,26 @@ const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
     const method = req.method ?? 'GET'
 
+    // Outside this deployment's prefix there is nothing to serve (the app would only render its own 404 page).
+    const insidePrefix = basePrefix === '' || url.pathname === basePrefix || url.pathname.startsWith(basePrefix + '/')
+    if (!insidePrefix) {
+      res.statusCode = 404
+      res.setHeader('content-type', 'text/plain; charset=utf-8')
+      res.end('Not Found')
+      return
+    }
+    // The path as the built files know it: "/assets/x.js" even when the URL is "/<prefix>/assets/x.js".
+    const filePathname = url.pathname.slice(basePrefix.length) || '/'
+
     if (method === 'GET' || method === 'HEAD') {
-      const filePath = await resolveStaticFile(url.pathname)
+      const filePath = await resolveStaticFile(filePathname)
       if (filePath) {
         res.statusCode = 200
         res.setHeader('content-type', MIME_TYPES[extname(filePath)] ?? 'application/octet-stream')
         // Hashed build assets never change; everything else is revalidated.
         res.setHeader(
           'cache-control',
-          url.pathname.startsWith('/assets/')
+          filePathname.startsWith('/assets/')
             ? 'public, max-age=31536000, immutable'
             : 'public, max-age=0, must-revalidate',
         )
@@ -132,5 +150,5 @@ const server = createServer(async (req, res) => {
 })
 
 server.listen(port, host, () => {
-  console.log(`Finance Dashboard listening on http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`)
+  console.log(`Finance Dashboard listening on http://${host === '0.0.0.0' ? 'localhost' : host}:${port}${basePrefix}/`)
 })
