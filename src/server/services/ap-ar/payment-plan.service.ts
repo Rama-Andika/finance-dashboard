@@ -12,7 +12,7 @@ import type { PaymentPlanBill } from '~/lib/finance/ap-ar/payment-plan'
 import { D } from '~/lib/core/money'
 import { buildEntityOwners, ownerNameOfLocation } from '~/lib/finance/entity/entity-owner'
 import { addDays } from '~/lib/format/date'
-import type { Id, MetricMeta, Money } from '~/lib/core/types'
+import type { Id, IsoDate, MetricMeta, Money } from '~/lib/core/types'
 import { type AppContextFilter, buildMetricMeta, getCachedCoaTree, getCachedEntities } from '~/server/context'
 import { loadResolvedBaskets } from '~/server/services/shared/resolved-baskets'
 import { computeCashPosition } from '~/server/services/cash/cash-position.service'
@@ -170,6 +170,54 @@ async function loadInflowTotals(filter: AppContextFilter, lastDay: string): Prom
   }
 }
 
+/** No expected receipts: used when the plan is asked without inflows. */
+function noInflows(): Inflows {
+  return { arItems: [], unsettled: [], settlementLags: new Map<Id, number>(), creditsApplied: '0.00' }
+}
+
+/** The number of days of the plan and the last day it covers (overdue bills are always included). */
+function planWindowOf(today: IsoDate, opts: PaymentPlanOptions): { horizon: number; lastDay: IsoDate } {
+  const horizon = Number(opts.horizon)
+  return { horizon, lastDay: addDays(today, horizon - 1) }
+}
+
+/**
+ * The part of the result that both entry points build the same way: the projection and the totals around it. They differ
+ * only in how the AP and AR items were read (invoice by invoice, or summed per due date by the database).
+ */
+function assemblePlan(input: {
+  meta: MetricMeta
+  filter: AppContextFilter
+  horizon: number
+  inflow: boolean
+  openingCash: Money
+  apItems: ApItemForPlan[]
+  inflows: Inflows
+  creditsApplied: Money
+  planStatusInUse: boolean
+}): PaymentPlanSummaryResult {
+  const { filter, inflows } = input
+  const res = buildPaymentPlan({
+    today: filter.today,
+    horizon: input.horizon,
+    inflow: input.inflow,
+    openingCash: input.openingCash,
+    apItems: input.apItems,
+    arItems: inflows.arItems,
+    unsettled: inflows.unsettled,
+    settlementLags: inflows.settlementLags,
+  })
+  return {
+    meta: input.meta,
+    openingBalance: res.openingBalance,
+    overdue: res.overdue,
+    days: res.days,
+    creditsApplied: input.creditsApplied,
+    inflowCreditsApplied: inflows.creditsApplied,
+    planStatusInUse: input.planStatusInUse,
+  }
+}
+
 async function computePaymentPlanUncached(
   filter: AppContextFilter,
   opts: PaymentPlanOptions,
@@ -187,8 +235,7 @@ async function computePaymentPlanUncached(
     listActivePlanStatuses(),
   ])
   const openingCash = cashPos.cashPosition
-  const horizon = Number(opts.horizon)
-  const lastDay = addDays(today, horizon - 1)
+  const { horizon, lastDay } = planWindowOf(today, opts)
   // Bills due after the horizon change nothing in the plan, so they are left out here.
   const apPositive = rawAp.filter((a) => D(a.balance).gt(0) && (a.dueDate || a.txDate) <= lastDay)
 
@@ -209,25 +256,19 @@ async function computePaymentPlanUncached(
   }))
 
   // 4. Inflows (AR + bank payments unsettled)
-  const {
-    arItems,
-    unsettled,
-    settlementLags,
-    creditsApplied: inflowCreditsApplied,
-  } = opts.inflow
-    ? await loadInflows(filter, asOfPlusOne, lastDay)
-    : { arItems: [], unsettled: [], settlementLags: new Map<Id, number>(), creditsApplied: '0.00' }
+  const inflows = opts.inflow ? await loadInflows(filter, asOfPlusOne, lastDay) : noInflows()
 
   // 5. Projection
-  const res = buildPaymentPlan({
-    today,
+  const plan = assemblePlan({
+    meta,
+    filter,
     horizon,
     inflow: opts.inflow,
     openingCash,
     apItems,
-    arItems,
-    unsettled,
-    settlementLags,
+    inflows,
+    creditsApplied,
+    planStatusInUse: statusRows.length > 0,
   })
 
   // 6. Bills due in horizon (apPositive already holds only those, overdue included)
@@ -263,16 +304,7 @@ async function computePaymentPlanUncached(
     kind: 'credit',
   }))
 
-  return {
-    meta,
-    openingBalance: res.openingBalance,
-    overdue: res.overdue,
-    days: res.days,
-    bills: [...bills, ...creditRows],
-    creditsApplied,
-    inflowCreditsApplied,
-    planStatusInUse: statusRows.length > 0,
-  }
+  return { ...plan, bills: [...bills, ...creditRows] }
 }
 
 export type PaymentPlanSummaryResult = Omit<PaymentPlanResult, 'bills'>
@@ -295,8 +327,7 @@ async function computePaymentPlanSummaryUncached(
 ): Promise<PaymentPlanSummaryResult> {
   const meta = buildMetricMeta(filter)
   const today = filter.today
-  const horizon = Number(opts.horizon)
-  const lastDay = addDays(today, horizon - 1)
+  const { horizon, lastDay } = planWindowOf(today, opts)
 
   // Opening cash, the bills due by the last day of the plan (overdue included), the live payment vouchers and the vendor
   // credits are independent. The credit read answers null, without a query, when the snapshot does not cover today.
@@ -333,34 +364,19 @@ async function computePaymentPlanSummaryUncached(
   )
   const apItems = apItemsFromDueTotals(reduced)
 
-  const {
-    arItems,
-    unsettled,
-    settlementLags,
-    creditsApplied: inflowCreditsApplied,
-  } = opts.inflow
-    ? await loadInflowTotals(filter, lastDay)
-    : { arItems: [], unsettled: [], settlementLags: new Map<Id, number>(), creditsApplied: '0.00' }
+  const inflows = opts.inflow ? await loadInflowTotals(filter, lastDay) : noInflows()
 
-  const res = buildPaymentPlan({
-    today,
+  return assemblePlan({
+    meta,
+    filter,
     horizon,
     inflow: opts.inflow,
     openingCash: cashPos.cashPosition,
     apItems,
-    arItems,
-    unsettled,
-    settlementLags,
-  })
-  return {
-    meta,
-    openingBalance: res.openingBalance,
-    overdue: res.overdue,
-    days: res.days,
+    inflows,
     creditsApplied,
-    inflowCreditsApplied,
     planStatusInUse: statusRows.length > 0,
-  }
+  })
 }
 
 export type BillsPage = Page<PaymentPlanBill> & {
