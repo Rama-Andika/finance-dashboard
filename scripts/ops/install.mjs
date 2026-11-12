@@ -10,7 +10,7 @@
 //
 // Exit code: 0 done, 1 not done (the message says why), 2 wrong use.
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { DEFAULT_KEEP, locateRelease, runInstall, runRollback, runStatus } from '../lib/install-flow.mjs'
@@ -57,6 +57,24 @@ function readBuildInfo(releaseDir) {
   } catch {
     return null
   }
+}
+
+/**
+ * Copies this release's open-package.mjs to the deploy folder when the copy there is missing or different.
+ * @param {string} releaseDir @param {string} root
+ * @returns {'added' | 'updated' | 'same' | 'no-source'}
+ */
+function refreshOpener(releaseDir, root) {
+  const source = join(releaseDir, 'scripts', 'ops', 'open-package.mjs')
+  const target = join(root, 'open-package.mjs')
+  if (!existsSync(source)) return 'no-source'
+  const wanted = readFileSync(source)
+  const present = existsSync(target)
+  if (present && readFileSync(target).equals(wanted)) return 'same'
+  const temporary = `${target}.tmp`
+  writeFileSync(temporary, wanted)
+  renameSync(temporary, target)
+  return present ? 'updated' : 'added'
 }
 
 /** @param {string[]} argv @returns {number} the exit code */
@@ -112,6 +130,7 @@ function main(argv) {
     makeLock,
     removeLock: (/** @type {string} */ path) => rmSync(path, { recursive: true, force: true }),
     readBuildInfo,
+    refreshOpener,
     nodePath: process.execPath,
     npmPath: 'npm',
   }

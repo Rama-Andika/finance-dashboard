@@ -21,6 +21,7 @@ const MINUTE_MS = 60 * 1000
  *   makeLock: (path: string) => boolean,
  *   removeLock: (path: string) => void,
  *   readBuildInfo: (releaseDir: string) => { version?: string, clientId?: string } | null,
+ *   refreshOpener: (releaseDir: string, root: string) => 'added' | 'updated' | 'same' | 'no-source',
  *   nodePath: string,
  *   npmPath: string,
  * }} InstallDeps
@@ -151,6 +152,28 @@ function restartAndWait(run, place, node, expectVersion) {
   return checked.code === 0 ? { ok: true, reason: '' } : { ok: false, reason: 'the health check did not pass' }
 }
 
+/**
+ * Puts the open-package.mjs of this release into the deploy folder, so that the copy the owner uploaded once never goes
+ * stale. It never fails the install: the release is already running (or prepared) when this is called.
+ * @param {{ deps: InstallDeps, place: Place, dryRun: boolean }} input
+ */
+function refreshOpener({ deps, place, dryRun }) {
+  if (dryRun) {
+    deps.log(`  (dry run) would refresh ${place.root}/open-package.mjs from this release`)
+    return
+  }
+  try {
+    const outcome = deps.refreshOpener(place.releaseDir, place.root)
+    if (outcome === 'added')
+      deps.log(`\n  open-package.mjs was missing in the deploy folder; copied from this release.`)
+    else if (outcome === 'updated') deps.log(`\n  open-package.mjs in the deploy folder was updated from this release.`)
+  } catch (error) {
+    deps.log(
+      `\n  Could not refresh open-package.mjs (${error instanceof Error ? error.message : String(error)}); copy it by hand if it is out of date.`,
+    )
+  }
+}
+
 /** @param {string} root */
 function lockPath(root) {
   return `${root}/.deploy.lock`
@@ -231,6 +254,7 @@ export function runInstall({ place, options = {}, deps }) {
     })
 
     if (options.prepareOnly) {
+      refreshOpener({ deps, place, dryRun })
       result.ok = true
       result.status = 'prepared'
       log(`\nPREPARED ${name}. Nothing is switched. Next, create the environment file:`)
@@ -302,6 +326,7 @@ export function runInstall({ place, options = {}, deps }) {
       label: 'clean up old releases',
       allowFail: true,
     })
+    refreshOpener({ deps, place, dryRun })
 
     result.ok = true
     result.status = dryRun ? 'dry-run' : 'installed'

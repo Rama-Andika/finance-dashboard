@@ -72,6 +72,12 @@ function makeDeps(config = {}) {
     removeLock: () => events.push('unlock'),
     readBuildInfo: () =>
       config.buildInfo === undefined ? { version: 'v1.2.0', clientId: place.folder.clientId } : config.buildInfo,
+    refreshOpener: (releaseDir, root) => {
+      events.push('refresh-opener')
+      calls.push({ argv: ['refreshOpener', releaseDir, root] })
+      if (config.openerError) throw new Error(config.openerError)
+      return config.opener ?? 'same'
+    },
     nodePath: '/usr/bin/node',
     npmPath: 'npm',
   }
@@ -89,6 +95,7 @@ const FULL_SEQUENCE = [
   'restart',
   'health',
   'cleanup',
+  'refresh-opener',
   'unlock',
 ]
 
@@ -152,6 +159,37 @@ describe('runInstall: a good install', () => {
       answer: (call) => (kindOf(call) === 'cleanup' ? { code: 1, stdout: '', stderr: 'oops' } : undefined),
     })
     expect(runInstall({ place: STAGING, deps }).status).toBe('installed')
+  })
+
+  it('refreshes open-package.mjs in the deploy folder from this release, and says when it changed', () => {
+    const same = makeDeps()
+    runInstall({ place: STAGING, deps: same.deps })
+    expect(same.calls.find((call) => call.argv[0] === 'refreshOpener').argv).toEqual([
+      'refreshOpener',
+      `${ROOT_STAGING}/releases/${NAME}`,
+      ROOT_STAGING,
+    ])
+    expect(same.text()).not.toContain('open-package.mjs')
+    const updated = makeDeps({ opener: 'updated' })
+    runInstall({ place: STAGING, deps: updated.deps })
+    expect(updated.text()).toContain('open-package.mjs in the deploy folder was updated')
+    const added = makeDeps({ opener: 'added' })
+    runInstall({ place: STAGING, deps: added.deps })
+    expect(added.text()).toContain('open-package.mjs was missing in the deploy folder')
+  })
+
+  it('is still installed when open-package.mjs cannot be refreshed, and tells the person', () => {
+    const made = makeDeps({ openerError: 'EACCES' })
+    expect(runInstall({ place: STAGING, deps: made.deps }).status).toBe('installed')
+    expect(made.text()).toContain('Could not refresh open-package.mjs (EACCES)')
+  })
+
+  it('does not refresh it when the release is rolled back', () => {
+    const made = makeDeps({
+      answer: (call) => (kindOf(call) === 'health' ? { code: 1, stdout: '', stderr: 'no' } : undefined),
+    })
+    expect(runInstall({ place: STAGING, deps: made.deps }).status).not.toBe('installed')
+    expect(made.events).not.toContain('refresh-opener')
   })
 })
 
@@ -288,7 +326,7 @@ describe('runInstall: first install and dry run', () => {
     const made = makeDeps({ envFile: false })
     const result = runInstall({ place: STAGING, options: { prepareOnly: true }, deps: made.deps })
     expect(result).toMatchObject({ ok: true, status: 'prepared' })
-    expect(made.events).toEqual(['lock', 'npm-ci', 'unlock'])
+    expect(made.events).toEqual(['lock', 'npm-ci', 'refresh-opener', 'unlock'])
     expect(made.text()).toContain('init-env.mjs create --client acme --env staging --port 5205')
     expect(made.text()).toContain(`${ROOT_STAGING}/releases/${NAME}/scripts/ops/install.mjs`)
   })
