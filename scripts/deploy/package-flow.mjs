@@ -12,7 +12,7 @@ import { versionProblems } from './package-rules.mjs'
  *   build: (clientId: string) => boolean,
  *   readBuildInfo: () => { version?: string, clientId?: string } | null,
  *   scanBundle: () => { problems: string[], files: number },
- *   makePackage: (name: string) => { file: string, sizeBytes: number },
+ *   makePackage: (name: string) => { file: string, helper: string, sizeBytes: number },
  * }} PackageDeps
  */
 
@@ -88,19 +88,18 @@ export function runPackage({ client, env, options = {}, deps }) {
     result.file = made.file
     result.ok = true
 
-    const folder = `/home/oxy/web-server/oxy-${client}-${env}-finance-dashboard-<port>`
-    const releaseDir = `${folder}/releases/${name}`
     log(
       `\nPACKAGE READY: ${made.file} (${(made.sizeBytes / (1024 * 1024)).toFixed(1)} MB), for ${client} (${env}), version ${buildVersion}`,
     )
     log('\nNext, by hand:')
-    log('  1. Upload the file to the server, any way you like (WinSCP, scp, ...).')
-    log('  2. On the server, run (replace <port> and <upload folder>):')
-    log(`       mkdir ${releaseDir}`)
-    log(`       tar -xzf <upload folder>/${name}.tgz -C ${releaseDir}`)
-    log(`       node ${releaseDir}/scripts/ops/install.mjs`)
+    log('  1. Upload the package to the server, any folder you like (WinSCP, scp, ...).')
+    log(`     The first time for this deployment, also upload ${made.helper}`)
+    log(`     into its deploy folder, which is named oxy-${client}-${env}-finance-dashboard-<port>.`)
+    log('  2. On the server, run (replace <deploy folder> and <upload folder> with your own paths):')
+    log(`       node <deploy folder>/open-package.mjs <upload folder>/${name}.tgz`)
+    log('  It opens the package and installs it. Do not rename the package file: its name is the name of the release.')
     log(
-      '  The first install of this deployment: add --prepare-only to the last command (docs/project-guide.md chapter 10.9.3).',
+      '  The first install of this deployment: add --prepare-only to that command (docs/project-guide.md chapter 10.9.3).',
     )
   } catch (error) {
     if (!(error instanceof PackageError)) throw error

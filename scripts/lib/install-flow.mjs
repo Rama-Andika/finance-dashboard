@@ -49,7 +49,7 @@ export function locateRelease(releaseDir) {
     return {
       place: null,
       message:
-        'this script must run from a release folder: <deploy folder>/releases/<time>-<version>/scripts/ops/. Open the package into releases/<name> first.',
+        'this script must run from a release folder: <deploy folder>/releases/<time>-<version>/scripts/ops/. Open the package with open-package.mjs first.',
     }
   }
   const folder = parseDeployFolder(basename(root))

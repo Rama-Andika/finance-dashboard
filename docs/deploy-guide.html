@@ -95,7 +95,7 @@
   </nav>
 
   <h2 id="ringkas">1. Ringkasan dalam satu paragraf</h2>
-  <p>Di komputer pembangun Anda mengetik <code>npm run release:pack -- acme production</code>. Skrip memeriksa bahwa commit bersih, membangun aplikasi khusus untuk klien itu, memeriksa hasilnya, dan membungkusnya menjadi satu berkas <code>.tgz</code>. <b>Komputer pembangun tidak menyambung ke server.</b> Anda mengunggah berkas itu sendiri, membukanya ke folder rilis di server, lalu menjalankan satu perintah, <code>install.mjs</code>. Pemasang itu memeriksa paket, memasang paketnya, memigrasi database, memindahkan pintasan <code>current</code> ke rilis baru, me-restart service, lalu menunggu alamat <code>/health</code> menjawab sehat <em>dengan versi yang baru dipasang</em>. Bila tidak sehat dalam 2 menit, pintasan dikembalikan ke rilis sebelumnya secara otomatis.</p>
+  <p>Di komputer pembangun Anda mengetik <code>npm run release:pack -- acme production</code>. Skrip memeriksa bahwa commit bersih, membangun aplikasi khusus untuk klien itu, memeriksa hasilnya, dan membungkusnya menjadi satu berkas <code>.tgz</code>. <b>Komputer pembangun tidak menyambung ke server.</b> Anda mengunggah berkas itu sendiri, lalu menjalankan satu perintah di server, <code>open-package.mjs</code>: ia membuka paket (nama rilis diambil dari nama berkas, jadi tidak diketik) dan menjalankan pemasangnya, <code>install.mjs</code>. Pemasang itu memeriksa paket, memasang paketnya, memigrasi database, memindahkan pintasan <code>current</code> ke rilis baru, me-restart service, lalu menunggu alamat <code>/health</code> menjawab sehat <em>dengan versi yang baru dipasang</em>. Bila tidak sehat dalam 2 menit, pintasan dikembalikan ke rilis sebelumnya secara otomatis.</p>
   <div class="note"><b>Dua hal yang tidak berubah:</b> kode aplikasi tidak pernah membuka file env (laptop: <code>scripts/local.mjs</code>, server: systemd yang mengisinya), dan setiap rilis berdiri sendiri di folder sendiri, jadi berpindah rilis hanya memindahkan satu pintasan.</div>
 
   <h2 id="diagram">2. Diagram deployment (UML)</h2>
@@ -146,7 +146,7 @@
       <text class="tmono" x="36" y="522">&lt;waktu&gt;-&lt;versi&gt;.tgz</text>
       <text class="tm" x="36" y="542">satu berkas berisi dist/, drizzle-dash/,</text>
       <text class="tm" x="36" y="556">scripts/lib, scripts/ops, package.json</text>
-      <text class="tm" x="36" y="570">diabaikan git</text>
+      <text class="tm" x="36" y="570">+ open-package.mjs; diabaikan git</text>
 
       <!-- Server -->
       <rect class="dev" x="360" y="112" width="340" height="480" rx="6"/>
@@ -170,7 +170,7 @@
       <text class="tmono" x="388" y="432">scripts/ops/health-check.mjs</text>
       <text class="tmono" x="388" y="448">scripts/ops/env-check.mjs, init-env.mjs</text>
       <text class="tmono" x="388" y="464">dist/ops/dash-migrate.mjs</text><text class="tm" x="560" y="464">migrasi</text>
-      <text class="tm" x="388" y="479">keputusan: scripts/lib/install-flow.mjs</text>
+      <text class="tm" x="388" y="479">open-package.mjs: buka paket, lalu pasang</text>
       <rect class="cmp" x="376" y="500" width="308" height="82" rx="4"/>
       <text class="tb" x="388" y="517">Folder deploy</text>
       <text class="tmono" x="388" y="533">releases/&lt;waktu&gt;-&lt;versi&gt;/</text>
@@ -196,7 +196,7 @@
       <line class="arr" x1="110" y1="62" x2="110" y2="112" marker-end="url(#ah)"/>
       <text class="t lbl" x="118" y="92">release:pack</text>
       <polyline class="arr" points="210,40 400,40 400,112" marker-end="url(#ah)"/>
-      <text class="t lbl" x="222" y="33">SSH Anda: tar + install.mjs</text>
+      <text class="t lbl" x="222" y="33">SSH Anda: open-package.mjs</text>
       <line class="arr-d" x1="270" y1="540" x2="360" y2="540" marker-end="url(#ah)"/>
       <text class="t lbl" x="276" y="532">unggah manual</text>
       <line class="arr" x1="640" y1="62" x2="640" y2="160" marker-end="url(#ah)"/>
@@ -234,9 +234,9 @@
       <line class="arr-d" x1="100" y1="136" x2="330" y2="136" marker-end="url(#sa)"/>
       <text class="t lbl" x="215" y="128" text-anchor="middle">2 unggah .tgz (manual)</text>
       <line class="arr" x1="100" y1="176" x2="330" y2="176" marker-end="url(#sa)"/>
-      <text class="t lbl" x="215" y="168" text-anchor="middle">3 SSH: mkdir + tar -xzf</text>
-      <line class="arr" x1="100" y1="212" x2="330" y2="212" marker-end="url(#sa)"/>
-      <text class="t lbl" x="215" y="204" text-anchor="middle">4 SSH: node install.mjs</text>
+      <text class="t lbl" x="215" y="168" text-anchor="middle">3 SSH: node open-package.mjs</text>
+      <rect class="hot" x="340" y="188" width="300" height="30" rx="4"/>
+      <text class="t" x="348" y="208">4 buka paket, jalankan install.mjs</text>
       <rect class="hot" x="340" y="228" width="300" height="46" rx="4"/>
       <text class="t" x="348" y="246">5 periksa rilis (CLIENT_ID cocok folder),</text><text class="t" x="348" y="262">kunci, doctor, npm ci, env-check</text>
       <line class="arr" x1="330" y1="304" x2="840" y2="304" marker-end="url(#sa)"/>
@@ -272,9 +272,9 @@
   <h3>Langkah demi langkah, dengan kata sederhana</h3>
   <ol class="steps">
     <li><b>Buat paket.</b> <code>npm run release:pack -- acme production</code>. Commit harus bersih; versi diambil dari <code>git describe</code> (tag bila ada, selain itu kode commit). Aplikasi dibangun untuk <code>CLIENT_ID</code> klien itu, hasilnya diperiksa (versi, <code>CLIENT_ID</code>, semua paket yang di-<code>import</code> server ikut terpasang), lalu dikemas ke <code>release-packages/</code>. Di akhir, perintah mencetak langkah berikutnya.<span class="where">Komputer pembangun · gagal = tidak ada paket</span></li>
-    <li><b>Unggah.</b> Salin berkas <code>.tgz</code> ke server dengan cara apa saja (WinSCP, scp).<span class="where">Anda</span></li>
-    <li><b>Buka paket.</b> <code>mkdir &lt;folder deploy&gt;/releases/&lt;nama&gt;</code>, lalu <code>tar -xzf &lt;berkas&gt;.tgz -C &lt;folder deploy&gt;/releases/&lt;nama&gt;</code>.<span class="where">Anda, di server</span></li>
-    <li><b>Jalankan pemasang.</b> <code>node &lt;folder deploy&gt;/releases/&lt;nama&gt;/scripts/ops/install.mjs</code>. Ia membaca folder deploy dari letaknya sendiri dan menolak paket yang dibangun untuk klien atau lingkungan lain.<span class="where">Anda, di server</span></li>
+    <li><b>Unggah.</b> Salin berkas <code>.tgz</code> ke server dengan cara apa saja (WinSCP, scp). Pada pemasangan pertama sebuah deployment, salin juga <code>open-package.mjs</code> (ada di sebelah paket) ke folder deploy.<span class="where">Anda</span></li>
+    <li><b>Buka paket dan pasang.</b> <code>node &lt;folder deploy&gt;/open-package.mjs &lt;berkas&gt;.tgz</code>. Skrip itu mengambil nama rilis dari nama berkas, membuka paket ke <code>releases/&lt;nama&gt;</code> lewat folder sementara (tidak pernah setengah terbuka), memeriksa isinya, lalu menjalankan pemasang.<span class="where">Anda, di server</span></li>
+    <li><b>Pemasang: periksa rilis.</b> <code>install.mjs</code> membaca folder deploy dari letaknya sendiri dan menolak paket yang dibangun untuk klien atau lingkungan lain.<span class="where">Server</span></li>
     <li><b>Pemasang: siapkan.</b> Mengambil kunci (<code>mkdir .deploy.lock</code>, hanya satu pemasangan sekali), <code>release.mjs doctor</code>, <code>npm ci --omit=dev</code>, <code>env-check</code> terhadap file env.<span class="where">Server · gagal = berhenti, folder rilis tetap ada, jalankan perintah yang sama lagi setelah diperbaiki</span></li>
     <li><b>Pemasang: migrasi database.</b> <code>dash-migrate.mjs</code> membuat tabel <code>dash_*</code> baru bila ada.<span class="where">Server → database · gagal = berhenti, <code>current</code> tidak berubah</span></li>
     <li><b>Pemasang: ganti rilis.</b> <code>release.mjs activate</code>: <code>current</code> menunjuk rilis baru, rilis lama menjadi <code>previous</code>. Pemindahan satu langkah (rename), tidak pernah setengah jadi.<span class="where">Server</span></li>
@@ -334,8 +334,9 @@
                                  package.json, node_modules/ (dipasang di server)
   finance-dashboard.env          pengaturan deployment (mode 600, di luar rilis)
   logs/                          LOG_DIR (path mutlak, bertahan antar rilis)
-  .deploy.lock/                  ada hanya selama sebuah pemasangan berjalan</code></pre>
-  <p>Nama folder membawa tiga fakta: klien, lingkungan, dan port. Pemasang membacanya dari letaknya sendiri, dan <code>env-check</code> memastikan isi file env sama dengan nama folder. Paket dari komputer pembangun tidak membawa <code>node_modules</code>; server memasangnya sendiri (butuh akses ke registry npm). Berkas <code>.tgz</code> yang Anda unggah boleh ditaruh di mana saja di luar <code>releases/</code>.</p>
+  .deploy.lock/                  ada hanya selama sebuah pemasangan berjalan
+  open-package.mjs               pembuka paket (disalin sekali dari release-packages/)</code></pre>
+  <p>Nama folder membawa tiga fakta: klien, lingkungan, dan port. Pemasang membacanya dari letaknya sendiri, dan <code>env-check</code> memastikan isi file env sama dengan nama folder. Paket dari komputer pembangun tidak membawa <code>node_modules</code>; server memasangnya sendiri (butuh akses ke registry npm). Berkas <code>.tgz</code> yang Anda unggah boleh ditaruh di mana saja di luar <code>releases/</code>. <code>/home/oxy/web-server/</code> hanyalah contoh; folder induknya boleh berbeda, yang harus sesuai pola hanya <b>nama</b> folder deploy.</p>
 
   <h2 id="file">7. Peta file: apa fungsi tiap file</h2>
   <p>Label di kolom kanan: <span class="pill p-lap">laptop</span> hanya di komputer pembangun, <span class="pill p-srv">server</span> ikut dikirim ke server, <span class="pill p-app">aplikasi</span> bagian aplikasi itu sendiri, <span class="pill p-both">keduanya</span> dipakai di dua tempat.</p>
@@ -364,12 +365,13 @@
       <tr><td><code>scripts/deploy/bundle-imports.mjs</code></td><td>Memastikan setiap paket yang di-<code>import</code> hasil build ada di <code>package-lock.json</code> sebagai paket produksi, supaya <code>npm ci --omit=dev</code> di server memasangnya.</td><td><span class="pill p-lap">laptop</span></td></tr>
       <tr><td><code>scripts/deploy/package-release.mjs</code></td><td>Menyalin isi rilis (tanpa file tes) dan membuat <code>.tgz</code> dengan <code>tar</code>.</td><td><span class="pill p-lap">laptop</span></td></tr>
       <tr><td><code>vite.ops.config.ts</code></td><td>Membundel <code>scripts/dash-*.ts</code> dan <code>logs-find.ts</code> menjadi <code>dist/ops/*.mjs</code> (<code>npm run build:ops</code>), jalan dengan Node biasa.</td><td><span class="pill p-lap">laptop</span></td></tr>
-      <tr><td><code>release-packages/</code></td><td>Folder keluaran paket. Diabaikan git.</td><td><span class="pill p-lap">laptop</span></td></tr>
+      <tr><td><code>release-packages/</code></td><td>Folder keluaran paket, dan salinan <code>open-package.mjs</code> di sebelahnya. Diabaikan git.</td><td><span class="pill p-lap">laptop</span></td></tr>
     </tbody></table></div>
 
   <h3>C. Pemasang, alat server, dan alamat kesehatan</h3>
   <div class="tbl"><table>
     <thead><tr><th>Berkas</th><th>Fungsi</th><th>Jalan di</th></tr></thead><tbody>
+      <tr><td><code>scripts/ops/open-package.mjs</code></td><td><b>Pembuka paket.</b> Satu file tanpa impor dari proyek, disalin sekali ke folder deploy. Mengambil nama rilis dari nama berkas, membuka paket lewat folder sementara, memeriksa isinya lengkap, lalu menjalankan pemasang dan meneruskan <code>--prepare-only</code>, <code>--dry-run</code>, dan <code>--keep</code>.</td><td><span class="pill p-srv">server</span></td></tr>
       <tr><td><code>scripts/ops/install.mjs</code></td><td><b>Pemasang.</b> Dijalankan di server dari folder rilis. Mode: pasang (bawaan), <code>--prepare-only</code>, <code>--dry-run</code>, <code>--rollback</code>, <code>--status</code>. Hanya menyambungkan kenyataan (menjalankan program, kunci, file) ke alurnya.</td><td><span class="pill p-srv">server</span></td></tr>
       <tr><td><code>scripts/lib/install-flow.mjs</code></td><td><b>Otaknya.</b> Urutan langkah dan semua keputusan: kapan berhenti, kapan rollback, rilis salah folder. Membaca folder deploy dari letak rilis.</td><td><span class="pill p-srv">server</span></td></tr>
       <tr><td><code>scripts/ops/release.mjs</code></td><td>Mengelola folder rilis: <code>activate</code>, <code>rollback</code>, <code>cleanup</code>, <code>list</code>, <code>doctor</code>. Bekerja pada satu folder di disk.</td><td><span class="pill p-srv">server</span></td></tr>
@@ -396,8 +398,7 @@
   <h3>Di server (setelah Anda mengunggah paket)</h3>
   <div class="tbl"><table>
     <thead><tr><th>Perintah</th><th>Fungsi</th></tr></thead><tbody>
-      <tr><td><code>mkdir &lt;folder deploy&gt;/releases/&lt;nama&gt;</code><br><code>tar -xzf &lt;berkas&gt;.tgz -C &lt;folder deploy&gt;/releases/&lt;nama&gt;</code></td><td>Membuka paket. Nama rilis = nama berkas tanpa <code>.tgz</code>.</td></tr>
-      <tr><td><code>node &lt;folder deploy&gt;/releases/&lt;nama&gt;/scripts/ops/install.mjs</code></td><td>Pasang rilis. Tambah <code>--prepare-only</code> pada pemasangan pertama, <code>--dry-run</code> untuk melihat rencana.</td></tr>
+      <tr><td><code>node &lt;folder deploy&gt;/open-package.mjs &lt;berkas&gt;.tgz</code></td><td>Membuka paket (nama rilis = nama berkas tanpa <code>.tgz</code>, jangan diganti) dan memasangnya. Tambah <code>--prepare-only</code> pada pemasangan pertama, <code>--dry-run</code> untuk melihat rencana. Aman diulang: rilis yang sudah terbuka lengkap tidak dibuka lagi.</td></tr>
       <tr><td><code>node &lt;folder deploy&gt;/current/scripts/ops/install.mjs --status</code></td><td>Daftar rilis (mana <code>current</code>, mana <code>previous</code>) dan satu pertanyaan ke <code>/health</code>.</td></tr>
       <tr><td><code>node &lt;folder deploy&gt;/current/scripts/ops/install.mjs --rollback</code></td><td>Kembali ke rilis sebelumnya dengan tangan. Dua kali berarti maju lagi.</td></tr>
     </tbody></table></div>
@@ -417,6 +418,7 @@
   <div class="tbl"><table>
     <thead><tr><th>Istilah</th><th>Arti</th></tr></thead><tbody>
       <tr><td>Paket</td><td>Satu berkas <code>.tgz</code> berisi satu rilis, dibuat <code>release:pack</code> untuk satu klien dan satu lingkungan.</td></tr>
+      <tr><td>Pembuka paket</td><td><code>scripts/ops/open-package.mjs</code>: satu file di folder deploy yang membuka paket dan menjalankan pemasangnya.</td></tr>
       <tr><td>Pemasang</td><td><code>scripts/ops/install.mjs</code>, dijalankan di server dari folder rilis.</td></tr>
       <tr><td>Rilis</td><td>Satu folder di <code>releases/</code> bernama <code>&lt;waktu UTC&gt;-&lt;versi&gt;</code>.</td></tr>
       <tr><td><code>current</code> / <code>previous</code></td><td>Pintasan (symlink) ke rilis yang berjalan dan rilis sebelumnya.</td></tr>

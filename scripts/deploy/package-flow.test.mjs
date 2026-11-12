@@ -18,7 +18,11 @@ function makeDeps(config = {}) {
     scanBundle: () => config.scan ?? { problems: [], files: 163 },
     makePackage: (name) => {
       record.packaged.push(name)
-      return { file: `/work/release-packages/${name}.tgz`, sizeBytes: 5 * 1024 * 1024 }
+      return {
+        file: `/work/release-packages/${name}.tgz`,
+        helper: '/work/release-packages/open-package.mjs',
+        sizeBytes: 5 * 1024 * 1024,
+      }
     },
   }
   return { deps, record, text: () => record.logs.join('\n') }
@@ -40,13 +44,15 @@ describe('runPackage: a good package', () => {
     expect(text()).toContain(
       'PACKAGE READY: /work/release-packages/20261112100000-v1.2.0.tgz (5.0 MB), for acme (production), version v1.2.0',
     )
-    const root = '/home/oxy/web-server/oxy-acme-production-finance-dashboard-<port>'
-    expect(text()).toContain(`mkdir ${root}/releases/20261112100000-v1.2.0`)
-    expect(text()).toContain(
-      `tar -xzf <upload folder>/20261112100000-v1.2.0.tgz -C ${root}/releases/20261112100000-v1.2.0`,
-    )
-    expect(text()).toContain(`node ${root}/releases/20261112100000-v1.2.0/scripts/ops/install.mjs`)
+    expect(text()).toContain('also upload /work/release-packages/open-package.mjs')
+    expect(text()).toContain('named oxy-acme-production-finance-dashboard-<port>')
+    expect(text()).toContain('node <deploy folder>/open-package.mjs <upload folder>/20261112100000-v1.2.0.tgz')
+    expect(text()).toContain('Do not rename the package file')
     expect(text()).toContain('--prepare-only')
+    // no path of a particular server, and no commands to type by hand besides the one line
+    expect(text()).not.toContain('/home/oxy')
+    expect(text()).not.toContain('tar -xzf')
+    expect(text()).not.toContain('mkdir')
   })
 
   it('builds staging for the CLIENT_ID with -staging, and does not need a tag', () => {

@@ -106,7 +106,10 @@ function main(argv) {
         mkdirSync(outDir, { recursive: true })
         const file = join(outDir, `${name}.tgz`)
         copyFileSync(archive, file)
-        return { file, sizeBytes }
+        // The helper that opens a package on the server, next to the package: it is uploaded once per deployment.
+        const helper = join(outDir, 'open-package.mjs')
+        copyFileSync(join(root, 'scripts', 'ops', 'open-package.mjs'), helper)
+        return { file, helper, sizeBytes }
       } finally {
         rmSync(workDir, { recursive: true, force: true })
       }

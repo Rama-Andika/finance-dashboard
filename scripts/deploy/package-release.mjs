@@ -27,6 +27,7 @@ export const PAYLOAD_REQUIRED_FILES = [
   'scripts/ops/env-check.mjs',
   'scripts/ops/init-env.mjs',
   'scripts/ops/install.mjs',
+  'scripts/ops/open-package.mjs',
   'scripts/lib/install-flow.mjs',
   'package.json',
   'package-lock.json',
