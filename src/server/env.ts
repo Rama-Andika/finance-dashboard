@@ -1,17 +1,17 @@
 import '@tanstack/react-start/server-only'
 import { z } from 'zod'
+import { APP_ENVS, envRuleViolations } from '~/lib/core/app-env'
 import { CLIENT_ID_PATTERN } from '~/lib/core/client-base'
 import { METRIC_FRESH_SETTING, METRIC_STALE_SETTING } from '~/server/metric-settings'
 
-if (!process.env.DATABASE_URL) {
-  try {
-    process.loadEnvFile('.env')
-  } catch {
-    /* no .env file: let the validation below fail */
-  }
-}
+// This file only READS process.env; it never opens an env file. On a developer's computer scripts/local.mjs loads
+// env/development.env into the process before anything starts, and on a server systemd loads the environment file of
+// the deployment. Either way the settings are already in process.env when this file runs.
 
-const envSchema = z.object({
+export const envSchema = z.object({
+  // The environment this process runs in. No default on purpose: a process started without it must fail here instead of
+  // quietly running as something else (in particular not as production).
+  APP_ENV: z.enum(APP_ENVS),
   DATABASE_URL: z.string().startsWith('mysql://'),
   DB_POOL_SIZE: z.coerce.number().int().min(1).max(10).default(5),
   // Upper bound for one SELECT, in milliseconds (0 = no limit). A runaway report must not hold a pooled connection forever.
@@ -94,7 +94,20 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse(process.env)
 if (!parsed.success) {
   // Report only the NAMES of invalid variables, never their values.
-  throw new Error(`Invalid environment variables: ${parsed.error.issues.map((i) => i.path.join('.')).join(', ')}`)
+  const names = parsed.error.issues.map((i) => i.path.join('.'))
+  const hint = names.includes('APP_ENV') ? ' (APP_ENV must be one of: development, staging, production)' : ''
+  throw new Error(`Invalid environment variables: ${names.join(', ')}${hint}`)
+}
+
+// The rules of the environment (src/lib/core/app-env.ts). A message names a variable and never its value.
+const violations = envRuleViolations({
+  appEnv: parsed.data.APP_ENV,
+  databaseUrl: parsed.data.DATABASE_URL,
+  appToday: parsed.data.APP_TODAY,
+  logLevel: parsed.data.LOG_LEVEL,
+})
+if (violations.length > 0) {
+  throw new Error(`The settings break the rules of APP_ENV=${parsed.data.APP_ENV}: ${violations.join('; ')}`)
 }
 
 export const env = parsed.data

@@ -20,11 +20,13 @@ If code seems to contradict `decisions.md`/`data-model.md`, those documents win.
 ## Commands
 
 ```bash
-npm run dev            # Vite dev server on http://localhost:3000
+npm run dev            # Vite dev server on http://localhost:3000 (through scripts/local.mjs: loads env/development.env first)
 npm run build          # client + SSR build into dist/
 npm run build:client -- <id>   # build for one client: URL prefix /oxy-<id>-finance-dashboard/ (see Architecture)
 npm run smoke:build    # start the built dist/ with a dummy DB address and check the prefix it serves (no database)
-npm start              # production server (scripts/start-server.mjs, serves dist/)
+npm start              # the server of a deployment (scripts/start-server.mjs, serves dist/); needs APP_ENV in its environment, never reads env/
+npm run start:local    # the built dist/ on your computer, with env/development.env
+npm run env:check -- <file>   # check an environment file (key names and line numbers only, never values); --mode development for env/development.env
 npm run typecheck      # tsc --noEmit
 npm run lint           # ESLint (also enforces the layering: no server/DB imports in routes, components, lib; no console in src/server)
 npm run lint:fix
@@ -64,7 +66,7 @@ Ask the user in chat and wait for a clear yes before:
 - **running anything against a database**, including a plain `SELECT`, `npm run test:db`, `db:dash:migrate`, `dash:refresh*`, `drizzle-kit pull`, seed scripts;
 - commits/pushes.
 
-Never run `docs/sql/dashboard-indexes.sql` (the user runs it manually). Never read or print `.env` or `.dbclient.cnf` (checking that they exist is fine). For non-trivial work, write a plan first and get a go before implementing.
+Never run `docs/sql/dashboard-indexes.sql` (the user runs it manually). Never read or print `.env`, `env/*.env` or `.dbclient.cnf` (checking that they exist is fine). For non-trivial work, write a plan first and get a go before implementing.
 
 ## Architecture
 
@@ -87,6 +89,7 @@ src/routes/**            file-based routes; loader → queryClient.ensureQueryDa
 - Logging and error ids: every request gets an id (`YYYYMMDD-HHmmss-xxxxx`) in `src/server-entry.ts` (`handleRequestWithLog`); it is on every log line of the request (through `AsyncLocalStorage`), in the `X-Request-Id` response header, and in one access line. A server function error reaches the browser only as a public error whose message is `CODE#id` (`src/server/public-error.ts`, `src/lib/error-message.ts`; TanStack Start sends only the message of an Error); the raw error stays in the log under the same id. `authMiddleware` includes `publicErrorMiddleware`, and a server function without `authMiddleware` must use `publicErrorMiddleware`. Log files are `LOG_DIR/app.<date>.<n>.log`, searched with `npm run logs:find`. Details: `docs/project-guide.md` chapter 10.6.
 - Global filters live in the URL: `src/lib/filters/search-schema.ts` (`entity`, `preset`, `from`/`to`, `p13`, `drill`, …). `src/server/context.ts#resolveFilter` turns them into a `ResolvedFilter` (location ids, segment-detail ids, date range, period ids, comparison period, "today"). Entity tokens in the URL are location **ids**.
 - Several clients run from this one codebase, each with its own Node process and ERP database, under its own URL prefix `/oxy-<CLIENT_ID>-finance-dashboard/` on one host (`docs/project-guide.md` chapter 10.7). The prefix is fixed at build time (`npm run build:client -- <id>`, or `CLIENT_ID=<id> npm run build`; no `CLIENT_ID` means the root) and is read through `src/lib/core/base-path.ts` (`basePath`, `withBasePath`, `stripBasePath`, `cookiePath`, `cookieName`). The prefix never comes from `.env` (Vite evaluates `vite.config.ts` several times and puts `.env` into the environment in between), only from `CLIENT_ID` in the environment of the build command. Never write an absolute path such as `/summary` in a plain anchor, a cookie `path`, `history.push` or a raw `href` redirect, and never give a cookie a fixed name (cookies are shared by every port and path of one host, so an old `nr_session` with `Path=/` would otherwise survive sign out): TanStack Router `to` links add the prefix by themselves, everything else goes through those helpers (`src/lib/core/base-path-guard.test.ts` fails otherwise). Access-log paths are written without the prefix.
+- Environments (decision D66, `docs/project-guide.md` chapter 10.8): `APP_ENV` is `development`, `staging` or `production` and has no default. `src/server/env.ts` refuses to start without it and applies the rules of `src/lib/core/app-env.ts` (development needs a local database; production refuses `APP_TODAY` and `LOG_LEVEL` debug/trace). No application code opens an env file. On a developer's computer `scripts/local.mjs` loads `env/development.env` (gitignored) and sets `APP_ENV=development`; every npm script that needs the app or a database goes through it, so a bare `vitest --project db` or `tsx scripts/...` has no settings. On a server systemd loads `<deploy folder>/finance-dashboard.env` and `ExecStartPre` runs `scripts/ops/env-check.mjs` (unknown keys, missing keys, production rules, agreement with the folder name `oxy-<client>-<env>-finance-dashboard-<port>`); `scripts/ops/init-env.mjs` creates the file. `scripts/start-server.mjs` refuses to start without a valid `APP_ENV` and, in staging and production, when `CLIENT_ID` does not match `dist/base-path.json`; it hands the build version (`dist/build-info.json`) to the logger as `APP_VERSION` (log fields `client`, `env`, `version`). Every name read with `process.env` in `src/` must be listed in `scripts/lib/env-keys.mjs` (a test fails otherwise), and a new setting also goes into `.env.example`. Messages about settings name a variable and never its value. Plain Node scripts that cannot import TypeScript (`scripts/lib/*.mjs`) keep small copies of rules from `src/lib/core`; tests compare the copies.
 - The client name in the sidebar and the tab title is read from `company.name` at run time (`src/server/services/company.service.ts`); it is never written into the repo, docs, tests or logs (tests use example names such as `Example Company Ltd`).
 - "Today" = `APP_TODAY` if set, else today in `APP_TIMEZONE`. Integration tests pin it (`TEST_TODAY`, default `2025-10-15`) to fit the local `demo` data.
 - Server functions return money as strings, dates as `YYYY-MM-DD`; never `Decimal`, `Date`, `Map`, `Set`, `bigint`. Labels are sent as neutral keys and translated on the client.

@@ -1,7 +1,6 @@
 import { readdir, unlink } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import buildRollingStream, { type RollingStream } from 'pino-roll'
-import { loadDotEnvOnce } from './load-env'
 import { cutoffDay, LOG_FILE_BASE, LOG_FILE_PATTERN } from './log-file-name'
 import { setFileSink, type LineSink } from './logger-core'
 import { currentLogTimeZone, logDay } from './log-time'
@@ -151,7 +150,6 @@ declare global {
  */
 export function startFileLogging(env: NodeJS.ProcessEnv = process.env): { flush(): void } | null {
   if (globalThis.__fileLogging) return globalThis.__fileLogging
-  loadDotEnvOnce()
   if (env.LOG_TO_FILE === '0') return null
   const dir = resolve(env.LOG_DIR || 'logs')
   const retentionDays = retentionDaysFrom(env.LOG_RETENTION_DAYS)

@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
@@ -28,6 +29,36 @@ function writeBasePathFile(): Plugin {
   }
 }
 
+/** The version of this build: the git tag, or the short commit id, with "-dirty" when tracked files were changed ("unknown" without git). */
+function gitVersion(): string {
+  try {
+    const version = execFileSync('git', ['describe', '--tags', '--always', '--dirty'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+    return version || 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
+/** Writes dist/build-info.json (version, build time, client). scripts/start-server.mjs hands the version to the logger. */
+function writeBuildInfoFile(): Plugin {
+  return {
+    name: 'write-build-info-file',
+    apply: 'build',
+    closeBundle() {
+      mkdirSync(resolve('dist'), { recursive: true })
+      const info = {
+        version: gitVersion(),
+        builtAt: new Date().toISOString(),
+        clientId: process.env.BUILD_CLIENT_ID ?? '',
+      }
+      writeFileSync(resolve('dist', 'build-info.json'), JSON.stringify(info) + '\n')
+    },
+  }
+}
+
 export default defineConfig({
   base,
   server: { port: 3000 },
@@ -37,5 +68,6 @@ export default defineConfig({
     tanstackStart({ server: { entry: 'server-entry' } }), // MUST come before viteReact()
     viteReact(),
     writeBasePathFile(),
+    writeBuildInfoFile(),
   ],
 })

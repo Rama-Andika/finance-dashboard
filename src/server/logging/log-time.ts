@@ -2,7 +2,6 @@
  * Wall-clock time in the log time zone. Log lines and request ids carry the same clock, so an id and the "time" of its
  * lines always agree. No server-only marker: scripts, tests and the logger all load this file.
  */
-import { loadDotEnvOnce } from './load-env'
 
 /** The time zone the logs are written in: APP_TIMEZONE when it is a valid zone name, otherwise the zone of the server. */
 export function resolveLogTimeZone(configured: string | undefined): string {
@@ -21,7 +20,6 @@ let cachedTimeZone: string | undefined
 
 /** The log time zone of this process (APP_TIMEZONE, else the zone of the server), worked out once. */
 export function currentLogTimeZone(): string {
-  loadDotEnvOnce()
   cachedTimeZone ??= resolveLogTimeZone(process.env.APP_TIMEZONE)
   return cachedTimeZone
 }

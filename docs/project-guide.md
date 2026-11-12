@@ -10,7 +10,7 @@
 >
 > **Bila dokumen ini berbeda dengan `docs/decisions.md` atau `docs/data-model.md`, kedua dokumen itu yang menang** (lalu perbaiki dokumen ini). Keduanya tetap menjadi sumber keputusan (D#, O#) dan rincian kolom per tabel ERP.
 >
-> **Terakhir diperbarui:** 2026-11-11
+> **Terakhir diperbarui:** 2026-11-12
 
 ## Daftar isi
 
@@ -283,93 +283,95 @@ Tampilan memakai **rupiah (IDR) saja**. Kolom `debet`/`credit` di ERP sudah dala
 
 Istilah teknis dan istilah finance yang dipakai di dokumen dan di layar. "Lihat" menunjuk ke bab tempat penjelasannya.
 
-| Istilah                                   | Arti sederhana                                                                                                                               | Lihat          |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| **Account Mapping**                       | Halaman Settings tempat admin memilih akun mana yang dihitung sebagai Kas, Bank, Deposito, Dana dalam pencairan, dan Biaya Tetap.            | 8.10           |
-| **Accrual**                               | Pencatatan pendapatan/biaya saat terjadi, bukan saat uang bergerak.                                                                          | 2.5            |
-| **Aging / Umur**                          | Pengelompokan tagihan menurut berapa hari terlambat dari jatuh tempo.                                                                        | 8.7            |
-| **Aktiva / Pasiva**                       | Dua sisi Neraca. Aktiva = apa yang dimiliki (harta). Pasiva = dari mana dananya (utang + ekuitas). Keduanya harus sama.                      | 8.13           |
-| **AP**                                    | _Accounts Payable_, utang usaha.                                                                                                             | 2.8            |
-| **AR**                                    | _Accounts Receivable_, piutang usaha.                                                                                                        | 2.8            |
-| **Awalan alamat (base path)**             | Bagian alamat web yang membedakan satu client dari client lain di host yang sama: `/oxy-<CLIENT_ID>-finance-dashboard/`. Ditanam saat build. | 10.7           |
-| **`asOf` (tanggal acuan)**                | Tanggal yang dipakai untuk angka potret. Ditentukan filter periode, maksimal hari ini.                                                       | 6.1            |
-| **`ap_ar_card`**                          | Tabel ERP berisi tagihan dan pembayaran utang/piutang.                                                                                       | 4.4            |
-| **Bank Payment PO**                       | Alur pembayaran utang di ERP (voucher → pembayaran).                                                                                         | 4.6            |
-| **Basket / Keranjang akun**               | Kumpulan akun yang dihitung sebagai satu kelompok (Kas, Bank, Deposito, Dana dalam pencairan, Biaya Tetap).                                  | 6.6            |
-| **Bucket**                                | Satu kelompok umur dalam aging (mis. 31–60 hari).                                                                                            | 8.7            |
-| **Budget vs Actual**                      | Anggaran dibandingkan realisasi.                                                                                                             | 8.6            |
-| **Burn (laju bakar)**                     | Rata-rata uang bersih yang keluar per bulan. Dipakai untuk Runway.                                                                           | 8.4.6          |
-| **Cash Flow (arus kas)**                  | Uang yang benar-benar masuk dan keluar selama periode.                                                                                       | 8.4            |
-| **Cash Position**                         | Saldo Kas + Bank pada tanggal acuan.                                                                                                         | 8.3            |
-| **Closed / Open / Pre Closed**            | Status periode akuntansi.                                                                                                                    | 2.6            |
-| **CoA**                                   | _Chart of Accounts_, daftar akun berbentuk pohon.                                                                                            | 2.2            |
-| **Cost Of Sales (HPP)**                   | Harga pokok penjualan, biaya langsung barang yang terjual.                                                                                   | 2.3            |
-| **Current Ratio**                         | Aset lancar ÷ kewajiban lancar. Ukuran kemampuan membayar utang jangka pendek.                                                               | 8.4.6          |
-| **`dash_*`**                              | Tabel milik dashboard (salinan hasil hitung).                                                                                                | 5              |
-| **Dana dalam pencairan (in transit)**     | Uang pembayaran kartu/QRIS/e-wallet yang sudah dibayar pelanggan tetapi belum masuk rekening bank.                                           | 8.3            |
-| **Data as of**                            | Kartu di sidebar yang menunjukkan kapan tabel `dash_*` terakhir dibangun.                                                                    | 10.4           |
-| **Debit / Kredit**                        | Dua sisi pencatatan jurnal.                                                                                                                  | 2.1            |
-| **Deposito**                              | Simpanan berjangka. Baris terpisah di Cash Position, tidak masuk angka utama.                                                                | 8.3            |
-| **Draft**                                 | Jurnal yang belum diposting. Tidak dihitung.                                                                                                 | 2.7            |
-| **Drill-down**                            | Membuka rincian sebuah angka sampai baris jurnal.                                                                                            | 8.12           |
-| **EDC**                                   | Mesin gesek kartu di kasir. Pembayarannya termasuk dana dalam pencairan.                                                                     | 8.3            |
-| **Ekuitas (modal)**                       | Hak pemilik atas perusahaan: modal disetor, laba ditahan, dan laba tahun berjalan. Sama dengan Aktiva dikurangi utang.                       | 8.13           |
-| **Eliminasi intercompany**                | Menghapus transaksi antar-entitas dalam satu grup agar tidak terhitung dua kali. **Tidak dilakukan** di dashboard.                           | 2.9            |
-| **Entitas**                               | Satu lokasi (`pos_location`), mewakili satu anak perusahaan/cabang.                                                                          | 2.9            |
-| **ERP**                                   | Sistem pencatatan transaksi klien yang menjadi sumber data.                                                                                  | 1.1            |
-| **Expense Paid**                          | Biaya operasional yang sudah dibayar kas.                                                                                                    | 8.4.7          |
-| **Fingerprint (sidik jari)**              | Ringkasan kecil kondisi data ERP yang disimpan bersama snapshot. Bila berubah, snapshot dibangun ulang.                                      | 5.1            |
-| **Fixed Cost (Biaya Tetap)**              | Biaya tetap bulanan; akunnya dipilih di Account Mapping.                                                                                     | 8.5            |
-| **Flow**                                  | Angka yang mengalir selama periode.                                                                                                          | 2.4            |
-| **`gl`, `gl_detail`**                     | Kepala dan baris jurnal buku besar di ERP.                                                                                                   | 4.3            |
-| **Giro / Cek beredar**                    | Pembayaran dengan giro/cek yang sudah dicatat tetapi belum dicairkan bank. Hanya informasi di Cash Position.                                 | 8.3            |
-| **Gross Profit / Margin**                 | Laba kotor (Revenue − HPP) dan rasionya terhadap Revenue.                                                                                    | 2.3            |
-| **HEADER / POSTABLE**                     | Akun folder / akun tempat jurnal dicatat.                                                                                                    | 2.2            |
-| **HPP**                                   | Harga pokok penjualan (Cost Of Sales).                                                                                                       | 2.3            |
-| **`in_out`**                              | Kolom kartu utang/piutang: `1` menambah saldo, `-1` mengurangi, `0` abaikan.                                                                 | 4.4            |
-| **Jatuh tempo (`due_date`)**              | Tanggal tagihan harus dibayar.                                                                                                               | 8.7            |
-| **Jurnal pembalik (reversal)**            | Jurnal yang membatalkan jurnal lain. Dihitung bersama aslinya.                                                                               | 6.2            |
-| **Kode referensi (request ID)**           | Kode di layar saat terjadi error (mis. 20261110-143551-k7q2m). Developer memakainya untuk menemukan catatan lengkap error itu di log server. | 10.6           |
-| **Konsinyasi**                            | Barang titipan; hutangnya muncul dari penjualan (nomor `…/SLS/…`).                                                                           | 4.4            |
-| **Konsolidasi**                           | Penjumlahan banyak entitas.                                                                                                                  | 2.9            |
-| **Kredit vendor**                         | Semua item AP yang sisanya negatif: retur, memo kredit, kelebihan bayar. Memotong utang.                                                     | 8.7            |
-| **Laba Rugi (P&L)**                       | Laporan untung/rugi selama periode.                                                                                                          | 2.3            |
-| **Laba Tahun Berjalan / Laba Tahun Lalu** | Dua akun ekuitas penampung laba: laba tahun buku yang sedang berjalan sampai tanggal laporan, dan laba tahun-tahun buku sebelumnya.          | 8.13.3         |
-| **MDR**                                   | Biaya yang dipotong penyedia pembayaran dari transaksi kartu/QRIS. Kolomnya tidak dipakai.                                                   | 4.5            |
-| **NBAL (non-balancing)**                  | Segmen Lokasi tidak memaksa jurnal seimbang per lokasi, jadi saldo kas/utang per entitas bisa terlihat janggal.                              | 6.4            |
-| **Neraca**                                | Laporan posisi harta, utang, modal pada satu tanggal.                                                                                        | 2.3, 8.13      |
-| **Net Profit / Margin**                   | Laba bersih dan rasionya terhadap Revenue.                                                                                                   | 2.3            |
-| **OCI**                                   | _Other Comprehensive Income_. Fitur **dinonaktifkan sementara** (D39, O4).                                                                   | 8.5            |
-| **Operating Profit**                      | Laba usaha: Laba Kotor − Beban Operasional.                                                                                                  | 2.3            |
-| **Other Revenue / Other Expense**         | Pendapatan/beban di luar usaha utama (jasa giro, bunga, selisih kurs). Tidak masuk Revenue.                                                  | 2.3            |
-| **Overdue**                               | Tagihan yang sudah lewat jatuh tempo. Kartu Payables memakai tagihan positif saja; halaman Payables memakai neto per bucket.                 | 8.7            |
-| **Payment Plan**                          | Rencana pembayaran harian ke depan (7/14/30 hari).                                                                                           | 8.9            |
-| **Pembayaran belum dialokasikan**         | Hanya AP: kartu pelunasan (tipe 7–14) tanpa detail sama sekali; mengurangi utang.                                                            | 8.7            |
-| **Pengakuan Biaya**                       | Dokumen ERP (`bankpo_payment` tipe 0) tempat finance memilih beberapa tagihan satu vendor untuk dibayar bersamaan. Bukan "voucher".          | 4.6            |
-| **Periode 13**                            | Periode tambahan akhir tahun untuk penyesuaian/audit.                                                                                        | 2.6            |
-| **`period_id`**                           | Periode pencatatan sebuah jurnal. Dasar angka bulanan.                                                                                       | 6.3            |
-| **Posted**                                | Jurnal yang sudah diposting. Hanya ini yang dihitung.                                                                                        | 2.7            |
-| **`pos_location`**                        | Tabel ERP berisi lokasi = entitas.                                                                                                           | 4.2            |
-| **Preset periode**                        | Pilihan cepat filter: Bulan ini, Bulan lalu, Kuartal ini, YTD, 12 bulan.                                                                     | 6.1            |
-| **QRIS / e-wallet**                       | Pembayaran non-tunai; termasuk dana dalam pencairan.                                                                                         | 8.3            |
-| **Realisasi (Actual)**                    | Angka sebenarnya dari jurnal, lawan dari anggaran.                                                                                           | 8.6            |
-| **Retur dengan nota**                     | Retur AR yang langsung menunjuk faktur (kartu retur memegang detailnya sendiri). Sudah selesai saat dibuat.                                  | 8.8            |
-| **Retur langsung**                        | Kartu retur tanpa baris detail sendiri: berdiri sendiri, belum dikaitkan ke tagihan. Terpakai bila ada alokasi pelunasan.                    | 8.7, 8.8       |
-| **Refresh now (Perbarui sekarang)**       | Tombol di sidebar untuk membangun ulang tabel `dash_*` sekarang.                                                                             | 10.4           |
-| **Repo / Service / Server function**      | Lapisan kode: repo = SQL, service = merangkai repo dan rumus, server function = pintu masuk dari browser.                                    | 1.3            |
-| **Revenue (Pendapatan)**                  | Pendapatan usaha utama (grup akun Revenue, bukan Other Revenue).                                                                             | 8.2            |
-| **Runway**                                | Berapa bulan kas bertahan bila laju bakar tetap.                                                                                             | 8.4.6          |
-| **Saldo awal**                            | Saldo akun pada awal sebuah periode, ditulis ERP saat periode sebelumnya ditutup (`coa_opening_balance_location`).                           | 4.2, 7.2, 8.13 |
-| **`segment1_id` / segmen**                | Kolom baris jurnal yang menunjuk lokasi.                                                                                                     | 4.2            |
-| **Seleksi Invoice**                       | Menu ERP untuk memilih tagihan yang akan dibayar; menghasilkan Pengakuan Biaya.                                                              | 4.6            |
-| **Snapshot**                              | (1) potret angka pada satu tanggal; (2) tabel `dash_snap_*` berisi salinan hasil hitung.                                                     | 2.4, 5         |
-| **SWR (_stale-while-revalidate_)**        | Menampilkan angka lama seketika sambil menghitung ulang di belakang layar.                                                                   | 9              |
-| **`sysuser`**                             | Tabel akun ERP yang dipakai login dashboard.                                                                                                 | 4.7            |
-| **`system_main`**                         | Tabel pengaturan ERP; menyimpan Account Mapping.                                                                                             | 4.7            |
-| **Tahun buku**                            | Satu tahun pembukuan perusahaan. Bulan terakhirnya dibaca dari `company.end_fiscal_month` (bisa bukan Desember).                             | 8.13.3         |
-| **Tanpa entitas**                         | Baris pendapatan/jurnal yang tidak punya lokasi.                                                                                             | 8.2            |
-| **`trans_date`**                          | Tanggal transaksi jurnal. Dasar angka harian.                                                                                                | 6.3            |
-| **YTD**                                   | _Year To Date_, dari Januari sampai sekarang.                                                                                                | 6.1            |
+| Istilah                                   | Arti sederhana                                                                                                                                                                                                                                   | Lihat          |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
+| **Account Mapping**                       | Halaman Settings tempat admin memilih akun mana yang dihitung sebagai Kas, Bank, Deposito, Dana dalam pencairan, dan Biaya Tetap.                                                                                                                | 8.10           |
+| **Accrual**                               | Pencatatan pendapatan/biaya saat terjadi, bukan saat uang bergerak.                                                                                                                                                                              | 2.5            |
+| **Aging / Umur**                          | Pengelompokan tagihan menurut berapa hari terlambat dari jatuh tempo.                                                                                                                                                                            | 8.7            |
+| **Aktiva / Pasiva**                       | Dua sisi Neraca. Aktiva = apa yang dimiliki (harta). Pasiva = dari mana dananya (utang + ekuitas). Keduanya harus sama.                                                                                                                          | 8.13           |
+| **AP**                                    | _Accounts Payable_, utang usaha.                                                                                                                                                                                                                 | 2.8            |
+| **AR**                                    | _Accounts Receivable_, piutang usaha.                                                                                                                                                                                                            | 2.8            |
+| **Awalan alamat (base path)**             | Bagian alamat web yang membedakan satu client dari client lain di host yang sama: `/oxy-<CLIENT_ID>-finance-dashboard/`. Ditanam saat build.                                                                                                     | 10.7           |
+| **`asOf` (tanggal acuan)**                | Tanggal yang dipakai untuk angka potret. Ditentukan filter periode, maksimal hari ini.                                                                                                                                                           | 6.1            |
+| **`ap_ar_card`**                          | Tabel ERP berisi tagihan dan pembayaran utang/piutang.                                                                                                                                                                                           | 4.4            |
+| **Bank Payment PO**                       | Alur pembayaran utang di ERP (voucher → pembayaran).                                                                                                                                                                                             | 4.6            |
+| **Basket / Keranjang akun**               | Kumpulan akun yang dihitung sebagai satu kelompok (Kas, Bank, Deposito, Dana dalam pencairan, Biaya Tetap).                                                                                                                                      | 6.6            |
+| **Bucket**                                | Satu kelompok umur dalam aging (mis. 31–60 hari).                                                                                                                                                                                                | 8.7            |
+| **Budget vs Actual**                      | Anggaran dibandingkan realisasi.                                                                                                                                                                                                                 | 8.6            |
+| **Burn (laju bakar)**                     | Rata-rata uang bersih yang keluar per bulan. Dipakai untuk Runway.                                                                                                                                                                               | 8.4.6          |
+| **Cash Flow (arus kas)**                  | Uang yang benar-benar masuk dan keluar selama periode.                                                                                                                                                                                           | 8.4            |
+| **Cash Position**                         | Saldo Kas + Bank pada tanggal acuan.                                                                                                                                                                                                             | 8.3            |
+| **Closed / Open / Pre Closed**            | Status periode akuntansi.                                                                                                                                                                                                                        | 2.6            |
+| **CoA**                                   | _Chart of Accounts_, daftar akun berbentuk pohon.                                                                                                                                                                                                | 2.2            |
+| **Cost Of Sales (HPP)**                   | Harga pokok penjualan, biaya langsung barang yang terjual.                                                                                                                                                                                       | 2.3            |
+| **Current Ratio**                         | Aset lancar ÷ kewajiban lancar. Ukuran kemampuan membayar utang jangka pendek.                                                                                                                                                                   | 8.4.6          |
+| **`dash_*`**                              | Tabel milik dashboard (salinan hasil hitung).                                                                                                                                                                                                    | 5              |
+| **Dana dalam pencairan (in transit)**     | Uang pembayaran kartu/QRIS/e-wallet yang sudah dibayar pelanggan tetapi belum masuk rekening bank.                                                                                                                                               | 8.3            |
+| **Data as of**                            | Kartu di sidebar yang menunjukkan kapan tabel `dash_*` terakhir dibangun.                                                                                                                                                                        | 10.4           |
+| **Debit / Kredit**                        | Dua sisi pencatatan jurnal.                                                                                                                                                                                                                      | 2.1            |
+| **Deposito**                              | Simpanan berjangka. Baris terpisah di Cash Position, tidak masuk angka utama.                                                                                                                                                                    | 8.3            |
+| **Draft**                                 | Jurnal yang belum diposting. Tidak dihitung.                                                                                                                                                                                                     | 2.7            |
+| **Drill-down**                            | Membuka rincian sebuah angka sampai baris jurnal.                                                                                                                                                                                                | 8.12           |
+| **EDC**                                   | Mesin gesek kartu di kasir. Pembayarannya termasuk dana dalam pencairan.                                                                                                                                                                         | 8.3            |
+| **Ekuitas (modal)**                       | Hak pemilik atas perusahaan: modal disetor, laba ditahan, dan laba tahun berjalan. Sama dengan Aktiva dikurangi utang.                                                                                                                           | 8.13           |
+| **Eliminasi intercompany**                | Menghapus transaksi antar-entitas dalam satu grup agar tidak terhitung dua kali. **Tidak dilakukan** di dashboard.                                                                                                                               | 2.9            |
+| **Entitas**                               | Satu lokasi (`pos_location`), mewakili satu anak perusahaan/cabang.                                                                                                                                                                              | 2.9            |
+| **ERP**                                   | Sistem pencatatan transaksi klien yang menjadi sumber data.                                                                                                                                                                                      | 1.1            |
+| **Expense Paid**                          | Biaya operasional yang sudah dibayar kas.                                                                                                                                                                                                        | 8.4.7          |
+| **File env**                              | File berisi pengaturan satu lingkungan: satu baris `KUNCI=nilai` untuk tiap pengaturan. Di komputer pembangun `env/development.env` (diabaikan git); di server file di folder deploy yang dimuat systemd. Kode aplikasi tidak pernah membukanya. | 10.8           |
+| **Fingerprint (sidik jari)**              | Ringkasan kecil kondisi data ERP yang disimpan bersama snapshot. Bila berubah, snapshot dibangun ulang.                                                                                                                                          | 5.1            |
+| **Fixed Cost (Biaya Tetap)**              | Biaya tetap bulanan; akunnya dipilih di Account Mapping.                                                                                                                                                                                         | 8.5            |
+| **Flow**                                  | Angka yang mengalir selama periode.                                                                                                                                                                                                              | 2.4            |
+| **`gl`, `gl_detail`**                     | Kepala dan baris jurnal buku besar di ERP.                                                                                                                                                                                                       | 4.3            |
+| **Giro / Cek beredar**                    | Pembayaran dengan giro/cek yang sudah dicatat tetapi belum dicairkan bank. Hanya informasi di Cash Position.                                                                                                                                     | 8.3            |
+| **Gross Profit / Margin**                 | Laba kotor (Revenue − HPP) dan rasionya terhadap Revenue.                                                                                                                                                                                        | 2.3            |
+| **HEADER / POSTABLE**                     | Akun folder / akun tempat jurnal dicatat.                                                                                                                                                                                                        | 2.2            |
+| **HPP**                                   | Harga pokok penjualan (Cost Of Sales).                                                                                                                                                                                                           | 2.3            |
+| **`in_out`**                              | Kolom kartu utang/piutang: `1` menambah saldo, `-1` mengurangi, `0` abaikan.                                                                                                                                                                     | 4.4            |
+| **Jatuh tempo (`due_date`)**              | Tanggal tagihan harus dibayar.                                                                                                                                                                                                                   | 8.7            |
+| **Jurnal pembalik (reversal)**            | Jurnal yang membatalkan jurnal lain. Dihitung bersama aslinya.                                                                                                                                                                                   | 6.2            |
+| **Kode referensi (request ID)**           | Kode di layar saat terjadi error (mis. 20261110-143551-k7q2m). Developer memakainya untuk menemukan catatan lengkap error itu di log server.                                                                                                     | 10.6           |
+| **Konsinyasi**                            | Barang titipan; hutangnya muncul dari penjualan (nomor `…/SLS/…`).                                                                                                                                                                               | 4.4            |
+| **Konsolidasi**                           | Penjumlahan banyak entitas.                                                                                                                                                                                                                      | 2.9            |
+| **Kredit vendor**                         | Semua item AP yang sisanya negatif: retur, memo kredit, kelebihan bayar. Memotong utang.                                                                                                                                                         | 8.7            |
+| **Laba Rugi (P&L)**                       | Laporan untung/rugi selama periode.                                                                                                                                                                                                              | 2.3            |
+| **Laba Tahun Berjalan / Laba Tahun Lalu** | Dua akun ekuitas penampung laba: laba tahun buku yang sedang berjalan sampai tanggal laporan, dan laba tahun-tahun buku sebelumnya.                                                                                                              | 8.13.3         |
+| **Lingkungan (`APP_ENV`)**                | Tempat aplikasi berjalan: `development` (komputer pembangun), `staging` (server uji), atau `production` (server client). Wajib diisi, tanpa nilai bawaan.                                                                                        | 10.8           |
+| **MDR**                                   | Biaya yang dipotong penyedia pembayaran dari transaksi kartu/QRIS. Kolomnya tidak dipakai.                                                                                                                                                       | 4.5            |
+| **NBAL (non-balancing)**                  | Segmen Lokasi tidak memaksa jurnal seimbang per lokasi, jadi saldo kas/utang per entitas bisa terlihat janggal.                                                                                                                                  | 6.4            |
+| **Neraca**                                | Laporan posisi harta, utang, modal pada satu tanggal.                                                                                                                                                                                            | 2.3, 8.13      |
+| **Net Profit / Margin**                   | Laba bersih dan rasionya terhadap Revenue.                                                                                                                                                                                                       | 2.3            |
+| **OCI**                                   | _Other Comprehensive Income_. Fitur **dinonaktifkan sementara** (D39, O4).                                                                                                                                                                       | 8.5            |
+| **Operating Profit**                      | Laba usaha: Laba Kotor − Beban Operasional.                                                                                                                                                                                                      | 2.3            |
+| **Other Revenue / Other Expense**         | Pendapatan/beban di luar usaha utama (jasa giro, bunga, selisih kurs). Tidak masuk Revenue.                                                                                                                                                      | 2.3            |
+| **Overdue**                               | Tagihan yang sudah lewat jatuh tempo. Kartu Payables memakai tagihan positif saja; halaman Payables memakai neto per bucket.                                                                                                                     | 8.7            |
+| **Payment Plan**                          | Rencana pembayaran harian ke depan (7/14/30 hari).                                                                                                                                                                                               | 8.9            |
+| **Pembayaran belum dialokasikan**         | Hanya AP: kartu pelunasan (tipe 7–14) tanpa detail sama sekali; mengurangi utang.                                                                                                                                                                | 8.7            |
+| **Pengakuan Biaya**                       | Dokumen ERP (`bankpo_payment` tipe 0) tempat finance memilih beberapa tagihan satu vendor untuk dibayar bersamaan. Bukan "voucher".                                                                                                              | 4.6            |
+| **Periode 13**                            | Periode tambahan akhir tahun untuk penyesuaian/audit.                                                                                                                                                                                            | 2.6            |
+| **`period_id`**                           | Periode pencatatan sebuah jurnal. Dasar angka bulanan.                                                                                                                                                                                           | 6.3            |
+| **Posted**                                | Jurnal yang sudah diposting. Hanya ini yang dihitung.                                                                                                                                                                                            | 2.7            |
+| **`pos_location`**                        | Tabel ERP berisi lokasi = entitas.                                                                                                                                                                                                               | 4.2            |
+| **Preset periode**                        | Pilihan cepat filter: Bulan ini, Bulan lalu, Kuartal ini, YTD, 12 bulan.                                                                                                                                                                         | 6.1            |
+| **QRIS / e-wallet**                       | Pembayaran non-tunai; termasuk dana dalam pencairan.                                                                                                                                                                                             | 8.3            |
+| **Realisasi (Actual)**                    | Angka sebenarnya dari jurnal, lawan dari anggaran.                                                                                                                                                                                               | 8.6            |
+| **Retur dengan nota**                     | Retur AR yang langsung menunjuk faktur (kartu retur memegang detailnya sendiri). Sudah selesai saat dibuat.                                                                                                                                      | 8.8            |
+| **Retur langsung**                        | Kartu retur tanpa baris detail sendiri: berdiri sendiri, belum dikaitkan ke tagihan. Terpakai bila ada alokasi pelunasan.                                                                                                                        | 8.7, 8.8       |
+| **Refresh now (Perbarui sekarang)**       | Tombol di sidebar untuk membangun ulang tabel `dash_*` sekarang.                                                                                                                                                                                 | 10.4           |
+| **Repo / Service / Server function**      | Lapisan kode: repo = SQL, service = merangkai repo dan rumus, server function = pintu masuk dari browser.                                                                                                                                        | 1.3            |
+| **Revenue (Pendapatan)**                  | Pendapatan usaha utama (grup akun Revenue, bukan Other Revenue).                                                                                                                                                                                 | 8.2            |
+| **Runway**                                | Berapa bulan kas bertahan bila laju bakar tetap.                                                                                                                                                                                                 | 8.4.6          |
+| **Saldo awal**                            | Saldo akun pada awal sebuah periode, ditulis ERP saat periode sebelumnya ditutup (`coa_opening_balance_location`).                                                                                                                               | 4.2, 7.2, 8.13 |
+| **`segment1_id` / segmen**                | Kolom baris jurnal yang menunjuk lokasi.                                                                                                                                                                                                         | 4.2            |
+| **Seleksi Invoice**                       | Menu ERP untuk memilih tagihan yang akan dibayar; menghasilkan Pengakuan Biaya.                                                                                                                                                                  | 4.6            |
+| **Snapshot**                              | (1) potret angka pada satu tanggal; (2) tabel `dash_snap_*` berisi salinan hasil hitung.                                                                                                                                                         | 2.4, 5         |
+| **SWR (_stale-while-revalidate_)**        | Menampilkan angka lama seketika sambil menghitung ulang di belakang layar.                                                                                                                                                                       | 9              |
+| **`sysuser`**                             | Tabel akun ERP yang dipakai login dashboard.                                                                                                                                                                                                     | 4.7            |
+| **`system_main`**                         | Tabel pengaturan ERP; menyimpan Account Mapping.                                                                                                                                                                                                 | 4.7            |
+| **Tahun buku**                            | Satu tahun pembukuan perusahaan. Bulan terakhirnya dibaca dari `company.end_fiscal_month` (bisa bukan Desember).                                                                                                                                 | 8.13.3         |
+| **Tanpa entitas**                         | Baris pendapatan/jurnal yang tidak punya lokasi.                                                                                                                                                                                                 | 8.2            |
+| **`trans_date`**                          | Tanggal transaksi jurnal. Dasar angka harian.                                                                                                                                                                                                    | 6.3            |
+| **YTD**                                   | _Year To Date_, dari Januari sampai sekarang.                                                                                                                                                                                                    | 6.1            |
 
 ---
 
@@ -2994,56 +2996,65 @@ Masalah yang masih dicatat: tombol "Perbarui sekarang" terasa lama (catatan 2026
 
 ## 10. Operasional: konfigurasi, perintah, dan jadwal
 
-### 10.1 Variabel lingkungan (`.env`; contoh di `.env.example`)
+### 10.1 Variabel lingkungan (file env per lingkungan; contoh di `.env.example`)
 
-> Isi `.env` **tidak pernah** dibaca atau dicetak oleh Claude Code (skrip pengecekan sementara memuat `.env` di prosesnya sendiri dan tidak mencetak isinya). Nilai bawaan berasal dari `src/server/env.ts`.
+> Isi file env (`env/development.env`, `.env`, dan file env di server) **tidak pernah** dibaca atau dicetak oleh Claude Code (skrip pengecekan sementara memuat file itu di prosesnya sendiri dan tidak mencetak isinya). Nilai bawaan berasal dari `src/server/env.ts`. Kode aplikasi tidak membuka file env sendiri (D66): di komputer pembangun `scripts/local.mjs` yang memuatnya, di server systemd; lihat [bab 10.8](#108-lingkungan-development-staging-dan-production).
 
-| Variabel                                                                      | Bawaan                 | Arti                                                                                                                                                                                                                                             |
-| ----------------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `DATABASE_URL`                                                                | (wajib)                | Alamat database `mysql://USER:PASSWORD@HOST:PORT/DATABASE`. Pengembangan: database **lokal** saja                                                                                                                                                |
-| `DB_POOL_SIZE`                                                                | 5 (1–10)               | Jumlah koneksi untuk permintaan pengguna                                                                                                                                                                                                         |
-| `DB_QUERY_TIMEOUT_MS`                                                         | 120000                 | Batas waktu satu `SELECT` (0 = tanpa batas)                                                                                                                                                                                                      |
-| `SLOW_QUERY_MS`                                                               | 1000                   | Batas peringatan query lambat (0 = mati)                                                                                                                                                                                                         |
-| `LOG_LEVEL`                                                                   | info                   | `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `silent`. `debug` juga mencatat durasi metrik dan antrean koneksi (menggantikan `PERF_LOG`)                                                                                                  |
-| `LOG_TO_FILE`                                                                 | 1                      | 0 = log hanya ke layar proses, tanpa file harian                                                                                                                                                                                                 |
-| `LOG_DIR`                                                                     | `logs`                 | Folder file log harian (relatif terhadap folder tempat server dijalankan)                                                                                                                                                                        |
-| `LOG_RETENTION_DAYS`                                                          | 30 (1–3650)            | File log yang lebih tua dari ini dihapus                                                                                                                                                                                                         |
-| `CLIENT_ID`                                                                   | kosong                 | Nama deployment (huruf kecil, angka, tanda hubung): ditulis di tiap baris log sebagai `client` dan, saat **build**, menentukan awalan alamat `/oxy-<CLIENT_ID>-finance-dashboard/` (bab 10.7). Server harus memakai nilai yang sama dengan build |
-| `TZ` (variabel OS, bukan `.env`)                                              | zona OS                | Samakan dengan `APP_TIMEZONE`: file log harian berganti pada tengah malam menurut zona proses Node                                                                                                                                               |
-| `METRIC_FRESH_SECONDS`                                                        | 60 (5–3600)            | Lama hasil metrik dianggap segar                                                                                                                                                                                                                 |
-| `METRIC_STALE_SECONDS`                                                        | 180 (0–86400)          | Lama tambahan hasil lama masih dipakai sambil dihitung ulang                                                                                                                                                                                     |
-| `SESSION_SECRET`                                                              | (wajib, ≥ 32 karakter) | Kunci enkripsi cookie sesi                                                                                                                                                                                                                       |
-| `APP_TIMEZONE`                                                                | `Asia/Jakarta`         | Zona waktu untuk menentukan "hari ini"                                                                                                                                                                                                           |
-| `APP_TODAY`                                                                   | kosong                 | "Hari ini" tetap (`YYYY-MM-DD`) untuk rekonsiliasi data lama; **kosongkan di produksi**                                                                                                                                                          |
-| `IN_TRANSIT_ALERT_DAYS`                                                       | 3 (0–120)              | Ambang umur dana belum cair yang ditandai di Cash Position                                                                                                                                                                                       |
-| `ERP_APP_ID_INDEX`                                                            | 7 (0–99)               | Indeks aplikasi untuk membuat id baris `system_main` baru (pola ERP)                                                                                                                                                                             |
-| `DASH_REFRESH_ENABLED`                                                        | 1                      | 0 = matikan refresh snapshot (tombol "Perbarui sekarang" disembunyikan)                                                                                                                                                                          |
-| `DASH_REFRESH_MINUTES`                                                        | 10 (1–1440)            | Interval refresh snapshot                                                                                                                                                                                                                        |
-| `DASH_AP_AR_HIST_MONTHS`                                                      | 13 (0–36)              | Jumlah akhir bulan riwayat AP/AR (0 = matikan dan kosongkan)                                                                                                                                                                                     |
-| `DASH_POOL_SIZE`                                                              | 2 (1–5)                | Koneksi khusus refresh; server membuka `DB_POOL_SIZE + DASH_POOL_SIZE` koneksi                                                                                                                                                                   |
-| `AUTO_MIGRATE`                                                                | 0                      | 1 = terapkan migrasi `dash_*` saat server mulai                                                                                                                                                                                                  |
-| `DASH_MIGRATIONS_DIR`                                                         | `./drizzle-dash`       | Folder file migrasi                                                                                                                                                                                                                              |
-| `PORT`, `HOST`                                                                | 3000, `0.0.0.0`        | Server produksi (`npm start`)                                                                                                                                                                                                                    |
-| `TRUST_PROXY`                                                                 | 0                      | 1 hanya bila ada reverse proxy yang mengisi `X-Forwarded-For`                                                                                                                                                                                    |
-| `TEST_TODAY`, `TEST_DATABASE_URL`, `SEED_DEMO_LOGIN_ID`, `SEED_DEMO_PASSWORD` | (lihat `.env.example`) | Hanya untuk tes integrasi dan seed, wajib host lokal                                                                                                                                                                                             |
+| Variabel                                                                      | Bawaan                 | Arti                                                                                                                                                                                                                                                                                                                                |
+| ----------------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_ENV`                                                                     | (wajib)                | `development`, `staging`, atau `production`. **Tanpa nilai bawaan**: server menolak start bila kosong atau salah (10.8.5). Di komputer pembangun diisi oleh `scripts/local.mjs` (jangan ditulis di `env/development.env`); di server ditulis di file env deployment                                                                 |
+| `NODE_ENV`                                                                    | `development`          | `production` di staging dan production: cookie sesi bertanda `Secure` dan proses keluar setelah error fatal (10.6.3)                                                                                                                                                                                                                |
+| `DATABASE_URL`                                                                | (wajib)                | Alamat database `mysql://USER:PASSWORD@HOST:PORT/DATABASE`. Di development aplikasi **menolak** host selain `localhost`, `127.0.0.1`, `::1`. Staging memakai database yang terpisah dari production                                                                                                                                 |
+| `DB_POOL_SIZE`                                                                | 5 (1–10)               | Jumlah koneksi untuk permintaan pengguna                                                                                                                                                                                                                                                                                            |
+| `DB_QUERY_TIMEOUT_MS`                                                         | 120000                 | Batas waktu satu `SELECT` (0 = tanpa batas)                                                                                                                                                                                                                                                                                         |
+| `SLOW_QUERY_MS`                                                               | 1000                   | Batas peringatan query lambat (0 = mati)                                                                                                                                                                                                                                                                                            |
+| `LOG_LEVEL`                                                                   | info                   | `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `silent`. `debug` juga mencatat durasi metrik dan antrean koneksi (menggantikan `PERF_LOG`). **Production menolak `debug` dan `trace`**                                                                                                                                         |
+| `LOG_TO_FILE`                                                                 | 1                      | 0 = log hanya ke layar proses, tanpa file harian                                                                                                                                                                                                                                                                                    |
+| `LOG_DIR`                                                                     | `logs`                 | Folder file log harian (relatif terhadap folder tempat server dijalankan)                                                                                                                                                                                                                                                           |
+| `LOG_RETENTION_DAYS`                                                          | 30 (1–3650)            | File log yang lebih tua dari ini dihapus                                                                                                                                                                                                                                                                                            |
+| `CLIENT_ID`                                                                   | kosong                 | Nama deployment (huruf kecil, angka, tanda hubung): ditulis di tiap baris log sebagai `client` dan, saat **build**, menentukan awalan alamat `/oxy-<CLIENT_ID>-finance-dashboard/` (bab 10.7). Di staging dan production server **menolak start** bila nilainya tidak sama dengan build (10.8.5). Staging memakai `<klien>-staging` |
+| `TZ`                                                                          | zona OS                | Samakan dengan `APP_TIMEZONE`: file log harian berganti pada tengah malam menurut zona proses Node. Boleh ditulis di file env (diisi ke proses sebelum aplikasi mulai)                                                                                                                                                              |
+| `METRIC_FRESH_SECONDS`                                                        | 60 (5–3600)            | Lama hasil metrik dianggap segar                                                                                                                                                                                                                                                                                                    |
+| `METRIC_STALE_SECONDS`                                                        | 180 (0–86400)          | Lama tambahan hasil lama masih dipakai sambil dihitung ulang                                                                                                                                                                                                                                                                        |
+| `SESSION_SECRET`                                                              | (wajib, ≥ 32 karakter) | Kunci enkripsi cookie sesi                                                                                                                                                                                                                                                                                                          |
+| `APP_TIMEZONE`                                                                | `Asia/Jakarta`         | Zona waktu untuk menentukan "hari ini"                                                                                                                                                                                                                                                                                              |
+| `APP_TODAY`                                                                   | kosong                 | "Hari ini" tetap (`YYYY-MM-DD`) untuk rekonsiliasi data lama dan tes dengan data demo. Boleh di development dan staging; **production menolaknya** (angka semua pengguna akan dihitung untuk tanggal lama)                                                                                                                          |
+| `IN_TRANSIT_ALERT_DAYS`                                                       | 3 (0–120)              | Ambang umur dana belum cair yang ditandai di Cash Position                                                                                                                                                                                                                                                                          |
+| `ERP_APP_ID_INDEX`                                                            | 7 (0–99)               | Indeks aplikasi untuk membuat id baris `system_main` baru (pola ERP)                                                                                                                                                                                                                                                                |
+| `DASH_REFRESH_ENABLED`                                                        | 1                      | 0 = matikan refresh snapshot (tombol "Perbarui sekarang" disembunyikan)                                                                                                                                                                                                                                                             |
+| `DASH_REFRESH_MINUTES`                                                        | 10 (1–1440)            | Interval refresh snapshot                                                                                                                                                                                                                                                                                                           |
+| `DASH_AP_AR_HIST_MONTHS`                                                      | 13 (0–36)              | Jumlah akhir bulan riwayat AP/AR (0 = matikan dan kosongkan)                                                                                                                                                                                                                                                                        |
+| `DASH_POOL_SIZE`                                                              | 2 (1–5)                | Koneksi khusus refresh; server membuka `DB_POOL_SIZE + DASH_POOL_SIZE` koneksi                                                                                                                                                                                                                                                      |
+| `AUTO_MIGRATE`                                                                | 0                      | 1 = terapkan migrasi `dash_*` saat server mulai                                                                                                                                                                                                                                                                                     |
+| `DASH_MIGRATIONS_DIR`                                                         | `./drizzle-dash`       | Folder file migrasi                                                                                                                                                                                                                                                                                                                 |
+| `PORT`, `HOST`                                                                | 3000, `0.0.0.0`        | Server produksi (`npm start`)                                                                                                                                                                                                                                                                                                       |
+| `TRUST_PROXY`                                                                 | 0                      | 1 hanya bila ada reverse proxy yang mengisi `X-Forwarded-For`                                                                                                                                                                                                                                                                       |
+| `TEST_TODAY`, `TEST_DATABASE_URL`, `SEED_DEMO_LOGIN_ID`, `SEED_DEMO_PASSWORD` | (lihat `.env.example`) | Hanya untuk tes integrasi dan seed di komputer pembangun, wajib host lokal. Ditolak di file staging dan production (juga `MYSQL57_URL` dan `PERF_PROBE`)                                                                                                                                                                            |
+
+Hanya nama yang terdaftar di `scripts/lib/env-keys.mjs` yang boleh ada di file env; nama lain (biasanya salah ketik) ditolak. Tes `scripts/lib/env-keys.test.mjs` memastikan daftar itu memuat setiap nama yang dibaca kode. `APP_VERSION` diisi oleh `scripts/start-server.mjs` dari `dist/build-info.json` dan **tidak boleh** ditulis di file env.
 
 ### 10.2 Perintah (`npm run …`)
 
-| Perintah                                                                                            | Fungsi                                                                                                    | Menyentuh DB?  |
-| --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------- |
-| `dev`                                                                                               | Server pengembangan di `http://localhost:3000`                                                            | Ya (membaca)   |
-| `build` / `start`                                                                                   | Bangun dan jalankan server produksi (`scripts/start-server.mjs`, menyajikan `dist/`)                      | Ya             |
-| `build:client -- <client-id>`                                                                       | Bangun untuk satu client: awalan alamat aplikasi menjadi `/oxy-<client-id>-finance-dashboard/` (bab 10.7) | Tidak          |
-| `smoke:build`                                                                                       | Jalankan hasil `dist/` dengan alamat database palsu dan periksa alamat yang dilayani (bab 10.7.6)         | Tidak          |
-| `typecheck`, `lint`, `lint:fix`, `format`, `format:check`                                           | Pemeriksaan kode                                                                                          | Tidak          |
-| `test`                                                                                              | Tes unit (Vitest, proyek `unit`)                                                                          | Tidak          |
-| `test:db`                                                                                           | Tes integrasi ke DB **lokal** (`tests/integration/**/*.int.test.ts`)                                      | Ya, minta izin |
-| `db:pull`                                                                                           | `drizzle-kit pull` dari DB lokal (hanya untuk menyalin struktur tabel ERP)                                | Ya, minta izin |
-| `db:dash:generate`, `db:dash:check`                                                                 | Membuat dan memeriksa file migrasi `dash_*`                                                               | Tidak          |
-| `db:dash:status`, `db:dash:migrate`                                                                 | Melihat dan menerapkan migrasi `dash_*`                                                                   | Ya, minta izin |
-| `dash:refresh`, `dash:refresh-gl`, `dash:refresh-cash`, `dash:refresh-hist`, `dash:refresh-balance` | Bangun snapshot AP/AR, GL Closed, baris kas, riwayat akhir bulan, total neraca                            | Ya, minta izin |
-| `logs:find`                                                                                         | Mencari baris log berdasarkan request ID, level, waktu, pengguna, atau path (bab 10.6)                    | Tidak          |
-| `seed`                                                                                              | Mengarah ke `scripts/seed/index.ts` yang **belum ada** (hanya pelindung host `scripts/seed/guard.ts`)     | —              |
+| Perintah                                                                                            | Fungsi                                                                                                                                                                                     | Menyentuh DB?  |
+| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
+| `dev`                                                                                               | Server pengembangan di `http://localhost:3000` (lewat `scripts/local.mjs`, memuat `env/development.env`)                                                                                   | Ya (membaca)   |
+| `build` / `start`                                                                                   | Bangun dan jalankan server produksi (`scripts/start-server.mjs`, menyajikan `dist/`). `start` adalah perintah **server**: butuh `APP_ENV` di lingkungan prosesnya dan tidak membaca `env/` | Ya             |
+| `start:local`                                                                                       | Jalankan hasil build di komputer pembangun dengan `env/development.env`                                                                                                                    | Ya             |
+| `build:client -- <client-id>`                                                                       | Bangun untuk satu client: awalan alamat aplikasi menjadi `/oxy-<client-id>-finance-dashboard/` (bab 10.7)                                                                                  | Tidak          |
+| `smoke:build`                                                                                       | Jalankan hasil `dist/` dengan alamat database palsu dan periksa alamat yang dilayani (bab 10.7.6)                                                                                          | Tidak          |
+| `typecheck`, `lint`, `lint:fix`, `format`, `format:check`                                           | Pemeriksaan kode                                                                                                                                                                           | Tidak          |
+| `test`                                                                                              | Tes unit (Vitest, proyek `unit`)                                                                                                                                                           | Tidak          |
+| `test:db`                                                                                           | Tes integrasi ke DB **lokal** (`tests/integration/**/*.int.test.ts`)                                                                                                                       | Ya, minta izin |
+| `db:pull`                                                                                           | `drizzle-kit pull` dari DB lokal (hanya untuk menyalin struktur tabel ERP)                                                                                                                 | Ya, minta izin |
+| `db:dash:generate`, `db:dash:check`                                                                 | Membuat dan memeriksa file migrasi `dash_*`                                                                                                                                                | Tidak          |
+| `db:dash:status`, `db:dash:migrate`                                                                 | Melihat dan menerapkan migrasi `dash_*`                                                                                                                                                    | Ya, minta izin |
+| `dash:refresh`, `dash:refresh-gl`, `dash:refresh-cash`, `dash:refresh-hist`, `dash:refresh-balance` | Bangun snapshot AP/AR, GL Closed, baris kas, riwayat akhir bulan, total neraca                                                                                                             | Ya, minta izin |
+| `logs:find`                                                                                         | Mencari baris log berdasarkan request ID, level, waktu, pengguna, atau path (bab 10.6)                                                                                                     | Tidak          |
+| `env:check -- <file>`                                                                               | Memeriksa file env (kunci dikenal, kunci wajib, aturan production, cocok dengan nama folder deploy) tanpa mencetak nilai; `--mode development` untuk `env/development.env` (10.8.6)        | Tidak          |
+| `env:init -- create ...` / `rotate-secret ...`                                                      | Membuat file env baru atau mengganti `SESSION_SECRET` (10.8.6); di server dipanggil langsung dengan `node scripts/ops/init-env.mjs`                                                        | Tidak          |
+| `seed`                                                                                              | Mengarah ke `scripts/seed/index.ts` yang **belum ada** (hanya pelindung host `scripts/seed/guard.ts`)                                                                                      | —              |
+
+**Peluncur lokal:** `dev`, `test:db`, `db:pull`, `db:dash:migrate`, `db:dash:status`, `dash:refresh*`, `logs:find`, `seed`, dan `start:local` berjalan lewat `scripts/local.mjs`: ia memuat `env/development.env`, mengisi `APP_ENV=development`, lalu menjalankan alatnya. Memanggil `vitest --project db` atau `tsx scripts/...` langsung tidak membawa pengaturan dan berhenti dengan pesan `Invalid environment variables`. `db:dash:generate` dan `db:dash:check` tidak butuh database dan tidak lewat peluncur.
 
 **Aturan izin (dari `CLAUDE.md`):** pemasangan/penghapusan paket, **apa pun yang berjalan ke database** (termasuk satu `SELECT`), commit, dan push **harus mendapat jawaban "ya" dari pemilik proyek lebih dulu**. Skrip `docs/sql/dashboard-indexes.sql` hanya dijalankan manual oleh pemilik proyek. Tidak pernah menjalankan `drizzle-kit push`.
 
@@ -3137,7 +3148,7 @@ Error yang hanya terjadi di browser (komponen yang melempar error, error skrip, 
 #### 10.6.7 Prasyarat server (Linux, tanpa Docker)
 
 - **Process manager yang menjalankan ulang proses** (pm2 atau systemd). Wajib, karena proses sengaja keluar setelah error fatal. Contoh pm2: `pm2 start scripts/start-server.mjs --name finance-dashboard`, lalu `pm2 save`. Contoh systemd: `Restart=always` dan `RestartSec=3`.
-- Lingkungan: `NODE_ENV=production`, `TZ` = `APP_TIMEZONE`, `CLIENT_ID`, `LOG_DIR` (disarankan di luar folder aplikasi, mis. `/var/log/finance-dashboard`), dan satu proses per client. Pengaturan log boleh berada di `.env` seperti pengaturan lain: logger memuatnya lebih awal dengan aturan yang sama dengan `env.ts` (dimuat bila `DATABASE_URL` belum ada di lingkungan proses; variabel yang sudah ada selalu menang). `TZ` dan `NODE_ENV` harus berasal dari lingkungan proses, bukan `.env`.
+- Lingkungan: `NODE_ENV=production`, `TZ` = `APP_TIMEZONE`, `CLIENT_ID`, `LOG_DIR` (path **mutlak** di luar folder rilis, mis. `/home/oxy/web-server/<folder deploy>/logs`) dan satu proses per client. Semua pengaturan, termasuk pengaturan log, datang dari file env deployment yang dimuat systemd (bab 10.8); aplikasi dan logger tidak membaca file env sendiri. Tiap baris log memuat field `client`, `env`, dan `version` (10.8.7).
 - Izin: folder log dimiliki user yang menjalankan aplikasi dengan mode `750`.
 - Pantau ruang disk. Satu request biasa sekitar 250 byte; pada saat database mati, **setiap** request mencatat error dengan stack penuh (sengaja tanpa penyaring pengulangan), jadi file hari itu bisa membesar.
 - Satu proses per client: bila suatu hari dijalankan beberapa proses di satu folder log, nama file perlu memuat PID (belum didukung).
@@ -3152,7 +3163,7 @@ Bukan pertanyaan finance (tidak masuk tabel `KF`), tetapi perlu dijawab sebelum 
 
 ### 10.7 Beberapa client dalam satu aplikasi (alamat per client) ✅
 
-Aplikasi yang sama dipakai oleh beberapa client. Tiap client punya **satu proses Node, satu database ERP, satu file `.env`, satu hasil build, dan satu alamat** di host yang sama:
+Aplikasi yang sama dipakai oleh beberapa client. Tiap client punya **satu proses Node, satu database ERP, satu file env, satu hasil build, dan satu alamat** di host yang sama:
 
 ```text
 https://<host>/oxy-<CLIENT_ID>-finance-dashboard/
@@ -3176,8 +3187,8 @@ CLIENT_ID=client-a npm run build
 Di PowerShell cara kedua ditulis `$env:CLIENT_ID = 'client-a'; npm run build`; itulah alasan perintah pertama ada. Tanpa `CLIENT_ID`, build dibuat untuk akar (`/`), dipakai untuk pengembangan dan tes. `npm run dev` dengan `CLIENT_ID` terisi juga melayani halaman di bawah awalan itu.
 
 - Build menulis `dist/base-path.json` (contoh isi: `{"base":"/oxy-client-a-finance-dashboard/"}`). `scripts/start-server.mjs` membacanya untuk menyajikan file statis di bawah awalan itu dan menjawab **404** untuk alamat di luar awalan (termasuk akar host dan awalan yang mirip, mis. `...-dashboardx`). Router aplikasi mengurus awalan untuk halaman, link, redirect, aset, dan alamat server function.
-- Server harus dijalankan dengan `CLIENT_ID` **yang sama** dengan build (dipakai untuk field `client` di log). **Tidak ada pengaman otomatis** yang memeriksa kesamaan build, `.env`, dan database (keputusan pemilik proyek, 2026-11-11); pakai daftar periksa di 10.7.6.
-- Awalan alamat hanya berasal dari `CLIENT_ID` di lingkungan perintah build (`npm run build:client -- <id>`, atau variabel di shell), **tidak pernah dari `.env`**. Vite mengevaluasi `vite.config.ts` beberapa kali per build dan memasukkan isi `.env` ke lingkungan di antaranya; nilai yang hanya ada di `.env` akan membuat berkas build tidak sama dengan `dist/base-path.json` (server lalu menyajikan file di tempat yang salah). `vite.config.ts` karenanya memakai jawaban evaluasi pertama untuk semua evaluasi berikutnya. `CLIENT_ID` di `.env` tetap dipakai server untuk field `client` di log, dan `npm run smoke:build` mendeteksi build yang tidak konsisten.
+- Server harus dijalankan dengan `CLIENT_ID` **yang sama** dengan build (dipakai untuk field `client` di log). Di staging dan production `scripts/start-server.mjs` **menolak start** bila nilainya tidak cocok dengan `dist/base-path.json` (10.8.5); di development hanya mencetak peringatan. Yang **tidak** dijaga otomatis: bahwa `DATABASE_URL` menunjuk database client yang benar (keputusan pemilik proyek); pakai daftar periksa di 10.7.6.
+- Awalan alamat hanya berasal dari `CLIENT_ID` di lingkungan perintah build (`npm run build:client -- <id>`, atau variabel di shell), **tidak pernah dari `.env`**. Vite mengevaluasi `vite.config.ts` beberapa kali per build dan memasukkan isi `.env` ke lingkungan di antaranya; nilai yang hanya ada di `.env` akan membuat berkas build tidak sama dengan `dist/base-path.json` (server lalu menyajikan file di tempat yang salah). `vite.config.ts` karenanya memakai jawaban evaluasi pertama untuk semua evaluasi berikutnya. `CLIENT_ID` di file env deployment dipakai server untuk field `client` di log, dan server menolak start bila nilainya tidak cocok dengan build (10.8.5); `npm run smoke:build` juga mendeteksi build yang tidak konsisten.
 - Di kode, jangan menulis alamat absolut seperti `/summary` di link biasa, cookie, `history.push`, atau redirect dengan `href` mentah. Pakai `withBasePath(...)`, `cookiePath`, `basePath`, dan `stripBasePath(...)` dari `src/lib/core/base-path.ts`. Link TanStack Router berbentuk `to` sudah otomatis. Tes `src/lib/core/base-path-guard.test.ts` (10.5) gagal bila ada kode yang lupa.
 - Baris log akses menulis `path` **tanpa awalan** (field `client` sudah ada di setiap baris), jadi `npm run logs:find -- --path /summary` tetap bekerja. Laporan error browser juga mengirim `route` tanpa awalan.
 
@@ -3192,71 +3203,25 @@ Di PowerShell cara kedua ditulis `$env:CLIENT_ID = 'client-a'; npm run build`; i
 #### 10.7.3 Satu proses per client: port, user, dan folder ✅ / ⚠️
 
 - Tiap proses memakai **port internal sendiri** (`PORT`), dikunci ke `HOST=127.0.0.1` supaya hanya reverse proxy di server yang sama yang bisa menjangkaunya. Dua proses tidak bisa memakai port yang sama pada satu alamat IP. Contoh: client-a 3101, client-b 3102. Catat pasangan client dan port di satu tempat.
-- Jalankan sebagai user biasa tanpa hak istimewa (mis. `oxy-dash`), **bukan `root`**.
-- Isi folder aplikasi satu client (mis. `/opt/oxy-finance-dashboard/client-a/`):
+- Jalankan sebagai user biasa tanpa hak istimewa (di server Oxy: `oxy`), **bukan `root`**.
+- Tata letak folder deploy ada di bab 10.8.3. Satu rilis (folder di bawah `releases/`) berisi:
 
 | Berkas atau folder                  | Keterangan                                                                                                                                                                                                 |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `dist/`                             | Hasil build **untuk client itu** (memuat `dist/base-path.json`)                                                                                                                                            |
 | `scripts/start-server.mjs`          | Server produksi (`npm start` menjalankannya)                                                                                                                                                               |
+| `scripts/lib/`, `scripts/ops/`      | Modul dan skrip yang dibutuhkan server: `app-env.mjs`, `build-prefix.mjs`, `env-*.mjs` (dibaca `start-server.mjs` dan `env-check`), serta `env-check.mjs` dan `init-env.mjs`                               |
 | `drizzle-dash/`                     | File migrasi tabel `dash_*`; dibaca saat `AUTO_MIGRATE=1` (folder lain lewat `DASH_MIGRATIONS_DIR`)                                                                                                        |
 | `package.json`, `package-lock.json` | Daftar paket                                                                                                                                                                                               |
 | `node_modules/`                     | Dipasang di server dengan `npm ci --omit=dev`. ✅ Pemindaian hasil build (2026-11-11): semua paket yang dimuat server adalah `dependencies` atau turunannya; tidak ada yang berasal dari `devDependencies` |
-| `logs/` (atau `LOG_DIR`)            | Dibuat server; lihat 10.6.7 untuk izin dan lokasi                                                                                                                                                          |
+| `logs/` (atau `LOG_DIR`)            | Dibuat server. Di tata letak 10.8.3 isi `LOG_DIR` dengan path **mutlak** di luar `releases/`, supaya log bertahan saat rilis diganti; izin dan lokasi: lihat 10.6.7                                        |
 
 - **`npm run logs:find` tidak tersedia di folder itu**, karena skrip tersebut butuh `tsx` (devDependency) dan kode sumber. Di server, cari baris log dengan `grep`, mis. satu request ID: `grep '20261110-223551-k7q2m' /var/log/oxy-finance-dashboard/client-a/app.*.log`.
 - Cara menyalin build ke server, cara memberi nomor versi, dan cara merilis ke banyak client **belum dibahas** (topik terpisah, lihat 10.7.7).
 
-#### 10.7.4 Contoh unit systemd (satu berkas untuk semua client) ⚠️
+#### 10.7.4 Contoh unit systemd dan file env ⚠️
 
-Server Oxy memakai Linux dengan systemd (tanpa pm2 dan tanpa Docker, dicek pemilik proyek 2026-11-11). Contoh ini **belum dijalankan di server Oxy**. Simpan sebagai `/etc/systemd/system/oxy-finance-dashboard@.service`; tulisan setelah `@` (di sini `CLIENT_ID`) menggantikan `%i`:
-
-```ini
-[Unit]
-Description=Oxy Finance Dashboard (%i)
-After=network.target
-
-[Service]
-User=oxy-dash
-Group=oxy-dash
-WorkingDirectory=/opt/oxy-finance-dashboard/%i
-EnvironmentFile=/etc/oxy-finance-dashboard/%i.env
-ExecStart=/usr/bin/node scripts/start-server.mjs
-Restart=always
-RestartSec=5
-NoNewPrivileges=true
-
-[Install]
-WantedBy=multi-user.target
-```
-
-- `Restart=always` wajib: proses sengaja keluar setelah error fatal (10.6.3). Periksa lokasi `node` dengan `which node` (butuh Node 22.12 atau lebih baru) dan sesuaikan `ExecStart`.
-- Isi `/etc/oxy-finance-dashboard/client-a.env` (satu baris `KUNCI=nilai`, tanpa tanda kutip; pemilik `root`, grup `oxy-dash`, mode `640`):
-
-```ini
-NODE_ENV=production
-CLIENT_ID=client-a
-PORT=3101
-HOST=127.0.0.1
-TRUST_PROXY=1
-DATABASE_URL=mysql://USER:PASSWORD@HOST:3306/DATABASE
-SESSION_SECRET=ISI_TEKS_ACAK_MINIMAL_32_KARAKTER_BERBEDA_UNTUK_TIAP_CLIENT
-APP_TIMEZONE=Asia/Jakarta
-TZ=Asia/Jakarta
-AUTO_MIGRATE=1
-LOG_DIR=/var/log/oxy-finance-dashboard/client-a
-```
-
-Folder `LOG_DIR` harus sudah ada dan dimiliki `oxy-dash` (mode `750`). `TRUST_PROXY=1` wajib di belakang reverse proxy (10.1); tanpa itu semua pengguna terlihat berasal dari alamat proxy dan pembatas login menghitung mereka sebagai satu orang.
-
-- Perintah sehari-hari:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now oxy-finance-dashboard@client-a
-sudo systemctl status oxy-finance-dashboard@client-a
-sudo journalctl -u oxy-finance-dashboard@client-a -n 100 --no-pager
-```
+Contoh unit systemd, isi file env server, dan perintah sehari-harinya ada di bab 10.8.4 sampai 10.8.6: folder deploy `/home/oxy/web-server/oxy-<klien>-<env>-finance-dashboard-<port>/`, file env di luar `releases/`, dan pemeriksaan `env-check` sebelum aplikasi dinyalakan. Contoh lama di bagian ini (folder `/opt/...` dan file di `/etc/...`) dihapus supaya tidak ada dua tata letak yang saling bertentangan.
 
 #### 10.7.5 Contoh reverse proxy (nginx) ⚠️
 
@@ -3276,33 +3241,152 @@ location /oxy-client-a-finance-dashboard {
 
 #### 10.7.6 Memeriksa build dan daftar periksa client baru ✅
 
-Sebelum menyalin build ke server, jalankan dari komputer pembangun (tanpa database, tanpa `.env`):
+Sebelum menyalin build ke server, jalankan dari komputer pembangun (tanpa database, tanpa file env):
 
 ```bash
 npm run build:client -- client-a
 npm run smoke:build
 ```
 
-`smoke:build` menjalankan hasil build dengan alamat database palsu dan memeriksa alamat yang dilayani. Untuk build client harus ada **12 baris PASS** dan `All checks passed.`; untuk build akar 7 baris PASS. Ia memeriksa: halaman login menjawab 200, link dan skrip memakai awalan, file CSS dilayani dan di-cache lama, file yang sama di luar awalan dijawab 404, halaman yang butuh login berakhir di halaman login di dalam awalan, pengguna yang sudah login (cookie sesi dengan nama deployment) dialihkan di dalam awalan, cookie lama bernama `nr_session` diabaikan, akar host dan awalan mirip dijawab 404.
+`smoke:build` menjalankan hasil build dengan alamat database palsu dan memeriksa alamat yang dilayani. Untuk build client harus ada **15 baris PASS** dan `All checks passed.`; untuk build akar 10 baris PASS. Ia memeriksa: halaman login menjawab 200, link dan skrip memakai awalan, file CSS dilayani dan di-cache lama, file yang sama di luar awalan dijawab 404, halaman yang butuh login berakhir di halaman login di dalam awalan, pengguna yang sudah login (cookie sesi dengan nama deployment) dialihkan di dalam awalan, cookie lama bernama `nr_session` diabaikan, akar host dan awalan mirip dijawab 404, `dist/build-info.json` berisi versi, server dengan `CLIENT_ID` yang tidak cocok dengan build menolak start, dan server tanpa `APP_ENV` menolak start.
 
 Daftar periksa memasang client baru (urut):
 
-1. User OS `oxy-dash` sudah ada (cukup sekali).
+1. User OS `oxy` sudah ada (cukup sekali).
 2. Database client terjangkau dari server. ⚠️ Alamat database yang dipakai sekarang berbentuk `mysql://user:password@ip:3306/db` tanpa pengaturan TLS; bila lewat jaringan publik, kata sandi dan data keuangan berjalan sebagai teks biasa. Jaringan privat atau VPN dianjurkan (TLS belum dibahas, lihat 10.7.7).
 3. User database boleh membuat dan mengubah tabel `dash_*` (migrasi `AUTO_MIGRATE=1`).
 4. Pilih `CLIENT_ID` dan port yang belum dipakai; catat di daftar client dan port.
 5. Bangun `npm run build:client -- <CLIENT_ID>` dan jalankan `npm run smoke:build`.
-6. Salin ke `/opt/oxy-finance-dashboard/<CLIENT_ID>/` (isi folder di 10.7.3) dan jalankan `npm ci --omit=dev` di sana.
-7. Buat file `/etc/oxy-finance-dashboard/<CLIENT_ID>.env`: `CLIENT_ID` **sama dengan build**, `DATABASE_URL` milik client yang benar, `SESSION_SECRET` baru dan unik, `TRUST_PROXY=1`, `TZ` sama dengan `APP_TIMEZONE`.
-8. Tambah blok `location` di reverse proxy dan muat ulang konfigurasinya, lalu `systemctl enable --now oxy-finance-dashboard@<CLIENT_ID>`.
+6. Buat folder deploy `/home/oxy/web-server/oxy-<klien>-<env>-finance-dashboard-<port>/` (10.8.3), salin build ke `releases/<versi>/` (isi rilis: 10.7.3), jalankan `npm ci --omit=dev` di sana, lalu arahkan `current` ke rilis itu.
+7. Buat file env dengan `node scripts/ops/init-env.mjs create ...`, isi `DATABASE_URL` (database client yang benar), atur `LOG_DIR` (path mutlak), dan jalankan `node scripts/ops/env-check.mjs <file>` sampai bersih (10.8.6).
+8. Tambah blok `location` di reverse proxy dan muat ulang konfigurasinya, pasang unit systemd (10.8.4), lalu `sudo systemctl enable --now oxy-finance-dashboard@<nama folder tanpa awalan oxy->`.
 9. Buka `https://<host>/oxy-<CLIENT_ID>-finance-dashboard/`, login, lalu pastikan **nama perusahaan di sidebar (dan judul tab) adalah nama client yang benar**: itu cara tercepat membuktikan `DATABASE_URL` menunjuk database yang benar. Di DevTools (Application › Cookies), cookie `nr_session_oxy-<CLIENT_ID>-finance-dashboard` harus ber-`Path` awalan client itu; coba juga Sign Out.
 
-**Peringatan:** karena tidak ada pengaman otomatis, salah menyalin `.env` atau `dist/` antar-client bisa menampilkan data client lain. Langkah 7 dan 9 adalah satu-satunya penjaganya.
+**Peringatan:** server menolak start bila `CLIENT_ID` tidak cocok dengan build (10.8.5), tetapi **tidak ada pengaman** yang memeriksa bahwa `DATABASE_URL` menunjuk database client yang benar (keputusan pemilik proyek). Langkah 7 dan 9 adalah satu-satunya penjaganya.
 
 #### 10.7.7 Belum dibahas (topik terpisah)
 
 - Pemberian nomor versi dan cara merilis ke banyak client, termasuk: tab browser yang masih terbuka setelah rilis meminta file JavaScript lama yang sudah terhapus dari server.
 - Pipeline build otomatis (CI), TLS untuk koneksi database, pemisahan user database (satu untuk migrasi, satu untuk aplikasi), dan subdomain per client.
+
+### 10.8 Lingkungan: development, staging, dan production
+
+Aplikasi berjalan di tiga lingkungan. Nama lingkungan ditulis di variabel `APP_ENV` dan **tidak punya nilai bawaan**: proses yang tidak diberi `APP_ENV` berhenti saat start. Tiap lingkungan punya file env sendiri, dan file itu **tidak pernah dibaca oleh kode aplikasi**: yang mengisinya ke proses adalah peluncur di komputer pembangun (`scripts/local.mjs`) atau systemd di server (keputusan D66).
+
+#### 10.8.1 Tiga lingkungan ✅
+
+|                                  | development                                 | staging                                                                                                            | production                                   |
+| -------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| Tempat                           | komputer pembangun                          | server uji (VPS Oxy; bisa sama atau berbeda dengan server production)                                              | server client                                |
+| File env                         | `env/development.env` (diabaikan git)       | `finance-dashboard.env` di folder deploy                                                                           | sama dengan staging                          |
+| Dimuat oleh                      | `scripts/local.mjs`                         | systemd (`EnvironmentFile=`)                                                                                       | systemd                                      |
+| Database                         | **harus lokal**: aplikasi menolak host lain | database terpisah dari production (versi MySQL sama dengan production, 5.7.44 ⚠️; isinya disiapkan pemilik proyek) | database ERP client                          |
+| `APP_TODAY`                      | boleh                                       | boleh                                                                                                              | **ditolak**                                  |
+| `LOG_LEVEL` `debug` atau `trace` | boleh                                       | boleh                                                                                                              | **ditolak**                                  |
+| `CLIENT_ID` dan awalan alamat    | kosong, alamat di akar `/`                  | `<klien>-staging`, `/oxy-<klien>-staging-finance-dashboard/`                                                       | `<klien>`, `/oxy-<klien>-finance-dashboard/` |
+
+Awalan alamat ditanam saat build, jadi build staging dan build production **berbeda** (`npm run build:client -- <klien>-staging` dan `npm run build:client -- <klien>`). Build tidak butuh rahasia apa pun dan komputer pembangun tidak menyimpan file env staging atau production.
+
+#### 10.8.2 Bentuk file env ✅
+
+- Satu baris `KUNCI=nilai`; tanpa spasi di sekitar `=`; tanpa `export`; komentar di baris sendiri yang diawali `#` (komentar setelah nilai ditolak); satu kunci hanya sekali; nama kunci huruf besar, angka, garis bawah. Aturan sekecil ini dipilih supaya systemd, Node, dan pemeriksa membaca file yang sama dengan cara yang sama.
+- Hanya nama di `scripts/lib/env-keys.mjs` yang boleh ada. Kunci khusus tes (`TEST_*`, `SEED_*`, `MYSQL57_URL`, `PERF_PROBE`) hanya untuk development; `APP_VERSION` diisi program sendiri.
+- `.env.example` adalah satu-satunya file env yang ikut git: templat untuk `env/development.env` (salin, lalu isi). Tes `scripts/lib/env-example.test.mjs` menjaga templat itu tetap valid.
+- Kata sandi database dan `SESSION_SECRET` hanya ada di file env tiap lingkungan, tidak pernah di git, di log, atau di dokumen. Pemeriksa dan peluncur hanya mencetak **nama kunci dan nomor baris**, tidak pernah nilainya.
+
+#### 10.8.3 Tata letak folder deploy di server ⚠️
+
+Mengikuti tata letak server Oxy yang sudah berjalan untuk aplikasi lain (belum dijalankan untuk dashboard ini):
+
+```text
+/home/oxy/web-server/oxy-<klien>-<env>-finance-dashboard-<port>/
+  current -> releases/<versi>     pintasan (symlink) ke rilis yang aktif
+  releases/<versi>/               isi satu rilis (bab 10.7.3)
+  finance-dashboard.env           file env deployment: mode 600, di luar releases/
+  logs/                           disarankan untuk LOG_DIR (path mutlak)
+```
+
+- `<env>` adalah `staging` atau `production`; `<port>` sama dengan `PORT` di file env. **`PORT` di file env adalah sumber kebenaran**; angka di nama folder hanya label, dan `env-check` membandingkan keduanya (10.8.6).
+- File env berada di luar `releases/` sehingga rilis baru tidak menimpanya, dan di luar `current/` sehingga tidak ikut terbawa saat rilis dipindah.
+- `LOG_DIR` bawaan (`logs`) relatif terhadap folder tempat proses dijalankan, yaitu `current/`. Tanpa path mutlak, log ikut hilang saat rilis lama dibersihkan.
+- Mengganti `current` **tidak** mengganti proses yang sedang berjalan: setelah itu service harus di-restart.
+- Cara membuat rilis, memindahkan `current`, migrasi, dan rollback belum ditulis (10.8.8).
+
+#### 10.8.4 Unit systemd ⚠️
+
+Satu templat untuk semua deployment. Nama instance = nama folder tanpa awalan `oxy-`: folder `oxy-acme-staging-finance-dashboard-5205` memakai instance `acme-staging-finance-dashboard-5205`. Simpan sebagai `/etc/systemd/system/oxy-finance-dashboard@.service`. Contoh ini **belum dijalankan di server Oxy**; periksa lokasi `node` dengan `which node` (butuh Node 22.12 atau lebih baru).
+
+```ini
+[Unit]
+Description=Oxy Finance Dashboard (%i)
+After=network.target
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+User=oxy
+Group=oxy
+WorkingDirectory=/home/oxy/web-server/oxy-%i/current
+EnvironmentFile=/home/oxy/web-server/oxy-%i/finance-dashboard.env
+ExecStartPre=/usr/bin/node scripts/ops/env-check.mjs /home/oxy/web-server/oxy-%i/finance-dashboard.env
+ExecStart=/usr/bin/node scripts/start-server.mjs
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+```
+
+- `EnvironmentFile=` yang memuat file env ke proses; aplikasi tidak tahu file itu ada.
+- `ExecStartPre=` menjalankan `env-check` sebelum aplikasi: bila file salah (kunci salah ketik, kunci wajib hilang, aturan production, `PORT` tidak sama dengan nama folder), service **tidak naik** dan `journalctl` menampilkan baris `ERROR ...` dengan nama kuncinya.
+- `StartLimitIntervalSec` dan `StartLimitBurst`: setelah 5 kegagalan dalam 120 detik, service berhenti mencoba dan berstatus gagal, jadi file env yang salah tidak membuat putaran start tanpa akhir. `Restart=always` tetap wajib karena proses sengaja keluar setelah error fatal (10.6.3).
+
+Perintah sehari-hari (ganti instance sesuai deployment):
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now oxy-finance-dashboard@acme-staging-finance-dashboard-5205
+sudo systemctl status oxy-finance-dashboard@acme-staging-finance-dashboard-5205
+sudo journalctl -u oxy-finance-dashboard@acme-staging-finance-dashboard-5205 -n 100 --no-pager
+```
+
+#### 10.8.5 Yang diperiksa saat start ✅
+
+| Pemeriksa                                                             | Aturan                                                                                                    | Bila dilanggar                                                                                              |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `scripts/start-server.mjs`                                            | `APP_ENV` harus `development`, `staging`, atau `production`                                               | berhenti, kode keluar 1, pesan `APP_ENV must be development, staging or production...`                      |
+| `scripts/start-server.mjs`                                            | `CLIENT_ID` harus cocok dengan build (`dist/base-path.json`)                                              | di staging dan production berhenti dengan pesan yang menyebut kedua awalan; di development hanya peringatan |
+| `src/server/env.ts`                                                   | `APP_ENV` wajib dan valid; nilai lain divalidasi seperti sebelumnya                                       | berhenti dengan `Invalid environment variables: <nama>`                                                     |
+| `src/server/env.ts` (aturan di `src/lib/core/app-env.ts`)             | development hanya database lokal; production tanpa `APP_TODAY` dan tanpa `LOG_LEVEL` `debug` atau `trace` | berhenti dengan `The settings break the rules of APP_ENV=...: <nama variabel>: ...`                         |
+| `scripts/ops/env-check.mjs` (`ExecStartPre=`) dan `scripts/local.mjs` | bentuk file, kunci yang dikenal, kunci wajib, aturan production, kecocokan dengan nama folder             | berhenti sebelum aplikasi dinyalakan, dengan baris `ERROR ...`                                              |
+
+Pesan kesalahan memuat nama variabel dan nomor baris, **tidak pernah nilainya** (nilai `DATABASE_URL` memuat kata sandi). Kunci tak dikenal hanya bisa ditangkap oleh `env-check`/peluncur, karena aplikasi sendiri hanya melihat gabungan seluruh variabel proses dan tidak bisa membedakan salah ketik dari variabel sistem seperti `PATH`.
+
+#### 10.8.6 Membuat dan memeriksa file env ✅
+
+```bash
+node scripts/ops/init-env.mjs create --client acme --env staging --port 5205 --file /home/oxy/web-server/oxy-acme-staging-finance-dashboard-5205/finance-dashboard.env
+node scripts/ops/env-check.mjs /home/oxy/web-server/oxy-acme-staging-finance-dashboard-5205/finance-dashboard.env
+node scripts/ops/init-env.mjs rotate-secret --file /home/oxy/web-server/oxy-acme-staging-finance-dashboard-5205/finance-dashboard.env
+```
+
+- `create` membuat file dengan mode 600, `SESSION_SECRET` acak (64 karakter heksadesimal, tidak dicetak), `CLIENT_ID` otomatis `acme-staging` untuk staging, `AUTO_MIGRATE=1` sementara (lihat 10.8.8), dan `DATABASE_URL` **kosong**. `env-check` menolak file itu sampai pemilik mengisi `DATABASE_URL`; tidak ada nilai contoh yang bisa terbawa ke server. Isi juga `LOG_DIR` dengan path mutlak.
+- `create` menolak menimpa file yang sudah ada. `rotate-secret` hanya mengganti `SESSION_SECRET`; setelah service di-restart semua pengguna client itu keluar dan harus login lagi.
+- Perintah yang sama untuk laptop: `npm run env:check -- env/development.env --mode development`.
+- Staging dan production memakai database yang berbeda. **Tidak ada pengaman** yang mencegah file staging berisi `DATABASE_URL` production (keputusan pemilik proyek: satu user database untuk semua lingkungan, risiko diterima). Periksa `DATABASE_URL` saat mengisi file, dan pastikan nama perusahaan di sidebar benar setelah login (10.7.6 langkah 9).
+- Port tiap deployment dicatat pemilik di satu tempat (belum ada tabel alokasi resmi). Dua proses tidak bisa memakai port yang sama.
+
+#### 10.8.7 Versi build di log ✅
+
+`vite build` menulis `dist/build-info.json` berisi `version`, `builtAt`, dan `clientId`. `version` berasal dari `git describe --tags --always --dirty`: tag git bila ada, selain itu id commit singkat; akhiran `-dirty` berarti ada file terlacak yang berubah saat build; `unknown` bila bukan folder git. `scripts/start-server.mjs` membacanya dan mengisi `APP_VERSION` sebelum aplikasi menyala, sehingga setiap baris log memuat `client`, `env`, dan `version`. Dengan begitu satu baris log menjawab "dari lingkungan dan build mana?". Skema nomor versi resmi (tag, catatan perubahan) belum dibahas.
+
+#### 10.8.8 Keputusan dan yang belum dibahas
+
+- **Sudah diputuskan (D66):** tiga lingkungan lewat `APP_ENV` wajib; kode tidak membuka file env; file env server di luar `releases/` dan dimuat systemd; build hanya butuh `CLIENT_ID`; awalan staging `<klien>-staging`; guard di 10.8.5; satu user database untuk semua lingkungan (risiko diterima); rollout ke production dilakukan manual per client, mulai dari satu client percobaan.
+- **Sementara:** `AUTO_MIGRATE=1` di file hasil `init-env` karena skrip migrasi untuk server belum ada. Keputusan akhirnya: `AUTO_MIGRATE=0` di production, migrasi dijalankan skrip khusus sebelum `current` diganti, dan semua migrasi harus bersifat tambah-saja supaya rilis lama tetap berjalan bila dikembalikan.
+- **Belum dibahas (rencana terpisah):** skrip deploy dari komputer pembangun (build, kirim, migrasi, ganti `current`, restart), endpoint `/health` dan pengembalian rilis otomatis, jendela deploy di luar jam kerja menurut zona waktu client, skrip `migrate`, `refresh`, dan pencarian log yang bisa dijalankan di server (sekarang butuh `tsx`), pembersihan rilis lama, nomor versi dan catatan perubahan, rollout bertahap antar client.
+- **Di luar kode:** lokasi staging (VPS dan MySQL yang sama atau berbeda) bervariasi per client; blok nginx untuk client atau lingkungan baru ditambahkan pemilik proyek sendiri; isi database staging disiapkan pemilik proyek; pengaman terhadap `SESSION_SECRET` contoh tidak dipasang (keputusan pemilik proyek).
 
 ---
 
@@ -3510,6 +3594,7 @@ Pengecekan memakai **tujuh query `SELECT` (hanya baca)** ke database lokal `demo
 | 2026-11-11 | Beberapa client dalam satu aplikasi: alamat per client `/oxy-<CLIENT_ID>-finance-dashboard/` ditanam saat build (perintah baru `build:client` dan `smoke:build`), cookie sesi dan preferensi ber-`Path` awalan, kunci `localStorage` berakhiran awalan, redirect login dan link halaman error dan 404 memakai awalan, server produksi menyajikan file di bawah awalan, path di log dan laporan error browser tanpa awalan; bab baru 10.7 dan tes pelindung `base-path-guard.test.ts` (D65). Daftar menu sidebar di 8.0.2 dilengkapi dengan Balance Sheet.                                                                                                                                                                                                                                      |
 | 2026-11-11 | Nama perusahaan (`company.name`) tampil di sidebar dan judul tab setelah login (query Q27; bagian 4.1, 4.2, 8.0.2, 8.0.4, 9.3; KF-77; U11). Angka tidak berubah.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | 2026-11-11 | Perbaikan setelah review: nama cookie sesi, tema, dan bahasa memuat awalan alamat client (cookie lama `nr_session` ber-`Path=/` membuat sign out tidak bekerja; bab 8.0.1, 10.7.2, 10.7.6); awalan alamat saat build tidak pernah dibaca dari `.env` (bab 10.7.1, perbaikan `vite.config.ts`); `smoke:build` menambah pemeriksaan cookie lama (12 baris PASS untuk build client). Angka tidak berubah (D65).                                                                                                                                                                                                                                                                                                                                                                                   |
+| 2026-11-12 | Lingkungan development, staging, dan production: `APP_ENV` wajib tanpa nilai bawaan, kode aplikasi tidak lagi membuka file env (peluncur `scripts/local.mjs` memuat `env/development.env`; server memakai systemd), pemeriksa `env-check` dan pembuat `init-env`, aturan lingkungan (development hanya database lokal, production tanpa `APP_TODAY` dan tanpa log `debug`/`trace`), server menolak start bila `CLIENT_ID` tidak cocok dengan build, field log `env` dan `version` dari `dist/build-info.json` (bab 10.1, 10.2, 10.6.7, 10.7.1, 10.7.3, 10.7.4, 10.7.6, 10.8; D66). Angka di dashboard tidak berubah.                                                                                                                                                                           |
 
 ### 14.1 Riwayat ringkas dokumen yang digantikan
 

@@ -1,12 +1,5 @@
-import fs from 'node:fs'
-import path from 'node:path'
-
-const envPath = path.resolve(process.cwd(), '.env')
-if (fs.existsSync(envPath)) {
-  if (typeof process.loadEnvFile === 'function') {
-    process.loadEnvFile(envPath)
-  }
-}
+// The settings (TEST_DATABASE_URL, DATABASE_URL, SESSION_SECRET, ...) are already in process.env: npm run test:db starts
+// Vitest through scripts/local.mjs, which loads env/development.env first. Do not start this project with a bare vitest.
 
 // Metrics are computed relative to "today". The local demo DB holds journals up to mid-October 2025, so
 // integration tests pin today inside that window (override with TEST_TODAY=YYYY-MM-DD).

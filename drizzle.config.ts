@@ -1,12 +1,6 @@
 import { defineConfig } from 'drizzle-kit'
 
-if (!process.env.DATABASE_URL) {
-  try {
-    process.loadEnvFile('.env')
-  } catch {
-    /* continue to the check below */
-  }
-}
+// The settings come from env/development.env through scripts/local.mjs (npm run db:pull); this file never opens an env file.
 const url = process.env.DATABASE_URL ?? ''
 const host = (() => {
   try {

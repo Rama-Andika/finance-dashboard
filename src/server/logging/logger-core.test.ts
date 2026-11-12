@@ -59,6 +59,29 @@ describe('createLogger', () => {
     expect(entry?.client).toBe('client-a')
   })
 
+  it('adds the environment and the build version from APP_ENV and APP_VERSION', () => {
+    vi.stubEnv('APP_ENV', 'staging')
+    vi.stubEnv('APP_VERSION', 'v1.2.0-3-gabc123')
+    const capture = captureLogs()
+    createLogger('x').info({}, 'hello')
+    const [entry] = capture.entries()
+    capture.stop()
+    expect(entry).toMatchObject({ env: 'staging', version: 'v1.2.0-3-gabc123' })
+  })
+
+  it('leaves out the deployment fields that have no value', () => {
+    vi.stubEnv('CLIENT_ID', '')
+    vi.stubEnv('APP_ENV', '')
+    vi.stubEnv('APP_VERSION', '')
+    const capture = captureLogs()
+    createLogger('x').info({}, 'hello')
+    const [entry] = capture.entries()
+    capture.stop()
+    expect(entry).not.toHaveProperty('client')
+    expect(entry).not.toHaveProperty('env')
+    expect(entry).not.toHaveProperty('version')
+  })
+
   it('writes an error object through the serializer, without the parameter values', () => {
     const capture = captureLogs()
     const error = Object.assign(new Error('Failed query: SELECT 1\nparams: secret-value'), {

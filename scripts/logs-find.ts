@@ -67,13 +67,6 @@ function positiveInt(text: string | undefined, fallback: number): number | null 
 }
 
 async function main(): Promise<number> {
-  try {
-    // The server reads its settings from .env; the script wants LOG_DIR and APP_TIMEZONE from there too.
-    process.loadEnvFile('.env')
-  } catch {
-    /* no .env file: the defaults and the real environment are used */
-  }
-
   let values: Options
   let positionals: string[]
   try {

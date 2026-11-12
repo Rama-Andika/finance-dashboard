@@ -1,11 +1,15 @@
 // Production Node server: serves the built client assets and forwards every other request
 // to the TanStack Start fetch handler in dist/server/server-entry.js. No extra dependencies.
+//
+// Before it starts it checks APP_ENV and that CLIENT_ID matches the build (see "Checks before anything starts").
 import { createServer } from 'node:http'
 import { createReadStream, existsSync, readFileSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { extname, join, resolve, sep } from 'node:path'
 import { Readable } from 'node:stream'
 import { pathToFileURL } from 'node:url'
+import { isAppEnv } from './lib/app-env.mjs'
+import { buildMismatchMessage } from './lib/build-prefix.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 const clientDir = join(root, 'dist', 'client')
@@ -14,17 +18,49 @@ const serverEntryPath =
   ['server-entry.js', 'server.js'].map((file) => join(root, 'dist', 'server', file)).find((file) => existsSync(file)) ??
   join(root, 'dist', 'server', 'server-entry.js')
 
-const { default: serverEntry } = await import(pathToFileURL(serverEntryPath).href)
-if (!serverEntry || typeof serverEntry.fetch !== 'function') {
-  throw new Error(`No fetch handler exported by ${serverEntryPath}. Run "npm run build" first.`)
-}
-
 // URL prefix of this build (the build writes it from CLIENT_ID): '' at the root, else '/oxy-<client>-finance-dashboard'.
 // The proxy in front forwards the full path, so every request starts with this prefix; the files on disk do not.
 const basePathFile = join(root, 'dist', 'base-path.json')
 const basePrefix = existsSync(basePathFile)
   ? String(JSON.parse(readFileSync(basePathFile, 'utf8')).base ?? '/').replace(/\/+$/, '')
   : ''
+
+/** Prints the message, then ends the process with exit code 1. The message is written first (a pipe can be asynchronous on Windows). */
+function failStart(message) {
+  process.stderr.write(`${message}\n`, () => process.exit(1))
+  return new Promise(() => {}) // never settles: nothing below this call runs
+}
+
+// --- Checks before anything starts ---
+const appEnv = process.env.APP_ENV
+if (!isAppEnv(appEnv)) {
+  await failStart(
+    'APP_ENV must be development, staging or production. Set it in the environment file of this deployment.',
+  )
+}
+const mismatch = buildMismatchMessage({ clientId: process.env.CLIENT_ID, builtPrefix: basePrefix })
+if (mismatch) {
+  // In development a mix-up costs nothing; a staging or production server must not run with the wrong address.
+  if (appEnv === 'development') console.warn(`WARNING: ${mismatch}`)
+  else await failStart(mismatch)
+}
+
+// The version of this build, written by the build (dist/build-info.json). The logger puts it on every line.
+const buildInfoFile = join(root, 'dist', 'build-info.json')
+let version = ''
+if (existsSync(buildInfoFile)) {
+  try {
+    version = String(JSON.parse(readFileSync(buildInfoFile, 'utf8')).version ?? '')
+  } catch {
+    /* an unreadable file means no version, not a failed start */
+  }
+}
+if (version) process.env.APP_VERSION = version
+
+const { default: serverEntry } = await import(pathToFileURL(serverEntryPath).href)
+if (!serverEntry || typeof serverEntry.fetch !== 'function') {
+  throw new Error(`No fetch handler exported by ${serverEntryPath}. Run "npm run build" first.`)
+}
 
 const port = Number(process.env.PORT ?? 3000)
 const host = process.env.HOST ?? '0.0.0.0'
@@ -150,5 +186,7 @@ const server = createServer(async (req, res) => {
 })
 
 server.listen(port, host, () => {
-  console.log(`Finance Dashboard listening on http://${host === '0.0.0.0' ? 'localhost' : host}:${port}${basePrefix}/`)
+  console.log(
+    `Finance Dashboard [${appEnv}] ${version || 'unknown version'} listening on http://${host === '0.0.0.0' ? 'localhost' : host}:${port}${basePrefix}/`,
+  )
 })

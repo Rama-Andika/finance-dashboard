@@ -1,6 +1,6 @@
-// Starts the BUILT server (dist/) with a dummy database address and checks the URL prefix it serves.
-// It needs no database and no .env file. Run it after "npm run build" or "npm run build:client -- <client-id>".
-import { spawn } from 'node:child_process'
+// Starts the BUILT server (dist/) with a dummy database address and checks the URL prefix it serves, the build info file
+// and the checks at start. It needs no database and no env file. Run it after "npm run build" or "npm run build:client -- <client-id>".
+import { spawn, spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { createServer } from 'node:net'
@@ -10,6 +10,8 @@ import { sealData } from 'iron-session'
 const root = resolve(import.meta.dirname, '..')
 const base = JSON.parse(readFileSync(join(root, 'dist', 'base-path.json'), 'utf8')).base
 const prefix = String(base).replace(/\/+$/, '') // '' for a build for the root
+// The CLIENT_ID this build was made for: '/oxy-client-a-finance-dashboard' gives 'client-a'; a build for the root has none.
+const clientId = prefix.replace(/^\/oxy-/, '').replace(/-finance-dashboard$/, '')
 // Name of the session cookie of this deployment (cookieNameFor in src/lib/core/client-base.ts). The rule is written out
 // again on purpose: if it ever changes in one place only, the check below fails.
 const sessionCookieName = prefix === '' ? 'nr_session' : `nr_session_${prefix.slice(1)}`
@@ -29,23 +31,29 @@ function freePort() {
 const sessionSecret = randomBytes(32).toString('hex')
 const port = await freePort()
 const origin = `http://127.0.0.1:${port}`
+// The settings of the test server. APP_ENV=production on purpose: the rules of production (no APP_TODAY, no debug logs)
+// and the check that CLIENT_ID matches the build must hold for the real thing.
+const serverEnv = {
+  ...process.env,
+  APP_ENV: 'production',
+  CLIENT_ID: clientId,
+  NODE_ENV: 'production',
+  APP_TODAY: '',
+  // A dummy address on purpose: this check must never reach a real database.
+  DATABASE_URL: 'mysql://smoke:smoke@127.0.0.1:1/smoke',
+  SESSION_SECRET: sessionSecret,
+  DASH_REFRESH_ENABLED: '0',
+  AUTO_MIGRATE: '0',
+  LOG_TO_FILE: '0',
+  LOG_LEVEL: 'silent',
+  HOST: '127.0.0.1',
+  PORT: String(port),
+  TRUST_PROXY: '0',
+}
 const server = spawn(process.execPath, [join(root, 'scripts', 'start-server.mjs')], {
   cwd: root,
   stdio: 'ignore',
-  env: {
-    ...process.env,
-    NODE_ENV: 'production',
-    // A dummy address on purpose: this check must never reach a real database.
-    DATABASE_URL: 'mysql://smoke:smoke@127.0.0.1:1/smoke',
-    SESSION_SECRET: sessionSecret,
-    DASH_REFRESH_ENABLED: '0',
-    AUTO_MIGRATE: '0',
-    LOG_TO_FILE: '0',
-    LOG_LEVEL: 'silent',
-    HOST: '127.0.0.1',
-    PORT: String(port),
-    TRUST_PROXY: '0',
-  },
+  env: serverEnv,
 })
 let exited = false
 server.once('exit', () => {
@@ -74,6 +82,14 @@ function check(name, ok, detail = '') {
 const get = (path) => fetch(`${origin}${path}`, { redirect: 'manual' })
 /** One request that follows redirects, like a browser (a page first redirects to add its default filters). */
 const visit = (path) => fetch(`${origin}${path}`)
+/** Starts the built server once more with changed settings; it must refuse at once and say why on standard error. */
+const startWith = (changes) =>
+  spawnSync(process.execPath, [join(root, 'scripts', 'start-server.mjs')], {
+    cwd: root,
+    env: { ...serverEnv, ...changes },
+    encoding: 'utf8',
+    timeout: 60_000,
+  })
 
 try {
   if (!(await waitUntilReady())) {
@@ -146,6 +162,33 @@ try {
       check('the host root is not served (404)', (await get('/')).status === 404, 'not 404')
       check('a sibling prefix is not served (404)', (await get(`${prefix}x/login`)).status === 404, 'not 404')
     }
+
+    // The build wrote its version (the logger puts it on every line).
+    let buildInfo = null
+    try {
+      buildInfo = JSON.parse(readFileSync(join(root, 'dist', 'build-info.json'), 'utf8'))
+    } catch {
+      /* reported by the check below */
+    }
+    check(
+      'the build wrote dist/build-info.json with a version',
+      typeof buildInfo?.version === 'string' && buildInfo.version !== '',
+      'missing, unreadable or empty',
+    )
+
+    // The checks at start: a wrong CLIENT_ID or a missing APP_ENV must stop the server before it serves anything.
+    const wrongClient = startWith({ CLIENT_ID: 'another-client' })
+    check(
+      'a server whose CLIENT_ID does not match the build refuses to start',
+      wrongClient.status === 1 && wrongClient.stderr.includes('CLIENT_ID'),
+      `exit code ${wrongClient.status}`,
+    )
+    const noEnvironment = startWith({ APP_ENV: '' })
+    check(
+      'a server without APP_ENV refuses to start',
+      noEnvironment.status === 1 && noEnvironment.stderr.includes('APP_ENV'),
+      `exit code ${noEnvironment.status}`,
+    )
   }
 } finally {
   // Wait until the server process is really gone: on Windows, ending Node while it still closes a child crashes it.

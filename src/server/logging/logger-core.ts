@@ -2,7 +2,6 @@ import pino, { type DestinationStream, type Logger as PinoLogger } from 'pino'
 import { serializeError } from './error-serializer'
 import { getLogContext } from './log-context'
 import type { LogFields } from './log-fields'
-import { loadDotEnvOnce } from './load-env'
 import { currentLogTimeZone, formatLogTime, resetLogTimeZoneForTests } from './log-time'
 
 /**
@@ -64,13 +63,16 @@ const children = new Map<string, PinoLogger>()
 /** Created on the first log call, so the environment is read after the server (or script) has loaded it. */
 function getRoot(): PinoLogger {
   if (root) return root
-  loadDotEnvOnce()
   const timeZone = currentLogTimeZone()
-  const client = process.env.CLIENT_ID
+  // Fields on every line: which deployment (client), which environment (env) and which build (version) wrote it.
+  const base: Record<string, string> = {}
+  if (process.env.CLIENT_ID) base.client = process.env.CLIENT_ID
+  if (process.env.APP_ENV) base.env = process.env.APP_ENV
+  if (process.env.APP_VERSION) base.version = process.env.APP_VERSION
   root = pino(
     {
       level: resolveLogLevel(process.env.LOG_LEVEL, Boolean(process.env.VITEST)),
-      base: client ? { client } : null,
+      base: Object.keys(base).length > 0 ? base : null,
       messageKey: 'msg',
       timestamp: () => `,"time":"${formatLogTime(new Date(), timeZone)}"`,
       formatters: { level: (label) => ({ level: label }) },

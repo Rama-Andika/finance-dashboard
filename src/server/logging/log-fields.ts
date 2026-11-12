@@ -1,7 +1,7 @@
 /**
  * The fields a log call may carry next to its message. The list is closed on purpose: a typo such as "user_id" fails the
  * type check instead of creating a second spelling that `npm run logs:find` cannot see. Add a field here before using it.
- * The fields of the request or job (reqId, jobId, parentReqId, upstreamId, userId, client, scope) are added automatically
+ * The fields of the request or job (reqId, jobId, parentReqId, upstreamId, userId, scope) and of the deployment (client, env, version) are added automatically
  * and are not listed here. No server-only marker: scripts and tests load this file.
  */
 export type LogFields = {
