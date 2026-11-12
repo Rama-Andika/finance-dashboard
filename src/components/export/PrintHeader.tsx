@@ -1,6 +1,7 @@
 import { APP_NAME } from '~/lib/brand'
 import { useTranslation } from 'react-i18next'
 import { useLang } from '~/hooks/use-lang'
+import { usePrintTimestamp } from '~/hooks/use-print-timestamp'
 import { formatDate } from '~/lib/format/date'
 import { useQuery } from '@tanstack/react-query'
 import { describeEntityToken } from '~/lib/filters/entity-token'
@@ -23,10 +24,7 @@ export function PrintHeader({ title, entity, preset, asOf }: PrintHeaderProps) {
   if (entityInfo.kind === 'all') entityText = t('ui.shell.allEntitiesPrint')
   else if (entityInfo.kind === 'codes') entityText = entityInfo.codes.join(', ')
   else entityText = t('ui.printHeader.entityCount', { count: entityInfo.count })
-  const printTimestamp = new Date().toLocaleString(t('ui.printHeader.enUs'), {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  })
+  const printTimestamp = usePrintTimestamp(t('ui.printHeader.enUs'))
 
   return (
     <div className="print-only mb-6 pb-4 border-b">
@@ -36,11 +34,9 @@ export function PrintHeader({ title, entity, preset, asOf }: PrintHeaderProps) {
             {APP_NAME} — {title}
           </h1>
           <p className="text-xs text-neutral-600 mt-1 mb-0">
-            {t('ui.printHeader.entity')}:{' '}
-            <span className="font-semibold">{entityText}</span>
+            {t('ui.printHeader.entity')}: <span className="font-semibold">{entityText}</span>
             {' · '}
-            {t('ui.printHeader.period')}:{' '}
-            <span className="font-semibold">{preset || 'this-month'}</span>
+            {t('ui.printHeader.period')}: <span className="font-semibold">{preset || 'this-month'}</span>
             {asOf && (
               <>
                 {' · '}
