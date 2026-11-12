@@ -1,0 +1,1258 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Panduan Alur Deploy</title>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    />
+  </head>
+  <body>
+    <style>
+      /* Layout: a reading column with a sticky section list; diagrams and tables scroll inside their own boxes. */
+      :root {
+        --bg: #f6f7f5;
+        --surface: #ffffff;
+        --surface-2: #eceeea;
+        --line: #c9cec6;
+        --fg: #1d2420;
+        --muted: #5a645d;
+        --accent: #1f6f63;
+        --accent-soft: #d9ece8;
+        --warn: #a4570b;
+        --warn-soft: #f7e7d3;
+        --bad: #a3322b;
+        --font: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+        --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #121815;
+          --surface: #1a221e;
+          --surface-2: #222c27;
+          --line: #37443d;
+          --fg: #e4eae6;
+          --muted: #98a59d;
+          --accent: #5fc2b2;
+          --accent-soft: #1b3a35;
+          --warn: #e3a35e;
+          --warn-soft: #3a2b18;
+          --bad: #ee8b83;
+          color-scheme: dark;
+        }
+      }
+      :root[data-theme='dark'] {
+        --bg: #121815;
+        --surface: #1a221e;
+        --surface-2: #222c27;
+        --line: #37443d;
+        --fg: #e4eae6;
+        --muted: #98a59d;
+        --accent: #5fc2b2;
+        --accent-soft: #1b3a35;
+        --warn: #e3a35e;
+        --warn-soft: #3a2b18;
+        --bad: #ee8b83;
+        color-scheme: dark;
+      }
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: var(--font);
+        font-size: 16px;
+        line-height: 1.6;
+        padding-left: max(16px, env(safe-area-inset-left, 0px));
+        padding-right: max(16px, env(safe-area-inset-right, 0px));
+        padding-block: 24px 64px;
+      }
+      .wrap {
+        max-width: 1000px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 2rem;
+        line-height: 1.2;
+        margin: 0 0 8px;
+        text-wrap: balance;
+      }
+      h2 {
+        font-size: 1.35rem;
+        margin: 48px 0 8px;
+        padding-top: 8px;
+        border-top: 1px solid var(--line);
+        text-wrap: balance;
+      }
+      h3 {
+        font-size: 1.05rem;
+        margin: 28px 0 6px;
+      }
+      p,
+      li {
+        max-width: 72ch;
+      }
+      code,
+      .mono {
+        font-family: var(--mono);
+        font-size: 0.88em;
+        background: var(--surface-2);
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+      pre {
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.5;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 12px 14px;
+        overflow-x: auto;
+        margin: 10px 0;
+      }
+      pre code {
+        background: none;
+        padding: 0;
+        font-size: inherit;
+      }
+      .lead {
+        color: var(--muted);
+        font-size: 1.05rem;
+        max-width: 68ch;
+      }
+      .status {
+        display: inline-block;
+        font-size: 13px;
+        background: var(--warn-soft);
+        color: var(--warn);
+        border-radius: 999px;
+        padding: 2px 10px;
+        margin-bottom: 14px;
+      }
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 14px;
+        margin: 18px 0 0;
+        padding: 10px 0;
+        border-block: 1px solid var(--line);
+        font-size: 14px;
+      }
+      nav a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      nav a:hover {
+        text-decoration: underline;
+      }
+      figure {
+        margin: 16px 0;
+      }
+      .scroll {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+      }
+      figure svg {
+        display: block;
+        min-width: 760px;
+        width: 100%;
+        height: auto;
+        color: var(--fg);
+      }
+      figcaption {
+        font-size: 14px;
+        color: var(--muted);
+        margin-top: 8px;
+        max-width: 80ch;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 14.5px;
+      }
+      th,
+      td {
+        text-align: left;
+        vertical-align: top;
+        padding: 7px 10px;
+        border-bottom: 1px solid var(--line);
+      }
+      th {
+        font-weight: 600;
+        font-size: 13px;
+        color: var(--muted);
+        background: var(--surface-2);
+      }
+      td:first-child {
+        min-width: 0;
+      }
+      .tbl {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        margin: 10px 0;
+      }
+      .tbl table {
+        min-width: 640px;
+      }
+      .pill {
+        font-size: 12px;
+        border-radius: 999px;
+        padding: 1px 8px;
+        white-space: nowrap;
+        display: inline-block;
+      }
+      .p-lap {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .p-srv {
+        background: var(--warn-soft);
+        color: var(--warn);
+      }
+      .p-app {
+        background: var(--surface-2);
+        color: var(--fg);
+      }
+      .p-both {
+        background: var(--surface-2);
+        color: var(--muted);
+      }
+      .steps {
+        list-style: none;
+        padding: 0;
+        margin: 12px 0;
+        display: grid;
+        gap: 8px;
+        counter-reset: s;
+      }
+      .steps li {
+        counter-increment: s;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px 12px 10px 48px;
+        position: relative;
+        max-width: none;
+      }
+      .steps li::before {
+        content: counter(s);
+        position: absolute;
+        left: 12px;
+        top: 10px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: var(--bg);
+        font-weight: 600;
+        font-size: 13px;
+        display: grid;
+        place-items: center;
+      }
+      .steps b {
+        font-weight: 600;
+      }
+      .steps .where {
+        font-size: 12.5px;
+        color: var(--muted);
+        display: block;
+      }
+      .note {
+        border-left: 3px solid var(--accent);
+        background: var(--accent-soft);
+        padding: 8px 12px;
+        border-radius: 0 6px 6px 0;
+        max-width: 78ch;
+        margin: 12px 0;
+      }
+      .warn {
+        border-left-color: var(--warn);
+        background: var(--warn-soft);
+      }
+      /* SVG parts are styled from here so both themes work */
+      .dev {
+        fill: var(--surface);
+        stroke: var(--line);
+        stroke-width: 1.5;
+      }
+      .cmp {
+        fill: var(--surface-2);
+        stroke: var(--line);
+        stroke-width: 1;
+      }
+      .hot {
+        fill: var(--accent-soft);
+        stroke: var(--accent);
+        stroke-width: 1.2;
+      }
+      .life {
+        stroke: var(--line);
+        stroke-width: 1.2;
+        stroke-dasharray: 5 5;
+      }
+      .alt {
+        fill: none;
+        stroke: var(--warn);
+        stroke-width: 1.2;
+        stroke-dasharray: 6 4;
+      }
+      .arr {
+        stroke: var(--fg);
+        stroke-width: 1.4;
+        fill: none;
+      }
+      .arr-d {
+        stroke: var(--muted);
+        stroke-width: 1.3;
+        fill: none;
+        stroke-dasharray: 5 4;
+      }
+      .arr-w {
+        stroke: var(--warn);
+        stroke-width: 1.4;
+        fill: none;
+      }
+      .t {
+        fill: currentColor;
+        font-family: var(--font);
+        font-size: 12.5px;
+      }
+      .tm {
+        fill: var(--muted);
+        font-family: var(--font);
+        font-size: 11.5px;
+      }
+      .tb {
+        fill: currentColor;
+        font-family: var(--font);
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .ts {
+        fill: var(--muted);
+        font-family: var(--font);
+        font-size: 11px;
+        font-style: italic;
+      }
+      .tw {
+        fill: var(--warn);
+        font-family: var(--font);
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .tmono {
+        fill: currentColor;
+        font-family: var(--mono);
+        font-size: 11.5px;
+      }
+      .lbl {
+        paint-order: stroke;
+        stroke: var(--surface);
+        stroke-width: 5px;
+        stroke-linejoin: round;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+
+    <div class="wrap">
+      <span class="status"
+        >Belum pernah dijalankan di server nyata; semua keputusan alur sudah dites dengan tiruan</span
+      >
+      <h1>Panduan alur deploy</h1>
+      <p class="lead">
+        Dari satu perintah di komputer pembangun sampai versi baru berjalan di server klien, termasuk apa yang terjadi
+        bila gagal, dan fungsi setiap file baru dari plan <b>env-separation</b> dan <b>deploy-rollout</b>.
+      </p>
+      <nav aria-label="Daftar bagian">
+        <a href="#ringkas">Ringkasan</a><a href="#diagram">Diagram deployment</a><a href="#urutan">Urutan satu deploy</a
+        ><a href="#hasil">Hasil dan gagal</a><a href="#pengaturan">Alur pengaturan</a
+        ><a href="#server">Folder di server</a><a href="#file">Peta file</a><a href="#perintah">Perintah</a
+        ><a href="#aturan">Aturan production</a><a href="#istilah">Istilah</a>
+      </nav>
+
+      <h2 id="ringkas">1. Ringkasan dalam satu paragraf</h2>
+      <p>
+        Anda mengetik <code>npm run deploy -- acme-production</code> di komputer pembangun. Skrip memeriksa aturan,
+        membangun aplikasi khusus untuk klien itu, membungkusnya menjadi satu berkas <code>.tgz</code>, lalu mengirimnya
+        ke server lewat SSH. Di server, paket dibuka ke folder rilis baru, paketnya dipasang, database dimigrasi, dan
+        pintasan <code>current</code> dipindah ke rilis baru. Service di-restart, lalu skrip menunggu alamat
+        <code>/health</code> menjawab sehat <em>dengan versi yang baru dipasang</em>. Bila tidak sehat dalam 2 menit,
+        pintasan dikembalikan ke rilis sebelumnya secara otomatis.
+      </p>
+      <div class="note">
+        <b>Dua hal yang tidak berubah:</b> kode aplikasi tidak pernah membuka file env (laptop:
+        <code>scripts/local.mjs</code>, server: systemd yang mengisinya), dan setiap rilis berdiri sendiri di folder
+        sendiri, jadi berpindah rilis hanya memindahkan satu pintasan.
+      </div>
+
+      <h2 id="diagram">2. Diagram deployment (UML)</h2>
+      <figure>
+        <div class="scroll">
+          <svg
+            viewBox="0 0 960 600"
+            role="img"
+            aria-label="Diagram deployment: komputer pembangun mengirim paket dan perintah lewat SSH ke server Oxy; server menjalankan nginx, service aplikasi, alat server dan folder deploy; aplikasi dan skrip migrasi berbicara ke database MySQL; browser pengguna masuk lewat nginx."
+          >
+            <defs>
+              <marker
+                id="ah"
+                viewBox="0 0 10 10"
+                refX="9"
+                refY="5"
+                markerWidth="8"
+                markerHeight="8"
+                orient="auto-start-reverse"
+              >
+                <path d="M0 1 L9 5 L0 9 z" fill="currentColor" />
+              </marker>
+              <marker
+                id="ahw"
+                viewBox="0 0 10 10"
+                refX="9"
+                refY="5"
+                markerWidth="8"
+                markerHeight="8"
+                orient="auto-start-reverse"
+              >
+                <path d="M0 1 L9 5 L0 9 z" fill="var(--warn)" />
+              </marker>
+            </defs>
+
+            <!-- Browser -->
+            <rect class="dev" x="400" y="6" width="260" height="56" rx="6" />
+            <text class="ts" x="530" y="22" text-anchor="middle">«device»</text>
+            <text class="tb" x="530" y="40" text-anchor="middle">Browser pengguna</text>
+            <text class="tm" x="530" y="55" text-anchor="middle">/oxy-acme-finance-dashboard/</text>
+
+            <!-- Laptop -->
+            <rect class="dev" x="10" y="112" width="270" height="480" rx="6" />
+            <text class="ts" x="145" y="130" text-anchor="middle">«device»</text>
+            <text class="tb" x="145" y="147" text-anchor="middle">Komputer pembangun</text>
+            <rect class="cmp" x="26" y="162" width="238" height="58" rx="4" />
+            <text class="tb" x="38" y="182">Repo git</text>
+            <text class="tm" x="38" y="198">tag v1.2.3, commit bersih</text>
+            <text class="tm" x="38" y="212">src/, scripts/, drizzle-dash/</text>
+            <rect class="hot" x="26" y="232" width="238" height="124" rx="4" />
+            <text class="tb" x="38" y="252">npm run deploy -- &lt;target&gt;</text>
+            <text class="tmono" x="38" y="270">deploy.mjs</text>
+            <text class="tm" x="112" y="270">(perintah)</text>
+            <text class="tmono" x="38" y="286">deploy-flow.mjs</text>
+            <text class="tm" x="142" y="286">(semua keputusan)</text>
+            <text class="tmono" x="38" y="302">deploy-rules.mjs</text>
+            <text class="tm" x="150" y="302">(jendela, tag)</text>
+            <text class="tmono" x="38" y="318">targets.mjs</text>
+            <text class="tm" x="116" y="318">(baca daftar target)</text>
+            <text class="tmono" x="38" y="334">env/deploy-targets.json</text>
+            <text class="tm" x="38" y="349">tidak masuk git</text>
+            <rect class="cmp" x="26" y="368" width="238" height="92" rx="4" />
+            <text class="tb" x="38" y="388">Build dan kemas</text>
+            <text class="tm" x="38" y="404">build:client → dist/ (untuk satu klien)</text>
+            <text class="tm" x="38" y="418">build:ops → dist/ops/*.mjs</text>
+            <text class="tm" x="38" y="432">bundle-imports.mjs: cek paket</text>
+            <text class="tm" x="38" y="446">package-release.mjs → rilis.tgz</text>
+            <rect class="cmp" x="26" y="472" width="238" height="104" rx="4" />
+            <text class="tb" x="38" y="492">Alat bawaan OS</text>
+            <text class="tmono" x="38" y="510">ssh scp tar git</text>
+            <text class="tm" x="38" y="528">transport.mjs menyusun perintah</text>
+            <text class="tm" x="38" y="542">aman (daftar argumen + kutip)</text>
+            <text class="tm" x="38" y="562">env/development.env: hanya dev</text>
+
+            <!-- Server -->
+            <rect class="dev" x="360" y="112" width="340" height="480" rx="6" />
+            <text class="ts" x="530" y="130" text-anchor="middle">«device»</text>
+            <text class="tb" x="530" y="147" text-anchor="middle">Server Oxy (Linux, user oxy)</text>
+            <rect class="cmp" x="376" y="160" width="308" height="40" rx="4" />
+            <text class="tb" x="388" y="178">nginx</text>
+            <text class="tm" x="436" y="178">reverse proxy (pemilik mengatur)</text>
+            <text class="tm" x="388" y="193">/health ditutup dari luar</text>
+            <rect class="hot" x="376" y="232" width="308" height="116" rx="4" />
+            <text class="ts" x="388" y="248">«systemd service»</text>
+            <text class="tb" x="388" y="264">oxy-finance-dashboard@&lt;instance&gt;</text>
+            <text class="tmono" x="388" y="282">node scripts/start-server.mjs</text>
+            <text class="tm" x="388" y="298">menyajikan dist/ dan halaman</text>
+            <text class="tm" x="388" y="312">GET &lt;awalan&gt;/health (src/server/health.ts)</text>
+            <text class="tm" x="388" y="326">env diisi systemd dari finance-dashboard.env</text>
+            <text class="tm" x="388" y="340">ExecStartPre: env-check.mjs</text>
+            <rect class="cmp" x="376" y="372" width="308" height="96" rx="4" />
+            <text class="tb" x="388" y="390">Alat server (Node biasa, tanpa tsx)</text>
+            <text class="tmono" x="388" y="408">scripts/ops/release.mjs</text>
+            <text class="tm" x="548" y="408">aktifkan/kembali</text>
+            <text class="tmono" x="388" y="424">scripts/ops/health-check.mjs</text>
+            <text class="tmono" x="388" y="440">scripts/ops/env-check.mjs, init-env.mjs</text>
+            <text class="tmono" x="388" y="456">dist/ops/dash-migrate.mjs</text>
+            <text class="tm" x="560" y="456">migrasi</text>
+            <rect class="cmp" x="376" y="484" width="308" height="94" rx="4" />
+            <text class="tb" x="388" y="502">Folder deploy</text>
+            <text class="tmono" x="388" y="520">releases/&lt;waktu&gt;-&lt;versi&gt;/</text>
+            <text class="tmono" x="388" y="536">current → rilis aktif previous</text>
+            <text class="tmono" x="388" y="552">finance-dashboard.env (mode 600)</text>
+            <text class="tmono" x="388" y="568">.deploy.lock/ (hanya saat deploy)</text>
+
+            <!-- Database -->
+            <rect class="dev" x="740" y="232" width="210" height="236" rx="6" />
+            <text class="ts" x="845" y="250" text-anchor="middle">«device»</text>
+            <text class="tb" x="845" y="267" text-anchor="middle">Server MySQL 5.7</text>
+            <rect class="cmp" x="754" y="282" width="182" height="74" rx="4" />
+            <text class="tb" x="764" y="300">Database klien</text>
+            <text class="tm" x="764" y="316">tabel ERP (hanya dibaca)</text>
+            <text class="tm" x="764" y="330">tabel dash_* (snapshot)</text>
+            <text class="tm" x="764" y="344">dash_migrations</text>
+            <text class="tm" x="754" y="384">Staging: database terpisah</text>
+            <text class="tm" x="754" y="398">dari production. Server MySQL</text>
+            <text class="tm" x="754" y="412">boleh sama atau berbeda</text>
+            <text class="tm" x="754" y="426">dengan server aplikasi.</text>
+
+            <!-- Communication paths -->
+            <line class="arr" x1="530" y1="62" x2="530" y2="160" marker-end="url(#ah)" />
+            <text class="t lbl" x="538" y="106">HTTPS</text>
+            <line class="arr" x1="530" y1="200" x2="530" y2="232" marker-end="url(#ah)" />
+            <text class="tm lbl" x="538" y="220">http 127.0.0.1:PORT</text>
+            <line class="arr" x1="280" y1="290" x2="360" y2="290" marker-end="url(#ah)" />
+            <text class="t lbl" x="284" y="282">ssh: perintah</text>
+            <line class="arr" x1="280" y1="530" x2="360" y2="530" marker-end="url(#ah)" />
+            <text class="t lbl" x="284" y="522">scp: .tgz</text>
+            <line class="arr" x1="684" y1="290" x2="740" y2="290" marker-end="url(#ah)" />
+            <text class="tm lbl" x="690" y="282">MySQL</text>
+            <line class="arr" x1="684" y1="456" x2="740" y2="456" marker-end="url(#ah)" />
+            <text class="tm lbl" x="690" y="448">migrasi</text>
+            <line class="arr-d" x1="530" y1="372" x2="530" y2="348" marker-end="url(#ah)" />
+            <text class="tm lbl" x="538" y="364">GET /health</text>
+          </svg>
+        </div>
+        <figcaption>
+          Tiga mesin: komputer pembangun, server aplikasi, dan server database. Hanya jalur SSH/SCP yang berasal dari
+          komputer pembangun; pengguna tidak pernah menyentuhnya. Panah putus-putus adalah pemeriksaan kesehatan yang
+          dijalankan dari server itu sendiri, bukan lewat nginx.
+        </figcaption>
+      </figure>
+
+      <h2 id="urutan">3. Urutan satu deploy</h2>
+      <figure>
+        <div class="scroll">
+          <svg
+            viewBox="0 0 960 660"
+            role="img"
+            aria-label="Diagram urutan deploy: komputer pembangun memeriksa dan membangun, mengirim paket, server membuka paket dan menjalankan migrasi ke database, memindahkan current, service direstart, health-check menunggu jawaban sehat; bila tidak sehat, rilis dikembalikan."
+          >
+            <defs>
+              <marker
+                id="sa"
+                viewBox="0 0 10 10"
+                refX="9"
+                refY="5"
+                markerWidth="8"
+                markerHeight="8"
+                orient="auto-start-reverse"
+              >
+                <path d="M0 1 L9 5 L0 9 z" fill="currentColor" />
+              </marker>
+              <marker
+                id="saw"
+                viewBox="0 0 10 10"
+                refX="9"
+                refY="5"
+                markerWidth="8"
+                markerHeight="8"
+                orient="auto-start-reverse"
+              >
+                <path d="M0 1 L9 5 L0 9 z" fill="var(--warn)" />
+              </marker>
+            </defs>
+            <!-- lifelines -->
+            <rect class="cmp" x="20" y="8" width="160" height="40" rx="4" />
+            <text class="tb" x="100" y="26" text-anchor="middle">Komputer</text>
+            <text class="tb" x="100" y="41" text-anchor="middle">pembangun</text>
+            <rect class="cmp" x="250" y="8" width="160" height="40" rx="4" />
+            <text class="tb" x="330" y="26" text-anchor="middle">Server: folder</text>
+            <text class="tb" x="330" y="41" text-anchor="middle">deploy + alat</text>
+            <rect class="cmp" x="500" y="8" width="160" height="40" rx="4" />
+            <text class="tb" x="580" y="26" text-anchor="middle">Service aplikasi</text>
+            <text class="tb" x="580" y="41" text-anchor="middle">(systemd)</text>
+            <rect class="cmp" x="760" y="8" width="160" height="40" rx="4" />
+            <text class="tb" x="840" y="26" text-anchor="middle">Database</text>
+            <text class="tb" x="840" y="41" text-anchor="middle">klien</text>
+            <line class="life" x1="100" y1="48" x2="100" y2="650" />
+            <line class="life" x1="330" y1="48" x2="330" y2="650" />
+            <line class="life" x1="580" y1="48" x2="580" y2="650" />
+            <line class="life" x1="840" y1="48" x2="840" y2="650" />
+
+            <!-- 1 self note -->
+            <rect class="hot" x="30" y="62" width="196" height="46" rx="4" />
+            <text class="t" x="38" y="80">1 aturan, build, cek isi,</text>
+            <text class="t" x="38" y="96">kemas → rilis.tgz</text>
+            <!-- 2 -->
+            <line class="arr" x1="100" y1="136" x2="330" y2="136" marker-end="url(#sa)" />
+            <text class="t lbl" x="215" y="128" text-anchor="middle">2 scp: unggah .tgz</text>
+            <!-- 3 -->
+            <line class="arr" x1="100" y1="176" x2="330" y2="176" marker-end="url(#sa)" />
+            <text class="t lbl" x="215" y="168" text-anchor="middle">3 ssh: tar, npm ci, env-check</text>
+            <!-- 4 -->
+            <line class="arr" x1="330" y1="218" x2="840" y2="218" marker-end="url(#sa)" />
+            <text class="t lbl" x="585" y="210" text-anchor="middle">
+              4 dash-migrate.mjs: migrasi (rilis lama masih jalan)
+            </text>
+            <!-- 5 self -->
+            <rect class="hot" x="340" y="238" width="230" height="30" rx="4" />
+            <text class="t" x="348" y="258">5 activate: current → rilis baru</text>
+            <!-- 6 -->
+            <line class="arr" x1="100" y1="304" x2="330" y2="304" marker-end="url(#sa)" />
+            <text class="t lbl" x="215" y="296" text-anchor="middle">6 ssh: sudo systemctl restart</text>
+            <!-- 7 -->
+            <line class="arr" x1="330" y1="344" x2="580" y2="344" marker-end="url(#sa)" />
+            <text class="t lbl" x="455" y="336" text-anchor="middle">7 service menyala (rilis baru)</text>
+            <!-- 8 -->
+            <line class="arr" x1="330" y1="384" x2="580" y2="384" marker-end="url(#sa)" />
+            <text class="t lbl" x="455" y="376" text-anchor="middle">8 GET /health tiap 2 dtk</text>
+            <!-- 9 -->
+            <line class="arr" x1="580" y1="418" x2="840" y2="418" marker-end="url(#sa)" />
+            <text class="t lbl" x="710" y="410" text-anchor="middle">9 SELECT 1</text>
+            <!-- 10 -->
+            <line class="arr-d" x1="580" y1="452" x2="330" y2="452" marker-end="url(#sa)" />
+            <text class="t lbl" x="455" y="444" text-anchor="middle">10 200 ok + versi baru, 10 dtk berturut</text>
+            <!-- ok note -->
+            <rect class="hot" x="340" y="470" width="320" height="30" rx="4" />
+            <text class="t" x="348" y="490">11 bersihkan rilis lama, lepas kunci</text>
+            <line class="arr-d" x1="330" y1="520" x2="100" y2="520" marker-end="url(#sa)" />
+            <text class="t lbl" x="215" y="512" text-anchor="middle">DEPLOYED (kode keluar 0)</text>
+
+            <!-- alt -->
+            <rect class="alt" x="14" y="540" width="932" height="108" rx="4" />
+            <text class="tw" x="24" y="558">alt: langkah 10 tidak tercapai dalam 120 detik</text>
+            <rect class="hot" x="340" y="566" width="300" height="26" rx="4" style="stroke: var(--warn)" />
+            <text class="t" x="348" y="584">rollback: current → previous</text>
+            <line class="arr-w" x1="330" y1="610" x2="580" y2="610" marker-end="url(#saw)" />
+            <text class="t lbl" x="455" y="602" text-anchor="middle">restart + cek /health lama</text>
+            <line class="arr-w" x1="330" y1="638" x2="100" y2="638" marker-end="url(#saw)" />
+            <text class="t lbl" x="215" y="630" text-anchor="middle">ROLLED BACK (kode keluar 1)</text>
+          </svg>
+        </div>
+        <figcaption>
+          Migrasi (4) berjalan sebelum pemindahan <code>current</code> (5). Karena itu migrasi harus tambah-saja: untuk
+          beberapa detik, dan setelah rollback seterusnya, rilis lama berjalan terhadap skema baru.
+        </figcaption>
+      </figure>
+
+      <h3>Langkah demi langkah, dengan kata sederhana</h3>
+      <ol class="steps">
+        <li>
+          <b>Periksa aturan.</b> Production hanya dari tag <code>vX.Y.Z</code>, commit bersih, jam 22:00 sampai 05:00
+          menurut jam klien, dan Anda mengetik nama target.<span class="where"
+            >Komputer pembangun · gagal = berhenti, tidak ada yang berubah</span
+          >
+        </li>
+        <li>
+          <b>Bangun dan periksa.</b> <code>build:client</code> untuk <code>CLIENT_ID</code> target, lalu
+          <code>build:ops</code>. Versi dan <code>CLIENT_ID</code> di <code>dist/build-info.json</code> harus cocok, dan
+          semua paket yang di-<code>import</code> server harus ikut terpasang oleh <code>npm ci --omit=dev</code>.
+          Hasilnya dikemas jadi <code>.tgz</code>.<span class="where">Komputer pembangun · gagal = berhenti</span>
+        </li>
+        <li>
+          <b>Cek server dan ambil kunci.</b> Folder deploy dan file env harus ada.
+          <code>mkdir .deploy.lock</code> memastikan hanya satu deploy berjalan.<span class="where"
+            >Server · gagal = berhenti; kunci milik deploy lain tidak disentuh</span
+          >
+        </li>
+        <li>
+          <b>Unggah dan buka.</b> <code>scp</code> ke <code>releases/.incoming/</code>, <code>tar</code> ke
+          <code>releases/.tmp-&lt;nama&gt;</code>, lalu diberi nama akhir <code>releases/&lt;nama&gt;</code>.<span
+            class="where"
+            >Server · gagal = rilis setengah jadi dihapus, kunci dilepas</span
+          >
+        </li>
+        <li>
+          <b>Siapkan rilis.</b> <code>release.mjs doctor</code> (Node, disk, tar, npm), <code>npm ci --omit=dev</code>,
+          <code>env-check</code> terhadap file env.<span class="where"
+            >Server · gagal = rilis dihapus, <code>current</code> tidak berubah</span
+          >
+        </li>
+        <li>
+          <b>Migrasi database.</b> <code>dash-migrate.mjs</code> membuat tabel <code>dash_*</code> baru bila ada.<span
+            class="where"
+            >Server → database · gagal = rilis dihapus, <code>current</code> tidak berubah</span
+          >
+        </li>
+        <li>
+          <b>Ganti rilis.</b> <code>release.mjs activate</code>: <code>current</code> menunjuk rilis baru, rilis lama
+          menjadi <code>previous</code>. Pemindahan satu langkah (rename), tidak pernah setengah jadi.<span
+            class="where"
+            >Server</span
+          >
+        </li>
+        <li>
+          <b>Restart dan tunggu sehat.</b> <code>sudo -n systemctl restart</code>, lalu
+          <code>health-check.mjs</code> menanyakan <code>/health</code> sampai menjawab <code>ok</code>, dengan versi
+          yang baru, terus-menerus 10 detik (paling lama 120 detik).<span class="where">Server</span>
+        </li>
+        <li>
+          <b>Selesai atau kembali.</b> Sehat: rilis lama dibersihkan (sisa 5 terbaru plus <code>current</code> dan
+          <code>previous</code>), kunci dilepas. Tidak sehat: <code>rollback</code> ke <code>previous</code>, restart,
+          cek lagi.<span class="where">Server</span>
+        </li>
+      </ol>
+
+      <h2 id="hasil">4. Hasil akhir dan kalau ada yang gagal</h2>
+      <div class="tbl">
+        <table>
+          <thead>
+            <tr>
+              <th>Tulisan terakhir</th>
+              <th>Artinya</th>
+              <th>Yang Anda lakukan</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>DEPLOYED …</code></td>
+              <td>Rilis baru sehat dan berjalan. Kode keluar 0.</td>
+              <td>Tidak ada.</td>
+            </tr>
+            <tr>
+              <td><code>ROLLED BACK: …</code></td>
+              <td>
+                Rilis baru tidak sehat; rilis lama sudah berjalan lagi dan sehat. Deploy dianggap <b>gagal</b> (kode
+                keluar 1).
+              </td>
+              <td>
+                Cari sebabnya di log service (<code>journalctl</code>) atau <code>logs-find.mjs</code>, perbaiki, deploy
+                lagi.
+              </td>
+            </tr>
+            <tr>
+              <td><code>ACTION NEEDED: …</code></td>
+              <td>
+                Rilis baru tidak sehat <b>dan</b> rilis lama juga tidak menjawab, atau pintasan tidak bisa dikembalikan.
+              </td>
+              <td>
+                Sekarang juga: <code>journalctl</code> di server, dan
+                <code>release.mjs list --root &lt;folder&gt;</code>.
+              </td>
+            </tr>
+            <tr>
+              <td><code>FAILED: …</code></td>
+              <td>
+                Berhenti sebelum ada perubahan di server (aturan, build, server tidak siap, kunci ada), atau rilis baru
+                tidak sehat dan tidak ada rilis sebelumnya.
+              </td>
+              <td>Baca pesannya; kebanyakan menyebut perbaikannya sendiri.</td>
+            </tr>
+            <tr>
+              <td><code>PREPARED …</code></td>
+              <td>Hanya untuk <code>--prepare-only</code>: rilis terpasang tetapi belum diaktifkan.</td>
+              <td>Buat file env di server dengan perintah <code>init-env</code> yang dicetak.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note warn">
+        <b>Kunci tertinggal.</b> Bila deploy terputus di tengah (komputer mati), folder
+        <code>&lt;folder deploy&gt;/.deploy.lock</code> bisa tertinggal dan deploy berikutnya menolak. Pesannya memuat
+        perintah untuk menghapusnya; pastikan dulu tidak ada deploy yang sedang jalan.
+      </div>
+
+      <h2 id="pengaturan">5. Dari mana pengaturan (env) datang</h2>
+      <figure>
+        <div class="scroll">
+          <svg
+            viewBox="0 0 960 250"
+            role="img"
+            aria-label="Alur pengaturan: di laptop scripts/local.mjs membaca env/development.env dan mengisi proses; di server systemd membaca finance-dashboard.env dan env-check memeriksanya sebelum aplikasi menyala. Aplikasi hanya membaca process.env."
+          >
+            <defs>
+              <marker
+                id="ea"
+                viewBox="0 0 10 10"
+                refX="9"
+                refY="5"
+                markerWidth="8"
+                markerHeight="8"
+                orient="auto-start-reverse"
+              >
+                <path d="M0 1 L9 5 L0 9 z" fill="currentColor" />
+              </marker>
+            </defs>
+            <text class="tb" x="20" y="22">Laptop (development)</text>
+            <rect class="cmp" x="20" y="34" width="190" height="52" rx="4" />
+            <text class="tmono" x="30" y="55">env/development.env</text>
+            <text class="tm" x="30" y="72">diabaikan git</text>
+            <rect class="hot" x="260" y="34" width="210" height="52" rx="4" />
+            <text class="tmono" x="270" y="55">scripts/local.mjs</text>
+            <text class="tm" x="270" y="72">cek isi, isi proses, APP_ENV=dev</text>
+            <line class="arr" x1="210" y1="60" x2="260" y2="60" marker-end="url(#ea)" />
+            <text class="tb" x="20" y="132">Server (staging / production)</text>
+            <rect class="cmp" x="20" y="144" width="190" height="62" rx="4" />
+            <text class="tmono" x="30" y="165">finance-dashboard.env</text>
+            <text class="tm" x="30" y="182">di luar releases/, mode 600</text>
+            <text class="tm" x="30" y="196">dibuat oleh init-env.mjs</text>
+            <rect class="hot" x="260" y="144" width="210" height="62" rx="4" />
+            <text class="tmono" x="270" y="165">systemd</text>
+            <text class="tm" x="270" y="182">EnvironmentFile= mengisi proses</text>
+            <text class="tm" x="270" y="196">ExecStartPre: env-check.mjs</text>
+            <line class="arr" x1="210" y1="175" x2="260" y2="175" marker-end="url(#ea)" />
+            <rect class="dev" x="560" y="60" width="380" height="150" rx="6" />
+            <text class="tb" x="574" y="82">process.env (proses Node)</text>
+            <text class="tmono" x="574" y="104">scripts/start-server.mjs</text>
+            <text class="tm" x="574" y="120">APP_ENV wajib; CLIENT_ID harus cocok dengan build;</text>
+            <text class="tm" x="574" y="134">mengisi APP_VERSION dari dist/build-info.json</text>
+            <text class="tmono" x="574" y="158">src/server/env.ts</text>
+            <text class="tm" x="574" y="174">validasi dan aturan lingkungan (app-env.ts):</text>
+            <text class="tm" x="574" y="188">dev = DB lokal; production tanpa APP_TODAY dan log debug</text>
+            <text class="tm" x="574" y="202">Kode aplikasi hanya membaca, tidak pernah membuka file</text>
+            <line class="arr" x1="470" y1="60" x2="560" y2="100" marker-end="url(#ea)" />
+            <line class="arr" x1="470" y1="175" x2="560" y2="160" marker-end="url(#ea)" />
+            <text class="tm" x="20" y="240">
+              Skrip server yang butuh kode aplikasi (migrate, refresh, logs-find) memakai node --env-file=&lt;path
+              mutlak file env&gt;.
+            </text>
+          </svg>
+        </div>
+        <figcaption>
+          Satu aturan dipakai di dua tempat: aplikasi menolak start dengan pengaturan yang salah, dan
+          <code>env-check</code> menolaknya lebih awal, sebelum aplikasi dinyalakan.
+        </figcaption>
+      </figure>
+
+      <h2 id="server">6. Folder di server</h2>
+      <pre><code>/home/oxy/web-server/oxy-&lt;klien&gt;-&lt;env&gt;-finance-dashboard-&lt;port&gt;/
+  current   -&gt; releases/&lt;nama&gt;     rilis yang dijalankan systemd
+  previous  -&gt; releases/&lt;nama&gt;     rilis sebelumnya (untuk kembali)
+  releases/
+    20261111223015-v1.2.0/       satu rilis: dist/, dist/ops/, drizzle-dash/,
+                                 scripts/lib, scripts/ops, scripts/start-server.mjs,
+                                 package.json, node_modules/ (dipasang di server)
+    .incoming/                   paket yang baru diunggah (sementara)
+    .tmp-&lt;nama&gt;/                 rilis yang sedang dibuka (sementara)
+  finance-dashboard.env          pengaturan deployment (mode 600, di luar rilis)
+  logs/                          LOG_DIR (path mutlak, bertahan antar rilis)
+  .deploy.lock/                  ada hanya selama sebuah deploy berjalan</code></pre>
+      <p>
+        Nama folder membawa tiga fakta: klien, lingkungan, dan port. Skrip deploy membacanya dari <code>root</code> di
+        file target, dan <code>env-check</code> memastikan isi file env sama dengan nama folder. Rilis dari komputer
+        pembangun tidak membawa <code>node_modules</code>; server memasangnya sendiri (butuh akses ke registry npm).
+      </p>
+
+      <h2 id="file">7. Peta file: apa fungsi tiap file</h2>
+      <p>
+        Label di kolom kanan: <span class="pill p-lap">laptop</span> hanya di komputer pembangun,
+        <span class="pill p-srv">server</span> ikut dikirim ke server, <span class="pill p-app">aplikasi</span> bagian
+        aplikasi itu sendiri, <span class="pill p-both">keduanya</span> dipakai di dua tempat.
+      </p>
+
+      <h3>A. Lingkungan dan pengaturan (plan env-separation)</h3>
+      <div class="tbl">
+        <table>
+          <thead>
+            <tr>
+              <th>Berkas</th>
+              <th>Fungsi</th>
+              <th>Jalan di</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>src/lib/core/app-env.ts</code></td>
+              <td>
+                Tiga lingkungan dan aturannya: development hanya database lokal; production menolak
+                <code>APP_TODAY</code> dan log debug/trace.
+              </td>
+              <td><span class="pill p-app">aplikasi</span></td>
+            </tr>
+            <tr>
+              <td><code>src/server/env.ts</code></td>
+              <td>
+                Memvalidasi variabel proses. <code>APP_ENV</code> wajib, tanpa nilai bawaan. Tidak lagi membuka file
+                env.
+              </td>
+              <td><span class="pill p-app">aplikasi</span></td>
+            </tr>
+            <tr>
+              <td><code>scripts/local.mjs</code></td>
+              <td>
+                Peluncur laptop: membaca <code>env/development.env</code>, memeriksanya, mengisi proses, lalu
+                menjalankan <code>vite</code>, <code>vitest</code>, <code>tsx</code>, dst.
+              </td>
+              <td><span class="pill p-lap">laptop</span></td>
+            </tr>
+            <tr>
+              <td>
+                <code>scripts/lib/app-env.mjs</code>, <code>env-file.mjs</code>, <code>env-keys.mjs</code>,
+                <code>env-rules.mjs</code>, <code>env-template.mjs</code>, <code>bin-path.mjs</code>,
+                <code>build-prefix.mjs</code>
+              </td>
+              <td>
+                Modul Node biasa: daftar lingkungan, pembaca baris <code>KUNCI=nilai</code>, daftar kunci yang dikenal,
+                aturan pemeriksaan file env, templat file env baru, mencari program di <code>node_modules</code>, awalan
+                alamat dari <code>CLIENT_ID</code>. Tesnya <code>*.test.mjs</code> di sebelahnya.
+              </td>
+              <td><span class="pill p-both">keduanya</span></td>
+            </tr>
+            <tr>
+              <td><code>scripts/ops/env-check.mjs</code></td>
+              <td>
+                Memeriksa file env tanpa mencetak nilai: kunci tak dikenal, kunci wajib, aturan production, kecocokan
+                dengan nama folder.
+              </td>
+              <td><span class="pill p-srv">server</span></td>
+            </tr>
+            <tr>
+              <td><code>scripts/ops/init-env.mjs</code></td>
+              <td>
+                Membuat file env baru (<code>SESSION_SECRET</code> acak, mode 600, <code>DATABASE_URL</code> kosong)
+                atau mengganti secret.
+              </td>
+              <td><span class="pill p-srv">server</span></td>
+            </tr>
+            <tr>
+              <td><code>scripts/start-server.mjs</code></td>
+              <td>
+                Server produksi. Menolak start tanpa <code>APP_ENV</code> atau bila <code>CLIENT_ID</code> tidak cocok
+                dengan build; mengisi <code>APP_VERSION</code>.
+              </td>
+              <td><span class="pill p-srv">server</span></td>
+            </tr>
+            <tr>
+              <td><code>vite.config.ts</code></td>
+              <td>
+                Menulis <code>dist/build-info.json</code> (versi dari <code>git describe</code>, waktu build, client)
+                dan <code>dist/base-path.json</code>.
+              </td>
+              <td><span class="pill p-lap">laptop</span></td>
+            </tr>
+            <tr>
+              <td><code>.env.example</code></td>
+              <td>Templat untuk <code>env/development.env</code>. Satu-satunya file env yang ikut git.</td>
+              <td><span class="pill p-lap">laptop</span></td>
+            </tr>
+            <tr>
+              <td><code>env/development.env</code></td>
+              <td>Pengaturan Anda di laptop. Diabaikan git.</td>
+              <td><span class="pill p-lap">laptop</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>B. Deploy dari komputer pembangun (plan deploy-rollout)</h3>
+      <div class="tbl">
+        <table>
+          <thead>
+            <tr>
+              <th>Berkas</th>
+              <th>Fungsi</th>
+              <th>Jalan di</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>scripts/deploy/deploy.mjs</code></td>
+              <td>
+                Perintah <code>npm run deploy</code>. Hanya menyambungkan kenyataan (git, build, ssh, terminal) ke alur;
+                tidak mengambil keputusan.
+              </td>
+              <td><span class="pill p-lap">laptop</span></td>
+            </tr>
+            <tr>
+              <td><code>scripts/deploy/deploy-flow.mjs</code></td>
+              <td>
+                <b>Otaknya.</b> Urutan langkah dan semua keputusan: kapan berhenti, kapan rollback.
+                <code>runDeploy</code>, <code>runRollback</code>, <code>runStatus</code>.
+              </td>
+              <td><span class="pill p-lap">laptop</span></td>
+            </tr>
+            <tr>
+              <td><code>scripts/deploy/deploy-rules.mjs</code></td>
+              <td>
+                Jendela deploy 22:00 sampai 05:00 menurut jam klien, dan aturan versi (production hanya dari tag, commit
+                bersih).
+              </td>
+              <td><span class="pill p-lap">laptop</span></td>
+            </tr>
+            <tr>
+              <td><code>scripts/deploy/targets.mjs</code>, <code>targets.example.json</code></td>
+              <td>
+                Membaca dan memeriksa daftar target (<code>ssh</code>, <code>root</code>, <code>timezone</code>). Klien,
+                lingkungan, port, dan unit systemd dibaca dari nama folder.
+              </td>
+              <td><span class="pill p-lap">laptop</span></td>
+            </tr>
+            <tr>
+              <td><code>scripts/deploy/bundle-imports.mjs</code></td>
+              <td>
+                Memastikan setiap paket yang di-<code>import</code> hasil build ada di
+                <code>package-lock.json</code> sebagai paket produksi, supaya <code>npm ci --omit=dev</code> di server
+                memasangnya.
+              </td>
+              <td><span class="pill p-lap">laptop</span></td>
+            </tr>
+            <tr>
+              <td><code>scripts/deploy/package-release.mjs</code></td>
+              <td>Menyalin isi rilis (tanpa file tes) dan membuat <code>.tgz</code> dengan <code>tar</code>.</td>
+              <td><span class="pill p-lap">laptop</span></td>
+            </tr>
+            <tr>
+              <td><code>scripts/deploy/transport.mjs</code></td>
+              <td>
+                Menjalankan perintah lewat <code>ssh</code> dan mengirim berkas lewat <code>scp</code>. Setiap bagian
+                perintah dikutip, folder dan path diperiksa karakternya, <code>BatchMode</code> supaya tidak pernah
+                menunggu kata sandi.
+              </td>
+              <td><span class="pill p-lap">laptop</span></td>
+            </tr>
+            <tr>
+              <td><code>env/deploy-targets.json</code></td>
+              <td>Daftar target asli Anda (nama klien dan server). Diabaikan git.</td>
+              <td><span class="pill p-lap">laptop</span></td>
+            </tr>
+            <tr>
+              <td><code>vite.ops.config.ts</code></td>
+              <td>
+                Membundel <code>scripts/dash-*.ts</code> dan <code>logs-find.ts</code> menjadi
+                <code>dist/ops/*.mjs</code> (<code>npm run build:ops</code>), jalan dengan Node biasa.
+              </td>
+              <td><span class="pill p-lap">laptop</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>C. Alat di server dan alamat kesehatan</h3>
+      <div class="tbl">
+        <table>
+          <thead>
+            <tr>
+              <th>Berkas</th>
+              <th>Fungsi</th>
+              <th>Jalan di</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>scripts/ops/release.mjs</code></td>
+              <td>
+                Mengelola folder rilis: <code>activate</code>, <code>rollback</code>, <code>cleanup</code>,
+                <code>list</code>, <code>doctor</code>. Bekerja pada satu folder di disk, tidak tahu soal SSH.
+              </td>
+              <td><span class="pill p-srv">server</span></td>
+            </tr>
+            <tr>
+              <td><code>scripts/lib/release-layout.mjs</code></td>
+              <td>Aturan nama rilis, nama folder deploy, path aman, alamat <code>/health</code>.</td>
+              <td><span class="pill p-both">keduanya</span></td>
+            </tr>
+            <tr>
+              <td><code>scripts/lib/release-store.mjs</code></td>
+              <td>
+                Pekerjaan pada disk: daftar rilis, memindahkan <code>current</code>/<code>previous</code> secara atomik,
+                membersihkan rilis lama.
+              </td>
+              <td><span class="pill p-srv">server</span></td>
+            </tr>
+            <tr>
+              <td><code>scripts/ops/health-check.mjs</code>, <code>scripts/lib/health-wait.mjs</code></td>
+              <td>
+                Menanyakan <code>/health</code> berulang sampai sehat dengan versi yang diharapkan, terus-menerus 10
+                detik, paling lama 120 detik.
+              </td>
+              <td><span class="pill p-srv">server</span></td>
+            </tr>
+            <tr>
+              <td><code>src/server/health-core.ts</code>, <code>health.ts</code></td>
+              <td>
+                Jawaban <code>GET &lt;awalan&gt;/health</code>: <code>{status, version, db}</code>, kode 200 atau 503,
+                hasil dipakai 5 detik, tidak dicatat di log akses.
+              </td>
+              <td><span class="pill p-app">aplikasi</span></td>
+            </tr>
+            <tr>
+              <td><code>src/server-entry.ts</code></td>
+              <td>Memanggil penjawab <code>/health</code> sebelum pencatatan permintaan.</td>
+              <td><span class="pill p-app">aplikasi</span></td>
+            </tr>
+            <tr>
+              <td><code>dist/ops/dash-migrate.mjs</code> dst. (hasil build)</td>
+              <td>
+                Migrasi, refresh snapshot, dan pencari log yang jalan di server dengan
+                <code>node --env-file=&lt;file env&gt;</code>.
+              </td>
+              <td><span class="pill p-srv">server</span></td>
+            </tr>
+            <tr>
+              <td><code>src/server/dash/migrate.ts</code></td>
+              <td>
+                Perbaikan: database yang tidak terjangkau sekarang menjadi error, bukan dianggap "belum ada migrasi".
+              </td>
+              <td><span class="pill p-app">aplikasi</span></td>
+            </tr>
+            <tr>
+              <td><code>scripts/smoke-build.mjs</code></td>
+              <td>
+                Menjalankan hasil build dengan database palsu dan memeriksa alamat, versi, <code>/health</code>. Tanpa
+                database.
+              </td>
+              <td><span class="pill p-lap">laptop</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="perintah">8. Perintah yang akan Anda pakai</h2>
+      <div class="tbl">
+        <table>
+          <thead>
+            <tr>
+              <th>Perintah</th>
+              <th>Fungsi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>npm run deploy -- &lt;target&gt; --dry-run</code></td>
+              <td>Menerapkan aturan dan mencetak setiap langkah tanpa membangun, mengirim, atau mengubah apa pun.</td>
+            </tr>
+            <tr>
+              <td><code>npm run deploy -- &lt;target&gt; --prepare-only</code></td>
+              <td>
+                Deploy pertama sebuah deployment: memasang rilis tanpa mengaktifkan, supaya
+                <code>init-env.mjs</code> ada di server.
+              </td>
+            </tr>
+            <tr>
+              <td><code>npm run deploy -- &lt;target&gt;</code></td>
+              <td>Deploy penuh.</td>
+            </tr>
+            <tr>
+              <td><code>npm run deploy -- &lt;target&gt; --status</code></td>
+              <td>
+                Daftar rilis (mana <code>current</code>, mana <code>previous</code>) dan satu pertanyaan ke
+                <code>/health</code>.
+              </td>
+            </tr>
+            <tr>
+              <td><code>npm run deploy -- &lt;target&gt; --rollback</code></td>
+              <td>Kembali ke rilis sebelumnya dengan tangan. Dua kali berarti maju lagi.</td>
+            </tr>
+            <tr>
+              <td><code>npm run deploy -- --list-targets [--env staging]</code></td>
+              <td>Mendaftar target dari <code>env/deploy-targets.json</code>.</td>
+            </tr>
+            <tr>
+              <td><code>npm run build:client -- &lt;id&gt;</code> lalu <code>npm run build:ops</code></td>
+              <td>Membangun sendiri (urutan penting: yang pertama mengosongkan <code>dist/</code>).</td>
+            </tr>
+            <tr>
+              <td><code>npm run smoke:build</code></td>
+              <td>Memeriksa hasil build tanpa database.</td>
+            </tr>
+            <tr>
+              <td><code>npm run env:check -- &lt;file&gt;</code></td>
+              <td>Memeriksa file env.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Opsi lain: <code>--force-window</code> (darurat, production di luar jendela), <code>--skip-build</code>,
+        <code>--allow-dirty</code> (hanya staging), <code>--keep &lt;n&gt;</code>, <code>--yes</code>.
+      </p>
+
+      <h2 id="aturan">9. Aturan production</h2>
+      <ul>
+        <li>
+          <b>Tag.</b> Hanya dari tag <code>vMAJOR.MINOR.PATCH</code> yang menunjuk persis ke commit yang dibangun:
+          <code>git tag v1.2.3</code> lalu <code>git push origin v1.2.3</code>. Staging boleh dari commit mana saja.
+        </li>
+        <li>
+          <b>Jendela.</b> 22:00 sampai 05:00 menurut jam setempat klien (zona waktu di file target). Pukul 22:00 boleh,
+          pukul 05:00 tidak.
+        </li>
+        <li><b>Konfirmasi.</b> Anda mengetik nama target (misalnya <code>acme-production</code>).</li>
+        <li>
+          <b>Migrasi tambah-saja.</b> Hanya tabel baru atau kolom baru yang boleh kosong. Jangan menghapus, mengganti
+          nama, atau mengubah tipe kolom yang masih dibaca rilis sebelumnya.
+        </li>
+        <li>
+          <b>Satu klien pada satu waktu.</b> Mulai dari satu klien percobaan, pantau sampai hari kerja berikutnya, baru
+          lanjut. Bila bermasalah: <code>--rollback</code> klien itu dan hentikan.
+        </li>
+      </ul>
+      <div class="note warn">
+        <b>Belum teruji di server nyata:</b> <code>ssh</code>/<code>scp</code> sungguhan, <code>sudo systemctl</code>,
+        nginx, <code>npm ci</code> di server, dan migrasi sungguhan. Alur dan alat server sudah dites dengan tiruan dan
+        dengan alat asli di folder sementara. Kerjakan staging lebih dulu. Persiapan server baru (sudoers, unit systemd,
+        nginx) ada di <code>docs/project-guide.md</code> bab 10.9.3.
+      </div>
+
+      <h2 id="istilah">10. Istilah</h2>
+      <div class="tbl">
+        <table>
+          <thead>
+            <tr>
+              <th>Istilah</th>
+              <th>Arti</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Target</td>
+              <td>
+                Satu deployment: satu klien, satu lingkungan, satu server. Namanya
+                <code>&lt;klien&gt;-&lt;env&gt;</code>.
+              </td>
+            </tr>
+            <tr>
+              <td>Rilis</td>
+              <td>Satu folder di <code>releases/</code> bernama <code>&lt;waktu UTC&gt;-&lt;versi&gt;</code>.</td>
+            </tr>
+            <tr>
+              <td><code>current</code> / <code>previous</code></td>
+              <td>Pintasan (symlink) ke rilis yang berjalan dan rilis sebelumnya.</td>
+            </tr>
+            <tr>
+              <td>Rollback</td>
+              <td>Memindahkan <code>current</code> kembali ke <code>previous</code>, lalu restart.</td>
+            </tr>
+            <tr>
+              <td>Health check</td>
+              <td>Alamat <code>&lt;awalan&gt;/health</code> yang menjawab status, versi, dan kondisi database.</td>
+            </tr>
+            <tr>
+              <td>Kunci deploy</td>
+              <td>Folder <code>.deploy.lock</code> di server; mencegah dua deploy bertabrakan.</td>
+            </tr>
+            <tr>
+              <td><code>CLIENT_ID</code></td>
+              <td>
+                Nama deployment yang ditanam saat build (awalan alamat) dan dipakai server. Staging:
+                <code>&lt;klien&gt;-staging</code>.
+              </td>
+            </tr>
+            <tr>
+              <td><code>APP_ENV</code></td>
+              <td>
+                <code>development</code>, <code>staging</code>, atau <code>production</code>. Wajib, tanpa nilai bawaan.
+              </td>
+            </tr>
+            <tr>
+              <td>systemd</td>
+              <td>
+                Pengatur layanan Linux: menyalakan aplikasi, menyalakannya lagi bila mati, dan memberinya isi file env.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="lead" style="margin-top: 32px">
+        Rujukan lengkap dan terus diperbarui: <code>docs/project-guide.md</code> bab 10.8 (lingkungan) dan 10.9 (rilis
+        dan deploy), keputusan D66 dan D67 di <code>docs/decisions.md</code>.
+      </p>
+    </div>
+  </body>
+</html>

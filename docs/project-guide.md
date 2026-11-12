@@ -3402,6 +3402,8 @@ node scripts/ops/init-env.mjs rotate-secret --file /home/oxy/web-server/oxy-acme
 
 Bab ini menjelaskan cara satu versi aplikasi sampai ke server klien. Satu perintah dari komputer pembangun, `npm run deploy -- <target>`, membangun aplikasi untuk klien itu, mengirimnya, memasangnya di server, menjalankan migrasi database, mengganti rilis yang aktif, dan memastikan aplikasi sehat. Bila rilis baru tidak sehat, rilis sebelumnya dikembalikan otomatis (keputusan D67). Lingkungan dan file env: bab 10.8. Kodenya ada di `scripts/deploy/` (komputer pembangun) dan `scripts/ops/` (server).
 
+Untuk gambaran visual (diagram deployment UML, diagram urutan, dan peta fungsi setiap file) buka `docs/deploy-guide.html` di browser; isinya ringkasan dari bab ini dan bab 10.8, dan bila berbeda, bab ini yang menang.
+
 ✅ berarti sudah dites dengan tiruan di komputer pembangun; ⚠️ berarti belum pernah dijalankan di server Oxy. **Seluruh bab ini belum pernah dijalankan terhadap server nyata**; kerjakan di staging lebih dulu dan laporkan bila ada yang berbeda.
 
 #### 10.9.1 Alur satu deploy ✅
