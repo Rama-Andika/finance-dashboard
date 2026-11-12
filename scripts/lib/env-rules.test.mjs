@@ -132,6 +132,15 @@ describe('checkEnvText', () => {
     expect(problems.join('\n')).not.toContain('topsecret')
   })
 
+  it('notes, but does not refuse, AUTO_MIGRATE=1 in staging and production', () => {
+    const result = checkEnvText(stagingFile({ AUTO_MIGRATE: '1' }))
+    expect(result.problems).toEqual([])
+    expect(result.notes).toEqual([
+      'AUTO_MIGRATE=1: the deploy script applies the migrations before the switch, so 0 is advised',
+    ])
+    expect(checkEnvText(stagingFile({ AUTO_MIGRATE: '0' })).notes).toEqual([])
+  })
+
   it('has a folder pattern that reads client, environment and port', () => {
     expect(DEPLOY_FOLDER_PATTERN.exec('oxy-acme-corp-production-finance-dashboard-5105')?.slice(1)).toEqual([
       'acme-corp',

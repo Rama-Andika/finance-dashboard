@@ -22,6 +22,11 @@ function readJournal(): JournalEntry[] {
   return (JSON.parse(fs.readFileSync(file, 'utf8')) as { entries: JournalEntry[] }).entries
 }
 
+/** MySQL error 1146: the table does not exist. */
+function isMissingTable(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ER_NO_SUCH_TABLE'
+}
+
 export type MigrationStatus = { total: number; applied: number; pending: string[] }
 
 /** Which migration files have not been applied to this database yet (read only). */
@@ -31,8 +36,10 @@ export async function dashMigrationStatus(): Promise<MigrationStatus> {
   try {
     const [rows] = await pool.query(`SELECT created_at FROM \`${MIGRATIONS_TABLE}\``)
     appliedWhen = new Set((rows as Array<{ created_at: string | number }>).map((r) => String(r.created_at)))
-  } catch {
-    // the tracking table does not exist yet: nothing is applied
+  } catch (error) {
+    // Only "the tracking table does not exist yet" means that nothing is applied. Any other error (the database cannot be
+    // reached, a refused login) must not be mistaken for it: a deploy decides on this answer.
+    if (!isMissingTable(error)) throw error
   }
   const pending = entries.filter((e) => !appliedWhen.has(String(e.when))).map((e) => e.tag)
   return { total: entries.length, applied: entries.length - pending.length, pending }

@@ -9,6 +9,8 @@
     "dev": "node scripts/local.mjs vite dev",
     "build": "vite build",
     "build:client": "node scripts/build-client.mjs",
+    "build:ops": "vite build --config vite.ops.config.ts",
+    "deploy": "node scripts/deploy/deploy.mjs",
     "smoke:build": "node scripts/smoke-build.mjs",
     "start": "node scripts/start-server.mjs",
     "start:local": "node scripts/local.mjs node scripts/start-server.mjs",

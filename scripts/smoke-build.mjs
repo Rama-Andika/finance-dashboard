@@ -176,6 +176,24 @@ try {
       'missing, unreadable or empty',
     )
 
+    // The health address needs no sign-in. This test server cannot reach a database, so it must answer 503 and say so,
+    // together with the version of the build.
+    const health = await get(`${prefix}/health`)
+    const healthBody = await health.json().catch(() => null)
+    check(
+      'the health address answers 503 with the build version when the database cannot be reached',
+      health.status === 503 &&
+        healthBody?.status === 'fail' &&
+        healthBody?.db === 'fail' &&
+        healthBody?.version === buildInfo?.version,
+      `status ${health.status}, body ${JSON.stringify(healthBody)}`,
+    )
+    check(
+      'the health answer is never cached',
+      health.headers.get('cache-control') === 'no-store',
+      health.headers.get('cache-control') ?? 'no header',
+    )
+
     // The checks at start: a wrong CLIENT_ID or a missing APP_ENV must stop the server before it serves anything.
     const wrongClient = startWith({ CLIENT_ID: 'another-client' })
     check(

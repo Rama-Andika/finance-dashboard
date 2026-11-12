@@ -1,4 +1,5 @@
 import handler, { createServerEntry } from '@tanstack/react-start/server-entry'
+import { handleHealthRequest } from '~/server/health'
 import { createLogger } from '~/server/log'
 import { startFileLogging } from '~/server/logging/file-destination'
 import { installProcessHandlers } from '~/server/logging/process-handlers'
@@ -18,6 +19,9 @@ void import('~/server/dash/scheduler')
 export default createServerEntry({
   // Every request gets an id that all its log lines carry, an X-Request-Id header, and one access line.
   fetch(request, opts) {
+    // The health address answers first and is not logged: the deploy script asks for it every few seconds.
+    const health = handleHealthRequest(request)
+    if (health) return health
     return handleRequestWithLog(request, () => handler.fetch(request, opts))
   },
 })
