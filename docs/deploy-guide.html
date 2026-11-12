@@ -91,7 +91,7 @@
   <h1>Panduan alur deploy (semi manual)</h1>
   <p class="lead">Dari satu perintah di komputer pembangun sampai versi baru berjalan di server klien, termasuk apa yang terjadi bila gagal, dan fungsi setiap file untuk lingkungan, pembuatan paket, dan pemasangan.</p>
   <nav aria-label="Daftar bagian">
-    <a href="#ringkas">Ringkasan</a><a href="#diagram">Diagram deployment</a><a href="#urutan">Urutan satu rilis</a><a href="#hasil">Hasil dan gagal</a><a href="#pengaturan">Alur pengaturan</a><a href="#server">Folder di server</a><a href="#file">Peta file</a><a href="#perintah">Perintah</a><a href="#aturan">Aturan</a><a href="#istilah">Istilah</a>
+    <a href="#ringkas">Ringkasan</a><a href="#diagram">Diagram deployment</a><a href="#urutan">Urutan satu rilis</a><a href="#hasil">Hasil dan gagal</a><a href="#pertama">Pemasangan pertama</a><a href="#pengaturan">Alur pengaturan</a><a href="#server">Folder di server</a><a href="#file">Peta file</a><a href="#perintah">Perintah</a><a href="#aturan">Aturan</a><a href="#istilah">Istilah</a>
   </nav>
 
   <h2 id="ringkas">1. Ringkasan dalam satu paragraf</h2>
@@ -266,7 +266,7 @@
       <text class="t lbl" x="215" y="670" text-anchor="middle">ROLLED BACK (kode keluar 1)</text>
     </svg>
     </div>
-    <figcaption>Migrasi (6) berjalan sebelum pemindahan <code>current</code> (7). Karena itu migrasi harus tambah-saja: untuk beberapa detik, dan setelah rollback seterusnya, rilis lama berjalan terhadap skema baru. Langkah 2 sampai 4 adalah satu-satunya bagian manual.</figcaption>
+    <figcaption>Migrasi (6) berjalan sebelum pemindahan <code>current</code> (7). Karena itu migrasi harus tambah-saja: untuk beberapa detik, dan setelah rollback seterusnya, rilis lama berjalan terhadap skema baru. Langkah 2 dan 3 adalah satu-satunya bagian manual. Pada pemasangan pertama sebuah deployment ada beberapa langkah manual tambahan, termasuk membuat file env (bagian 5).</figcaption>
   </figure>
 
   <h3>Langkah demi langkah, dengan kata sederhana</h3>
@@ -281,6 +281,7 @@
     <li><b>Pemasang: restart dan tunggu sehat.</b> <code>sudo -n systemctl restart</code>, lalu <code>health-check.mjs</code> menanyakan <code>/health</code> sampai menjawab <code>ok</code>, dengan versi yang baru, terus-menerus 10 detik (paling lama 120 detik).<span class="where">Server</span></li>
     <li><b>Selesai atau kembali.</b> Sehat: rilis lama dibersihkan (sisa 5 terbaru plus <code>current</code> dan <code>previous</code>), kunci dilepas. Tidak sehat: <code>rollback</code> ke <code>previous</code>, restart, cek lagi.<span class="where">Server</span></li>
   </ol>
+  <div class="note"><b>Pemasangan pertama sebuah deployment berbeda.</b> Alur di atas mengira folder deploy, unit systemd, dan <b>file env</b> sudah ada. Pemasang berhenti dengan pesan yang jelas bila file env belum ada. Cara menyiapkannya, sekali per klien dan lingkungan, ada di bagian 5.</div>
 
   <h2 id="hasil">4. Hasil akhir dan kalau ada yang gagal</h2>
   <div class="tbl"><table>
@@ -294,7 +295,23 @@
     </tbody></table></div>
   <div class="note warn"><b>Kunci tertinggal.</b> Bila pemasangan terputus di tengah (koneksi SSH putus), folder <code>&lt;folder deploy&gt;/.deploy.lock</code> bisa tertinggal dan pemasangan berikutnya menolak. Pesannya memuat perintah untuk menghapusnya; pastikan dulu tidak ada pemasangan yang sedang berjalan.</div>
 
-  <h2 id="pengaturan">5. Dari mana pengaturan (env) datang</h2>
+  <h2 id="pertama">5. Pemasangan pertama sebuah deployment (sekali saja)</h2>
+  <p>Satu <b>deployment</b> adalah satu pasangan klien dan lingkungan, misalnya <code>acme</code> + <code>staging</code>. <code>acme</code> + <code>production</code> adalah deployment lain dan punya file env sendiri. Langkah di bawah dikerjakan <b>sekali</b> per deployment; setelah itu setiap rilis cukup mengikuti bagian 3.</p>
+  <p><b>Kapan file env dibuat?</b> Di langkah 5 dan 6 di bawah: <b>setelah</b> <code>--prepare-only</code> (yang mencetak perintahnya) dan <b>sebelum</b> pemasangan sungguhan. File env hanya ada di server, di folder deploy; ia tidak ikut paket dan tidak ikut git. Di laptop, file env development (<code>env/development.env</code>) terpisah dan tidak pernah diunggah.</p>
+  <ol class="steps">
+    <li><b>Siapkan server.</b> User <code>oxy</code>, Node 22.12 atau lebih baru, <code>tar</code>, dan <code>npm</code> yang bisa menjangkau registry npm.<span class="where">Server · sekali</span></li>
+    <li><b>Buat folder deploy.</b> Namanya <code>oxy-&lt;klien&gt;-&lt;env&gt;-finance-dashboard-&lt;port&gt;</code>, dengan folder <code>logs/</code> di dalamnya, dimiliki user <code>oxy</code>. Folder induknya bebas; folder <code>releases/</code> dibuat otomatis.<span class="where">Anda, di server</span></li>
+    <li><b>Pasang unit systemd dan izin restart.</b> Unit dipasang sekali, dan user <code>oxy</code> diizinkan me-restart <b>hanya</b> service itu tanpa kata sandi (<code>sudoers</code>). Tanpa izin ini pemasang berhenti di langkah restart dengan pesan yang jelas. Langkah lengkapnya: <code>docs/project-guide.md</code> bab 10.8.4 dan 10.9.3.<span class="where">Anda, di server · sekali</span></li>
+    <li><b>Buat paket dan unggah dua berkas.</b> <code>npm run release:pack -- &lt;klien&gt; &lt;env&gt;</code> di laptop. Unggah paketnya (<code>.tgz</code>, ke folder mana saja di luar <code>releases/</code>) dan <code>open-package.mjs</code> (ke folder deploy).<span class="where">Komputer pembangun, lalu Anda</span></li>
+    <li><b>Pasang tanpa mengaktifkan.</b> <code>node &lt;folder deploy&gt;/open-package.mjs &lt;berkas&gt;.tgz --prepare-only</code>. Paket dibuka dan dipasang (<code>npm ci</code>), tetapi tidak ada yang diaktifkan atau dijalankan. Di akhir, skrip <b>mencetak perintah <code>init-env.mjs create ...</code></b> dengan klien, lingkungan, port, dan lokasi file yang sudah terisi.<span class="where">Anda, di server · hasil <code>PREPARED …</code></span></li>
+    <li><b>Buat file env.</b> Jalankan perintah <code>init-env.mjs create ...</code> yang dicetak tadi. Hasilnya <code>finance-dashboard.env</code> di folder deploy (mode 600, <code>SESSION_SECRET</code> sudah diisi acak, <code>DATABASE_URL</code> masih kosong). Buka file itu dan isi <code>DATABASE_URL</code> (database klien yang benar, atau database staging) dan <code>LOG_DIR</code> (path mutlak di luar <code>releases/</code>). Periksa dengan <code>node scripts/ops/env-check.mjs &lt;file&gt;</code> dari folder rilis; ia hanya menyebut nama kunci, tidak pernah nilainya.<span class="where">Anda, di server · sekali</span></li>
+    <li><b>Nyalakan otomatis saat server hidup.</b> <code>sudo systemctl enable oxy-finance-dashboard@&lt;nama folder tanpa awalan oxy-&gt;</code>. Pemasang yang menyalakannya untuk pertama kali.<span class="where">Anda, di server · sekali</span></li>
+    <li><b>Pasang sungguhan.</b> Jalankan perintah yang sama <b>tanpa</b> <code>--prepare-only</code>. Rilis yang sudah terbuka tidak dibuka ulang dan tidak perlu diunggah ulang. Dari sini berlaku alur bagian 3: periksa, migrasi, ganti rilis, restart, tunggu sehat.<span class="where">Anda, di server</span></li>
+    <li><b>Buka dari luar.</b> Tambah blok <code>location</code> di nginx, tutup alamat <code>/health</code> dari luar, muat ulang nginx, buka <code>https://&lt;host&gt;/oxy-&lt;CLIENT_ID&gt;-finance-dashboard/</code>, login, dan pastikan nama perusahaan di sidebar benar (<code>docs/project-guide.md</code> bab 10.7.5, 10.7.6, 10.9.6).<span class="where">Anda · sekali</span></li>
+  </ol>
+  <div class="note warn"><b>Lupa membuat file env?</b> Tidak ada yang rusak. Menjalankan pemasangan tanpa <code>--prepare-only</code> padahal file env belum ada berhenti dengan pesan <code>FAILED</code> yang menyuruh Anda memakai <code>--prepare-only</code> dan <code>init-env</code>. Buat file env, lalu jalankan perintah yang sama lagi. Setelah deployment berjalan, file env tidak dibuat lagi; Anda hanya mengeditnya bila ada pengaturan yang berubah.</div>
+
+  <h2 id="pengaturan">6. Dari mana pengaturan (env) datang</h2>
   <figure>
     <div class="scroll">
     <svg viewBox="0 0 960 250" role="img" aria-label="Alur pengaturan: di laptop scripts/local.mjs membaca env/development.env dan mengisi proses; di server systemd membaca finance-dashboard.env dan env-check memeriksanya sebelum aplikasi menyala. Aplikasi hanya membaca process.env.">
@@ -324,7 +341,7 @@
     <figcaption>Satu aturan dipakai di dua tempat: aplikasi menolak start dengan pengaturan yang salah, dan <code>env-check</code> menolaknya lebih awal, sebelum aplikasi dinyalakan.</figcaption>
   </figure>
 
-  <h2 id="server">6. Folder di server</h2>
+  <h2 id="server">7. Folder di server</h2>
 <pre><code>/home/oxy/web-server/oxy-&lt;klien&gt;-&lt;env&gt;-finance-dashboard-&lt;port&gt;/
   current   -&gt; releases/&lt;nama&gt;     rilis yang dijalankan systemd
   previous  -&gt; releases/&lt;nama&gt;     rilis sebelumnya (untuk kembali)
@@ -338,7 +355,7 @@
   open-package.mjs               pembuka paket (disalin sekali; lalu disegarkan pemasang)</code></pre>
   <p>Nama folder membawa tiga fakta: klien, lingkungan, dan port. Pemasang membacanya dari letaknya sendiri, dan <code>env-check</code> memastikan isi file env sama dengan nama folder. Paket dari komputer pembangun tidak membawa <code>node_modules</code>; server memasangnya sendiri (butuh akses ke registry npm). Berkas <code>.tgz</code> yang Anda unggah boleh ditaruh di mana saja di luar <code>releases/</code>. <code>/home/oxy/web-server/</code> hanyalah contoh; folder induknya boleh berbeda, yang harus sesuai pola hanya <b>nama</b> folder deploy.</p>
 
-  <h2 id="file">7. Peta file: apa fungsi tiap file</h2>
+  <h2 id="file">8. Peta file: apa fungsi tiap file</h2>
   <p>Label di kolom kanan: <span class="pill p-lap">laptop</span> hanya di komputer pembangun, <span class="pill p-srv">server</span> ikut dikirim ke server, <span class="pill p-app">aplikasi</span> bagian aplikasi itu sendiri, <span class="pill p-both">keduanya</span> dipakai di dua tempat.</p>
 
   <h3>A. Lingkungan dan pengaturan</h3>
@@ -385,7 +402,7 @@
       <tr><td><code>scripts/smoke-build.mjs</code></td><td>Menjalankan hasil build dengan database palsu dan memeriksa alamat, versi, <code>/health</code>. Tanpa database.</td><td><span class="pill p-lap">laptop</span></td></tr>
     </tbody></table></div>
 
-  <h2 id="perintah">8. Perintah yang akan Anda pakai</h2>
+  <h2 id="perintah">9. Perintah yang akan Anda pakai</h2>
   <h3>Di komputer pembangun</h3>
   <div class="tbl"><table>
     <thead><tr><th>Perintah</th><th>Fungsi</th></tr></thead><tbody>
@@ -403,7 +420,7 @@
       <tr><td><code>node &lt;folder deploy&gt;/current/scripts/ops/install.mjs --rollback</code></td><td>Kembali ke rilis sebelumnya dengan tangan. Dua kali berarti maju lagi.</td></tr>
     </tbody></table></div>
 
-  <h2 id="aturan">9. Aturan</h2>
+  <h2 id="aturan">10. Aturan</h2>
   <ul>
     <li><b>Commit bersih.</b> Paket hanya dibuat dari commit yang semua perubahannya sudah di-commit, supaya setiap rilis bisa dilacak ke satu commit. Staging boleh dengan <code>--allow-dirty</code>.</li>
     <li><b>Tag tidak wajib.</b> Versi = nama tag bila ada, selain itu kode commit. Sistem ini belum punya skema nomor versi resmi.</li>
@@ -414,7 +431,7 @@
   </ul>
   <div class="note warn"><b>Belum teruji di server nyata:</b> unggah dan pembukaan paket, <code>sudo systemctl</code>, nginx, <code>npm ci</code> di server, dan migrasi sungguhan. Alur pemasang sudah dites dengan tiruan, dan alatnya dengan program asli di folder sementara. Kerjakan staging lebih dulu. Persiapan server baru (sudoers, unit systemd, nginx) ada di <code>docs/project-guide.md</code> bab 10.9.3.</div>
 
-  <h2 id="istilah">10. Istilah</h2>
+  <h2 id="istilah">11. Istilah</h2>
   <div class="tbl"><table>
     <thead><tr><th>Istilah</th><th>Arti</th></tr></thead><tbody>
       <tr><td>Paket</td><td>Satu berkas <code>.tgz</code> berisi satu rilis, dibuat <code>release:pack</code> untuk satu klien dan satu lingkungan.</td></tr>
