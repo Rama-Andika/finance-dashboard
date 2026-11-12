@@ -18,7 +18,7 @@ const check = createHealthChecker({
 
 /**
  * The answer for GET or HEAD <prefix>/health, or null when the request is for something else.
- * Called before the request logging on purpose: the deploy script asks every few seconds.
+ * Called before the request logging on purpose: the installer asks every few seconds.
  */
 export function handleHealthRequest(request: Request): Promise<Response> | null {
   const { pathname } = new URL(request.url)

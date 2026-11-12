@@ -39,7 +39,7 @@ describe('buildEnvFileText', () => {
     expect(checkEnvText(text, { folderName: 'oxy-acme-staging-finance-dashboard-5205' }).problems).toEqual([])
   })
 
-  it('leaves the migrations to the deploy script', () => {
+  it('leaves the migrations to the installer', () => {
     const text = buildEnvFileText({ client: 'acme', env: 'production', port: 5105, secret: SECRET })
     expect(text).toContain('AUTO_MIGRATE=0\n')
     expect(text).not.toContain('AUTO_MIGRATE=1')

@@ -36,7 +36,7 @@ function fullProject() {
     'dist/client/assets/app.js': 'client',
     'scripts/lib/env-file.test.mjs': 'a test',
     'scripts/ops/release-cli.test.mjs': 'a test',
-    'scripts/deploy/deploy.mjs': 'laptop only',
+    'scripts/deploy/package.mjs': 'laptop only',
     'scripts/build-client.mjs': 'laptop only',
     'src/server/x.ts': 'source',
     'node_modules/react/index.js': 'package',
@@ -90,7 +90,7 @@ describe('packageRelease', () => {
     for (const left of [
       'scripts/lib/env-file.test.mjs',
       'scripts/ops/release-cli.test.mjs',
-      'scripts/deploy/deploy.mjs',
+      'scripts/deploy/package.mjs',
       'scripts/build-client.mjs',
       'src/server/x.ts',
       'node_modules/react/index.js',

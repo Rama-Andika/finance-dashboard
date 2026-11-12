@@ -1,6 +1,6 @@
 // The release tool of one deployment folder: make a release the current one, go back to the previous one, remove old
 // ones, list them, and check that the server is ready. Plain Node, no dependencies, so it runs on a server that only has
-// Node. It works on one folder on disk and knows nothing about SSH; scripts/deploy/deploy.mjs calls it.
+// Node. It works on one folder on disk and knows nothing about SSH; scripts/ops/install.mjs calls it.
 //
 //   node scripts/ops/release.mjs <command> --root <deploy folder> [options]
 //

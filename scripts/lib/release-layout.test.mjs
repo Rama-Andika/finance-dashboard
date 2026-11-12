@@ -1,13 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  healthUrl,
-  isSafeRemotePath,
-  parseDeployFolder,
-  RELEASE_NAME_PATTERN,
-  RELEASE_TAG_PATTERN,
-  releaseName,
-  safeVersion,
-} from './release-layout.mjs'
+import { healthUrl, parseDeployFolder, RELEASE_NAME_PATTERN, releaseName, safeVersion } from './release-layout.mjs'
 
 describe('safeVersion', () => {
   it('keeps what git describe writes', () => {
@@ -43,16 +35,6 @@ describe('releaseName', () => {
   })
 })
 
-describe('RELEASE_TAG_PATTERN', () => {
-  it('accepts vMAJOR.MINOR.PATCH only', () => {
-    expect(RELEASE_TAG_PATTERN.test('v1.4.2')).toBe(true)
-    expect(RELEASE_TAG_PATTERN.test('v10.0.12')).toBe(true)
-    for (const bad of ['1.4.2', 'v1.4', 'v1.4.2-rc1', 'v1.4.2-3-g1a2b3c4', 'v1.4.2-dirty', 'release-1']) {
-      expect(RELEASE_TAG_PATTERN.test(bad)).toBe(false)
-    }
-  })
-})
-
 describe('parseDeployFolder', () => {
   it('reads a staging folder', () => {
     expect(parseDeployFolder('oxy-acme-staging-finance-dashboard-5205')).toEqual({
@@ -78,31 +60,6 @@ describe('parseDeployFolder', () => {
     expect(parseDeployFolder('acme')).toBeNull()
     expect(parseDeployFolder('oxy-acme-dev-finance-dashboard-5205')).toBeNull()
     expect(parseDeployFolder('oxy-acme-staging-finance-dashboard-')).toBeNull()
-  })
-})
-
-describe('isSafeRemotePath', () => {
-  it('accepts a plain absolute path', () => {
-    expect(isSafeRemotePath('/home/oxy/web-server/oxy-acme-staging-finance-dashboard-5205')).toBe(true)
-  })
-
-  it('refuses everything that could change a command line', () => {
-    for (const bad of [
-      'relative/path',
-      '/a b',
-      '/a;b',
-      '/a&b',
-      '/a$(x)',
-      "/a'b",
-      '/a"b',
-      '/a/../b',
-      '/a/',
-      '/',
-      '',
-      '/a\nb',
-    ]) {
-      expect(isSafeRemotePath(bad)).toBe(false)
-    }
   })
 })
 

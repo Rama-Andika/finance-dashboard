@@ -7,9 +7,6 @@ export const ENV_FILE_NAME = 'finance-dashboard.env'
 /** Folder name of one release: the UTC time it was made (yyyymmddHHMMSS), a dash, then the version. */
 export const RELEASE_NAME_PATTERN = /^\d{14}-[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/
 
-/** A version that may go to production: a git tag such as v1.4.2. */
-export const RELEASE_TAG_PATTERN = /^v\d+\.\d+\.\d+$/
-
 /** What a release must contain before it may become the current one (paths inside the release folder, with "/"). */
 export const REQUIRED_RELEASE_FILES = [
   'package.json',
@@ -63,15 +60,6 @@ export function parseDeployFolder(folderName) {
     clientId: env === 'staging' ? `${client}-staging` : client,
     unit: `oxy-finance-dashboard@${folderName.slice('oxy-'.length)}`,
   }
-}
-
-/**
- * True for an absolute path made only of letters, digits, dot, underscore, dash and "/", without "..", and not ending in "/".
- * Such a path can be put in a command line for the server without quoting tricks.
- * @param {string} path
- */
-export function isSafeRemotePath(path) {
-  return /^\/[A-Za-z0-9._/-]+$/.test(path) && !path.split('/').includes('..') && !path.endsWith('/')
 }
 
 /**

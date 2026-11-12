@@ -75,9 +75,9 @@ export function checkEnvText(text, options = {}) {
       problems.push('LOG_LEVEL: debug and trace are not allowed in production')
   }
 
-  // A note, not a problem: the deploy script already applies the migrations before it switches releases.
+  // A note, not a problem: the installer (scripts/ops/install.mjs) already applies the migrations before it switches releases.
   if ((mode === 'staging' || mode === 'production') && values.get('AUTO_MIGRATE') === '1') {
-    notes.push('AUTO_MIGRATE=1: the deploy script applies the migrations before the switch, so 0 is advised')
+    notes.push('AUTO_MIGRATE=1: the installer applies the migrations before the switch, so 0 is advised')
   }
 
   // 5. The folder of the deployment says which environment, port and client this file belongs to.

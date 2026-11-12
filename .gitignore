@@ -12,6 +12,7 @@ plans/
 .env.*
 !.env.example
 /env/
+/release-packages/
 .dbclient.cnf
 *.cnf
 

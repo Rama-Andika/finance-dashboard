@@ -136,7 +136,7 @@ describe('checkEnvText', () => {
     const result = checkEnvText(stagingFile({ AUTO_MIGRATE: '1' }))
     expect(result.problems).toEqual([])
     expect(result.notes).toEqual([
-      'AUTO_MIGRATE=1: the deploy script applies the migrations before the switch, so 0 is advised',
+      'AUTO_MIGRATE=1: the installer applies the migrations before the switch, so 0 is advised',
     ])
     expect(checkEnvText(stagingFile({ AUTO_MIGRATE: '0' })).notes).toEqual([])
   })

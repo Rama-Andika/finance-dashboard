@@ -1,7 +1,7 @@
 # Model Data & Rumus Metrik — Finance Dashboard
 
 > Status: **draft untuk review** · 28 Oktober 2026
-> Dokumen pendamping: [`project-guide.md`](./project-guide.md) (panduan lengkap data, query, istilah, dan tabel konfirmasi) · [`decisions.md`](./decisions.md) · [`plans/README.md`](../plans/README.md)
+> Dokumen pendamping: [`project-guide.md`](./project-guide.md) (panduan lengkap data, query, istilah, dan tabel konfirmasi) · [`decisions.md`](./decisions.md)
 
 Dokumen ini menjelaskan:
 
