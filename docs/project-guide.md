@@ -1378,7 +1378,7 @@ FROM sysuser WHERE user_id = :id LIMIT 1
 - **Sidebar:** Summary, Revenue, Cash Position, Cash Flow, Profit & Loss, Balance Sheet, Payables, Receivables, Payment Plan, Budget, lalu Settings › Account Mapping. Di bawahnya kartu **"Data as of …"** (bab 5.3.1 dan 10.4) dengan tombol **"Perbarui sekarang"**. Di bagian atas sidebar, di bawah tulisan "Dashboard", tampil **nama perusahaan** dari ERP (8.0.4).
 - **Bilah atas:** pilihan entitas (multi-pilih dengan pencarian), pilihan periode (preset atau rentang bulan, toggle Periode 13), bahasa (English bawaan / Indonesia), tema (terang/gelap).
 - **Judul halaman metrik** (`MetricPageHeader`): judul cetak dan banner peringatan: **periode Open/Pre Closed** ("angka bisa berubah") dan **bulan tanpa periode**.
-- **Cetak dan ekspor:** cetak/PDF lewat CSS cetak (tata letak A4 tetap tabel); ekspor CSV dengan dialog pilihan format (koma + titik desimal, atau titik koma + koma desimal; selalu UTF-8 BOM) (U4, U5).
+- **Cetak dan ekspor:** cetak/PDF lewat CSS cetak (tata letak A4 tetap tabel); baris "Waktu Cetak" di judul cetak ditulis di browser (kosong saat server membuat halaman, terisi setelah halaman tampil dan diperbarui tepat sebelum mencetak), karena waktu yang ditulis saat render server berbeda dari waktu di browser dan membuat React gagal menghidrasi halaman (galat #418); ekspor CSV dengan dialog pilihan format (koma + titik desimal, atau titik koma + koma desimal; selalu UTF-8 BOM) (U4, U5).
 - **Pemuatan:** halaman memuat data di server (SSR) lalu mengisi cache klien; Summary memuat bertahap (8.1).
 - **Error di layar:** kartu error (halaman metrik, bagian Summary, panel "Data perlu dicek", tren Balance Sheet, tombol "Perbarui sekarang", simpan Account Mapping) menampilkan pesan sesuai kode (sesi berakhir, database tidak terjangkau, permintaan terlalu lama, atau pesan umum) dan baris **Kode referensi** dengan tombol Salin. Error di luar halaman metrik memakai halaman error global. Kode itu dipakai developer untuk mencari catatan lengkapnya di log (bab 10.6).
 
@@ -3246,6 +3246,42 @@ location /oxy-client-a-finance-dashboard {
 
 `proxy_read_timeout` dibuat lebih panjang dari `DB_QUERY_TIMEOUT_MS` (bawaan 120 detik) supaya laporan berat tidak diputus proxy lebih dulu. Alamat yang diawali nama yang mirip (`...-dashboardx`) ikut diteruskan ke proses itu dan dijawab 404 oleh aplikasi.
 
+**Contoh dengan httpd (Apache): ✅ teruji 2026-11-12** (staging, CentOS 7, httpd 2.4.6, SELinux Enforcing, sertifikat Let's Encrypt). Bila `httpd` sudah memakai port 80 dan 443, pakai ini dan jangan memasang nginx. Semuanya lewat **file baru** (tidak mengubah file `httpd` yang ada), dan tiap penerapan dijaga `httpd -t && systemctl reload httpd` (`reload` lembut, aplikasi lain tidak terputus). Perintah siap salin, dengan nilai yang terisi otomatis dari kotak isian, ada di `docs/deploy-guide.html` (bagian B, langkah 12). Urutannya:
+
+1. DNS: catatan `A` untuk nama domain ke IP publik server (periksa dengan `getent hosts <domain>`; catatan wildcard ke server lain tidak masalah selama nama itu punya catatan sendiri).
+2. File port 80 yang hanya berisi `ServerName`, lalu uji bahwa `http://<domain>/.well-known/acme-challenge/<berkas uji>` terjangkau (Let's Encrypt membatasi percobaan yang gagal).
+3. `certbot certonly --webroot -w /var/www/html -d <domain>`: hanya mengambil sertifikat dan tidak mengubah konfigurasi `httpd`. Bukan `certbot --apache`: ia menyalin vhost beserta `ProxyPass` ke port 80 sehingga HTTP bisa tidak dialihkan.
+4. File port 443 dan pengalihan di file port 80, dengan satu blok per deployment (di bawah).
+5. Uji dari server (`curl --resolve`), lalu dari browser komputer lain.
+6. Perpanjangan: skrip `/etc/letsencrypt/renewal-hooks/deploy/reload-httpd.sh` (`httpd -t && systemctl reload httpd`, karena `certonly` tidak memuat ulang `httpd`; `--dry-run` tidak menjalankannya) dan jadwal `cron` dua kali sehari untuk sertifikat itu saja.
+7. Deployment lain di domain yang sama: satu blok `Location` dan `ProxyPass` lagi dengan port dan awalannya. Tanpa DNS, sertifikat, atau file baru.
+
+```apache
+<VirtualHost *:443>
+    ServerName <domain>
+    # SSLEngine, sertifikat (cert.pem, privkey.pem, chain.pem + SSLCertificateChainFile di httpd 2.4.6)
+    ProxyPreserveHost On
+
+    <Location "/oxy-client-a-finance-dashboard">
+        RequestHeader unset X-Forwarded-For early
+        RequestHeader set X-Forwarded-Proto "https"
+    </Location>
+    <Location "/oxy-client-a-finance-dashboard/health">
+        Require all denied
+    </Location>
+    ProxyPass        /oxy-client-a-finance-dashboard http://127.0.0.1:3101/oxy-client-a-finance-dashboard timeout=180
+    ProxyPassReverse /oxy-client-a-finance-dashboard http://127.0.0.1:3101/oxy-client-a-finance-dashboard
+</VirtualHost>
+```
+
+- `RequestHeader unset X-Forwarded-For early` wajib: `httpd` menambahkan alamat klien ke header yang dikirim klien (bukan menimpa), dan aplikasi memakai alamat **pertama** (`TRUST_PROXY=1`). Tanpa baris ini alamat di log dan di pembatas login bisa dipalsukan.
+- `timeout=180` ditulis pada `ProxyPass` (bukan `ProxyTimeout`) supaya hanya berlaku untuk dashboard dan tidak mengubah batas waktu aplikasi lain di vhost yang sama.
+- `/health` dijawab `403` dari luar (disengaja); pemasang menanyakannya ke `127.0.0.1:<port>`, tidak lewat `httpd`.
+- SELinux: `httpd` perlu `httpd_can_network_connect` (`getsebool httpd_can_network_connect` harus `on`).
+- Aplikasi tetap memakai `HOST=127.0.0.1`: port aplikasi tidak perlu dibuka di firewall.
+- Cookie sesi bertanda Secure (`NODE_ENV=production`), jadi login hanya bekerja lewat HTTPS (atau `localhost`); `http://<IP>:<port>` tidak akan bisa login.
+- Hasil uji: login dari komputer lain berhasil, sesi tetap saat pindah halaman, alamat klien asli (bukan `127.0.0.1`) tercatat di log.
+
 #### 10.7.6 Memeriksa build dan daftar periksa client baru ✅
 
 Sebelum menyalin build ke server, jalankan dari komputer pembangun (tanpa database, tanpa file env):
@@ -3303,7 +3339,7 @@ Awalan alamat ditanam saat build, jadi build staging dan build production **berb
 
 #### 10.8.3 Tata letak folder deploy di server ⚠️
 
-Mengikuti tata letak server Oxy yang sudah berjalan untuk aplikasi lain (belum dijalankan untuk dashboard ini):
+Mengikuti tata letak server Oxy yang sudah berjalan untuk aplikasi lain (dijalankan untuk dashboard ini di staging, 2026-11-12):
 
 ```text
 /home/oxy/web-server/oxy-<klien>-<env>-finance-dashboard-<port>/
@@ -3404,9 +3440,9 @@ node scripts/ops/init-env.mjs rotate-secret --file /home/oxy/web-server/oxy-acme
 
 Bab ini menjelaskan cara satu versi aplikasi sampai ke server klien, secara **semi manual** (keputusan D68). Komputer pembangun membuat satu berkas paket `.tgz` dan **tidak pernah menyambung ke server**. Anda mengunggah paket itu sendiri (WinSCP, `scp`, atau cara lain), lalu menjalankan satu perintah di server, `open-package.mjs`, yang membuka paket (nama rilis diambil dari nama berkas, jadi tidak diketik) dan menjalankan pemasangnya, `install.mjs`, yang memasang paket, menjalankan migrasi database, mengganti rilis yang aktif, dan memastikan aplikasi sehat. Bila rilis baru tidak sehat, rilis sebelumnya dikembalikan otomatis. Lingkungan dan file env: bab 10.8. Kodenya ada di `scripts/deploy/` (komputer pembangun) dan `scripts/ops/` dan `scripts/lib/` (server).
 
-Untuk gambaran visual (diagram deployment UML, diagram urutan, dan peta fungsi setiap file) buka `docs/deploy-guide.html` di browser; isinya ringkasan dari bab ini dan bab 10.8, dan bila berbeda, bab ini yang menang.
+Untuk panduan langkah demi langkah yang mudah diikuti (deploy rutin, deploy pertama, dan bila ada yang gagal, dengan kotak isian yang mengisi perintah otomatis) serta gambaran visual (diagram deployment UML, diagram urutan, dan peta fungsi setiap file), buka `docs/deploy-guide.html` di browser; isinya ringkasan dari bab ini dan bab 10.8, dan bila berbeda, bab ini yang menang.
 
-✅ berarti sudah dites dengan tiruan atau dengan alat asli di folder sementara; ⚠️ berarti belum pernah dijalankan di server Oxy. **Seluruh bab ini belum pernah dijalankan terhadap server nyata**; kerjakan di staging lebih dulu dan laporkan bila ada yang berbeda.
+✅ berarti sudah dites dengan tiruan atau dengan alat asli di folder sementara; ⚠️ berarti belum pernah dijalankan di server Oxy. **Satu alur lengkap sudah dijalankan di server nyata pada 2026-11-12** (staging, CentOS 7, systemd 219, SELinux Enforcing, Node v22.23.5 dari build tidak resmi glibc 2.17): unggah paket, `open-package.mjs --prepare-only`, `init-env`, `env-check`, pemasangan penuh (`doctor`, `npm ci`, 10 migrasi, `activate`, `sudo -n systemctl restart`, `/health` sehat dalam 39 detik), login berhasil lewat terowongan SSH, serta akses dari komputer lain lewat domain HTTPS dengan `httpd` sebagai penerus (sertifikat Let's Encrypt, login dan sesi bertahan, alamat klien asli tercatat di log). **Yang belum pernah dijalankan di server nyata:** rollback otomatis dan manual, pemasangan rilis kedua (pembaruan), lingkungan production, penyegaran `open-package.mjs` oleh pemasang, penerus nginx, dan menyalakan ulang server. Kerjakan staging lebih dulu dan laporkan bila ada yang berbeda.
 
 #### 10.9.1 Alur satu rilis ✅
 
@@ -3490,7 +3526,7 @@ Urutan untuk deployment baru (satu kali per klien dan lingkungan):
    node --version; npm --version
    ```
 
-   ⚠️ Belum pernah dicoba di server Oxy: coba dulu di staging. Hindari `nvm` untuk server ini: ia memasang Node di folder home, bukan `/usr/bin/node`, sehingga service systemd tidak menemukannya. ⚠️ Perintah pemasangan ini belum dicoba di server Oxy.
+   ✅ Build tidak resmi ini sudah dicoba pada 2026-11-12 di CentOS 7 (systemd 219, SELinux Enforcing): Node v22.23.5 terpasang dan menjalankan dashboard. Hindari `nvm` untuk server ini: ia memasang Node di folder home, bukan `/usr/bin/node`, sehingga service systemd tidak menemukannya. ⚠️ Perintah NodeSource (Ubuntu, Debian, RHEL 8 ke atas) belum dicoba di server Oxy.
 
 2. Buat user `oxy` dan folder `/home/oxy/web-server/oxy-<klien>-<env>-finance-dashboard-<port>/` dengan folder `logs/` di dalamnya, dimiliki user `oxy` (folder `releases/` dibuat otomatis oleh `open-package.mjs`). `/home/oxy/web-server/` hanya contoh dan boleh diganti folder lain; yang harus sesuai pola hanya **nama** folder deploy. Sebagai `root` (contoh klien `demo`, staging, port 5205):
 
@@ -3501,7 +3537,7 @@ Urutan untuk deployment baru (satu kali per klien dan lingkungan):
    ls -la /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205
    ```
 
-   `oxy` adalah nama yang dipilih proyek ini (bukan bawaan sistem): akun terpisah tanpa kata sandi supaya dashboard tidak berjalan sebagai `root`; nama lain boleh bila diganti juga di unit dan `sudoers`. **Jalankan `chown` hanya untuk folder deploy yang baru**, bukan untuk folder induknya: bila folder itu sudah dipakai aplikasi lain (di server contoh ada aplikasi Tomcat di sana), mengganti pemilik seluruh isinya bisa mengganggu mereka. ✅ pola nama dicocokkan dengan aturan di kode; ⚠️ belum dijalankan terhadap server Oxy.
+   `oxy` adalah nama yang dipilih proyek ini (bukan bawaan sistem): akun terpisah tanpa kata sandi supaya dashboard tidak berjalan sebagai `root`; nama lain boleh bila diganti juga di unit dan `sudoers`. **Jalankan `chown` hanya untuk folder deploy yang baru**, bukan untuk folder induknya: bila folder itu sudah dipakai aplikasi lain (di server contoh ada aplikasi Tomcat di sana), mengganti pemilik seluruh isinya bisa mengganggu mereka. ✅ pola nama dicocokkan dengan aturan di kode; ✅ dijalankan di server nyata (staging, 2026-11-12).
 
 3. Pasang unit systemd sekali (10.8.4). Di systemd lama (di bawah 230, termasuk 219 di CentOS 7; periksa dengan `systemctl --version`) tulis `StartLimitInterval=120` dan `StartLimitBurst=5` di bagian `[Service]`, bukan `StartLimitIntervalSec` di `[Unit]`. Perintah `systemctl daemon-reload` setelah file dibuat; layanan belum dinyalakan karena folder `current` dan file env baru ada setelah pemasangan.
 4. Izinkan `oxy` me-restart **hanya** service itu tanpa kata sandi. Buat dengan `sudo visudo -f /etc/sudoers.d/oxy-finance-dashboard` (periksa dulu path `systemctl` dengan `command -v systemctl`):
@@ -3512,18 +3548,48 @@ Urutan untuk deployment baru (satu kali per klien dan lingkungan):
 
    Satu baris per deployment (lebih ketat), atau satu baris dengan `oxy-finance-dashboard@*` untuk semua. Pemasang memakai `sudo -n`, jadi tanpa aturan ini restart gagal dengan pesan, bukan menunggu kata sandi.
 
-5. Buat paket (`npm run release:pack -- <klien> <env>`). Unggah ke server **dua berkas** dari `release-packages/`: paketnya (ke folder mana saja di luar `releases/`) dan `open-package.mjs` (ke folder deploy, sekali saja untuk deployment ini).
-6. Di server, jalankan satu baris yang dicetak `release:pack`, dengan **`--prepare-only`** di akhir:
+5. Buat paket (`npm run release:pack -- <klien> <env>`, contoh `npm run release:pack -- demo staging`). Unggah ke server **dua berkas** dari `release-packages/`: paketnya (ke folder mana saja di luar `releases/`, boleh juga di folder deploy; **nama berkas jangan diganti**) dan `open-package.mjs` (ke folder deploy, sekali saja untuk deployment ini). Berkas yang diunggah sebagai `root` dimiliki `root`, jadi ubah pemiliknya ke `oxy` di langkah berikut.
+6. Di server, jalankan satu baris yang dicetak `release:pack`, dengan **`--prepare-only`** di akhir, **sebagai user `oxy`**. Sebagai `root` (contoh klien `demo`, staging, paket di folder deploy):
 
    ```bash
-   node <folder deploy>/open-package.mjs <folder unggahan>/<nama>.tgz --prepare-only
+   cd /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205
+   chown oxy:oxy open-package.mjs 20261112070634-51480c1.tgz
+   su - oxy -c 'node /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/open-package.mjs /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/20261112070634-51480c1.tgz --prepare-only'
    ```
+
+   `su - oxy -c ...` menjalankan satu perintah sebagai `oxy` tanpa kata sandi bila Anda `root`. Hasil yang benar: `PREPARED <nama rilis>. Nothing is switched.` Pemasangan paket (`npm ci`) mengunduh dependensi (273 paket dalam 7 detik di server contoh). ✅ dijalankan di server nyata (staging, 2026-11-12).
 
    Ia membuka paket, memeriksa rilis, dan memasang paketnya tanpa mengaktifkan, lalu mencetak perintah `init-env.mjs create ...` yang harus dijalankan berikutnya.
 
-7. Jalankan perintah `init-env.mjs create ...` yang dicetak itu, lalu edit file env: isi `DATABASE_URL` (database klien yang benar, atau database staging) dan `LOG_DIR` (path mutlak di luar `releases/`). Periksa dengan `node scripts/ops/env-check.mjs <file>` (10.8.6).
-8. `sudo systemctl enable oxy-finance-dashboard@<nama folder tanpa awalan oxy->` (supaya menyala saat server hidup; pemasang yang akan menyalakannya pertama kali).
-9. Jalankan baris yang sama **tanpa** `--prepare-only`: `node <folder deploy>/open-package.mjs <folder unggahan>/<nama>.tgz`. Rilis yang sudah terbuka dipakai lagi tanpa dibuka ulang dan tanpa unggah ulang: migrasi, aktivasi, restart, pemeriksaan kesehatan.
+7. Jalankan perintah `init-env.mjs create ...` yang dicetak itu **sebagai `oxy`** (supaya file dimiliki `oxy`, mode 600), lalu edit file env. Contoh klien `demo`, staging, port 5205, sebagai `root`:
+
+   ```bash
+   su - oxy -c 'node /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/releases/20261112070634-51480c1/scripts/ops/init-env.mjs create --client demo --env staging --port 5205 --file /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/finance-dashboard.env'
+   ls -l /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/finance-dashboard.env
+   cut -d= -f1 /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/finance-dashboard.env
+   ```
+
+   `ls` harus menunjukkan `-rw-------` dengan pemilik `oxy oxy`. `cut` hanya menampilkan nama kunci (aman untuk dibagikan); baris berawalan `#` adalah catatan. File yang dibuat memuat antara lain `HOST=127.0.0.1` (aplikasi hanya melayani dari server itu sendiri; dari komputer lain ia terjangkau lewat penerus atau terowongan SSH) dan `TRUST_PROXY=1`. Isi dua hal (dengan WinSCP atau `vi`): `DATABASE_URL=mysql://USER:PASSWORD@127.0.0.1:3306/DATABASE` (karakter khusus di kata sandi ditulis dengan kode persen, misalnya `@` menjadi `%40`; satu deployment membuka paling banyak `DB_POOL_SIZE` + `DASH_POOL_SIZE` = 7 koneksi dengan nilai bawaan, jadi periksa sekali di MySQL bahwa `max_connections` masih menyisakan ruang: `SHOW VARIABLES LIKE 'max_connections';` dan `SHOW STATUS LIKE 'Max_used_connections';`) dan `LOG_DIR` (baris itu di file masih berupa catatan berawalan `#`; hapus `#` dan isi path folder `logs`). Periksa dengan:
+
+   ```bash
+   su - oxy -c 'node /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/releases/20261112070634-51480c1/scripts/ops/env-check.mjs /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/finance-dashboard.env'
+   ```
+
+   ✅ dijalankan di server nyata (staging, 2026-11-12): `env-check` menjawab `OK (staging, 13 keys)` (10.8.6).
+
+8. Sebagai `root`: `systemctl enable oxy-finance-dashboard@<nama folder tanpa awalan oxy->`, contoh `systemctl enable oxy-finance-dashboard@demo-staging-finance-dashboard-5205` (supaya menyala saat server hidup; pemasang yang akan menyalakannya pertama kali).
+9. Jalankan baris yang sama **tanpa** `--prepare-only`, sebagai `oxy`: rilis yang sudah terbuka dipakai lagi tanpa dibuka ulang dan tanpa unggah ulang: migrasi, aktivasi, restart, pemeriksaan kesehatan. Contoh sebagai `root`:
+
+   ```bash
+   su - oxy -c 'node /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/open-package.mjs /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/20261112070634-51480c1.tgz'
+   ```
+
+   Hasil yang benar: `INSTALLED <versi> as the current release ...`. Lalu periksa dari server itu sendiri: `curl http://127.0.0.1:5205/oxy-demo-staging-finance-dashboard/health` harus menjawab `{"status":"ok",...}`.
+
+   **Membukanya dari komputer Anda.** File env memuat `HOST=127.0.0.1`, jadi aplikasi hanya melayani dari server itu sendiri. Tanpa penerus (`httpd` atau nginx) yang sudah dipasang, buka lewat terowongan SSH dari komputer Anda: `ssh -L 5205:127.0.0.1:5205 <user>@<alamat server>`, biarkan jendelanya terbuka, lalu buka `http://localhost:5205/oxy-demo-staging-finance-dashboard/` di browser dan login dengan akun ERP. Nama perusahaan di sidebar harus benar. ✅ dicoba di server nyata (staging, 2026-11-12).
+
+   **Bila migrasi menjawab `Access denied for user ...`:** MySQL menolak kombinasi user dan kata sandi di `DATABASE_URL` (pemasang berhenti sebelum `activate`, tidak ada yang berubah; perbaiki lalu jalankan perintah yang sama lagi). Uji dengan jalur yang sama seperti aplikasi: `mysql -h 127.0.0.1 -P 3306 -u <user> -p -e "SELECT CURRENT_USER();"`. Bila itu berhasil, kata sandi benar dan yang salah adalah isi `DATABASE_URL`: tulis ulang kata sandinya dengan kode persen (`read -rs P; node -e 'console.log(encodeURIComponent(process.argv[1]))' "$P"; unset P`). Kata sandi acak hanya huruf dan angka (`openssl rand -hex 16`) menghindari masalah ini.
+
 10. Tambah blok `location` di nginx (10.7.5), tutup alamat `/health` dari luar (10.9.6), muat ulang nginx, buka `https://<host>/oxy-<CLIENT_ID>-finance-dashboard/`, login, dan pastikan nama perusahaan di sidebar benar (10.7.6 langkah 9).
 
 #### 10.9.4 Memasang rilis baru sehari-hari ✅
@@ -3831,6 +3897,10 @@ Pengecekan memakai **tujuh query `SELECT` (hanya baca)** ke database lokal `demo
 | 2026-11-12 | Nama rilis tidak lagi diketik: skrip server `open-package.mjs` mengambil nama dari nama berkas paket, membuat `releases/`, membuka paket lewat folder sementara, lalu menjalankan pemasang; `release:pack` menyalinnya ke sebelah paket dan mencetak satu baris perintah tanpa path server tertentu; `/home/oxy/web-server/` dijelaskan sebagai contoh (bab 10.7.6, 10.8.3, 10.8.4, 10.9; D68). Angka di dashboard tidak berubah.                                                                                                                                                                                                                                                                                                                                                              |
 | 2026-11-12 | Pemasang menyegarkan `open-package.mjs` di folder deploy dari setiap rilis yang berhasil dipasang (dan dari `--prepare-only`), sehingga unggahan manual hanya sekali per deployment; gagal menyalin tidak menggagalkan pemasangan (bab 10.9.1, 10.9.11; D68). Angka di dashboard tidak berubah.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | 2026-11-12 | Panduan pemasangan pertama dilengkapi: cara memeriksa dan memasang Node (termasuk build tidak resmi untuk CentOS 7), perintah membuat user dan folder deploy (`chown` hanya untuk folder baru), unit systemd dan `sudoers` dengan varian systemd lama, serta catatan CentOS 7 (SELinux, firewalld, `httpd` sebagai penerus) di bab 10.9.3 dan `docs/deploy-guide.html`. ⚠️ belum dijalankan di server Oxy. Angka di dashboard tidak berubah.                                                                                                                                                                                                                                                                                                                                                   |
+| 2026-11-12 | Pemasangan penuh pertama berhasil di server nyata (staging, CentOS 7, systemd 219, SELinux Enforcing, Node v22.23.5 build tidak resmi): penanda di bab 10.9 dan 10.9.3 diubah dari ⚠️ menjadi ✅ untuk bagian yang terbukti; ditambah cara membuka lewat terowongan SSH (`HOST=127.0.0.1`) dan cara menangani `Access denied` pada migrasi. Belum terbukti di server nyata: rollback, rilis kedua, production, dan penerus. Angka di dashboard tidak berubah.                                                                                                                                                                                                                                                                                                                                  |
+| 2026-11-12 | `docs/deploy-guide.html` disusun ulang sebagai panduan langkah demi langkah: tiga keperluan di atas (A deploy rutin, B deploy pertama, C kalau gagal), kotak "Isi dulu" yang mengisi semua perintah, tombol Salin, dan centang kemajuan; diagram, peta file, dan istilah dipindah ke bagian Referensi yang dilipat. Tidak ada perubahan kode atau angka.                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 2026-11-12 | Penerus `httpd` terbukti di server nyata (staging, CentOS 7): bab 10.7.5 memuat contoh `httpd` yang teruji (file baru untuk port 80 dan 443, `certbot certonly --webroot`, pengalihan HTTP ke HTTPS, `X-Forwarded-For` dibuang lebih dulu, perpanjangan lewat skrip `deploy` dan `cron`, satu blok per deployment di domain yang sama); panduan HTML mendapat kotak isian "Domain publik". Cookie sesi bertanda Secure sehingga login hanya lewat HTTPS. Angka di dashboard tidak berubah.                                                                                                                                                                                                                                                                                                     |
+| 2026-11-12 | Galat hidrasi React #418 di halaman metrik (Summary, Cash Flow) diperbaiki: `PrintHeader` tidak lagi menulis waktu sekarang saat render server; hook `usePrintTimestamp` mengisinya di browser dan menyegarkannya tepat sebelum mencetak. Hanya tampilan baris "Waktu Cetak"; angka di dashboard tidak berubah. Belum dipasang di server. |
 
 ### 14.1 Riwayat ringkas dokumen yang digantikan
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Panduan Alur Deploy</title>
+<title>Panduan Deploy</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
   /* Layout: a reading column; diagrams and tables scroll inside their own boxes. */
@@ -83,23 +83,529 @@
   .tw { fill: var(--warn); font-family: var(--font); font-size: 12px; font-weight: 600; }
   .tmono { fill: currentColor; font-family: var(--mono); font-size: 11.5px; }
   .lbl { paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+  /* Runbook additions */
+  .quick { margin: 14px 0 0; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin: 16px 0; }
+  .card { display: block; text-decoration: none; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .card:hover, .card:focus-visible { border-color: var(--accent); outline: none; }
+  .card b { display: block; font-size: 1.05rem; color: var(--accent); margin-bottom: 4px; }
+  .card span { color: var(--muted); font-size: 14.5px; }
+  .fill { background: var(--surface); border: 1px solid var(--accent); border-radius: 10px; padding: 14px 16px; margin: 18px 0; }
+  .fill h2 { margin: 0 0 4px; padding: 0; border: 0; font-size: 1.15rem; }
+  .fill .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px 14px; margin-top: 10px; }
+  .fill label { display: block; font-size: 13px; color: var(--muted); }
+  .fill input, .fill select { display: block; width: 100%; box-sizing: border-box; margin-top: 3px; font: inherit; font-family: var(--mono); font-size: 14px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  .fill input:focus, .fill select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .fill .msg { color: var(--warn); font-size: 13.5px; min-height: 1.2em; margin: 8px 0 0; }
+  .fill .hint { font-size: 13px; color: var(--muted); margin: 6px 0 0; max-width: none; }
+  button { font: inherit; font-size: 13px; color: var(--fg); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  .cmd { position: relative; margin: 8px 0; }
+  .cmd pre { margin: 0; padding-right: 74px; }
+  .cmd .copy { position: absolute; top: 8px; right: 8px; }
+  .steps { grid-template-columns: minmax(0, 1fr); }
+  .steps li { min-width: 0; }
+  .cmd, details, .in { min-width: 0; }
+  .steps li > b:first-child { font-size: 1.02rem; }
+  .steps li .pill { margin-left: 4px; vertical-align: 1px; }
+  .steps li p { margin: 6px 0; }
+  .steps li ul { margin: 6px 0; padding-left: 20px; }
+  .chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); margin-top: 6px; cursor: pointer; }
+  .chk input { width: 16px; height: 16px; accent-color: var(--accent); }
+  .steps li:has(.chk input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; font-size: 13.5px; color: var(--muted); }
+  .good { color: var(--accent); font-weight: 600; }
+  details { margin: 10px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+  details > summary { cursor: pointer; padding: 9px 12px; font-weight: 500; }
+  details > summary:hover { color: var(--accent); }
+  details[open] > summary { border-bottom: 1px solid var(--line); }
+  details > .in { padding: 4px 14px 12px; }
+  details.ref > .in h3:first-child { margin-top: 10px; }
+  .steps details { background: var(--bg); }
+  .tok { font-family: var(--mono); font-weight: 500; font-size: 0.92em; }
+  h2.part { border-top: 0; margin-top: 30px; font-size: 1.1rem; color: var(--accent); }
+  @media (max-width: 560px) { body { font-size: 15.5px; } .steps li { padding-left: 44px; } }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <span class="status">Belum pernah dijalankan di server nyata; keputusan alur sudah dites dengan tiruan</span>
-  <h1>Panduan alur deploy (semi manual)</h1>
-  <p class="lead">Dari satu perintah di komputer pembangun sampai versi baru berjalan di server klien, termasuk apa yang terjadi bila gagal, dan fungsi setiap file untuk lingkungan, pembuatan paket, dan pemasangan.</p>
-  <nav aria-label="Daftar bagian">
-    <a href="#ringkas">Ringkasan</a><a href="#diagram">Diagram deployment</a><a href="#urutan">Urutan satu rilis</a><a href="#hasil">Hasil dan gagal</a><a href="#pertama">Pemasangan pertama</a><a href="#pengaturan">Alur pengaturan</a><a href="#server">Folder di server</a><a href="#file">Peta file</a><a href="#perintah">Perintah</a><a href="#aturan">Aturan</a><a href="#istilah">Istilah</a>
-  </nav>
+  <span class="status">Teruji di server nyata (staging, CentOS 7, 2026-11-12), termasuk akses lewat domain HTTPS dengan httpd. Belum teruji: rollback, rilis kedua, production, nginx</span>
+  <h1>Panduan deploy</h1>
+  <p class="lead">Pilih keperluan Anda di bawah dan ikuti langkahnya. Penjelasan dan diagram ada di bagian Referensi paling bawah; tidak perlu dibaca untuk deploy.</p>
+  <p class="quick">Semua perintah <b>server</b> dijalankan sebagai <code>root</code>. Perintah yang berawalan <code>su - oxy -c</code> berjalan sebagai user aplikasi <code>oxy</code> (tanpa kata sandi). Klik <b>Salin</b> di tiap kotak perintah.</p>
 
-  <h2 id="ringkas">1. Ringkasan dalam satu paragraf</h2>
-  <p>Di komputer pembangun Anda mengetik <code>npm run release:pack -- acme production</code>. Skrip memeriksa bahwa commit bersih, membangun aplikasi khusus untuk klien itu, memeriksa hasilnya, dan membungkusnya menjadi satu berkas <code>.tgz</code>. <b>Komputer pembangun tidak menyambung ke server.</b> Anda mengunggah berkas itu sendiri, lalu menjalankan satu perintah di server, <code>open-package.mjs</code>: ia membuka paket (nama rilis diambil dari nama berkas, jadi tidak diketik) dan menjalankan pemasangnya, <code>install.mjs</code>. Pemasang itu memeriksa paket, memasang paketnya, memigrasi database, memindahkan pintasan <code>current</code> ke rilis baru, me-restart service, lalu menunggu alamat <code>/health</code> menjawab sehat <em>dengan versi yang baru dipasang</em>. Bila tidak sehat dalam 2 menit, pintasan dikembalikan ke rilis sebelumnya secara otomatis.</p>
-  <div class="note"><b>Dua hal yang tidak berubah:</b> kode aplikasi tidak pernah membuka file env (laptop: <code>scripts/local.mjs</code>, server: systemd yang mengisinya), dan setiap rilis berdiri sendiri di folder sendiri, jadi berpindah rilis hanya memindahkan satu pintasan.</div>
+  <div class="cards">
+    <a class="card" href="#rutin"><b>A. Deploy rilis baru</b><span>Sudah pernah dipasang. Empat langkah, sekitar lima menit.</span></a>
+    <a class="card" href="#pertama"><b>B. Deploy pertama</b><span>Klien atau lingkungan baru. Dikerjakan sekali, dari server kosong sampai login.</span></a>
+    <a class="card" href="#gagal"><b>C. Ada yang gagal</b><span>Arti pesan di layar, rollback, dan perbaikan yang paling sering.</span></a>
+  </div>
 
-  <h2 id="diagram">2. Diagram deployment (UML)</h2>
-  <figure>
+  <form class="fill" id="fill" onsubmit="return false" aria-labelledby="fill-title">
+    <h2 id="fill-title">Isi dulu</h2>
+    <p class="hint">Isi sekali, semua perintah di halaman ini ikut berubah dan tinggal disalin. Isian diingat di browser ini.</p>
+    <div class="grid">
+      <label>Klien (CLIENT_ID klien)<input id="f-client" value="demo" autocomplete="off" spellcheck="false"></label>
+      <label>Lingkungan<select id="f-env"><option value="staging" selected>staging</option><option value="production">production</option></select></label>
+      <label>Port (staging 5205, production 5105 menurut kebiasaan)<input id="f-port" value="5205" inputmode="numeric" autocomplete="off"></label>
+      <label>Folder induk deploy di server<input id="f-parent" value="/home/oxy/web-server" autocomplete="off" spellcheck="false"></label>
+      <label>Nama berkas paket (dari <code>release-packages/</code>)<input id="f-pkg" value="20261112070634-51480c1.tgz" autocomplete="off" spellcheck="false"></label>
+      <label>Domain publik (hanya untuk langkah 12)<input id="f-domain" value="dashboard.contoh.com" autocomplete="off" spellcheck="false"></label>
+    </div>
+    <p class="msg" id="fill-msg" role="status" aria-live="polite"></p>
+    <div class="tools"><button type="button" id="fill-reset">Kembalikan contoh</button><span>Folder deploy di server: <b class="tok" data-tok="ROOT">/home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205</b></span></div>
+    <noscript><p class="hint">JavaScript mati: perintah memakai contoh <code>demo</code>, <code>staging</code>, <code>5205</code>. Ganti nilainya sendiri saat menyalin.</p></noscript>
+  </form>
+
+
+  <h2 id="rutin">A. Deploy rilis baru (rutin)</h2>
+  <p>Syarat: deployment ini sudah pernah dipasang (bagian B sudah selesai). Empat langkah, sekitar lima menit.</p>
+  <ol class="steps">
+    <li><b>Buat paket.</b> <span class="pill p-lap">Laptop</span>
+      <p>Semua perubahan harus sudah di-commit. Lalu:</p>
+      <div class="cmd"><pre><code data-tpl="npm run release:pack -- {CLIENT} {ENV}">npm run release:pack -- demo staging</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      <p>Hasilnya ada di folder <code>release-packages/</code>: satu berkas <code>&lt;waktu&gt;-&lt;versi&gt;.tgz</code>. <b>Salin nama berkas itu ke kotak "Nama berkas paket" di atas.</b> Staging boleh dengan <code>--allow-dirty</code> bila belum sempat commit (versinya bertanda <code>-dirty</code>).</p>
+      <label class="chk"><input type="checkbox" data-chk="A1"> selesai</label></li>
+    <li><b>Unggah.</b> <span class="pill p-both">Laptop lalu server</span>
+      <p>Unggah berkas <code>.tgz</code> ke folder deploy di server dengan WinSCP atau <code>scp</code>, tujuannya:</p>
+      <div class="cmd"><pre><code data-tpl="{ROOT}/">/home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      <p><b>Jangan ganti nama berkasnya</b>: nama rilis diambil dari nama berkas. <code>open-package.mjs</code> tidak perlu diunggah lagi, pemasang menyegarkannya sendiri.</p>
+      <label class="chk"><input type="checkbox" data-chk="A2"> selesai</label></li>
+    <li><b>Pasang.</b> <span class="pill p-srv">Server, sebagai root</span>
+      <div class="cmd"><pre><code data-tpl="chown oxy:oxy {ROOT}/{PKG}
+su - oxy -c 'node {ROOT}/open-package.mjs {ROOT}/{PKG}'">chown oxy:oxy /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/20261112070634-51480c1.tgz
+su - oxy -c 'node /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/open-package.mjs /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/20261112070634-51480c1.tgz'</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      <p>Prosesnya satu sampai beberapa menit dan layar bisa tampak diam sebentar (migrasi, lalu menunggu aplikasi sehat). Jangan ditutup. Hasil yang benar, baris terakhir: <span class="good">INSTALLED &lt;versi&gt; as the current release ...</span></p>
+      <p>Pemasang mengerjakan sendiri: memeriksa paket dan server, memasang paketnya, memigrasi database, memindahkan rilis aktif, me-restart aplikasi, dan menunggu sampai sehat. Bila rilis baru tidak sehat dalam dua menit, ia mengembalikan rilis lama dengan sendirinya.</p>
+      <label class="chk"><input type="checkbox" data-chk="A3"> selesai</label></li>
+    <li><b>Cek.</b> <span class="pill p-srv">Server, sebagai root</span>
+      <div class="cmd"><pre><code data-tpl="curl -s http://127.0.0.1:{PORT}{PREFIX}/health">curl -s http://127.0.0.1:5205/oxy-demo-staging-finance-dashboard/health</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      <p>Harus menjawab <code>{"status":"ok","version":"&lt;versi baru&gt;","db":"ok"}</code>. Lalu buka dashboard di browser dan muat ulang halaman (tab yang terbuka sebelum restart masih memakai berkas lama).</p>
+      <label class="chk"><input type="checkbox" data-chk="A4"> selesai</label></li>
+  </ol>
+  <div class="note"><b>Sebaiknya saat sepi.</b> Restart membuat aplikasi tidak menjawab beberapa detik sampai satu-dua menit. Tidak ada aturan jam, hanya saran.</div>
+  <div class="note warn"><b>Bila hasilnya bukan <code>INSTALLED</code>,</b> lihat bagian C. Kegagalan sebelum rilis dipindahkan tidak mengubah apa pun; perbaiki sebabnya lalu jalankan perintah yang sama lagi.</div>
+
+
+  <h2 id="pertama">B. Deploy pertama untuk klien atau lingkungan baru</h2>
+  <p>Dikerjakan <b>sekali</b> per klien dan lingkungan. Kerjakan berurutan dan centang yang sudah selesai (tersimpan di browser ini). Setelah selesai, deploy berikutnya cukup bagian A.</p>
+  <div class="tools"><button type="button" id="chk-reset">Hapus semua centang</button></div>
+
+  <h2 class="part">Bagian 1: menyiapkan server</h2>
+  <ol class="steps">
+    <li><b>Periksa server.</b> <span class="pill p-srv">Server, sebagai root</span>
+      <p>Server butuh Node 22.12 atau lebih baru, <code>tar</code>, <code>npm</code>, akses ke registry npm, dan disk kosong minimal 1 GiB.</p>
+      <div class="cmd"><pre><code>node --version      # harus v22.12.0 atau lebih tinggi
+which node          # contoh unit di langkah 3 memakai /usr/bin/node
+tar --version       # cukup bila mencetak versi
+npm --version       # cukup bila mencetak versi
+npm ping            # harus berakhir dengan PONG
+df -h /home         # sisa ruang minimal 1 GiB</code></pre><button type="button" class="copy" aria-label="Salin">Salin</button></div>
+      <details><summary>Node belum ada atau terlalu lama</summary><div class="in">
+        <p><b>Ubuntu atau Debian</b> (cek dengan <code>cat /etc/os-release</code>):</p>
+        <div class="cmd"><pre><code>curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+node --version</code></pre><button type="button" class="copy" aria-label="Salin">Salin</button></div>
+        <p><b>CentOS 7:</b> Node 22 resmi tidak bisa (butuh glibc 2.28, CentOS 7 punya 2.17). Pakai build tidak resmi untuk glibc 2.17; cek versi terbarunya di <code>https://unofficial-builds.nodejs.org/download/release/</code> dan ganti nomor versinya. Teruji di server CentOS 7 pada 2026-11-12.</p>
+        <div class="cmd"><pre><code>cd /tmp
+curl -fLO https://unofficial-builds.nodejs.org/download/release/v22.23.5/node-v22.23.5-linux-x64-glibc-217.tar.xz
+curl -fLO https://unofficial-builds.nodejs.org/download/release/v22.23.5/SHASUMS256.txt
+grep glibc-217.tar.xz SHASUMS256.txt | sha256sum -c -      # harus: OK
+mkdir -p /usr/local/lib/nodejs
+tar -xJf node-v22.23.5-linux-x64-glibc-217.tar.xz -C /usr/local/lib/nodejs
+ln -sfn /usr/local/lib/nodejs/node-v22.23.5-linux-x64-glibc-217 /usr/local/lib/nodejs/current
+ln -sf /usr/local/lib/nodejs/current/bin/node /usr/bin/node
+ln -sf /usr/local/lib/nodejs/current/bin/npm /usr/bin/npm
+ln -sf /usr/local/lib/nodejs/current/bin/npx /usr/bin/npx
+node --version; npm --version</code></pre><button type="button" class="copy" aria-label="Salin">Salin</button></div>
+        <p>Jangan memakai <code>nvm</code> di server ini: ia memasang Node di folder home, sehingga layanan systemd tidak menemukannya.</p>
+      </div></details>
+      <label class="chk"><input type="checkbox" data-chk="B1"> selesai</label></li>
+    <li><b>Buat user dan folder deploy.</b> <span class="pill p-srv">Server, sebagai root</span>
+      <div class="cmd"><pre><code data-tpl="useradd -m oxy
+mkdir -p {ROOT}/logs
+chown -R oxy:oxy {ROOT}
+ls -la {ROOT}">useradd -m oxy
+mkdir -p /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/logs
+chown -R oxy:oxy /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205
+ls -la /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      <p><code>oxy</code> adalah akun khusus tanpa kata sandi supaya aplikasi tidak berjalan sebagai <code>root</code>. Bila <code>useradd</code> bilang user atau folder home sudah ada, abaikan. <b>Jalankan <code>chown</code> hanya untuk folder deploy ini</b>, jangan untuk folder induknya: di server yang sama mungkin ada aplikasi lain. Hasil yang benar: folder <code>logs</code> dengan pemilik <code>oxy oxy</code>.</p>
+      <label class="chk"><input type="checkbox" data-chk="B2"> selesai</label></li>
+    <li><b>Pasang layanan systemd</b> (sekali per server, lewati bila sudah ada). <span class="pill p-srv">Server, sebagai root</span>
+      <p>File ini memberi tahu Linux cara menjalankan dashboard: sebagai user <code>oxy</code>, memuat file env, memeriksanya dulu, dan menyalakannya lagi bila mati. Satu templat untuk semua deployment (<code>%i</code> diganti nama deployment). Belum ada yang dijalankan di langkah ini.</p>
+      <div class="cmd"><pre><code>cat &gt; /etc/systemd/system/oxy-finance-dashboard@.service &lt;&lt;'EOF'
+[Unit]
+Description=Oxy Finance Dashboard (%i)
+After=network.target
+
+[Service]
+User=oxy
+Group=oxy
+WorkingDirectory=/home/oxy/web-server/oxy-%i/current
+EnvironmentFile=/home/oxy/web-server/oxy-%i/finance-dashboard.env
+ExecStartPre=/usr/bin/node scripts/ops/env-check.mjs /home/oxy/web-server/oxy-%i/finance-dashboard.env
+ExecStart=/usr/bin/node scripts/start-server.mjs
+Restart=always
+RestartSec=5
+StartLimitInterval=120
+StartLimitBurst=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload</code></pre><button type="button" class="copy" aria-label="Salin">Salin</button></div>
+      <p>Contoh ini teruji di systemd 219 (CentOS 7). Bila folder induk deploy bukan <code>/home/oxy/web-server</code>, ganti pathnya di empat baris yang memuatnya.</p>
+      <details><summary>Server dengan systemd yang lebih baru (Ubuntu, Debian, Rocky 8 ke atas)</summary><div class="in">
+        <p>Cek versinya dengan <code>systemctl --version | head -1</code>. Bila angkanya <b>230 atau lebih</b>, dua baris <code>StartLimit</code> pindah ke bagian <code>[Unit]</code> dengan nama yang baru (<code>StartLimitIntervalSec</code>). Hanya itu bedanya. Versi ini belum teruji di server nyata (yang teruji hanya systemd 219).</p>
+        <div class="cmd"><pre><code>cat &gt; /etc/systemd/system/oxy-finance-dashboard@.service &lt;&lt;'EOF'
+[Unit]
+Description=Oxy Finance Dashboard (%i)
+After=network.target
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+User=oxy
+Group=oxy
+WorkingDirectory=/home/oxy/web-server/oxy-%i/current
+EnvironmentFile=/home/oxy/web-server/oxy-%i/finance-dashboard.env
+ExecStartPre=/usr/bin/node scripts/ops/env-check.mjs /home/oxy/web-server/oxy-%i/finance-dashboard.env
+ExecStart=/usr/bin/node scripts/start-server.mjs
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload</code></pre><button type="button" class="copy" aria-label="Salin">Salin</button></div>
+      </div></details>
+      <details><summary>Arti tiap baris di file itu</summary><div class="in"><div class="tbl"><table>
+        <thead><tr><th>Baris</th><th>Artinya</th></tr></thead>
+        <tbody>
+          <tr><td><code>User=oxy</code>, <code>Group=oxy</code></td><td>Dashboard berjalan sebagai user <code>oxy</code>, bukan <code>root</code>.</td></tr>
+          <tr><td><code>WorkingDirectory=.../current</code></td><td>Folder kerjanya: rilis yang sedang aktif. Folder <code>current</code> baru ada setelah pemasangan pertama.</td></tr>
+          <tr><td><code>EnvironmentFile=...finance-dashboard.env</code></td><td>Memuat pengaturan (alamat database dan sebagainya) ke aplikasi saat start.</td></tr>
+          <tr><td><code>ExecStartPre=... env-check.mjs</code></td><td>Sebelum menyala, periksa file pengaturannya. Bila salah, layanan tidak naik dan log menyebut nama kunci yang salah.</td></tr>
+          <tr><td><code>ExecStart=... start-server.mjs</code></td><td>Perintah yang menjalankan dashboard.</td></tr>
+          <tr><td><code>Restart=always</code>, <code>RestartSec=5</code></td><td>Bila mati, nyalakan lagi setelah 5 detik.</td></tr>
+          <tr><td><code>StartLimit...</code></td><td>Bila gagal menyala 5 kali dalam 2 menit, berhenti mencoba, supaya file env yang salah tidak membuat putaran gagal tanpa akhir.</td></tr>
+          <tr><td><code>NoNewPrivileges=true</code></td><td>Proses tidak boleh menaikkan haknya sendiri (pengaman tambahan).</td></tr>
+          <tr><td><code>WantedBy=multi-user.target</code></td><td>Supaya bisa menyala otomatis saat server hidup (dipakai oleh <code>systemctl enable</code>).</td></tr>
+          <tr><td><code>%i</code>, tanda <code>@</code> di nama file</td><td>Satu templat untuk semua deployment: <code>%i</code> diganti nama deployment (nama folder tanpa awalan <code>oxy-</code>).</td></tr>
+        </tbody></table></div></div></details>
+      <label class="chk"><input type="checkbox" data-chk="B3"> selesai</label></li>
+    <li><b>Izinkan <code>oxy</code> me-restart layanan ini.</b> <span class="pill p-srv">Server, sebagai root</span>
+      <div class="cmd"><pre><code data-tpl="command -v systemctl
+echo &quot;oxy ALL=(root) NOPASSWD: /usr/bin/systemctl restart oxy-finance-dashboard@{INSTANCE}&quot; &gt; /etc/sudoers.d/oxy-finance-dashboard
+chmod 440 /etc/sudoers.d/oxy-finance-dashboard
+visudo -cf /etc/sudoers.d/oxy-finance-dashboard">command -v systemctl
+echo "oxy ALL=(root) NOPASSWD: /usr/bin/systemctl restart oxy-finance-dashboard@demo-staging-finance-dashboard-5205" &gt; /etc/sudoers.d/oxy-finance-dashboard
+chmod 440 /etc/sudoers.d/oxy-finance-dashboard
+visudo -cf /etc/sudoers.d/oxy-finance-dashboard</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      <p>Baris pertama harus mencetak <code>/usr/bin/systemctl</code> (bila lain, pakai path itu di baris <code>echo</code>). Baris terakhir harus <span class="good">parsed OK</span>. Bila ada kesalahan, hapus file itu (<code>rm /etc/sudoers.d/oxy-finance-dashboard</code>) dan ulangi. Satu file ini hanya untuk satu deployment: untuk deployment lain, tambahkan barisnya dengan <code>visudo -f</code>.</p>
+      <label class="chk"><input type="checkbox" data-chk="B4"> selesai</label></li>
+  </ol>
+
+  <h2 class="part">Bagian 2: memasang aplikasi</h2>
+  <ol class="steps" style="counter-reset: s 4">
+    <li><b>Buat paket dan unggah dua berkas.</b> <span class="pill p-both">Laptop lalu server</span>
+      <div class="cmd"><pre><code data-tpl="npm run release:pack -- {CLIENT} {ENV}">npm run release:pack -- demo staging</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      <p>Dari folder <code>release-packages/</code> di laptop, unggah <b>dua berkas</b> ke folder deploy di server:</p>
+      <div class="cmd"><pre><code data-tpl="{ROOT}/">/home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      <ul><li>berkas <code>&lt;waktu&gt;-&lt;versi&gt;.tgz</code> (jangan ganti namanya; salin namanya ke kotak "Nama berkas paket" di atas), dan</li><li><code>open-package.mjs</code> (hanya pada deploy pertama ini).</li></ul>
+      <label class="chk"><input type="checkbox" data-chk="B5"> selesai</label></li>
+    <li><b>Pasang tanpa mengaktifkan.</b> <span class="pill p-srv">Server, sebagai root</span>
+      <div class="cmd"><pre><code data-tpl="chown oxy:oxy {ROOT}/open-package.mjs {ROOT}/{PKG}
+su - oxy -c 'node {ROOT}/open-package.mjs {ROOT}/{PKG} --prepare-only'">chown oxy:oxy /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/open-package.mjs /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/20261112070634-51480c1.tgz
+su - oxy -c 'node /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/open-package.mjs /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/20261112070634-51480c1.tgz --prepare-only'</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      <p>Paket dibuka dan dipasang (<code>npm ci</code>, mengunduh dependensi, bisa beberapa menit), tetapi <b>tidak ada yang dijalankan</b>. Hasil yang benar: <span class="good">PREPARED ... Nothing is switched.</span> Di akhir ia mencetak perintah <code>init-env.mjs create ...</code>; langkah 8 memakainya.</p>
+      <label class="chk"><input type="checkbox" data-chk="B6"> selesai</label></li>
+    <li><b>Siapkan akses database.</b> <span class="pill p-srv">Server, sebagai root</span>
+      <p>Dashboard butuh tiga hal: <b>nama database</b> klien, <b>user MySQL</b>, dan <b>kata sandinya</b>. Sebaiknya buat user khusus yang hanya berhak atas satu database itu, bukan <code>root</code>. Kata sandi acak hanya huruf dan angka menghindari urusan karakter khusus. <b>Jangan menempelkan kata sandi ke chat atau dokumen.</b></p>
+      <details><summary>Perintah membuat user MySQL khusus dashboard</summary><div class="in">
+        <div class="cmd"><pre><code>openssl rand -hex 16     # hasilnya dipakai sebagai KATA_SANDI; simpan sendiri</code></pre><button type="button" class="copy" aria-label="Salin">Salin</button></div>
+        <p>Lalu masuk dengan <code>mysql -u root -p</code> dan jalankan (ganti <code>NAMA_DATABASE</code> dan <code>KATA_SANDI</code>):</p>
+        <div class="cmd"><pre><code>CREATE USER 'dashboard'@'localhost' IDENTIFIED BY 'KATA_SANDI';
+CREATE USER 'dashboard'@'127.0.0.1' IDENTIFIED BY 'KATA_SANDI';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP ON `NAMA_DATABASE`.* TO 'dashboard'@'localhost';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP ON `NAMA_DATABASE`.* TO 'dashboard'@'127.0.0.1';
+FLUSH PRIVILEGES;</code></pre><button type="button" class="copy" aria-label="Salin">Salin</button></div>
+        <p>Dua alamat (<code>localhost</code> dan <code>127.0.0.1</code>) karena MySQL kadang menganggap sambungan dari <code>127.0.0.1</code> sebagai <code>localhost</code>. Memakai <code>root</code> juga bisa (keputusan pemilik), tetapi <code>root</code> berhak atas semua database di server itu.</p>
+      </div></details>
+      <details><summary>Cukup tidaknya sisa koneksi MySQL</summary><div class="in">
+        <p>Satu deployment membuka paling banyak 7 koneksi (5 untuk pengguna dan 2 untuk pembangunan snapshot di latar belakang), 14 bila staging dan production sama-sama jalan. Di <code>mysql</code>:</p>
+        <div class="cmd"><pre><code>SHOW VARIABLES LIKE 'max_connections';
+SHOW STATUS LIKE 'Max_used_connections';</code></pre><button type="button" class="copy" aria-label="Salin">Salin</button></div>
+        <p>Selisihnya (batas dikurangi puncak pemakaian) harus lebih besar dari 14. Bila tipis, turunkan <code>DB_POOL_SIZE</code> dan <code>DASH_POOL_SIZE</code> di file env.</p>
+      </div></details>
+      <label class="chk"><input type="checkbox" data-chk="B7"> selesai</label></li>
+    <li><b>Buat file env.</b> <span class="pill p-srv">Server, sebagai root</span>
+      <p>File env berisi pengaturan satu deployment dan hanya ada di server. Buat dengan perintah dari langkah 6, <b>sebagai <code>oxy</code></b>:</p>
+      <div class="cmd"><pre><code data-tpl="su - oxy -c 'node {ROOT}/releases/{RELNAME}/scripts/ops/init-env.mjs create --client {CLIENT} --env {ENV} --port {PORT} --file {ROOT}/finance-dashboard.env'
+ls -l {ROOT}/finance-dashboard.env">su - oxy -c 'node /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/releases/20261112070634-51480c1/scripts/ops/init-env.mjs create --client demo --env staging --port 5205 --file /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/finance-dashboard.env'
+ls -l /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/finance-dashboard.env</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      <p>Hasil yang benar: <code>-rw-------</code> dengan pemilik <code>oxy oxy</code>. <code>SESSION_SECRET</code> sudah diisi acak, dan <code>DATABASE_URL</code> sengaja kosong. Isi <code>LOG_DIR</code> dengan perintah ini:</p>
+      <div class="cmd"><pre><code data-tpl="su - oxy -c &quot;sed -i 's|^# LOG_DIR=.*|LOG_DIR={ROOT}/logs|' {ROOT}/finance-dashboard.env&quot;
+grep &quot;^LOG_DIR&quot; {ROOT}/finance-dashboard.env">su - oxy -c "sed -i 's|^# LOG_DIR=.*|LOG_DIR=/home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/logs|' /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/finance-dashboard.env"
+grep "^LOG_DIR" /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/finance-dashboard.env</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      <p>Lalu isi <code>DATABASE_URL</code> dengan WinSCP (buka <code>finance-dashboard.env</code>, ubah barisnya, simpan) atau <code>vi</code>:</p>
+      <div class="cmd"><pre><code>DATABASE_URL=mysql://USER:KATA_SANDI@127.0.0.1:3306/NAMA_DATABASE</code></pre><button type="button" class="copy" aria-label="Salin">Salin</button></div>
+      <p>Karakter khusus di kata sandi harus ditulis dengan kode persen (<code>@</code> menjadi <code>%40</code>, <code>#</code> menjadi <code>%23</code>). Periksa file:</p>
+      <div class="cmd"><pre><code data-tpl="su - oxy -c 'node {ROOT}/releases/{RELNAME}/scripts/ops/env-check.mjs {ROOT}/finance-dashboard.env'">su - oxy -c 'node /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/releases/20261112070634-51480c1/scripts/ops/env-check.mjs /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/finance-dashboard.env'</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      <p>Hasil yang benar: <span class="good">env-check: OK (...)</span>. Ulangi sampai bersih; pesannya hanya menyebut nama kunci, tidak pernah nilainya. Catatan: file ini memuat <code>HOST=127.0.0.1</code>, jadi aplikasi hanya melayani dari server itu sendiri (lihat langkah 11).</p>
+      <label class="chk"><input type="checkbox" data-chk="B8"> selesai</label></li>
+    <li><b>Daftarkan layanan.</b> <span class="pill p-srv">Server, sebagai root</span>
+      <div class="cmd"><pre><code data-tpl="systemctl enable oxy-finance-dashboard@{INSTANCE}">systemctl enable oxy-finance-dashboard@demo-staging-finance-dashboard-5205</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      <p>Hanya mendaftarkan supaya menyala saat server hidup. Hasil yang benar: baris <code>Created symlink ...</code>.</p>
+      <label class="chk"><input type="checkbox" data-chk="B9"> selesai</label></li>
+    <li><b>Pasang sungguhan.</b> <span class="pill p-srv">Server, sebagai root</span>
+      <div class="cmd"><pre><code data-tpl="su - oxy -c 'node {ROOT}/open-package.mjs {ROOT}/{PKG}'">su - oxy -c 'node /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/open-package.mjs /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/20261112070634-51480c1.tgz'</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      <p>Pemasang memeriksa, <b>membuat tabel <code>dash_*</code> di database</b> (migrasi), mengaktifkan rilis, menyalakan layanan, dan menunggu sehat. Hasil yang benar: <span class="good">INSTALLED ...</span>. Ini perintah yang sama dengan bagian A.</p>
+      <label class="chk"><input type="checkbox" data-chk="B10"> selesai</label></li>
+    <li><b>Cek dan buka.</b> <span class="pill p-srv">Server, sebagai root</span>
+      <div class="cmd"><pre><code data-tpl="curl -s http://127.0.0.1:{PORT}{PREFIX}/health
+systemctl status oxy-finance-dashboard@{INSTANCE} --no-pager | head -8">curl -s http://127.0.0.1:5205/oxy-demo-staging-finance-dashboard/health
+systemctl status oxy-finance-dashboard@demo-staging-finance-dashboard-5205 --no-pager | head -8</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      <p>Harus <code>{"status":"ok",...}</code> dan <code>active (running)</code>. Karena aplikasi hanya melayani dari server, untuk membukanya dari komputer Anda pakai terowongan SSH (di PowerShell laptop):</p>
+      <div class="cmd"><pre><code data-tpl="ssh -L {PORT}:127.0.0.1:{PORT} &lt;user&gt;@&lt;alamat server&gt;">ssh -L 5205:127.0.0.1:5205 &lt;user&gt;@&lt;alamat server&gt;</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      <p>Biarkan jendelanya terbuka, lalu buka <code data-tpl="http://localhost:{PORT}{PREFIX}/">http://localhost:5205/oxy-demo-staging-finance-dashboard/</code> di browser dan login dengan akun ERP. <b>Nama perusahaan di sidebar harus benar</b>: itu bukti dashboard membaca database yang tepat.</p>
+      <label class="chk"><input type="checkbox" data-chk="B11"> selesai</label></li>
+    <li><b>(Opsional) Buka untuk pengguna lain lewat domain.</b>
+      <p><b>Langkah ini boleh dilewati bila hanya Anda yang memakai dashboard.</b> Setelah langkah 11, dashboard hanya bisa dibuka dari server itu sendiri (Anda memakai terowongan SSH dari laptop). Kerjakan langkah ini bila <b>orang lain</b> (tim atau klien) harus membukanya dari komputer mereka lewat alamat web biasa, misalnya <code data-tpl="https://{DOMAIN}{PREFIX}/">https://dashboard.contoh.com/oxy-demo-staging-finance-dashboard/</code>. Caranya: pasang "penerus" (reverse proxy), yaitu program web di server yang menerima kunjungan di port 80/443 lalu meneruskannya ke dashboard. Isi kotak "Domain publik" di atas dulu.</p>
+      <p><b>Satu domain cukup untuk banyak deployment</b> (klien dan lingkungan berbeda): tiap deployment punya port dan awalan alamat sendiri, jadi menambah deployment tidak butuh DNS atau sertifikat baru, hanya satu blok di file HTTPS (langkah 7).</p>
+      <details><summary>Dengan httpd (Apache), teruji 2026-11-12 di CentOS 7</summary><div class="in">
+        <p>Semua langkah memakai <b>file baru</b> dan tidak mengubah file lain. Bila di server sudah ada <code>httpd</code> di port 80 dan 443, pakai cara ini dan jangan memasang nginx. Setiap penerapan dijaga <code>httpd -t</code>: <code>reload</code> baru jalan bila <code>Syntax OK</code>, dan <code>reload</code> bersifat lembut (aplikasi lain tidak terputus). Untuk membatalkan, hapus file barunya lalu <code>httpd -t &amp;&amp; systemctl reload httpd</code>.</p>
+        <p><b>7a. DNS.</b> Minta pemegang domain membuat catatan <code>A</code>: nama <code>{DOMAIN}</code>, nilai IP publik server (cek dengan <code>curl -s ifconfig.me</code>). Lalu periksa dari server (harus mencetak IP itu; bila kosong, DNS belum menyebar dan jangan lanjut):</p>
+        <div class="cmd"><pre><code data-tpl="getent hosts {DOMAIN}">getent hosts dashboard.contoh.com</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+        <p>Bila domainnya punya catatan wildcard (<code>*</code>) ke server lain, nama acak pun akan tampak "ada"; yang penting catatan untuk <code>{DOMAIN}</code> sendiri menunjuk ke server ini.</p>
+        <p><b>7b. File port 80.</b> Hanya mengenalkan nama ke <code>httpd</code> supaya sertifikat bisa dibuktikan. Belum ada yang diteruskan.</p>
+        <div class="cmd"><pre><code data-tpl="cat &gt; /etc/httpd/conf.d/{DOMAIN}.conf &lt;&lt;'EOF'
+&lt;VirtualHost *:80&gt;
+    ServerName {DOMAIN}
+    ErrorLog /var/log/httpd/{DOMAIN}-error.log
+    CustomLog /var/log/httpd/{DOMAIN}-access.log combined
+&lt;/VirtualHost&gt;
+EOF
+httpd -t &amp;&amp; systemctl reload httpd">cat &gt; /etc/httpd/conf.d/dashboard.contoh.com.conf &lt;&lt;'EOF'
+&lt;VirtualHost *:80&gt;
+    ServerName dashboard.contoh.com
+    ErrorLog /var/log/httpd/dashboard.contoh.com-error.log
+    CustomLog /var/log/httpd/dashboard.contoh.com-access.log combined
+&lt;/VirtualHost&gt;
+EOF
+httpd -t &amp;&amp; systemctl reload httpd</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+        <p>Uji bahwa port 80 terjangkau lewat nama itu (harus mencetak <code>ok</code>; bila tidak, berhenti, karena sertifikat akan gagal dan Let's Encrypt membatasi percobaan yang gagal):</p>
+        <div class="cmd"><pre><code data-tpl="mkdir -p /var/www/html/.well-known/acme-challenge
+echo ok &gt; /var/www/html/.well-known/acme-challenge/uji
+curl -s http://{DOMAIN}/.well-known/acme-challenge/uji
+rm -f /var/www/html/.well-known/acme-challenge/uji">mkdir -p /var/www/html/.well-known/acme-challenge
+echo ok &gt; /var/www/html/.well-known/acme-challenge/uji
+curl -s http://dashboard.contoh.com/.well-known/acme-challenge/uji
+rm -f /var/www/html/.well-known/acme-challenge/uji</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+        <p><b>7c. Sertifikat HTTPS.</b> <code>certonly</code> hanya mengambil sertifikat dan <b>tidak mengubah konfigurasi <code>httpd</code></b>:</p>
+        <div class="cmd"><pre><code data-tpl="certbot certonly --webroot -w /var/www/html -d {DOMAIN}">certbot certonly --webroot -w /var/www/html -d dashboard.contoh.com</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+        <p>Hasil yang benar: <span class="good">Successfully received certificate</span> (berlaku 90 hari).</p>
+        <p><b>7d. File HTTPS dan pengalihan dari HTTP.</b> Sertifikat ditulis dengan <code>cert.pem</code>, <code>chain.pem</code>, dan <code>SSLCertificateChainFile</code> karena <code>httpd</code> 2.4.6 (CentOS 7) belum mendukung <code>fullchain.pem</code> di satu baris; di <code>httpd</code> 2.4.8 ke atas pakai <code>fullchain.pem</code> di <code>SSLCertificateFile</code> dan buang baris chain.</p>
+        <div class="cmd"><pre><code data-tpl="cat &gt; /etc/httpd/conf.d/{DOMAIN}-ssl.conf &lt;&lt;'EOF'
+&lt;IfModule mod_ssl.c&gt;
+&lt;VirtualHost *:443&gt;
+    ServerName {DOMAIN}
+
+    SSLEngine on
+    SSLCertificateFile /etc/letsencrypt/live/{DOMAIN}/cert.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/{DOMAIN}/privkey.pem
+    SSLCertificateChainFile /etc/letsencrypt/live/{DOMAIN}/chain.pem
+    Include /etc/letsencrypt/options-ssl-apache.conf
+
+    ProxyPreserveHost On
+
+    &lt;Location &quot;{PREFIX}&quot;&gt;
+        RequestHeader unset X-Forwarded-For early
+        RequestHeader set X-Forwarded-Proto &quot;https&quot;
+    &lt;/Location&gt;
+    &lt;Location &quot;{PREFIX}/health&quot;&gt;
+        Require all denied
+    &lt;/Location&gt;
+    ProxyPass        {PREFIX} http://127.0.0.1:{PORT}{PREFIX} timeout=180
+    ProxyPassReverse {PREFIX} http://127.0.0.1:{PORT}{PREFIX}
+
+    ErrorLog /var/log/httpd/{DOMAIN}-ssl-error.log
+    CustomLog /var/log/httpd/{DOMAIN}-ssl-access.log combined
+&lt;/VirtualHost&gt;
+&lt;/IfModule&gt;
+EOF">cat &gt; /etc/httpd/conf.d/dashboard.contoh.com-ssl.conf &lt;&lt;'EOF'
+&lt;IfModule mod_ssl.c&gt;
+&lt;VirtualHost *:443&gt;
+    ServerName dashboard.contoh.com
+
+    SSLEngine on
+    SSLCertificateFile /etc/letsencrypt/live/dashboard.contoh.com/cert.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/dashboard.contoh.com/privkey.pem
+    SSLCertificateChainFile /etc/letsencrypt/live/dashboard.contoh.com/chain.pem
+    Include /etc/letsencrypt/options-ssl-apache.conf
+
+    ProxyPreserveHost On
+
+    &lt;Location "/oxy-demo-staging-finance-dashboard"&gt;
+        RequestHeader unset X-Forwarded-For early
+        RequestHeader set X-Forwarded-Proto "https"
+    &lt;/Location&gt;
+    &lt;Location "/oxy-demo-staging-finance-dashboard/health"&gt;
+        Require all denied
+    &lt;/Location&gt;
+    ProxyPass        /oxy-demo-staging-finance-dashboard http://127.0.0.1:5205/oxy-demo-staging-finance-dashboard timeout=180
+    ProxyPassReverse /oxy-demo-staging-finance-dashboard http://127.0.0.1:5205/oxy-demo-staging-finance-dashboard
+
+    ErrorLog /var/log/httpd/dashboard.contoh.com-ssl-error.log
+    CustomLog /var/log/httpd/dashboard.contoh.com-ssl-access.log combined
+&lt;/VirtualHost&gt;
+&lt;/IfModule&gt;
+EOF</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+        <p>Lalu tulis ulang file port 80 supaya mengalihkan ke HTTPS (alamat verifikasi sertifikat dikecualikan supaya perpanjangan tetap jalan lewat HTTP), dan terapkan:</p>
+        <div class="cmd"><pre><code data-tpl="cat &gt; /etc/httpd/conf.d/{DOMAIN}.conf &lt;&lt;'EOF'
+&lt;VirtualHost *:80&gt;
+    ServerName {DOMAIN}
+    ErrorLog /var/log/httpd/{DOMAIN}-error.log
+    CustomLog /var/log/httpd/{DOMAIN}-access.log combined
+
+    RedirectMatch permanent ^/(?!\.well-known/acme-challenge/)(.*)$ https://{DOMAIN}/$1
+&lt;/VirtualHost&gt;
+EOF
+httpd -t &amp;&amp; systemctl reload httpd">cat &gt; /etc/httpd/conf.d/dashboard.contoh.com.conf &lt;&lt;'EOF'
+&lt;VirtualHost *:80&gt;
+    ServerName dashboard.contoh.com
+    ErrorLog /var/log/httpd/dashboard.contoh.com-error.log
+    CustomLog /var/log/httpd/dashboard.contoh.com-access.log combined
+
+    RedirectMatch permanent ^/(?!\.well-known/acme-challenge/)(.*)$ https://dashboard.contoh.com/$1
+&lt;/VirtualHost&gt;
+EOF
+httpd -t &amp;&amp; systemctl reload httpd</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+        <p><b>7e. Uji dari server.</b> Hasil yang benar: <code>httpd_can_network_connect --> on</code> (bila <code>off</code>: <code>setsebool -P httpd_can_network_connect 1</code>), dashboard <code>200</code> atau <code>307</code>, health <code>403</code> (memang ditutup dari luar), dan pengalihan login berupa path di bawah awalan dashboard (bukan <code>http://</code> atau <code>127.0.0.1</code>):</p>
+        <div class="cmd"><pre><code data-tpl="getsebool httpd_can_network_connect
+curl -sk --resolve {DOMAIN}:443:127.0.0.1 -o /dev/null -w &quot;dashboard: %{http_code}\n&quot; https://{DOMAIN}{PREFIX}/
+curl -sk --resolve {DOMAIN}:443:127.0.0.1 -o /dev/null -w &quot;health: %{http_code}\n&quot; https://{DOMAIN}{PREFIX}/health
+curl -skI --resolve {DOMAIN}:443:127.0.0.1 https://{DOMAIN}{PREFIX}/ | grep -i &quot;^location&quot;
+curl -sI http://{DOMAIN}{PREFIX}/ | grep -iE &quot;^(HTTP|location)&quot;">getsebool httpd_can_network_connect
+curl -sk --resolve dashboard.contoh.com:443:127.0.0.1 -o /dev/null -w "dashboard: %{http_code}\n" https://dashboard.contoh.com/oxy-demo-staging-finance-dashboard/
+curl -sk --resolve dashboard.contoh.com:443:127.0.0.1 -o /dev/null -w "health: %{http_code}\n" https://dashboard.contoh.com/oxy-demo-staging-finance-dashboard/health
+curl -skI --resolve dashboard.contoh.com:443:127.0.0.1 https://dashboard.contoh.com/oxy-demo-staging-finance-dashboard/ | grep -i "^location"
+curl -sI http://dashboard.contoh.com/oxy-demo-staging-finance-dashboard/ | grep -iE "^(HTTP|location)"</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+        <p>Lalu buka <code data-tpl="https://{DOMAIN}{PREFIX}/">https://dashboard.contoh.com/oxy-demo-staging-finance-dashboard/</code> di browser dari komputer lain: gembok tanpa peringatan, login berhasil dan tetap login saat pindah halaman, nama perusahaan di sidebar benar.</p>
+        <p><b>7f. Perpanjangan sertifikat otomatis.</b> Sertifikat Let's Encrypt berlaku 90 hari. Karena memakai <code>certonly</code>, <code>certbot</code> tidak memuat ulang <code>httpd</code> sendiri, jadi pasang skrip pemuat ulang dan jadwal. Skrip ini aman untuk sertifikat lain (hanya satu <code>reload</code> lembut setelah tiap perpanjangan berhasil), dan <code>--dry-run</code> tidak menjalankannya, jadi ujilah langsung:</p>
+        <div class="cmd"><pre><code>mkdir -p /etc/letsencrypt/renewal-hooks/deploy
+cat &gt; /etc/letsencrypt/renewal-hooks/deploy/reload-httpd.sh &lt;&lt;'EOF'
+#!/bin/sh
+# Muat ulang httpd setelah sertifikat diperpanjang, hanya bila konfigurasinya valid.
+/usr/sbin/httpd -t &amp;&amp; systemctl reload httpd
+EOF
+chmod 755 /etc/letsencrypt/renewal-hooks/deploy/reload-httpd.sh
+/etc/letsencrypt/renewal-hooks/deploy/reload-httpd.sh &amp;&amp; echo "hook OK"</code></pre><button type="button" class="copy" aria-label="Salin">Salin</button></div>
+        <p>Penjadwal (dua kali sehari; <code>certbot</code> baru memperbarui bila sisa masa berlaku kurang dari 30 hari). Hanya untuk sertifikat domain ini, supaya sertifikat lain tidak ikut tersentuh. Periksa dulu bahwa <code>crond</code> aktif:</p>
+        <div class="cmd"><pre><code data-tpl="systemctl is-active crond
+CB=$(command -v certbot)
+cat &gt; /etc/cron.d/certbot-{DOMAIN} &lt;&lt;EOF
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+23 3,15 * * * root $CB renew --cert-name {DOMAIN} --quiet
+EOF
+cat /etc/cron.d/certbot-{DOMAIN}
+certbot renew --dry-run --cert-name {DOMAIN}">systemctl is-active crond
+CB=$(command -v certbot)
+cat &gt; /etc/cron.d/certbot-dashboard.contoh.com &lt;&lt;EOF
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+23 3,15 * * * root $CB renew --cert-name dashboard.contoh.com --quiet
+EOF
+cat /etc/cron.d/certbot-dashboard.contoh.com
+certbot renew --dry-run --cert-name dashboard.contoh.com</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+        <p>Hasil yang benar: <code>active</code>, baris jadwal dengan path <code>certbot</code>, dan <span class="good">all simulated renewals succeeded</span>. Sertifikat yang sudah ada di server dengan cara perpanjangan lain (misalnya <code>--apache</code>) tidak ikut terjadwal oleh ini; periksa masa berlakunya dengan <code>certbot certificates</code>.</p>
+        <p><b>7g. Menambah deployment lain di domain yang sama.</b> Tidak butuh DNS, sertifikat, atau file baru. Pasang deployment barunya (bagian B, dengan klien, lingkungan, dan <b>port baru</b>), ubah isian di atas, lalu tambahkan satu blok ini di dalam <code>&lt;VirtualHost *:443&gt;</code> pada file <code>{DOMAIN}-ssl.conf</code> dan terapkan dengan <code>httpd -t &amp;&amp; systemctl reload httpd</code>:</p>
+        <div class="cmd"><pre><code data-tpl="&lt;Location &quot;{PREFIX}&quot;&gt;
+    RequestHeader unset X-Forwarded-For early
+    RequestHeader set X-Forwarded-Proto &quot;https&quot;
+&lt;/Location&gt;
+&lt;Location &quot;{PREFIX}/health&quot;&gt;
+    Require all denied
+&lt;/Location&gt;
+ProxyPass        {PREFIX} http://127.0.0.1:{PORT}{PREFIX} timeout=180
+ProxyPassReverse {PREFIX} http://127.0.0.1:{PORT}{PREFIX}">&lt;Location "/oxy-demo-staging-finance-dashboard"&gt;
+    RequestHeader unset X-Forwarded-For early
+    RequestHeader set X-Forwarded-Proto "https"
+&lt;/Location&gt;
+&lt;Location "/oxy-demo-staging-finance-dashboard/health"&gt;
+    Require all denied
+&lt;/Location&gt;
+ProxyPass        /oxy-demo-staging-finance-dashboard http://127.0.0.1:5205/oxy-demo-staging-finance-dashboard timeout=180
+ProxyPassReverse /oxy-demo-staging-finance-dashboard http://127.0.0.1:5205/oxy-demo-staging-finance-dashboard</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+        <p>Port tiap deployment harus unik di server (catat di satu tempat). Staging dan production klien yang sama sebaiknya memakai database berbeda, karena yang sama berarti berbagi tabel <code>dash_*</code> dan membangun snapshot dua kali.</p>
+      </div></details>
+      <details><summary>Dengan nginx (belum teruji di server nyata)</summary><div class="in">
+        <p>Satu blok <code>location</code> per klien, <code>proxy_pass</code> <b>tanpa</b> garis miring di akhir, dan <code>X-Forwarded-For</code> diisi <code>$remote_addr</code> (menimpa, bukan menambah). Alamat <code>/health</code> ditutup dari luar. DNS dan sertifikat sama seperti 7a dan 7c.</p>
+        <div class="cmd"><pre><code data-tpl="location = {PREFIX}/health {
+    return 404;
+}
+location {PREFIX} {
+    proxy_pass http://127.0.0.1:{PORT};
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 180s;
+}">location = /oxy-demo-staging-finance-dashboard/health {
+    return 404;
+}
+location /oxy-demo-staging-finance-dashboard {
+    proxy_pass http://127.0.0.1:5205;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 180s;
+}</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      </div></details></li>
+  </ol>
+
+
+  <h2 id="gagal">C. Kalau ada yang gagal atau perlu mundur</h2>
+  <h3>Baca baris terakhir di layar</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Tulisan</th><th>Artinya</th><th>Yang Anda lakukan</th></tr></thead>
+    <tbody>
+      <tr><td><code>INSTALLED ...</code></td><td>Rilis baru sehat dan berjalan.</td><td>Tidak ada.</td></tr>
+      <tr><td><code>FAILED: ...</code></td><td>Berhenti <b>sebelum</b> rilis dipindahkan, jadi aplikasi yang berjalan tidak berubah. Pesannya menyebut sebabnya.</td><td>Perbaiki sebabnya (tabel di bawah), lalu jalankan <b>perintah yang sama</b> lagi. Tidak perlu mengunggah ulang.</td></tr>
+      <tr><td><code>ROLLED BACK: ...</code></td><td>Rilis baru tidak sehat, rilis lama sudah dikembalikan dan berjalan lagi.</td><td>Cari sebabnya di log (di bawah), perbaiki, buat paket baru.</td></tr>
+      <tr><td><code>ACTION NEEDED: ...</code></td><td>Rilis baru tidak sehat <b>dan</b> rilis lama juga tidak menjawab.</td><td>Sekarang juga: lihat log layanan dan <code>--status</code> (di bawah).</td></tr>
+      <tr><td><code>PREPARED ...</code></td><td>Hanya untuk <code>--prepare-only</code>: paket terpasang, belum diaktifkan.</td><td>Lanjut ke langkah berikutnya di bagian B.</td></tr>
+    </tbody></table></div>
+
+  <h3>Penyebab yang paling sering</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Pesan atau gejala</th><th>Sebab</th><th>Perbaikan</th></tr></thead>
+    <tbody>
+      <tr><td><code>Access denied for user ...</code> saat migrasi</td><td>Kata sandi atau user di <code>DATABASE_URL</code> salah, atau karakter khususnya belum dikode persen.</td><td>Uji: <code>mysql -h 127.0.0.1 -P 3306 -u &lt;user&gt; -p -e "SELECT CURRENT_USER();"</code>. Bila berhasil, tulis ulang kata sandi di file env dengan kode persen, atau pakai kata sandi acak huruf dan angka.</td></tr>
+      <tr><td><code>finance-dashboard.env does not exist</code></td><td>File env belum dibuat.</td><td>Kerjakan langkah 6 sampai 8 di bagian B.</td></tr>
+      <tr><td><code>this package was built for CLIENT_ID ...</code></td><td>Paket untuk klien atau lingkungan lain.</td><td>Buat paket dengan klien dan lingkungan yang sama dengan nama folder deploy.</td></tr>
+      <tr><td>Gagal di langkah restart</td><td>Aturan <code>sudoers</code> tidak cocok dengan nama layanan.</td><td>Ulangi langkah 4 di bagian B; nama di baris <code>sudoers</code> harus persis <code>oxy-finance-dashboard@&lt;nama folder tanpa oxy-&gt;</code>.</td></tr>
+      <tr><td><code>npm ci</code> gagal</td><td>Server tidak bisa menjangkau registry npm.</td><td><code>npm ping</code> harus <code>PONG</code>; periksa jaringan atau mirror npm server.</td></tr>
+      <tr><td><code>/health</code> menjawab <code>503</code> atau <code>"db":"fail"</code></td><td>Aplikasi hidup, tetapi database tidak terjangkau atau pengaturannya salah.</td><td>Lihat log layanan (di bawah). Pemasang akan mundur sendiri bila ada rilis sebelumnya.</td></tr>
+      <tr><td><code>.deploy.lock</code> disebut di pesan</td><td>Pemasangan sebelumnya terputus di tengah dan kuncinya tertinggal.</td><td>Pastikan tidak ada pemasangan yang sedang jalan, lalu hapus kuncinya (di bawah).</td></tr>
+    </tbody></table></div>
+
+  <h3>Perintah yang berguna</h3>
+  <p><b>Log layanan</b> (100 baris terakhir):</p>
+  <div class="cmd"><pre><code data-tpl="journalctl -u oxy-finance-dashboard@{INSTANCE} -n 100 --no-pager">journalctl -u oxy-finance-dashboard@demo-staging-finance-dashboard-5205 -n 100 --no-pager</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+  <p><b>Mundur ke rilis sebelumnya</b> dengan tangan (menjalankannya dua kali berarti maju lagi ke rilis tadi; migrasi database tidak dibatalkan):</p>
+  <div class="cmd"><pre><code data-tpl="su - oxy -c 'node {ROOT}/current/scripts/ops/install.mjs --rollback'">su - oxy -c 'node /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/current/scripts/ops/install.mjs --rollback'</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+  <p><b>Lihat rilis yang ada</b> dan kesehatan aplikasi:</p>
+  <div class="cmd"><pre><code data-tpl="su - oxy -c 'node {ROOT}/current/scripts/ops/install.mjs --status'">su - oxy -c 'node /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/current/scripts/ops/install.mjs --status'</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+  <p><b>Hapus kunci yang tertinggal</b> (hanya bila yakin tidak ada pemasangan yang sedang jalan):</p>
+  <div class="cmd"><pre><code data-tpl="rm -r {ROOT}/.deploy.lock">rm -r /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/.deploy.lock</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+
+
+  <h2 id="referensi">Referensi (tidak perlu dibaca untuk deploy)</h2>
+  <p>Cara kerja di balik layar, diagram, dan peta file. Buka bagian yang ingin Anda pahami.</p>
+  <details class="ref"><summary>Diagram deployment (UML): siapa berbicara dengan siapa</summary><div class="in">
+<figure>
     <div class="scroll">
     <svg viewBox="0 0 960 600" role="img" aria-label="Diagram deployment: Anda membuat paket di komputer pembangun, mengunggahnya sendiri ke server Oxy, dan menjalankan pemasang lewat terminal SSH Anda. Server menjalankan nginx, service aplikasi, alat server dan folder deploy; aplikasi dan skrip migrasi berbicara ke database MySQL; browser pengguna masuk lewat nginx.">
       <defs>
@@ -213,9 +719,9 @@
     </div>
     <figcaption>Dua jalur dari Anda ke server, dua-duanya manual: unggah berkas (garis putus-putus) dan perintah di terminal SSH Anda. Komputer pembangun sendiri tidak punya jalur ke server. Panah putus-putus kecil di dalam server adalah pemeriksaan kesehatan yang dijalankan dari server itu sendiri, bukan lewat nginx.</figcaption>
   </figure>
-
-  <h2 id="urutan">3. Urutan satu rilis</h2>
-  <figure>
+  </div></details>
+  <details class="ref"><summary>Diagram urutan satu rilis</summary><div class="in">
+<figure>
     <div class="scroll">
     <svg viewBox="0 0 960 700" role="img" aria-label="Diagram urutan: komputer pembangun membuat paket, Anda mengunggahnya dan menjalankan pemasang di server; pemasang memeriksa, memasang, memigrasi database, memindahkan current, me-restart service dan menunggu health; bila tidak sehat, rilis dikembalikan.">
       <defs>
@@ -266,113 +772,11 @@
       <text class="t lbl" x="215" y="670" text-anchor="middle">ROLLED BACK (kode keluar 1)</text>
     </svg>
     </div>
-    <figcaption>Migrasi (6) berjalan sebelum pemindahan <code>current</code> (7). Karena itu migrasi harus tambah-saja: untuk beberapa detik, dan setelah rollback seterusnya, rilis lama berjalan terhadap skema baru. Langkah 2 dan 3 adalah satu-satunya bagian manual. Pada pemasangan pertama sebuah deployment ada beberapa langkah manual tambahan, termasuk membuat file env (bagian 5).</figcaption>
+    <figcaption>Migrasi (6) berjalan sebelum pemindahan <code>current</code> (7). Karena itu migrasi harus tambah-saja: untuk beberapa detik, dan setelah rollback seterusnya, rilis lama berjalan terhadap skema baru. Langkah 2 dan 3 adalah satu-satunya bagian manual. Pada pemasangan pertama sebuah deployment ada beberapa langkah manual tambahan, termasuk membuat file env (bagian B).</figcaption>
   </figure>
-
-  <h3>Langkah demi langkah, dengan kata sederhana</h3>
-  <ol class="steps">
-    <li><b>Buat paket.</b> <code>npm run release:pack -- acme production</code>. Commit harus bersih; versi diambil dari <code>git describe</code> (tag bila ada, selain itu kode commit). Aplikasi dibangun untuk <code>CLIENT_ID</code> klien itu, hasilnya diperiksa (versi, <code>CLIENT_ID</code>, semua paket yang di-<code>import</code> server ikut terpasang), lalu dikemas ke <code>release-packages/</code>. Di akhir, perintah mencetak langkah berikutnya.<span class="where">Komputer pembangun · gagal = tidak ada paket</span></li>
-    <li><b>Unggah.</b> Salin berkas <code>.tgz</code> ke server dengan cara apa saja (WinSCP, scp). Pada pemasangan pertama sebuah deployment, salin juga <code>open-package.mjs</code> (ada di sebelah paket) ke folder deploy.<span class="where">Anda</span></li>
-    <li><b>Buka paket dan pasang.</b> <code>node &lt;folder deploy&gt;/open-package.mjs &lt;berkas&gt;.tgz</code>. Skrip itu mengambil nama rilis dari nama berkas, membuka paket ke <code>releases/&lt;nama&gt;</code> lewat folder sementara (tidak pernah setengah terbuka), memeriksa isinya, lalu menjalankan pemasang. Setelah pemasangan berhasil, pemasang menyalin <code>open-package.mjs</code> dari rilis itu ke folder deploy, jadi salinan unggahan manual tidak pernah basi.<span class="where">Anda, di server</span></li>
-    <li><b>Pemasang: periksa rilis.</b> <code>install.mjs</code> membaca folder deploy dari letaknya sendiri dan menolak paket yang dibangun untuk klien atau lingkungan lain.<span class="where">Server</span></li>
-    <li><b>Pemasang: siapkan.</b> Mengambil kunci (<code>mkdir .deploy.lock</code>, hanya satu pemasangan sekali), <code>release.mjs doctor</code>, <code>npm ci --omit=dev</code>, <code>env-check</code> terhadap file env.<span class="where">Server · gagal = berhenti, folder rilis tetap ada, jalankan perintah yang sama lagi setelah diperbaiki</span></li>
-    <li><b>Pemasang: migrasi database.</b> <code>dash-migrate.mjs</code> membuat tabel <code>dash_*</code> baru bila ada.<span class="where">Server → database · gagal = berhenti, <code>current</code> tidak berubah</span></li>
-    <li><b>Pemasang: ganti rilis.</b> <code>release.mjs activate</code>: <code>current</code> menunjuk rilis baru, rilis lama menjadi <code>previous</code>. Pemindahan satu langkah (rename), tidak pernah setengah jadi.<span class="where">Server</span></li>
-    <li><b>Pemasang: restart dan tunggu sehat.</b> <code>sudo -n systemctl restart</code>, lalu <code>health-check.mjs</code> menanyakan <code>/health</code> sampai menjawab <code>ok</code>, dengan versi yang baru, terus-menerus 10 detik (paling lama 120 detik).<span class="where">Server</span></li>
-    <li><b>Selesai atau kembali.</b> Sehat: rilis lama dibersihkan (sisa 5 terbaru plus <code>current</code> dan <code>previous</code>), kunci dilepas. Tidak sehat: <code>rollback</code> ke <code>previous</code>, restart, cek lagi.<span class="where">Server</span></li>
-  </ol>
-  <div class="note"><b>Pemasangan pertama sebuah deployment berbeda.</b> Alur di atas mengira folder deploy, unit systemd, dan <b>file env</b> sudah ada. Pemasang berhenti dengan pesan yang jelas bila file env belum ada. Cara menyiapkannya, sekali per klien dan lingkungan, ada di bagian 5.</div>
-
-  <h2 id="hasil">4. Hasil akhir dan kalau ada yang gagal</h2>
-  <div class="tbl"><table>
-    <thead><tr><th>Tulisan terakhir</th><th>Artinya</th><th>Yang Anda lakukan</th></tr></thead>
-    <tbody>
-      <tr><td><code>INSTALLED …</code></td><td>Rilis baru sehat dan berjalan. Kode keluar 0.</td><td>Tidak ada.</td></tr>
-      <tr><td><code>ROLLED BACK: …</code></td><td>Rilis baru tidak sehat; rilis lama sudah berjalan lagi dan sehat. Pemasangan dianggap <b>gagal</b> (kode keluar 1).</td><td>Cari sebabnya di log service (<code>journalctl</code>) atau <code>logs-find.mjs</code>, perbaiki, buat paket baru.</td></tr>
-      <tr><td><code>ACTION NEEDED: …</code></td><td>Rilis baru tidak sehat <b>dan</b> rilis lama juga tidak menjawab, atau pintasan tidak bisa dikembalikan.</td><td>Sekarang juga: <code>journalctl</code> di server, dan <code>release.mjs list --root &lt;folder&gt;</code>.</td></tr>
-      <tr><td><code>FAILED: …</code></td><td>Berhenti sebelum <code>current</code> berubah (paket salah folder, file env hilang, <code>npm ci</code>, migrasi, kunci ada), atau rilis baru tidak sehat dan tidak ada rilis sebelumnya.</td><td>Baca pesannya; kebanyakan menyebut perbaikannya sendiri. Perbaiki, lalu jalankan perintah <code>install.mjs</code> yang sama lagi.</td></tr>
-      <tr><td><code>PREPARED …</code></td><td>Hanya untuk <code>--prepare-only</code>: rilis terpasang tetapi belum diaktifkan.</td><td>Buat file env di server dengan perintah <code>init-env</code> yang dicetak.</td></tr>
-    </tbody></table></div>
-  <div class="note warn"><b>Kunci tertinggal.</b> Bila pemasangan terputus di tengah (koneksi SSH putus), folder <code>&lt;folder deploy&gt;/.deploy.lock</code> bisa tertinggal dan pemasangan berikutnya menolak. Pesannya memuat perintah untuk menghapusnya; pastikan dulu tidak ada pemasangan yang sedang berjalan.</div>
-
-  <h2 id="pertama">5. Pemasangan pertama sebuah deployment (sekali saja)</h2>
-  <p>Satu <b>deployment</b> adalah satu pasangan klien dan lingkungan, misalnya <code>acme</code> + <code>staging</code>. <code>acme</code> + <code>production</code> adalah deployment lain dan punya file env sendiri. Langkah di bawah dikerjakan <b>sekali</b> per deployment; setelah itu setiap rilis cukup mengikuti bagian 3.</p>
-  <p><b>Kapan file env dibuat?</b> Di langkah 5 dan 6 di bawah: <b>setelah</b> <code>--prepare-only</code> (yang mencetak perintahnya) dan <b>sebelum</b> pemasangan sungguhan. File env hanya ada di server, di folder deploy; ia tidak ikut paket dan tidak ikut git. Di laptop, file env development (<code>env/development.env</code>) terpisah dan tidak pernah diunggah.</p>
-  <ol class="steps">
-    <li><b>Siapkan server.</b> User <code>oxy</code>, Node 22.12 atau lebih baru, <code>tar</code>, dan <code>npm</code> yang bisa menjangkau registry npm. Cara memeriksanya, masuk ke server sebagai user <code>oxy</code> lalu jalankan:
-      <pre><code>whoami               # harus: oxy
-node --version       # harus v22.12.0 atau lebih tinggi (v22.12.x, v22.13.x, v24.x, ...)
-which node           # contoh unit systemd memakai /usr/bin/node; bila hasilnya lain, ubah ExecStart di unit
-tar --version        # cukup bila mencetak versi (GNU tar)
-npm --version        # cukup bila mencetak versi
-npm ping             # harus berakhir dengan "PONG": server bisa menjangkau registry npm
-df -h .              # sisa ruang disk di folder tempat deployment: minimal 1 GiB (pemasang juga memeriksanya)</code></pre>
-      Bila <code>node</code> terlalu lama atau tidak ada, pasang Node 22 LTS dulu. Untuk Ubuntu atau Debian (periksa dengan <code>cat /etc/os-release</code>), lewat NodeSource, yang menaruh Node di <code>/usr/bin/node</code> sesuai contoh unit systemd:
-      <pre><code>curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt-get install -y nodejs
-node --version       # periksa lagi: v22.12.0 atau lebih tinggi</code></pre>
-      Untuk keluarga Red Hat <b>versi 8 ke atas</b> (RHEL, Rocky, AlmaLinux) gunakan <code>setup_22.x</code> dari <code>rpm.nodesource.com</code> lalu <code>sudo dnf install -y nodejs</code>. <b>CentOS 7 tidak bisa lewat cara di atas:</b> Node 22 resmi butuh glibc 2.28 ke atas, sedangkan CentOS 7 hanya punya glibc 2.17 (dan CentOS 7 sudah habis masa dukungnya sejak Juni 2024). Pilihan terbaik adalah menjalankan aplikasi di server lain yang lebih baru, yang hanya perlu menjangkau database MySQL lewat jaringan. Bila itu mustahil, proyek Node menyediakan build tidak resmi untuk glibc 2.17 (minim pengujian, kernel CentOS 7 yang lama): periksa dulu versi terbarunya di <code>https://unofficial-builds.nodejs.org/download/release/</code>, lalu sebagai <code>root</code> (ganti nomor versi sesuai yang ada):
-      <pre><code>cd /tmp
-curl -fLO https://unofficial-builds.nodejs.org/download/release/v22.23.5/node-v22.23.5-linux-x64-glibc-217.tar.xz
-curl -fLO https://unofficial-builds.nodejs.org/download/release/v22.23.5/SHASUMS256.txt
-grep glibc-217.tar.xz SHASUMS256.txt | sha256sum -c -     # harus: OK
-mkdir -p /usr/local/lib/nodejs
-tar -xJf node-v22.23.5-linux-x64-glibc-217.tar.xz -C /usr/local/lib/nodejs
-ln -sfn /usr/local/lib/nodejs/node-v22.23.5-linux-x64-glibc-217 /usr/local/lib/nodejs/current
-ln -sf /usr/local/lib/nodejs/current/bin/node /usr/bin/node
-ln -sf /usr/local/lib/nodejs/current/bin/npm /usr/bin/npm
-ln -sf /usr/local/lib/nodejs/current/bin/npx /usr/bin/npx
-node --version; npm --version</code></pre>
-      Belum pernah dicoba di server Oxy: coba dulu di staging. Hindari <code>nvm</code> untuk server ini: ia memasang Node di folder home, bukan <code>/usr/bin/node</code>, sehingga service systemd tidak menemukannya. Bila <code>npm ping</code> gagal, server tidak punya akses keluar atau memakai mirror npm sendiri; <code>npm ci</code> akan gagal dengan sebab yang sama. Pemasang menjalankan <code>release.mjs doctor</code> yang memeriksa Node, <code>tar</code>, <code>npm</code>, folder, file env, dan disk, tetapi baru setelah paket terbuka, jadi periksa lebih dulu dengan perintah di atas.<span class="where">Server · sekali</span></li>
-    <li><b>Buat user dan folder deploy.</b> Folder deploy bernama <code>oxy-&lt;klien&gt;-&lt;env&gt;-finance-dashboard-&lt;port&gt;</code>, dengan folder <code>logs/</code> di dalamnya, dimiliki user <code>oxy</code>. Folder induknya bebas; folder <code>releases/</code> dibuat otomatis. Sebagai <code>root</code> (contoh untuk klien <code>demo</code>, staging, port 5205):
-      <pre><code>useradd -m oxy
-mkdir -p /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/logs
-chown -R oxy:oxy /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205
-ls -la /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205</code></pre>
-      <code>oxy</code> adalah nama user yang kita pilih sendiri (bukan bawaan sistem): akun terpisah tanpa kata sandi supaya dashboard <b>tidak berjalan sebagai <code>root</code></b>. Nama lain boleh, asal diganti juga di unit systemd dan aturan <code>sudoers</code> di langkah berikut. Bila <code>useradd</code> bilang folder home sudah ada, itu hanya peringatan. <b>Jalankan <code>chown</code> hanya untuk folder deploy yang baru</b>, jangan untuk folder induknya: di server yang sudah memakai folder itu untuk aplikasi lain, mengubah pemilik seluruh isinya bisa mengganggu aplikasi tersebut. Hasil yang benar: folder <code>logs</code> terlihat dengan pemilik <code>oxy oxy</code>.<span class="where">Anda, di server · sekali</span></li>
-    <li><b>Pasang unit systemd.</b> Unit adalah "buku petunjuk" bagi Linux tentang cara menjalankan dashboard sebagai layanan: sebagai user <code>oxy</code>, memuat file env, memeriksanya dulu (<code>env-check</code>), dan menyalakannya lagi bila mati. Satu <b>templat</b> untuk semua deployment: <code>%i</code> diganti nama deployment (<code>demo-staging-finance-dashboard-5205</code>), jadi production memakai file yang sama. Perintah ini hanya menulis file dan memuat ulang systemd; belum ada yang dijalankan.
-      <pre><code>cat &gt; /etc/systemd/system/oxy-finance-dashboard@.service &lt;&lt;'EOF'
-[Unit]
-Description=Oxy Finance Dashboard (%i)
-After=network.target
-StartLimitIntervalSec=120
-StartLimitBurst=5
-
-[Service]
-User=oxy
-Group=oxy
-WorkingDirectory=/home/oxy/web-server/oxy-%i/current
-EnvironmentFile=/home/oxy/web-server/oxy-%i/finance-dashboard.env
-ExecStartPre=/usr/bin/node scripts/ops/env-check.mjs /home/oxy/web-server/oxy-%i/finance-dashboard.env
-ExecStart=/usr/bin/node scripts/start-server.mjs
-Restart=always
-RestartSec=5
-NoNewPrivileges=true
-
-[Install]
-WantedBy=multi-user.target
-EOF
-systemctl daemon-reload
-ls -l /etc/systemd/system/oxy-finance-dashboard@.service</code></pre>
-      <b>Versi systemd lama (CentOS 7 memakai 219):</b> periksa dengan <code>systemctl --version</code>. Bila versinya di bawah 230, hapus dua baris <code>StartLimit...</code> dari bagian <code>[Unit]</code> dan tulis di bagian <code>[Service]</code> sebagai <code>StartLimitInterval=120</code> dan <code>StartLimitBurst=5</code>; nama <code>StartLimitIntervalSec</code> tidak dikenal di sana. Dashboard <b>belum menyala</b> setelah langkah ini: folder <code>current</code> dan file env baru ada setelah pemasangan.<br>
-      <b>Izinkan <code>oxy</code> me-restart hanya service ini</b> tanpa kata sandi (<code>sudoers</code>). Tanpa izin ini pemasang berhenti di langkah restart dengan pesan yang jelas. Periksa dulu path <code>systemctl</code>:
-      <pre><code>command -v systemctl
-echo "oxy ALL=(root) NOPASSWD: /usr/bin/systemctl restart oxy-finance-dashboard@demo-staging-finance-dashboard-5205" &gt; /etc/sudoers.d/oxy-finance-dashboard
-chmod 440 /etc/sudoers.d/oxy-finance-dashboard
-visudo -cf /etc/sudoers.d/oxy-finance-dashboard</code></pre>
-      Bila <code>command -v systemctl</code> mencetak path lain, pakai path itu di baris <code>echo</code>. Hasil <code>visudo</code> yang benar: <code>parsed OK</code>. Satu baris per deployment, atau satu baris dengan <code>oxy-finance-dashboard@*</code> untuk semua.<span class="where">Anda, di server · sekali</span></li>
-    <li><b>Buat paket dan unggah dua berkas.</b> <code>npm run release:pack -- &lt;klien&gt; &lt;env&gt;</code> di laptop. Unggah paketnya (<code>.tgz</code>, ke folder mana saja di luar <code>releases/</code>) dan <code>open-package.mjs</code> (ke folder deploy).<span class="where">Komputer pembangun, lalu Anda</span></li>
-    <li><b>Pasang tanpa mengaktifkan.</b> <code>node &lt;folder deploy&gt;/open-package.mjs &lt;berkas&gt;.tgz --prepare-only</code>. Paket dibuka dan dipasang (<code>npm ci</code>), tetapi tidak ada yang diaktifkan atau dijalankan. Di akhir, skrip <b>mencetak perintah <code>init-env.mjs create ...</code></b> dengan klien, lingkungan, port, dan lokasi file yang sudah terisi.<span class="where">Anda, di server · hasil <code>PREPARED …</code></span></li>
-    <li><b>Buat file env.</b> Jalankan perintah <code>init-env.mjs create ...</code> yang dicetak tadi. Hasilnya <code>finance-dashboard.env</code> di folder deploy (mode 600, <code>SESSION_SECRET</code> sudah diisi acak, <code>DATABASE_URL</code> masih kosong). Buka file itu dan isi <code>DATABASE_URL</code> (database klien yang benar, atau database staging) dan <code>LOG_DIR</code> (path mutlak di luar <code>releases/</code>). Periksa dengan <code>node scripts/ops/env-check.mjs &lt;file&gt;</code> dari folder rilis; ia hanya menyebut nama kunci, tidak pernah nilainya.<span class="where">Anda, di server · sekali</span></li>
-    <li><b>Nyalakan otomatis saat server hidup.</b> <code>sudo systemctl enable oxy-finance-dashboard@&lt;nama folder tanpa awalan oxy-&gt;</code>. Pemasang yang menyalakannya untuk pertama kali.<span class="where">Anda, di server · sekali</span></li>
-    <li><b>Pasang sungguhan.</b> Jalankan perintah yang sama <b>tanpa</b> <code>--prepare-only</code>. Rilis yang sudah terbuka tidak dibuka ulang dan tidak perlu diunggah ulang. Dari sini berlaku alur bagian 3: periksa, migrasi, ganti rilis, restart, tunggu sehat.<span class="where">Anda, di server</span></li>
-    <li><b>Buka dari luar.</b> Tambah blok <code>location</code> di nginx, tutup alamat <code>/health</code> dari luar, muat ulang nginx, buka <code>https://&lt;host&gt;/oxy-&lt;CLIENT_ID&gt;-finance-dashboard/</code>, login, dan pastikan nama perusahaan di sidebar benar (<code>docs/project-guide.md</code> bab 10.7.5, 10.7.6, 10.9.6).<span class="where">Anda · sekali</span></li>
-  </ol>
-  <div class="note"><b>Catatan untuk CentOS 7.</b> Server lama punya beberapa perbedaan, dan belum satu pun teruji sampai dashboard berjalan di sana: (1) Node 22 resmi tidak jalan, pakai build tidak resmi di langkah 1; (2) systemd 219 memakai <code>StartLimitInterval</code> di <code>[Service]</code> (langkah 3); (3) SELinux biasanya <code>Enforcing</code> (periksa <code>getenforce</code>): bila service gagal naik atau tidak bisa tersambung ke database, lihat penolakannya dengan <code>ausearch -m avc -ts recent</code> dan beri aturan yang sempit, <b>jangan</b> mematikan SELinux; (4) firewall-nya <code>firewalld</code>, bukan <code>ufw</code>; (5) bila <code>httpd</code> (Apache) sudah memakai port 80 dan 443, jangan pasang nginx: pakai <code>httpd</code> sebagai penerus dengan <code>ProxyPass</code> yang ditulis <b>di atas</b> <code>ProxyPass /</code> yang sudah ada, <code>RequestHeader unset X-Forwarded-For early</code> (aplikasi memakai alamat pertama header itu), dan izin <code>setsebool -P httpd_can_network_connect 1</code>.</div>
-  <div class="note warn"><b>Lupa membuat file env?</b> Tidak ada yang rusak. Menjalankan pemasangan tanpa <code>--prepare-only</code> padahal file env belum ada berhenti dengan pesan <code>FAILED</code> yang menyuruh Anda memakai <code>--prepare-only</code> dan <code>init-env</code>. Buat file env, lalu jalankan perintah yang sama lagi. Setelah deployment berjalan, file env tidak dibuat lagi; Anda hanya mengeditnya bila ada pengaturan yang berubah.</div>
-
-  <h2 id="pengaturan">6. Dari mana pengaturan (env) datang</h2>
-  <figure>
+  </div></details>
+  <details class="ref"><summary>Dari mana pengaturan (env) datang</summary><div class="in">
+<figure>
     <div class="scroll">
     <svg viewBox="0 0 960 250" role="img" aria-label="Alur pengaturan: di laptop scripts/local.mjs membaca env/development.env dan mengisi proses; di server systemd membaca finance-dashboard.env dan env-check memeriksanya sebelum aplikasi menyala. Aplikasi hanya membaca process.env.">
       <defs><marker id="ea" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 L9 5 L0 9 z" fill="currentColor"/></marker></defs>
@@ -400,8 +804,8 @@ visudo -cf /etc/sudoers.d/oxy-finance-dashboard</code></pre>
     </div>
     <figcaption>Satu aturan dipakai di dua tempat: aplikasi menolak start dengan pengaturan yang salah, dan <code>env-check</code> menolaknya lebih awal, sebelum aplikasi dinyalakan.</figcaption>
   </figure>
-
-  <h2 id="server">7. Folder di server</h2>
+  </div></details>
+  <details class="ref"><summary>Folder di server</summary><div class="in">
 <pre><code>/home/oxy/web-server/oxy-&lt;klien&gt;-&lt;env&gt;-finance-dashboard-&lt;port&gt;/
   current   -&gt; releases/&lt;nama&gt;     rilis yang dijalankan systemd
   previous  -&gt; releases/&lt;nama&gt;     rilis sebelumnya (untuk kembali)
@@ -414,9 +818,9 @@ visudo -cf /etc/sudoers.d/oxy-finance-dashboard</code></pre>
   .deploy.lock/                  ada hanya selama sebuah pemasangan berjalan
   open-package.mjs               pembuka paket (disalin sekali; lalu disegarkan pemasang)</code></pre>
   <p>Nama folder membawa tiga fakta: klien, lingkungan, dan port. Pemasang membacanya dari letaknya sendiri, dan <code>env-check</code> memastikan isi file env sama dengan nama folder. Paket dari komputer pembangun tidak membawa <code>node_modules</code>; server memasangnya sendiri (butuh akses ke registry npm). Berkas <code>.tgz</code> yang Anda unggah boleh ditaruh di mana saja di luar <code>releases/</code>. <code>/home/oxy/web-server/</code> hanyalah contoh; folder induknya boleh berbeda, yang harus sesuai pola hanya <b>nama</b> folder deploy.</p>
-
-  <h2 id="file">8. Peta file: apa fungsi tiap file</h2>
-  <p>Label di kolom kanan: <span class="pill p-lap">laptop</span> hanya di komputer pembangun, <span class="pill p-srv">server</span> ikut dikirim ke server, <span class="pill p-app">aplikasi</span> bagian aplikasi itu sendiri, <span class="pill p-both">keduanya</span> dipakai di dua tempat.</p>
+  </div></details>
+  <details class="ref"><summary>Peta file: apa fungsi tiap file</summary><div class="in">
+<p>Label di kolom kanan: <span class="pill p-lap">laptop</span> hanya di komputer pembangun, <span class="pill p-srv">server</span> ikut dikirim ke server, <span class="pill p-app">aplikasi</span> bagian aplikasi itu sendiri, <span class="pill p-both">keduanya</span> dipakai di dua tempat.</p>
 
   <h3>A. Lingkungan dan pengaturan</h3>
   <div class="tbl"><table>
@@ -461,9 +865,9 @@ visudo -cf /etc/sudoers.d/oxy-finance-dashboard</code></pre>
       <tr><td><code>src/server/dash/migrate.ts</code></td><td>Perbaikan: database yang tidak terjangkau sekarang menjadi error, bukan dianggap "belum ada migrasi".</td><td><span class="pill p-app">aplikasi</span></td></tr>
       <tr><td><code>scripts/smoke-build.mjs</code></td><td>Menjalankan hasil build dengan database palsu dan memeriksa alamat, versi, <code>/health</code>. Tanpa database.</td><td><span class="pill p-lap">laptop</span></td></tr>
     </tbody></table></div>
-
-  <h2 id="perintah">9. Perintah yang akan Anda pakai</h2>
-  <h3>Di komputer pembangun</h3>
+  </div></details>
+  <details class="ref"><summary>Daftar perintah (laptop dan server)</summary><div class="in">
+<h3>Di komputer pembangun</h3>
   <div class="tbl"><table>
     <thead><tr><th>Perintah</th><th>Fungsi</th></tr></thead><tbody>
       <tr><td><code>npm run release:pack -- &lt;klien&gt; &lt;staging|production&gt;</code></td><td>Membangun, memeriksa, dan membuat paket <code>.tgz</code> di <code>release-packages/</code>, lalu mencetak langkah berikutnya.</td></tr>
@@ -479,9 +883,9 @@ visudo -cf /etc/sudoers.d/oxy-finance-dashboard</code></pre>
       <tr><td><code>node &lt;folder deploy&gt;/current/scripts/ops/install.mjs --status</code></td><td>Daftar rilis (mana <code>current</code>, mana <code>previous</code>) dan satu pertanyaan ke <code>/health</code>.</td></tr>
       <tr><td><code>node &lt;folder deploy&gt;/current/scripts/ops/install.mjs --rollback</code></td><td>Kembali ke rilis sebelumnya dengan tangan. Dua kali berarti maju lagi.</td></tr>
     </tbody></table></div>
-
-  <h2 id="aturan">10. Aturan</h2>
-  <ul>
+  </div></details>
+  <details class="ref"><summary>Aturan</summary><div class="in">
+<ul>
     <li><b>Commit bersih.</b> Paket hanya dibuat dari commit yang semua perubahannya sudah di-commit, supaya setiap rilis bisa dilacak ke satu commit. Staging boleh dengan <code>--allow-dirty</code>.</li>
     <li><b>Tag tidak wajib.</b> Versi = nama tag bila ada, selain itu kode commit. Sistem ini belum punya skema nomor versi resmi.</li>
     <li><b>Tanpa jendela jam.</b> Tidak ada aturan jam. Disarankan memasang di saat sepi: restart membuat aplikasi tidak menjawab beberapa detik sampai satu-dua menit, dan tab browser yang terbuka perlu dimuat ulang.</li>
@@ -489,10 +893,10 @@ visudo -cf /etc/sudoers.d/oxy-finance-dashboard</code></pre>
     <li><b>Migrasi tambah-saja.</b> Hanya tabel baru atau kolom baru yang boleh kosong. Jangan menghapus, mengganti nama, atau mengubah tipe kolom yang masih dibaca rilis sebelumnya.</li>
     <li><b>Satu klien pada satu waktu.</b> Mulai dari staging, lalu satu klien percobaan, pantau sampai hari kerja berikutnya, baru lanjut. Bila bermasalah: <code>--rollback</code> klien itu dan hentikan.</li>
   </ul>
-  <div class="note warn"><b>Belum teruji di server nyata:</b> unggah dan pembukaan paket, <code>sudo systemctl</code>, nginx, <code>npm ci</code> di server, dan migrasi sungguhan. Alur pemasang sudah dites dengan tiruan, dan alatnya dengan program asli di folder sementara. Kerjakan staging lebih dulu. Persiapan server baru (sudoers, unit systemd, nginx) ada di <code>docs/project-guide.md</code> bab 10.9.3.</div>
-
-  <h2 id="istilah">11. Istilah</h2>
-  <div class="tbl"><table>
+  <div class="note warn"><b>Sudah teruji di server nyata (2026-11-12, staging, CentOS 7):</b> unggah dan pembukaan paket, <code>--prepare-only</code>, <code>init-env</code>, <code>env-check</code>, <code>npm ci</code>, 10 migrasi, <code>sudo systemctl restart</code>, pemeriksaan <code>/health</code>, login, dan akses lewat domain HTTPS dengan <code>httpd</code>. <b>Belum teruji di server nyata:</b> rollback (otomatis dan manual), pemasangan rilis kedua, production, penyegaran <code>open-package.mjs</code> oleh pemasang, penerus nginx, dan menyalakan ulang server. Kerjakan staging lebih dulu. Persiapan server baru (user, unit systemd, sudoers, penerus) ada di bagian B di atas.</div>
+  </div></details>
+  <details class="ref"><summary>Istilah</summary><div class="in">
+<div class="tbl"><table>
     <thead><tr><th>Istilah</th><th>Arti</th></tr></thead><tbody>
       <tr><td>Paket</td><td>Satu berkas <code>.tgz</code> berisi satu rilis, dibuat <code>release:pack</code> untuk satu klien dan satu lingkungan.</td></tr>
       <tr><td>Pembuka paket</td><td><code>scripts/ops/open-package.mjs</code>: satu file di folder deploy yang membuka paket dan menjalankan pemasangnya.</td></tr>
@@ -506,7 +910,141 @@ visudo -cf /etc/sudoers.d/oxy-finance-dashboard</code></pre>
       <tr><td><code>APP_ENV</code></td><td><code>development</code>, <code>staging</code>, atau <code>production</code>. Wajib, tanpa nilai bawaan.</td></tr>
       <tr><td>systemd</td><td>Pengatur layanan Linux: menyalakan aplikasi, menyalakannya lagi bila mati, dan memberinya isi file env.</td></tr>
     </tbody></table></div>
+  </div></details>
   <p class="lead" style="margin-top:32px">Rujukan lengkap dan terus diperbarui: <code>docs/project-guide.md</code> bab 10.8 (lingkungan) dan 10.9 (rilis dan deploy), keputusan D66, D67, dan D68 di <code>docs/decisions.md</code>.</p>
 </div>
+<script>
+(function () {
+  var FILL_KEY = 'deploy-guide-fill-v1';
+  var CHK_KEY = 'deploy-guide-checks-v1';
+  var DEFAULTS = { client: 'demo', env: 'staging', port: '5205', parent: '/home/oxy/web-server', pkg: '20261112070634-51480c1.tgz', domain: 'dashboard.contoh.com' };
+  var fields = ['client', 'env', 'port', 'parent', 'pkg', 'domain'];
+
+  function read(key) {
+    try { return JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (e) { return {}; }
+  }
+  function write(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* storage may be blocked */ }
+  }
+  function el(id) { return document.getElementById('f-' + id); }
+
+  function values() {
+    var v = {};
+    fields.forEach(function (name) { v[name] = (el(name).value || '').trim(); });
+    return v;
+  }
+
+  function tokens(v) {
+    var client = v.client.toLowerCase();
+    var parent = v.parent.replace(/\/+$/, '');
+    var dir = 'oxy-' + client + '-' + v.env + '-finance-dashboard-' + v.port;
+    return {
+      CLIENT: client,
+      ENV: v.env,
+      PORT: v.port,
+      PARENT: parent,
+      PKG: v.pkg,
+      DOMAIN: v.domain.toLowerCase(),
+      RELNAME: v.pkg.replace(/\.tgz$/, ''),
+      DIR: dir,
+      ROOT: parent + '/' + dir,
+      INSTANCE: client + '-' + v.env + '-finance-dashboard-' + v.port,
+      PREFIX: '/oxy-' + client + (v.env === 'staging' ? '-staging' : '') + '-finance-dashboard'
+    };
+  }
+
+  function problems(v) {
+    var list = [];
+    if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(v.client.toLowerCase())) list.push('Klien: huruf kecil, angka, dan strip.');
+    var port = Number(v.port);
+    if (!/^\d+$/.test(v.port) || port < 1024 || port > 65535) list.push('Port: angka 1024 sampai 65535.');
+    if (v.parent.charAt(0) !== '/') list.push('Folder induk: harus path mutlak, diawali /.');
+    if (!/^\d{14}-[A-Za-z0-9][A-Za-z0-9._-]{0,79}\.tgz$/.test(v.pkg)) list.push('Nama paket: bentuknya 14 angka, strip, versi, lalu .tgz (salin persis dari folder release-packages/).');
+    if (v.domain !== '' && !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(v.domain.toLowerCase())) list.push('Domain publik: nama lengkap seperti dashboard.contoh.com.');
+    return list;
+  }
+
+  function render() {
+    var v = values();
+    var list = problems(v);
+    var msg = document.getElementById('fill-msg');
+    msg.textContent = list.join(' ');
+    var t = tokens(v);
+    var swap = function (text) {
+      return text.replace(/\{([A-Z_]+)\}/g, function (m, k) { return Object.prototype.hasOwnProperty.call(t, k) ? t[k] : m; });
+    };
+    Array.prototype.forEach.call(document.querySelectorAll('[data-tpl]'), function (node) {
+      node.textContent = swap(node.getAttribute('data-tpl'));
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-tok]'), function (node) {
+      var k = node.getAttribute('data-tok');
+      if (Object.prototype.hasOwnProperty.call(t, k)) node.textContent = t[k];
+    });
+    write(FILL_KEY, v);
+  }
+
+  function init() {
+    var saved = read(FILL_KEY);
+    fields.forEach(function (name) {
+      var node = el(name);
+      if (!node) return;
+      var value = typeof saved[name] === 'string' && saved[name] !== '' ? saved[name] : DEFAULTS[name];
+      node.value = value;
+      node.addEventListener('input', render);
+      node.addEventListener('change', render);
+    });
+    var reset = document.getElementById('fill-reset');
+    if (reset) reset.addEventListener('click', function () {
+      fields.forEach(function (name) { el(name).value = DEFAULTS[name]; });
+      render();
+    });
+    render();
+
+    var checks = read(CHK_KEY);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-chk]'), function (box) {
+      var id = box.getAttribute('data-chk');
+      box.checked = checks[id] === true;
+      box.addEventListener('change', function () {
+        var now = read(CHK_KEY);
+        if (box.checked) now[id] = true; else delete now[id];
+        write(CHK_KEY, now);
+      });
+    });
+    var clear = document.getElementById('chk-reset');
+    if (clear) clear.addEventListener('click', function () {
+      write(CHK_KEY, {});
+      Array.prototype.forEach.call(document.querySelectorAll('input[data-chk]'), function (box) { box.checked = false; });
+    });
+
+    document.addEventListener('click', function (event) {
+      var button = event.target && event.target.closest ? event.target.closest('button.copy') : null;
+      if (!button) return;
+      var code = button.parentNode.querySelector('code');
+      if (!code) return;
+      var text = code.textContent || '';
+      var done = function () {
+        var old = button.textContent;
+        button.textContent = 'Tersalin';
+        setTimeout(function () { button.textContent = old; }, 1400);
+      };
+      var fallback = function () {
+        try {
+          var range = document.createRange();
+          range.selectNodeContents(code);
+          var sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+          if (document.execCommand('copy')) done();
+        } catch (e) { /* the text stays selected so it can be copied by hand */ }
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
+      else fallback();
+    });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
 </body>
 </html>
