@@ -3452,9 +3452,58 @@ npm run release:pack -- acme production
 
 Urutan untuk deployment baru (satu kali per klien dan lingkungan):
 
-1. Server punya user `oxy`, Node 22.12 atau lebih baru (periksa `which node`), `tar`, dan `npm`, dan bisa menjangkau registry npm (`npm ci --omit=dev` dijalankan di server).
-2. Buat folder `/home/oxy/web-server/oxy-<klien>-<env>-finance-dashboard-<port>/` dan folder `logs/` di dalamnya, dimiliki user `oxy` (folder `releases/` dibuat otomatis oleh `open-package.mjs`). `/home/oxy/web-server/` hanya contoh dan boleh diganti folder lain; yang harus sesuai pola hanya **nama** folder deploy.
-3. Pasang unit systemd sekali (10.8.4).
+1. Server punya user `oxy`, Node 22.12 atau lebih baru, `tar`, dan `npm`, dan bisa menjangkau registry npm (`npm ci --omit=dev` dijalankan di server). Periksa sebagai user `oxy`:
+
+   ```bash
+   whoami          # oxy
+   node --version  # v22.12.0 atau lebih tinggi
+   which node      # contoh unit systemd (10.8.4) memakai /usr/bin/node; bila lain, ubah ExecStart
+   tar --version   # mencetak versi
+   npm --version   # mencetak versi
+   npm ping        # berakhir dengan PONG: registry npm terjangkau
+   df -h .         # sisa disk minimal 1 GiB
+   ```
+
+   `release.mjs doctor` memeriksa Node, `tar`, `npm`, folder, file env, dan disk saat pemasangan, tetapi baru setelah paket terbuka; perintah di atas bisa dijalankan sebelum itu.
+
+   Bila Node terlalu lama atau tidak ada, pasang Node 22 LTS. Di Ubuntu atau Debian (`cat /etc/os-release`), lewat NodeSource, yang menaruh Node di `/usr/bin/node` sesuai contoh unit systemd:
+
+   ```bash
+   curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+   sudo apt-get install -y nodejs
+   node --version  # v22.12.0 atau lebih tinggi
+   ```
+
+   Di keluarga Red Hat **versi 8 ke atas** (RHEL, Rocky, AlmaLinux) pakai `setup_22.x` dari `rpm.nodesource.com` lalu `sudo dnf install -y nodejs`. **CentOS 7 tidak bisa lewat cara di atas:** Node 22 resmi butuh glibc 2.28 ke atas, sedangkan CentOS 7 hanya punya glibc 2.17 (dan CentOS 7 sudah habis masa dukungnya sejak Juni 2024). Pilihan terbaik adalah menjalankan aplikasi di server lain yang lebih baru; aplikasi hanya perlu menjangkau database MySQL lewat jaringan. Bila itu mustahil, proyek Node menyediakan build tidak resmi untuk glibc 2.17 (minim pengujian, dan kernel CentOS 7 lama). Periksa versi terbarunya di `https://unofficial-builds.nodejs.org/download/release/`, lalu sebagai `root` (ganti nomor versi):
+
+   ```bash
+   cd /tmp
+   curl -fLO https://unofficial-builds.nodejs.org/download/release/v22.23.5/node-v22.23.5-linux-x64-glibc-217.tar.xz
+   curl -fLO https://unofficial-builds.nodejs.org/download/release/v22.23.5/SHASUMS256.txt
+   grep glibc-217.tar.xz SHASUMS256.txt | sha256sum -c -   # harus: OK
+   mkdir -p /usr/local/lib/nodejs
+   tar -xJf node-v22.23.5-linux-x64-glibc-217.tar.xz -C /usr/local/lib/nodejs
+   ln -sfn /usr/local/lib/nodejs/node-v22.23.5-linux-x64-glibc-217 /usr/local/lib/nodejs/current
+   ln -sf /usr/local/lib/nodejs/current/bin/node /usr/bin/node
+   ln -sf /usr/local/lib/nodejs/current/bin/npm /usr/bin/npm
+   ln -sf /usr/local/lib/nodejs/current/bin/npx /usr/bin/npx
+   node --version; npm --version
+   ```
+
+   ⚠️ Belum pernah dicoba di server Oxy: coba dulu di staging. Hindari `nvm` untuk server ini: ia memasang Node di folder home, bukan `/usr/bin/node`, sehingga service systemd tidak menemukannya. ⚠️ Perintah pemasangan ini belum dicoba di server Oxy.
+
+2. Buat user `oxy` dan folder `/home/oxy/web-server/oxy-<klien>-<env>-finance-dashboard-<port>/` dengan folder `logs/` di dalamnya, dimiliki user `oxy` (folder `releases/` dibuat otomatis oleh `open-package.mjs`). `/home/oxy/web-server/` hanya contoh dan boleh diganti folder lain; yang harus sesuai pola hanya **nama** folder deploy. Sebagai `root` (contoh klien `demo`, staging, port 5205):
+
+   ```bash
+   useradd -m oxy
+   mkdir -p /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/logs
+   chown -R oxy:oxy /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205
+   ls -la /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205
+   ```
+
+   `oxy` adalah nama yang dipilih proyek ini (bukan bawaan sistem): akun terpisah tanpa kata sandi supaya dashboard tidak berjalan sebagai `root`; nama lain boleh bila diganti juga di unit dan `sudoers`. **Jalankan `chown` hanya untuk folder deploy yang baru**, bukan untuk folder induknya: bila folder itu sudah dipakai aplikasi lain (di server contoh ada aplikasi Tomcat di sana), mengganti pemilik seluruh isinya bisa mengganggu mereka. ✅ pola nama dicocokkan dengan aturan di kode; ⚠️ belum dijalankan terhadap server Oxy.
+
+3. Pasang unit systemd sekali (10.8.4). Di systemd lama (di bawah 230, termasuk 219 di CentOS 7; periksa dengan `systemctl --version`) tulis `StartLimitInterval=120` dan `StartLimitBurst=5` di bagian `[Service]`, bukan `StartLimitIntervalSec` di `[Unit]`. Perintah `systemctl daemon-reload` setelah file dibuat; layanan belum dinyalakan karena folder `current` dan file env baru ada setelah pemasangan.
 4. Izinkan `oxy` me-restart **hanya** service itu tanpa kata sandi. Buat dengan `sudo visudo -f /etc/sudoers.d/oxy-finance-dashboard` (periksa dulu path `systemctl` dengan `command -v systemctl`):
 
    ```text
@@ -3781,6 +3830,7 @@ Pengecekan memakai **tujuh query `SELECT` (hanya baca)** ke database lokal `demo
 | 2026-11-12 | Deploy disederhanakan menjadi semi manual: `npm run deploy` (SSH dari laptop), daftar target, jendela jam 22:00 sampai 05:00, dan kewajiban tag dihapus; laptop hanya membuat paket (`npm run release:pack -- <klien> <env>`), pemilik mengunggahnya, dan pemasang di server (`scripts/ops/install.mjs`) membuka rilis, menjalankan migrasi, mengganti `current`, menunggu `/health`, dan kembali otomatis bila tidak sehat; bab 10.9 ditulis ulang (bab 3, 10.1, 10.2, 10.7.3, 10.7.6, 10.8.3, 10.8.6, 10.8.8, 10.9; D68). Angka di dashboard tidak berubah.                                                                                                                                                                                                                                  |
 | 2026-11-12 | Nama rilis tidak lagi diketik: skrip server `open-package.mjs` mengambil nama dari nama berkas paket, membuat `releases/`, membuka paket lewat folder sementara, lalu menjalankan pemasang; `release:pack` menyalinnya ke sebelah paket dan mencetak satu baris perintah tanpa path server tertentu; `/home/oxy/web-server/` dijelaskan sebagai contoh (bab 10.7.6, 10.8.3, 10.8.4, 10.9; D68). Angka di dashboard tidak berubah.                                                                                                                                                                                                                                                                                                                                                              |
 | 2026-11-12 | Pemasang menyegarkan `open-package.mjs` di folder deploy dari setiap rilis yang berhasil dipasang (dan dari `--prepare-only`), sehingga unggahan manual hanya sekali per deployment; gagal menyalin tidak menggagalkan pemasangan (bab 10.9.1, 10.9.11; D68). Angka di dashboard tidak berubah.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 2026-11-12 | Panduan pemasangan pertama dilengkapi: cara memeriksa dan memasang Node (termasuk build tidak resmi untuk CentOS 7), perintah membuat user dan folder deploy (`chown` hanya untuk folder baru), unit systemd dan `sudoers` dengan varian systemd lama, serta catatan CentOS 7 (SELinux, firewalld, `httpd` sebagai penerus) di bab 10.9.3 dan `docs/deploy-guide.html`. ⚠️ belum dijalankan di server Oxy. Angka di dashboard tidak berubah.                                                                                                                                                                                                                                                                                                                                                   |
 
 ### 14.1 Riwayat ringkas dokumen yang digantikan
 
