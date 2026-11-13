@@ -8,6 +8,7 @@ export const qk = {
   snapshotInfo: () => ['snapshot-info'] as const,
   currentUser: () => ['current-user'] as const,
   companyInfo: () => ['company-info'] as const,
+  featureFlags: () => ['feature-flags'] as const,
   // Prefixes: invalidating one of these reaches every query of that kind (keys.test.ts keeps them in step with the above).
   allMetrics: () => ['metric'] as const,
   allDrills: () => ['drill'] as const,

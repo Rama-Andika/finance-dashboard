@@ -16,7 +16,9 @@ export type LogFields = {
   sql?: string
   /** Name of the server function */
   fn?: string
-  /** The code the browser received instead of the raw error: UNAUTHORIZED, DB_UNAVAILABLE, TIMEOUT or INTERNAL_ERROR */
+  /** Name of the feature flag that made the server refuse a request */
+  feature?: string
+  /** The code the browser received instead of the raw error: UNAUTHORIZED, DB_UNAVAILABLE, TIMEOUT, FEATURE_DISABLED or INTERNAL_ERROR */
   publicCode?: string
   /** True for work nobody waits for (a cache reload in the background) */
   background?: boolean

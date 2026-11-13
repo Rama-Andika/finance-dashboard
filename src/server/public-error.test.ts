@@ -88,4 +88,16 @@ describe('toPublicError', () => {
     expect(toPublicError(n)).toBe(n)
     expect(toPublicError(response)).toBe(response)
   })
+
+  it('keeps a plain FEATURE_DISABLED error as a public one, adds the request id, and logs nothing', () => {
+    const capture = captureLogs()
+    const result = runWithLogContext({ reqId: '20261110-143551-k7q2m' }, () =>
+      toPublicError(new Error('FEATURE_DISABLED'), 'someFn'),
+    ) as Error
+    const entries = capture.entries()
+    capture.stop()
+    expect(result.message).toBe('FEATURE_DISABLED#20261110-143551-k7q2m')
+    expect(result.stack).toBeUndefined()
+    expect(entries).toEqual([])
+  })
 })

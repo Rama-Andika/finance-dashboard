@@ -356,6 +356,8 @@ Tagihan AP (ap_ar_card)
 
 > `system_main` adalah tabel **System Property** ERP (`DbSystemProperty`). Kunci yang relevan untuk laporan: `CODE_LABA_TAHUN_BERJALAN` (`3100-00-003`), `CODE_LABA_TAHUN_LALU` (`3100-00-002`), `CODE_MODAL` & `CODE_LABA_INDUK_1` (`30000`), `START_DATE_IPO` (bila ada: batas awal daftar periode; tidak ada di DB `demo`).
 
+> Dashboard memakai dua baris miliknya: `DASHBOARD_ACCOUNT_MAPPING` (dibaca dan ditulis lewat Settings, §5.2) dan `DASHBOARD_FEATURE_FLAGS` (**hanya dibaca**; pemilik mengubahnya sendiri di database, D69). Bentuk `valueprop` flag: `{"version":1,"flags":{"<nama>":true}}`; flag menyala hanya bila nilainya tepat `true`, selain itu (baris tidak ada, JSON rusak, bentuk salah) semua flag mati. Pembacaannya: `src/server/repo/feature-flags.repo.ts`; konvensi kolom lain (`groupprop='Application'`, `valtype='STRING'`, `distype=''`, `company_id=0`) sama dengan baris mapping.
+
 #### `sysuser` — akun ERP untuk login dashboard
 
 | Kolom                              | Dipakai untuk                                                                                     |
@@ -1166,13 +1168,13 @@ Halaman (route, SSR)
 
 ### 9.2 Koneksi & hak akses
 
-| Hal               | Aturan                                                                                                                                             |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Kredensial        | `DATABASE_URL` hanya di env server; `.env` di-`.gitignore`; sediakan `.env.example` tanpa nilai rahasia                                            |
-| User DB dashboard | `SELECT` pada tabel yang dipakai (§2.2) + `INSERT, UPDATE` **hanya** pada `system_main`                                                            |
-| Drizzle           | Skema dihasilkan dengan `drizzle-kit introspect`/`pull`. **Dilarang** `push`/`migrate` ke DB ERP                                                   |
-| Versi DB          | Klien memakai **MySQL 5.7.44** (decisions.md D23) — lihat §9.2.1                                                                                   |
-| Index             | Index tambahan untuk dashboard: [`docs/sql/dashboard-indexes.sql`](./sql/dashboard-indexes.sql) — online DDL, dijalankan manual (decisions.md O11) |
+| Hal               | Aturan                                                                                                                                                                                       |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Kredensial        | `DATABASE_URL` hanya di env server; `.env` di-`.gitignore`; sediakan `.env.example` tanpa nilai rahasia                                                                                      |
+| User DB dashboard | `SELECT` pada tabel yang dipakai (§2.2) + `INSERT, UPDATE` **hanya** pada `system_main` (aplikasi hanya menulis baris DASHBOARD_ACCOUNT_MAPPING; baris DASHBOARD_FEATURE_FLAGS hanya dibaca) |
+| Drizzle           | Skema dihasilkan dengan `drizzle-kit introspect`/`pull`. **Dilarang** `push`/`migrate` ke DB ERP                                                                                             |
+| Versi DB          | Klien memakai **MySQL 5.7.44** (decisions.md D23) — lihat §9.2.1                                                                                                                             |
+| Index             | Index tambahan untuk dashboard: [`docs/sql/dashboard-indexes.sql`](./sql/dashboard-indexes.sql) — online DDL, dijalankan manual (decisions.md O11)                                           |
 
 #### 9.2.1 Batasan kompatibilitas MySQL 5.7
 

@@ -1,6 +1,7 @@
 import { Outlet, createFileRoute, redirect, retainSearchParams } from '@tanstack/react-router'
 import { currentUserOptions } from '~/queries/auth.queries'
 import { companyInfoOptions } from '~/queries/company.queries'
+import { featureFlagsOptions } from '~/queries/feature-flags.queries'
 import { AppShell } from '~/components/layout/AppShell'
 import { APP_NAME } from '~/lib/brand'
 import { documentTitle } from '~/lib/core/company-name'
@@ -21,8 +22,14 @@ export const Route = createFileRoute('/_authed')({
     }
     return { user }
   },
-  // The company name is only decoration: when it cannot be read, the page still opens and shows the app name.
-  loader: ({ context }) => context.queryClient.ensureQueryData(companyInfoOptions()).catch(() => null),
+  // Both are only decoration for the first paint: when one cannot be read, the page still opens (flags then stay off).
+  loader: async ({ context }) => {
+    const [company] = await Promise.all([
+      context.queryClient.ensureQueryData(companyInfoOptions()).catch(() => null),
+      context.queryClient.ensureQueryData(featureFlagsOptions()).catch(() => null),
+    ])
+    return company
+  },
   head: ({ loaderData }) => ({ meta: [{ title: documentTitle(loaderData?.name, APP_NAME) }] }),
   component: AuthedLayout,
 })

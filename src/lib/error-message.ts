@@ -2,7 +2,13 @@
  * The messages a server function error may have after it passed through toPublicError. Such an error was already
  * logged on the server. src/server/error-classify.ts uses this same list.
  */
-export const PUBLIC_ERROR_MESSAGES = ['UNAUTHORIZED', 'DB_UNAVAILABLE', 'TIMEOUT', 'INTERNAL_ERROR'] as const
+export const PUBLIC_ERROR_MESSAGES = [
+  'UNAUTHORIZED',
+  'DB_UNAVAILABLE',
+  'TIMEOUT',
+  'FEATURE_DISABLED',
+  'INTERNAL_ERROR',
+] as const
 export type PublicErrorCode = (typeof PUBLIC_ERROR_MESSAGES)[number]
 
 /** A request id, a job id or a proxy id: short and made of plain characters only. */
@@ -37,6 +43,7 @@ const CODE_KEYS = new Map<PublicErrorCode, string>([
   ['UNAUTHORIZED', 'metric.sessionExpired'],
   ['DB_UNAVAILABLE', 'metric.errorDbUnavailable'],
   ['TIMEOUT', 'metric.errorTimeout'],
+  ['FEATURE_DISABLED', 'metric.errorFeatureDisabled'],
 ])
 
 /**

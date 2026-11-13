@@ -17,12 +17,17 @@ import {
   Scale,
 } from 'lucide-react'
 import { cn } from '~/lib/cn'
+import { keepEnabled } from '~/lib/feature-flags/filter'
+import { allFlagsOff, type FeatureFlagName } from '~/lib/feature-flags/registry'
 import { companyInfoOptions } from '~/queries/company.queries'
+import { featureFlagsOptions } from '~/queries/feature-flags.queries'
 
 export interface NavItemDef {
   labelKey: string
   to: string
   icon: React.ComponentType<{ className?: string; size?: number; strokeWidth?: number }>
+  /** The flag that must be on for this item to show; no flag means always. */
+  flag?: FeatureFlagName
 }
 
 const MAIN_NAV_ITEMS: NavItemDef[] = [
@@ -53,6 +58,8 @@ export function SidebarNav({ onNavigate, className, isTabletCollapsed = false }:
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
   const companyName = useQuery(companyInfoOptions()).data?.name ?? null
+  // While the flags load, or when they cannot be read, every flagged item is hidden (fail closed).
+  const flags = useQuery(featureFlagsOptions()).data ?? allFlagsOff()
 
   return (
     <nav
@@ -79,7 +86,7 @@ export function SidebarNav({ onNavigate, className, isTabletCollapsed = false }:
       </div>
 
       <div className="nr-nav flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-        {MAIN_NAV_ITEMS.map((item) => {
+        {keepEnabled(MAIN_NAV_ITEMS, flags).map((item) => {
           const Icon = item.icon
           const isActive = currentPath === item.to || currentPath.startsWith(`${item.to}/`)
           return (
@@ -99,7 +106,7 @@ export function SidebarNav({ onNavigate, className, isTabletCollapsed = false }:
 
         <div className={cn('nr-nav-group', isTabletCollapsed && 'md:hidden lg:block')}>{t('nav.settingsGroup')}</div>
 
-        {SETTINGS_NAV_ITEMS.map((item) => {
+        {keepEnabled(SETTINGS_NAV_ITEMS, flags).map((item) => {
           const Icon = item.icon
           const isActive = currentPath === item.to
           return (

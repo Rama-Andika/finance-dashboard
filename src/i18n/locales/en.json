@@ -106,6 +106,7 @@
     "sessionExpired": "Your session has expired. Please sign in again.",
     "errorDbUnavailable": "The database cannot be reached right now. Please try again in a moment.",
     "errorTimeout": "The request took too long. Try again, or narrow the period or the entity filter.",
+    "errorFeatureDisabled": "This feature is not turned on for this installation.",
     "tryAgain": "Try again",
     "exportCsv": "Export CSV",
     "print": "Print",

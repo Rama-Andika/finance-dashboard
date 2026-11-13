@@ -49,6 +49,12 @@ describe('errorMessageKey', () => {
     expect(errorMessageKey(new Error('TIMEOUT#20261110-143551-k7q2m'), 'metric.errorBody')).toBe('metric.errorTimeout')
   })
 
+  it('has its own text for a feature that is switched off', () => {
+    expect(errorMessageKey(new Error('FEATURE_DISABLED#20261110-143551-k7q2m'), 'metric.errorBody')).toBe(
+      'metric.errorFeatureDisabled',
+    )
+  })
+
   it('never exposes a raw message such as failed SQL', () => {
     const error = new Error('Failed query: SELECT * FROM ap_ar_card params: 1')
     expect(errorMessageKey(error, 'metric.errorBody')).toBe('metric.errorBody')

@@ -106,6 +106,7 @@
     "sessionExpired": "Sesi Anda sudah berakhir. Silakan masuk kembali.",
     "errorDbUnavailable": "Database tidak dapat dihubungi saat ini. Silakan coba lagi sebentar lagi.",
     "errorTimeout": "Permintaan terlalu lama. Coba lagi, atau persempit periode atau filter entitas.",
+    "errorFeatureDisabled": "Fitur ini belum diaktifkan untuk instalasi ini.",
     "tryAgain": "Coba lagi",
     "exportCsv": "Ekspor CSV",
     "print": "Cetak",
