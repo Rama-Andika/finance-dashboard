@@ -2,7 +2,7 @@
 // env-check and the database migrations, switches "current", restarts the service, waits for /health, and goes back to the
 // previous release by itself when the new one is not healthy. Plain Node, no dependencies. The deploy folder is read from
 // the place of this file: <deploy folder>/releases/<release name>/scripts/ops/install.mjs. It is normally started by
-// open-package.mjs, which opens the package first. See docs/project-guide.md chapter 10.9.
+// open-package.mjs, which opens the package first. See docs/release-deploy-guide.html#alur-pemasang.
 //
 //   node <deploy folder>/releases/<release name>/scripts/ops/install.mjs [--prepare-only] [--keep <n>] [--dry-run]
 //   node <deploy folder>/current/scripts/ops/install.mjs --rollback [--dry-run]

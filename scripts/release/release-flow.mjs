@@ -338,7 +338,7 @@ async function makeRelease(ctx, plan, { mode, yes }) {
 }
 
 /**
- * One release, as described in docs/project-guide.md chapter 10.9. mode "stable" tags vX.Y.Z, "rc" tags vX.Y.Z-rc.N, and
+ * One release, as described in docs/release-deploy-guide.html#versi. mode "stable" tags vX.Y.Z, "rc" tags vX.Y.Z-rc.N, and
  * "notes" only writes the finance notes file. With dryRun nothing is written, no gate that takes long is run, and every
  * problem is listed instead of stopping at the first one. The work is done by the stages above, in this order.
  * @param {{ mode: Mode, dryRun?: boolean, yes?: boolean, bump?: string, deps: ReleaseDeps }} input

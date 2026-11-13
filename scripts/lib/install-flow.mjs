@@ -384,7 +384,7 @@ function cleanUp(ctx) {
 }
 
 /**
- * Installs the release this script belongs to, as described in docs/project-guide.md chapter 10.9. The work is done by
+ * Installs the release this script belongs to, as described in docs/release-deploy-guide.html#alur-pemasang. The work is done by
  * the stages above, in this order; the lock is always given back at the end.
  * @param {{ place: Place, options?: InstallOptions, deps: InstallDeps }} input
  * @returns {InstallResult}

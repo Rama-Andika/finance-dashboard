@@ -1,6 +1,6 @@
 // Makes one release: npm run release -- [rc | notes] [--dry-run] [--yes] [--bump <patch|minor|X.Y.Z>]
 // Run from the project folder on the owner's computer. It checks the gates, works out the version, and hands the tag, the
-// package.json version, the CHANGELOG entry and the push to release-it. See docs/project-guide.md chapter 10.9.
+// package.json version, the CHANGELOG entry and the push to release-it. See docs/release-deploy-guide.html#versi.
 // This file only connects the real world (git, npm, the disk, the keyboard, release-it) to the flow in release-flow.mjs,
 // where every decision is made and tested.
 import { execFileSync, spawnSync } from 'node:child_process'

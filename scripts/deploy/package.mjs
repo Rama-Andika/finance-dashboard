@@ -1,7 +1,7 @@
 // Builds the application for one client and environment, checks the build, and makes the package (.tgz) to upload to a
 // server by hand. It never connects to a server. Run from the project folder on the build computer:
 //   npm run release:pack -- <client> <staging|production> [--skip-build] [--local-only] [--out <folder>]
-// See docs/project-guide.md chapter 10.9. This file only connects the real world (git, the builds, the files) to the flow
+// See docs/release-deploy-guide.html#buat-paket. This file only connects the real world (git, the builds, the files) to the flow
 // in package-flow.mjs, where every decision is made and tested.
 import { execFileSync, spawnSync } from 'node:child_process'
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'

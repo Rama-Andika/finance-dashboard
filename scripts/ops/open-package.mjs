@@ -1,7 +1,7 @@
 // Opens a release package (.tgz made by "npm run release:pack") into <deploy folder>/releases/<release name>/ and runs the
 // installer of that release. The release name is the file name without ".tgz", so nobody has to type it. One self-contained
 // file with no imports from this project: the first time it is copied to a deploy folder by hand (the package, which holds
-// the installer, cannot be opened without it). See docs/project-guide.md chapter 10.9.
+// the installer, cannot be opened without it). See docs/release-deploy-guide.html#alur-pemasang.
 //
 //   node <deploy folder>/open-package.mjs <package>.tgz [--prepare-only] [--dry-run] [--keep <n>]
 //

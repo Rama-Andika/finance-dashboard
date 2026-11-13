@@ -94,7 +94,7 @@ export function runPackage({ client, env, options = {}, deps }) {
     if (options.localOnly) {
       log('\nLOCAL ONLY: this package is for trying things out on this computer. Its version is not a release tag,')
       log(
-        'so the installer on a server refuses it. To deploy, make a release (docs/release-runbook.md) and pack that tag.',
+        'so the installer on a server refuses it. To deploy, make a release (docs/release-deploy-guide.html#konsep) and pack that tag.',
       )
     } else {
       log('\nNext, by hand:')
@@ -107,7 +107,7 @@ export function runPackage({ client, env, options = {}, deps }) {
         '  It opens the package and installs it. Do not rename the package file: its name is the name of the release.',
       )
       log(
-        '  The first install of this deployment: add --prepare-only to that command (docs/project-guide.md chapter 10.9.3).',
+        '  The first install of this deployment: add --prepare-only to that command (docs/release-deploy-guide.html#pertama).',
       )
     }
   } catch (error) {
