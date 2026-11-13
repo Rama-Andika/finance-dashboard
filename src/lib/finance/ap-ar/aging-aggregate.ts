@@ -3,7 +3,14 @@ import { D } from '../../core/money'
 import type { Id, Money } from '../../core/types'
 import type { CoaTree } from '../coa/coa-tree'
 import { AGING_BUCKETS, OVERDUE_BUCKETS, type AgingBucket } from './aging'
-import { formatBuckets, initBuckets, type computeApAging, type computeArAging } from './apar'
+import {
+  apAgingResult,
+  arAgingResult,
+  formatBuckets,
+  initBuckets,
+  type ApAgingFigures,
+  type ArAgingFigures,
+} from './apar'
 
 /**
  * The aging figures already summed per party (by the database), instead of one row per invoice.
@@ -199,32 +206,8 @@ export function computeApAgingFromAggregates(input: {
   aggregates: AgingAggregates
   vendors: Map<Id, { code: string; name: string }>
   tree: CoaTree
-}): ReturnType<typeof computeApAging> {
-  const r = accumulateAggregates(input.aggregates, input.tree)
-  return {
-    total: r.total.toFixed(2),
-    unpaidBills: r.unpaid.toFixed(2),
-    vendorCredits: r.credits.toFixed(2),
-    unallocatedPayments: r.unallocated.toFixed(2),
-    // AP: the direct returns are open items of the return type with a negative balance, so they are already inside
-    // `vendorCredits`; `unallocatedPayments` (the unallocated payments) is a separate figure.
-    directReturns: r.itemReturns.toFixed(2),
-    directReturnCount: r.itemReturnCount,
-    buckets: formatBuckets(r.buckets),
-    overdueSubtotal: r.overdueSubtotal.toFixed(2),
-    overdueBills: r.overdueBills.toFixed(2),
-    byVendor: Array.from(r.parties.entries()).map(([vendorId, acc]) => {
-      const v = input.vendors.get(vendorId)
-      return {
-        vendorId,
-        code: v?.code || '',
-        name: v?.name || '',
-        total: acc.total.toFixed(2),
-        buckets: formatBuckets(acc.buckets),
-      }
-    }),
-    controlAccounts: r.controlAccounts,
-  }
+}): ApAgingFigures {
+  return apAgingResult(accumulateAggregates(input.aggregates, input.tree), input.vendors)
 }
 
 /** Same result as `computeArAging` (apar.ts) for the same invoices, from per-customer sums. */
@@ -232,29 +215,6 @@ export function computeArAgingFromAggregates(input: {
   aggregates: AgingAggregates
   customers: Map<Id, { code: string; name: string }>
   tree: CoaTree
-}): ReturnType<typeof computeArAging> {
-  const r = accumulateAggregates(input.aggregates, input.tree)
-  return {
-    total: r.total.toFixed(2),
-    unpaidInvoices: r.unpaid.toFixed(2),
-    customerCredits: r.credits.toFixed(2),
-    // AR: a direct return is a card without a detail row of its own, so it sits in the unallocated table
-    // (`unallocated`), not among the open items as on the AP side (`itemReturns`).
-    directReturns: r.unallocated.toFixed(2),
-    directReturnCount: r.unallocatedCount,
-    nonTrade: r.nonTrade.toFixed(2),
-    buckets: formatBuckets(r.buckets),
-    overdueSubtotal: r.overdueSubtotal.toFixed(2),
-    byCustomer: Array.from(r.parties.entries()).map(([customerId, acc]) => {
-      const c = input.customers.get(customerId)
-      return {
-        customerId,
-        code: c?.code || '',
-        name: c?.name || '',
-        total: acc.total.toFixed(2),
-        buckets: formatBuckets(acc.buckets),
-      }
-    }),
-    controlAccounts: r.controlAccounts,
-  }
+}): ArAgingFigures {
+  return arAgingResult(accumulateAggregates(input.aggregates, input.tree), input.customers)
 }

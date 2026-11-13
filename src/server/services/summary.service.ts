@@ -1,12 +1,12 @@
 import '@tanstack/react-start/server-only'
 import type { Breakdown, MetricMeta, Money } from '~/lib/core/types'
 import { type AppContextFilter, buildMetricMeta } from '~/server/context'
-import { computeCashPosition } from '~/server/services/cash/cash-position.service'
+import { computeCashPosition, type CashPositionResult } from '~/server/services/cash/cash-position.service'
 import { computeRevenue, type RevenueResult } from '~/server/services/pnl/revenue.service'
 import { computePnl } from '~/server/services/pnl/pnl.service'
-import { computeApAging } from '~/server/services/ap-ar/ap-aging.service'
-import { computeCashFlow } from '~/server/services/cash/cash-flow.service'
-import { computeRunwayMetrics } from '~/server/services/cash/runway.service'
+import { computeApAging, type ApAgingResult } from '~/server/services/ap-ar/ap-aging.service'
+import { computeCashFlow, type CashFlowResult } from '~/server/services/cash/cash-flow.service'
+import { computeRunwayMetrics, type RunwayResult } from '~/server/services/cash/runway.service'
 import { computePaymentPlan } from '~/server/services/ap-ar/payment-plan.service'
 import { computeFixedCost } from '~/server/services/pnl/fixed-cost.service'
 import { buildOperatingExpenseFolders, type OperatingExpenseFolder } from '~/lib/finance/pnl/operating-expense'
@@ -74,6 +74,44 @@ export type SummaryResult = {
   }
 }
 
+// The cards below are built in more than one place (the whole summary and the parts of the page). One function per card
+// keeps the parts carrying the same figures.
+
+function cashPositionCard(cashPos: CashPositionResult, filter: AppContextFilter): SummaryResult['cashPosition'] {
+  return {
+    total: cashPos.cashPosition,
+    compare: cashPos.compare.cashPosition,
+    cash: cashPos.cash,
+    bank: cashPos.bank,
+    deposit: cashPos.deposit,
+    inTransit: cashPos.inTransit,
+    giroOutstanding: cashPos.giroOutstanding,
+    entityCount: filter.entityCount,
+  }
+}
+
+function apAgingCard(apAging: ApAgingResult): SummaryResult['apAging'] {
+  return {
+    total: apAging.total,
+    unpaidBills: apAging.unpaidBills,
+    overdueSubtotal: apAging.overdueSubtotal,
+    overdueBills: apAging.overdueBills,
+  }
+}
+
+function cashFlowCard(cashFlow: CashFlowResult): SummaryResult['cashFlow'] {
+  return { netCashFlow: cashFlow.netCashFlow, closingCash: cashFlow.closingCash, monthly: cashFlow.monthly }
+}
+
+function runwayCard(runway: RunwayResult): SummaryResult['runway'] {
+  return {
+    runwayMonths: runway.runwayMonths,
+    cashFlowPositive: runway.cashFlowPositive,
+    avgBurn: runway.avgBurn,
+    currentRatio: runway.currentRatio,
+  }
+}
+
 /**
  * The whole Summary page in one result. The page itself loads it in three parts (head, charts and mini, further down),
  * so only the integration tests use this function: they check that the three parts carry the same figures.
@@ -99,16 +137,7 @@ export async function computeSummary(filter: AppContextFilter): Promise<SummaryR
 
   return {
     meta,
-    cashPosition: {
-      total: cashPos.cashPosition,
-      compare: cashPos.compare.cashPosition,
-      cash: cashPos.cash,
-      bank: cashPos.bank,
-      deposit: cashPos.deposit,
-      inTransit: cashPos.inTransit,
-      giroOutstanding: cashPos.giroOutstanding,
-      entityCount: filter.entityCount,
-    },
+    cashPosition: cashPositionCard(cashPos, filter),
     revenue: {
       total: revenue.total,
       compare: revenue.compareTotal,
@@ -128,23 +157,9 @@ export async function computeSummary(filter: AppContextFilter): Promise<SummaryR
       netProfit: npLine?.amount ?? '0.00',
       netMargin: npLine?.margin ?? null,
     },
-    apAging: {
-      total: apAging.total,
-      unpaidBills: apAging.unpaidBills,
-      overdueSubtotal: apAging.overdueSubtotal,
-      overdueBills: apAging.overdueBills,
-    },
-    cashFlow: {
-      netCashFlow: cashFlow.netCashFlow,
-      closingCash: cashFlow.closingCash,
-      monthly: cashFlow.monthly,
-    },
-    runway: {
-      runwayMonths: runway.runwayMonths,
-      cashFlowPositive: runway.cashFlowPositive,
-      avgBurn: runway.avgBurn,
-      currentRatio: runway.currentRatio,
-    },
+    apAging: apAgingCard(apAging),
+    cashFlow: cashFlowCard(cashFlow),
+    runway: runwayCard(runway),
     paymentPlan7Days: {
       openingBalance: paymentPlan.openingBalance,
       overdue: paymentPlan.overdue,
@@ -183,24 +198,10 @@ export async function computeSummaryHead(filter: AppContextFilter): Promise<Summ
   const netProfit = pnl.lines.find((l) => l.key === 'netProfit')
   return {
     meta,
-    cashPosition: {
-      total: cashPos.cashPosition,
-      compare: cashPos.compare.cashPosition,
-      cash: cashPos.cash,
-      bank: cashPos.bank,
-      deposit: cashPos.deposit,
-      inTransit: cashPos.inTransit,
-      giroOutstanding: cashPos.giroOutstanding,
-      entityCount: filter.entityCount,
-    },
+    cashPosition: cashPositionCard(cashPos, filter),
     revenue: { total: revenue.total, compare: revenue.compareTotal },
     pnl: { netProfit: netProfit?.amount ?? '0.00', netMargin: netProfit?.margin ?? null },
-    apAging: {
-      total: apAging.total,
-      unpaidBills: apAging.unpaidBills,
-      overdueSubtotal: apAging.overdueSubtotal,
-      overdueBills: apAging.overdueBills,
-    },
+    apAging: apAgingCard(apAging),
   }
 }
 
@@ -223,7 +224,7 @@ export async function computeSummaryCharts(filter: AppContextFilter): Promise<Su
     computeFixedCost(filter),
   ])
   return {
-    cashFlow: { netCashFlow: cashFlow.netCashFlow, closingCash: cashFlow.closingCash, monthly: cashFlow.monthly },
+    cashFlow: cashFlowCard(cashFlow),
     revenueByFolder: revenue.byFolder,
     revenueByEntity: revenue.byEntity,
     entityUnassigned: revenue.entityUnassigned,
@@ -244,12 +245,7 @@ export async function computeSummaryMini(filter: AppContextFilter): Promise<Summ
   const [runway, pnl] = await Promise.all([computeRunwayMetrics(filter), computePnl(filter)])
   const line = (key: string) => pnl.lines.find((l) => l.key === key)
   return {
-    runway: {
-      runwayMonths: runway.runwayMonths,
-      cashFlowPositive: runway.cashFlowPositive,
-      avgBurn: runway.avgBurn,
-      currentRatio: runway.currentRatio,
-    },
+    runway: runwayCard(runway),
     grossMargin: line('grossProfit')?.margin ?? null,
     netMargin: line('netProfit')?.margin ?? null,
   }

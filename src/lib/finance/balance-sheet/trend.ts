@@ -105,10 +105,16 @@ export function cumulativeGroupAmounts(input: {
   const movementsOf = new Map<Id, Array<(typeof input.movements)[number]>>()
   for (const m of input.movements) {
     if (!m.periodId) continue
-    movementsOf.set(m.periodId, [...(movementsOf.get(m.periodId) ?? []), m])
+    const list = movementsOf.get(m.periodId)
+    if (list) list.push(m)
+    else movementsOf.set(m.periodId, [m])
   }
   const endsAfter = new Map<Id, Id[]>()
-  for (const end of input.endStates) endsAfter.set(end.after, [...(endsAfter.get(end.after) ?? []), end.periodId])
+  for (const end of input.endStates) {
+    const list = endsAfter.get(end.after)
+    if (list) list.push(end.periodId)
+    else endsAfter.set(end.after, [end.periodId])
+  }
 
   const result = new Map<Id, GroupAmounts>()
   for (const period of input.movementPeriods) {

@@ -177,13 +177,10 @@ function accumulateAging(input: {
   }
 }
 
-export function computeApAging(input: {
-  partA: ApOpenInvoiceRow[]
-  partB: ApUnallocatedPaymentRow[]
-  asOf: IsoDate
-  vendors: Map<Id, { code: string; name: string }>
-  tree: CoaTree
-}): {
+/** What `accumulateAging` here and `accumulateAggregates` (aging-aggregate.ts) both produce: the totals of one side. */
+export type AgingTotals = ReturnType<typeof accumulateAging>
+
+export type ApAgingFigures = {
   total: Money
   unpaidBills: Money
   vendorCredits: Money
@@ -195,14 +192,23 @@ export function computeApAging(input: {
   overdueBills: Money
   byVendor: VendorAgingSummary[]
   controlAccounts: ControlAccount[]
-} {
-  const r = accumulateAging({
-    items: input.partA.map((a) => ({ ...a, partyId: a.vendorId })),
-    payments: input.partB.map((b) => ({ ...b, partyId: b.vendorId })),
-    asOf: input.asOf,
-    tree: input.tree,
-  })
+}
 
+export type ArAgingFigures = {
+  total: Money
+  unpaidInvoices: Money
+  customerCredits: Money
+  directReturns: Money
+  directReturnCount: number
+  nonTrade: Money
+  buckets: Record<AgingBucket, Money>
+  overdueSubtotal: Money
+  byCustomer: CustomerAgingSummary[]
+  controlAccounts: ControlAccount[]
+}
+
+/** The AP result from the totals. Both ways of reading the invoices (one row each, or summed per vendor) end here. */
+export function apAgingResult(r: AgingTotals, vendors: Map<Id, { code: string; name: string }>): ApAgingFigures {
   return {
     total: r.total.toFixed(2),
     unpaidBills: r.unpaid.toFixed(2),
@@ -216,7 +222,7 @@ export function computeApAging(input: {
     overdueSubtotal: r.overdueSubtotal.toFixed(2),
     overdueBills: r.overdueBills.toFixed(2),
     byVendor: Array.from(r.parties.entries()).map(([vendorId, acc]) => {
-      const v = input.vendors.get(vendorId)
+      const v = vendors.get(vendorId)
       return {
         vendorId,
         code: v?.code || '',
@@ -229,31 +235,8 @@ export function computeApAging(input: {
   }
 }
 
-export function computeArAging(input: {
-  partA: ArOpenInvoiceRow[]
-  partB: ArDirectReturnRow[]
-  asOf: IsoDate
-  customers: Map<Id, { code: string; name: string }>
-  tree: CoaTree
-}): {
-  total: Money
-  unpaidInvoices: Money
-  customerCredits: Money
-  directReturns: Money
-  directReturnCount: number
-  nonTrade: Money
-  buckets: Record<AgingBucket, Money>
-  overdueSubtotal: Money
-  byCustomer: CustomerAgingSummary[]
-  controlAccounts: ControlAccount[]
-} {
-  const r = accumulateAging({
-    items: input.partA.map((a) => ({ ...a, partyId: a.customerId })),
-    payments: input.partB.map((b) => ({ ...b, partyId: b.customerId })),
-    asOf: input.asOf,
-    tree: input.tree,
-  })
-
+/** The AR result from the totals. Both ways of reading the invoices (one row each, or summed per customer) end here. */
+export function arAgingResult(r: AgingTotals, customers: Map<Id, { code: string; name: string }>): ArAgingFigures {
   return {
     total: r.total.toFixed(2),
     unpaidInvoices: r.unpaid.toFixed(2),
@@ -266,7 +249,7 @@ export function computeArAging(input: {
     buckets: formatBuckets(r.buckets),
     overdueSubtotal: r.overdueSubtotal.toFixed(2),
     byCustomer: Array.from(r.parties.entries()).map(([customerId, acc]) => {
-      const c = input.customers.get(customerId)
+      const c = customers.get(customerId)
       return {
         customerId,
         code: c?.code || '',
@@ -277,4 +260,38 @@ export function computeArAging(input: {
     }),
     controlAccounts: r.controlAccounts,
   }
+}
+
+export function computeApAging(input: {
+  partA: ApOpenInvoiceRow[]
+  partB: ApUnallocatedPaymentRow[]
+  asOf: IsoDate
+  vendors: Map<Id, { code: string; name: string }>
+  tree: CoaTree
+}): ApAgingFigures {
+  const r = accumulateAging({
+    items: input.partA.map((a) => ({ ...a, partyId: a.vendorId })),
+    payments: input.partB.map((b) => ({ ...b, partyId: b.vendorId })),
+    asOf: input.asOf,
+    tree: input.tree,
+  })
+
+  return apAgingResult(r, input.vendors)
+}
+
+export function computeArAging(input: {
+  partA: ArOpenInvoiceRow[]
+  partB: ArDirectReturnRow[]
+  asOf: IsoDate
+  customers: Map<Id, { code: string; name: string }>
+  tree: CoaTree
+}): ArAgingFigures {
+  const r = accumulateAging({
+    items: input.partA.map((a) => ({ ...a, partyId: a.customerId })),
+    payments: input.partB.map((b) => ({ ...b, partyId: b.customerId })),
+    asOf: input.asOf,
+    tree: input.tree,
+  })
+
+  return arAgingResult(r, input.customers)
 }

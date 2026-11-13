@@ -317,6 +317,8 @@ describe('runInstall: this release is not healthy', () => {
     expect(runInstall({ place: STAGING, deps: made.deps }).status).toBe('failed')
     expect(made.text()).toContain('there is no previous release to go back to')
     expect(made.events).not.toContain('rollback')
+    // The release was switched, so it is not "kept for another try": that advice is only for a failure before the switch.
+    expect(made.text()).not.toContain('The release folder was kept')
     expect(made.events.at(-1)).toBe('unlock')
   })
 

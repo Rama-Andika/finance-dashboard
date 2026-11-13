@@ -54,6 +54,34 @@ export interface SidebarNavProps {
   isTabletCollapsed?: boolean
 }
 
+/** One link of the menu: the same for the main menu and the Settings group. */
+function NavItemLink({
+  item,
+  isActive,
+  isTabletCollapsed,
+  onNavigate,
+}: {
+  item: NavItemDef
+  isActive: boolean
+  isTabletCollapsed: boolean
+  onNavigate?: () => void
+}) {
+  const { t } = useTranslation()
+  const Icon = item.icon
+  return (
+    <Link
+      to={item.to}
+      onClick={onNavigate}
+      aria-current={isActive ? 'page' : undefined}
+      aria-label={t(item.labelKey)}
+      className={cn('nr-nav-item', isTabletCollapsed && 'md:justify-center md:px-0 lg:justify-start lg:px-3')}
+    >
+      <Icon className="nr-icon" size={18} strokeWidth={1.75} aria-hidden="true" />
+      <span className={cn(isTabletCollapsed && 'md:hidden lg:inline')}>{t(item.labelKey)}</span>
+    </Link>
+  )
+}
+
 export function SidebarNav({ onNavigate, className, isTabletCollapsed = false }: SidebarNavProps) {
   const { t } = useTranslation()
   const routerState = useRouterState()
@@ -87,43 +115,27 @@ export function SidebarNav({ onNavigate, className, isTabletCollapsed = false }:
       </div>
 
       <div className="nr-nav flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-        {keepEnabled(MAIN_NAV_ITEMS, flags).map((item) => {
-          const Icon = item.icon
-          const isActive = currentPath === item.to || currentPath.startsWith(`${item.to}/`)
-          return (
-            <Link
-              key={item.to}
-              to={item.to}
-              onClick={onNavigate}
-              aria-current={isActive ? 'page' : undefined}
-              aria-label={t(item.labelKey)}
-              className={cn('nr-nav-item', isTabletCollapsed && 'md:justify-center md:px-0 lg:justify-start lg:px-3')}
-            >
-              <Icon className="nr-icon" size={18} strokeWidth={1.75} aria-hidden="true" />
-              <span className={cn(isTabletCollapsed && 'md:hidden lg:inline')}>{t(item.labelKey)}</span>
-            </Link>
-          )
-        })}
+        {keepEnabled(MAIN_NAV_ITEMS, flags).map((item) => (
+          <NavItemLink
+            key={item.to}
+            item={item}
+            isActive={currentPath === item.to || currentPath.startsWith(`${item.to}/`)}
+            isTabletCollapsed={isTabletCollapsed}
+            onNavigate={onNavigate}
+          />
+        ))}
 
         <div className={cn('nr-nav-group', isTabletCollapsed && 'md:hidden lg:block')}>{t('nav.settingsGroup')}</div>
 
-        {keepEnabled(SETTINGS_NAV_ITEMS, flags).map((item) => {
-          const Icon = item.icon
-          const isActive = currentPath === item.to
-          return (
-            <Link
-              key={item.to}
-              to={item.to}
-              onClick={onNavigate}
-              aria-current={isActive ? 'page' : undefined}
-              aria-label={t(item.labelKey)}
-              className={cn('nr-nav-item', isTabletCollapsed && 'md:justify-center md:px-0 lg:justify-start lg:px-3')}
-            >
-              <Icon className="nr-icon" size={18} strokeWidth={1.75} aria-hidden="true" />
-              <span className={cn(isTabletCollapsed && 'md:hidden lg:inline')}>{t(item.labelKey)}</span>
-            </Link>
-          )
-        })}
+        {keepEnabled(SETTINGS_NAV_ITEMS, flags).map((item) => (
+          <NavItemLink
+            key={item.to}
+            item={item}
+            isActive={currentPath === item.to}
+            isTabletCollapsed={isTabletCollapsed}
+            onNavigate={onNavigate}
+          />
+        ))}
       </div>
 
       <DataFreshness className={cn('flex-none', isTabletCollapsed && 'md:hidden lg:flex')} />
