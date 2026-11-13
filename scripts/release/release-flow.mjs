@@ -102,7 +102,7 @@ function checkGit(ctx) {
 }
 
 /**
- * Stage: every commit since the last release must follow "type(scope): text". The first release has no earlier tag, so
+ * Stage: every commit since the last release must follow "type(scope): text". The first release has no earlier stable tag, so
  * its old commits are not checked.
  * @param {Context} ctx
  * @param {string | null} lastTag
@@ -111,7 +111,9 @@ function checkGit(ctx) {
 function checkCommitConvention(ctx, lastTag, commits) {
   const { deps, problem } = ctx
   if (lastTag === null) {
-    deps.log('  first release: there is no earlier tag, so the commit messages are not checked')
+    deps.log(
+      '  first release: there is no earlier stable tag (release candidates do not count), so the commit messages are not checked',
+    )
     return
   }
   deps.log(`  last release ${lastTag}, ${commits.length} commit(s) since`)
