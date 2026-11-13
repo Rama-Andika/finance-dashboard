@@ -185,6 +185,7 @@ try {
       health.status === 503 &&
         healthBody?.status === 'fail' &&
         healthBody?.db === 'fail' &&
+        healthBody?.migrations === 'unknown' &&
         healthBody?.version === buildInfo?.version,
       `status ${health.status}, body ${JSON.stringify(healthBody)}`,
     )
@@ -192,6 +193,14 @@ try {
       'the health answer is never cached',
       health.headers.get('cache-control') === 'no-store',
       health.headers.get('cache-control') ?? 'no header',
+    )
+
+    // Every response (not /health) tells the version of the build in X-App-Version; the page compares it with its own.
+    const loginPage = await get(`${prefix}/login`)
+    check(
+      'every response carries the build version in X-App-Version',
+      loginPage.headers.get('x-app-version') === buildInfo?.version,
+      `header ${loginPage.headers.get('x-app-version') ?? 'missing'}, build ${buildInfo?.version ?? 'unknown'}`,
     )
 
     // The checks at start: a wrong CLIENT_ID or a missing APP_ENV must stop the server before it serves anything.

@@ -5,6 +5,7 @@ import { TopBar } from '~/components/layout/top-bar/TopBar'
 import { MobileDrawer } from '~/components/layout/MobileDrawer'
 import { DrillSheet } from '~/components/drill/DrillSheet'
 import { AppFooter } from '~/components/layout/AppFooter'
+import { VersionBanner } from '~/components/layout/VersionBanner'
 import { DataChecksPanel } from '~/components/data-checks/DataChecksPanel'
 import { useGlobalMetricInput } from '~/hooks/use-global-metric-input'
 import { dataChecksOptions } from '~/queries/data-checks.queries'
@@ -50,6 +51,7 @@ export function AppShell({ children, user }: AppShellProps) {
           onOpenDataChecks={() => setDataChecksOpen(true)}
           dataChecksCount={checks?.filter((c) => c.level !== 'info').length ?? 0}
         />
+        <VersionBanner />
         <main className="flex-1 min-w-0">{children}</main>
         <AppFooter />
       </div>

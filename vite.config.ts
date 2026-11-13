@@ -42,6 +42,9 @@ function gitVersion(): string {
   }
 }
 
+/** The version the browser bundle and the server bundle are both built with (Vite `define`): one text for both. */
+const bundleVersion = gitVersion()
+
 /** Writes dist/build-info.json (version, build time, client). scripts/start-server.mjs hands the version to the logger. */
 function writeBuildInfoFile(): Plugin {
   return {
@@ -59,8 +62,11 @@ function writeBuildInfoFile(): Plugin {
   }
 }
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   base,
+  // The version of this build as the bundles know it (src/lib/app-version/app-version.ts): the git tag in a build,
+  // "dev" in `npm run dev`.
+  define: { __APP_VERSION__: JSON.stringify(command === 'build' ? bundleVersion : 'dev') },
   server: { port: 3000 },
   plugins: [
     tsconfigPaths(),
@@ -70,4 +76,4 @@ export default defineConfig({
     writeBasePathFile(),
     writeBuildInfoFile(),
   ],
-})
+}))

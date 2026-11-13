@@ -23,5 +23,6 @@ describe('package.mjs', { timeout: 30_000 }, () => {
     expect(run(['Acme Corp', 'production']).status).toBe(2)
     expect(run(['acme', 'production', 'extra']).status).toBe(2)
     expect(run(['acme', 'production', '--bogus']).status).toBe(2)
+    expect(run(['acme', 'production', '--allow-dirty']).status).toBe(2)
   })
 })

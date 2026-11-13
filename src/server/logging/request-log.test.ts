@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { APP_VERSION } from '~/lib/app-version/app-version'
 import { noteServerFn, setLogUser } from './log-context'
 import { captureLogs, createLogger, resetLoggerForTests } from './logger-core'
 import { handleRequestWithLog } from './request-log'
@@ -104,6 +105,17 @@ describe('handleRequestWithLog', () => {
     const entries = capture.entries()
     capture.stop()
     expect(entries.map((e) => e.level)).toEqual(['info', 'error'])
+  })
+
+  it('adds the version of the build as X-App-Version, also to a response whose headers cannot be changed', async () => {
+    const plain = await handleRequestWithLog(pageRequest(), () => new Response('ok'), options)
+    expect(plain.headers.get('x-app-version')).toBe(APP_VERSION)
+    const redirect = await handleRequestWithLog(
+      pageRequest(),
+      () => Response.redirect('http://localhost:3000/login', 302),
+      options,
+    )
+    expect(redirect.headers.get('x-app-version')).toBe(APP_VERSION)
   })
 
   it('copies a response whose headers cannot be changed (a redirect)', async () => {

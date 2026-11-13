@@ -1,6 +1,6 @@
 // Builds the application for one client and environment, checks the build, and makes the package (.tgz) to upload to a
 // server by hand. It never connects to a server. Run from the project folder on the build computer:
-//   npm run release:pack -- <client> <staging|production> [--skip-build] [--allow-dirty] [--out <folder>]
+//   npm run release:pack -- <client> <staging|production> [--skip-build] [--local-only] [--out <folder>]
 // See docs/project-guide.md chapter 10.9. This file only connects the real world (git, the builds, the files) to the flow
 // in package-flow.mjs, where every decision is made and tested.
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -16,11 +16,11 @@ import { packageRelease } from './package-release.mjs'
 const root = resolve(import.meta.dirname, '..', '..')
 const DEFAULT_OUT = 'release-packages'
 
-const USAGE = `Usage: npm run release:pack -- <client> <staging|production> [--skip-build] [--allow-dirty] [--out <folder>]
+const USAGE = `Usage: npm run release:pack -- <client> <staging|production> [--skip-build] [--local-only] [--out <folder>]
 
   <client>         the client name as used in the deploy folder name, for example acme
   --skip-build     use the dist/ that exists; it must match this commit and this client
-  --allow-dirty    staging only: package with uncommitted changes
+  --local-only     package any commit (dirty or without a tag) to try out on this computer; the installer on a server refuses it
   --out <folder>   where to put the package (default ${DEFAULT_OUT}/, ignored by git)`
 
 /** The output of git in the project folder; throws when git fails. @param {string[]} args */
@@ -71,7 +71,7 @@ function main(argv) {
       allowPositionals: true,
       options: {
         'skip-build': { type: 'boolean' },
-        'allow-dirty': { type: 'boolean' },
+        'local-only': { type: 'boolean' },
         out: { type: 'string' },
         help: { type: 'boolean', short: 'h' },
       },
@@ -118,7 +118,7 @@ function main(argv) {
   return runPackage({
     client,
     env,
-    options: { skipBuild: values['skip-build'], allowDirty: values['allow-dirty'] },
+    options: { skipBuild: values['skip-build'], localOnly: values['local-only'] },
     deps,
   }).ok
     ? 0

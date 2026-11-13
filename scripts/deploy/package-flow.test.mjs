@@ -55,11 +55,21 @@ describe('runPackage: a good package', () => {
     expect(text()).not.toContain('mkdir')
   })
 
-  it('builds staging for the CLIENT_ID with -staging, and does not need a tag', () => {
-    const { deps, record } = makeDeps({ version: '1a2b3c4', clientId: 'acme-staging' })
+  it('builds staging for the CLIENT_ID with -staging, and takes a release candidate tag', () => {
+    const { deps, record } = makeDeps({ version: 'v1.2.0-rc.1', clientId: 'acme-staging' })
     const result = runPackage({ client: 'acme', env: 'staging', deps })
-    expect(result).toMatchObject({ ok: true, clientId: 'acme-staging', name: '20261112100000-1a2b3c4' })
+    expect(result).toMatchObject({ ok: true, clientId: 'acme-staging', name: '20261112100000-v1.2.0-rc.1' })
     expect(record.builds).toEqual(['acme-staging'])
+  })
+
+  it('makes a --local-only package of any commit and says that no server will take it', () => {
+    const { deps, record, text } = makeDeps({ version: '1a2b3c4-dirty', dirty: true, clientId: 'acme-staging' })
+    const result = runPackage({ client: 'acme', env: 'staging', options: { localOnly: true }, deps })
+    expect(result).toMatchObject({ ok: true, name: '20261112100000-1a2b3c4-dirty' })
+    expect(record.packaged).toEqual(['20261112100000-1a2b3c4-dirty'])
+    expect(text()).toContain('LOCAL ONLY')
+    expect(text()).not.toContain('Next, by hand')
+    expect(text()).not.toContain('open-package.mjs <upload folder>')
   })
 
   it('uses the existing build with --skip-build', () => {
@@ -85,19 +95,22 @@ describe('runPackage: refused', () => {
     expect(wrongEnv.record.builds).toEqual([])
   })
 
-  it('refuses uncommitted changes, and allows them only for staging with --allow-dirty', () => {
-    const config = { dirty: true, version: '1a2b3c4-dirty', clientId: 'acme-staging' }
-    const made = refused({ client: 'acme', env: 'staging' }, config)
+  it('refuses uncommitted changes before building anything', () => {
+    const made = refused(
+      { client: 'acme', env: 'staging' },
+      { dirty: true, version: 'v1.2.0-dirty', clientId: 'acme-staging' },
+    )
     expect(made.text()).toContain('uncommitted changes')
     expect(made.record.builds).toEqual([])
+  })
 
-    const allowed = makeDeps(config)
-    expect(runPackage({ client: 'acme', env: 'staging', options: { allowDirty: true }, deps: allowed.deps }).ok).toBe(
-      true,
-    )
-    refused(
-      { client: 'acme', env: 'production', options: { allowDirty: true } },
-      { dirty: true, version: '1a2b3c4-dirty' },
+  it('refuses a commit that is not exactly a release tag, and a release candidate for production', () => {
+    const untagged = refused({ client: 'acme', env: 'production' }, { version: 'v1.2.0-3-g1a2b3c4' })
+    expect(untagged.text()).toContain('cannot go to production')
+    expect(untagged.record.builds).toEqual([])
+    expect(refused({ client: 'acme', env: 'staging' }, { version: '1a2b3c4' }).text()).toContain('cannot go to staging')
+    expect(refused({ client: 'acme', env: 'production' }, { version: 'v1.2.0-rc.1' }).text()).toContain(
+      'cannot go to production',
     )
   })
 

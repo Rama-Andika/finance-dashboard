@@ -35,7 +35,11 @@ async function probe({ url, expectVersion, fetchFn, requestTimeoutMs }) {
       /* not JSON: reported below */
     }
     if (response.status !== 200) {
-      return { ok: false, problem: `HTTP ${response.status}${body?.db === 'fail' ? ', database fail' : ''}` }
+      const reasons = [`HTTP ${response.status}`]
+      if (body?.db === 'fail') reasons.push('database fail')
+      if (body?.status === 'degraded')
+        reasons.push(`degraded, migrations ${String(body.migrations ?? 'unknown').slice(0, 20)}`)
+      return { ok: false, problem: reasons.join(', ') }
     }
     if (body?.status !== 'ok') return { ok: false, problem: 'the answer does not say status ok' }
     if (expectVersion !== undefined && body.version !== expectVersion) {

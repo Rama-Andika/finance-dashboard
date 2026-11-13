@@ -70,6 +70,13 @@ describe('waitForHealth', () => {
     expect(await result).toEqual({ ok: false, reason: 'HTTP 503, database fail', attempts: 4 })
   })
 
+  it('says that a degraded answer is not healthy and why', async () => {
+    const degraded = { status: 503, body: { status: 'degraded', version: 'v1', db: 'ok', migrations: 'behind' } }
+    const { result, lines } = run([degraded], { timeoutMs: 0 })
+    expect(await result).toEqual({ ok: false, reason: 'HTTP 503, degraded, migrations behind', attempts: 1 })
+    expect(lines[0]).toBe('attempt 1: HTTP 503, degraded, migrations behind')
+  })
+
   it('tries once with a timeout of 0', async () => {
     const { result } = run([DOWN], { timeoutMs: 0 })
     expect((await result).attempts).toBe(1)

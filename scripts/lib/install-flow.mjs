@@ -1,5 +1,6 @@
 import { basename, dirname } from 'node:path'
 import { ENV_FILE_NAME, healthUrl, parseDeployFolder, RELEASE_NAME_PATTERN } from './release-layout.mjs'
+import { installVersionProblem } from './version-rules.mjs'
 
 /** How many releases stay on the server after an install (plus the current and the previous one). */
 export const DEFAULT_KEEP = 5
@@ -214,6 +215,8 @@ export function runInstall({ place, options = {}, deps }) {
     if (!info)
       throw new InstallError('dist/build-info.json is missing or unreadable: was the package opened completely?')
     if (!info.version) throw new InstallError('dist/build-info.json has no version')
+    const versionProblem = installVersionProblem(info.version, folder.env)
+    if (versionProblem) throw new InstallError(versionProblem)
     if (info.clientId !== folder.clientId) {
       throw new InstallError(
         `this package was built for CLIENT_ID "${info.clientId ?? ''}" but this deploy folder is for "${folder.clientId}": wrong package or wrong folder`,

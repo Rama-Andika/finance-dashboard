@@ -4,7 +4,7 @@ import { versionProblems } from './package-rules.mjs'
 
 /**
  * @typedef {{ ok: boolean, file: string, name: string, version: string, clientId: string }} PackageResult
- * @typedef {{ skipBuild?: boolean, allowDirty?: boolean }} PackageOptions
+ * @typedef {{ skipBuild?: boolean, localOnly?: boolean }} PackageOptions
  * @typedef {{
  *   now: () => Date,
  *   log: (line: string) => void,
@@ -48,7 +48,7 @@ export function runPackage({ client, env, options = {}, deps }) {
       env,
       buildVersion,
       treeDirty: deps.git.isDirty(),
-      allowDirty: options.allowDirty === true,
+      localOnly: options.localOnly === true,
     })
     if (problems.length > 0) throw new PackageError(`this version cannot be packaged:\n  - ${problems.join('\n  - ')}`)
     const name = releaseName(buildVersion, now())
@@ -91,16 +91,25 @@ export function runPackage({ client, env, options = {}, deps }) {
     log(
       `\nPACKAGE READY: ${made.file} (${(made.sizeBytes / (1024 * 1024)).toFixed(1)} MB), for ${client} (${env}), version ${buildVersion}`,
     )
-    log('\nNext, by hand:')
-    log('  1. Upload the package to the server, any folder you like (WinSCP, scp, ...).')
-    log(`     The first time for this deployment, also upload ${made.helper}`)
-    log(`     into its deploy folder, which is named oxy-${client}-${env}-finance-dashboard-<port>.`)
-    log('  2. On the server, run (replace <deploy folder> and <upload folder> with your own paths):')
-    log(`       node <deploy folder>/open-package.mjs <upload folder>/${name}.tgz`)
-    log('  It opens the package and installs it. Do not rename the package file: its name is the name of the release.')
-    log(
-      '  The first install of this deployment: add --prepare-only to that command (docs/project-guide.md chapter 10.9.3).',
-    )
+    if (options.localOnly) {
+      log('\nLOCAL ONLY: this package is for trying things out on this computer. Its version is not a release tag,')
+      log(
+        'so the installer on a server refuses it. To deploy, make a release (docs/release-runbook.md) and pack that tag.',
+      )
+    } else {
+      log('\nNext, by hand:')
+      log('  1. Upload the package to the server, any folder you like (WinSCP, scp, ...).')
+      log(`     The first time for this deployment, also upload ${made.helper}`)
+      log(`     into its deploy folder, which is named oxy-${client}-${env}-finance-dashboard-<port>.`)
+      log('  2. On the server, run (replace <deploy folder> and <upload folder> with your own paths):')
+      log(`       node <deploy folder>/open-package.mjs <upload folder>/${name}.tgz`)
+      log(
+        '  It opens the package and installs it. Do not rename the package file: its name is the name of the release.',
+      )
+      log(
+        '  The first install of this deployment: add --prepare-only to that command (docs/project-guide.md chapter 10.9.3).',
+      )
+    }
   } catch (error) {
     if (!(error instanceof PackageError)) throw error
     log(`\nFAILED: ${error.message}`)

@@ -17,7 +17,7 @@ export const publicErrorMiddleware = createMiddleware({ type: 'function' }).serv
   }
 })
 
-/** Required on ALL server functions except login/logout/getCurrentUser/prefs (G31). */
+/** Required on ALL server functions except login/logout/getCurrentUser/prefs/getAppVersion (G31). */
 export const authMiddleware = createMiddleware({ type: 'function' })
   .middleware([publicErrorMiddleware])
   .server(async ({ next }) => {

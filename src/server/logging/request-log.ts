@@ -1,3 +1,4 @@
+import { APP_VERSION, APP_VERSION_HEADER } from '~/lib/app-version/app-version'
 import { basePath as buildBasePath } from '~/lib/core/base-path'
 import { removePrefix } from '~/lib/core/client-base'
 import type { LogFields } from './log-fields'
@@ -43,14 +44,19 @@ function pageFilters(url: URL, path: string): Record<string, string> | undefined
   return Object.keys(filters).length > 0 ? filters : undefined
 }
 
-/** Adds X-Request-Id to the response. A response whose headers cannot be changed (a redirect) is copied. */
-function withRequestIdHeader(response: Response, reqId: string): Response {
+/**
+ * Adds X-Request-Id and X-App-Version to the response. A response whose headers cannot be changed (a redirect) is copied.
+ * The version header lets the page notice that the server runs another version than the page was built with.
+ */
+function withResponseHeaders(response: Response, reqId: string): Response {
   try {
     response.headers.set('x-request-id', reqId)
+    response.headers.set(APP_VERSION_HEADER, APP_VERSION)
     return response
   } catch {
     const headers = new Headers(response.headers)
     headers.set('x-request-id', reqId)
+    headers.set(APP_VERSION_HEADER, APP_VERSION)
     return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
   }
 }
@@ -85,7 +91,7 @@ export async function handleRequestWithLog(
         headers: { 'content-type': 'text/plain; charset=utf-8' },
       })
     }
-    const finished = withRequestIdHeader(response, reqId)
+    const finished = withResponseHeaders(response, reqId)
 
     const fields: LogFields = {
       method: request.method,

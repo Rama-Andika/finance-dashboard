@@ -13,6 +13,12 @@ const check = createHealthChecker({
     const { pool } = await import('~/server/db/client')
     await pool.query('SELECT 1')
   },
+  // True when a dash_* migration of this release is not applied yet. It reads the journal of this release and the table
+  // dash_migrations, and writes nothing. An error (journal missing, table unreadable) makes the answer "degraded".
+  migrationsBehind: async () => {
+    const { dashMigrationStatus } = await import('~/server/dash/migrate')
+    return (await dashMigrationStatus()).pending.length > 0
+  },
   onFailure: (error) => log.warn({ err: error }, 'health check failed'),
 })
 

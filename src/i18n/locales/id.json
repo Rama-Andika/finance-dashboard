@@ -555,6 +555,10 @@
     "nav": {},
     "shell": {
       "mainMenu": "Menu utama",
+      "appVersion": "Versi aplikasi",
+      "newVersionTitle": "Versi aplikasi berubah.",
+      "newVersionBody": "Server sekarang menjalankan versi yang berbeda dari halaman ini. Muat ulang agar tidak terjadi galat.",
+      "newVersionReload": "Muat ulang",
       "openMenu": "Buka menu",
       "switchToDark": "Ganti ke tema gelap",
       "switchToLight": "Ganti ke tema terang",

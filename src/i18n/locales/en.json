@@ -555,6 +555,10 @@
     "nav": {},
     "shell": {
       "mainMenu": "Main menu",
+      "appVersion": "Application version",
+      "newVersionTitle": "The application version changed.",
+      "newVersionBody": "The server now runs a different version than this page. Reload to avoid errors.",
+      "newVersionReload": "Reload",
       "openMenu": "Open menu",
       "switchToDark": "Switch to dark theme",
       "switchToLight": "Switch to light theme",

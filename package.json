@@ -1,6 +1,7 @@
 {
   "name": "oxy-finance-dashboard",
   "private": true,
+  "version": "0.0.0",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"
@@ -11,6 +12,7 @@
     "build:client": "node scripts/build-client.mjs",
     "build:ops": "vite build --config vite.ops.config.ts",
     "release:pack": "node scripts/deploy/package.mjs",
+    "release": "node scripts/release/release.mjs",
     "smoke:build": "node scripts/smoke-build.mjs",
     "start": "node scripts/start-server.mjs",
     "start:local": "node scripts/local.mjs node scripts/start-server.mjs",
@@ -68,6 +70,7 @@
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@faker-js/faker": "10.6.0",
+    "@release-it/conventional-changelog": "12.0.0",
     "@tailwindcss/vite": "4.3.3",
     "@types/node": "24.19.2",
     "@types/papaparse": "5.5.2",
@@ -80,6 +83,7 @@
     "eslint-plugin-react-hooks": "7.1.1",
     "globals": "17.13.0",
     "prettier": "3.9.10",
+    "release-it": "21.0.3",
     "tailwindcss": "4.3.3",
     "tsx": "4.23.15",
     "tw-animate-css": "1.4.0",

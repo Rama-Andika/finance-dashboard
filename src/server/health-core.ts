@@ -1,8 +1,15 @@
 /**
  * The health answer of the application: GET <prefix>/health. It needs no sign-in and says nothing but the status, the
- * version of the build and whether the database answers. No server-only marker: it holds no secret and is unit tested.
+ * version of the build, whether the database answers and whether the dash_* migrations are applied ("degraded" when some
+ * are not). No server-only marker: it holds no secret and is unit tested.
  */
-export type HealthBody = { status: 'ok' | 'fail'; version: string; db: 'ok' | 'fail' }
+export type HealthBody = {
+  status: 'ok' | 'degraded' | 'fail'
+  version: string
+  db: 'ok' | 'fail'
+  /** ok: every dash_* migration is applied; behind: some are not; unknown: it could not be checked. */
+  migrations: 'ok' | 'behind' | 'unknown'
+}
 export type HealthResult = { status: 200 | 503; body: HealthBody }
 
 /** How long the database may take to answer before it counts as down. */
@@ -15,22 +22,21 @@ export function isHealthRequest(method: string, pathname: string, basePrefix: st
   return (method === 'GET' || method === 'HEAD') && pathname === `${basePrefix}/health`
 }
 
-/** Runs the ping with a time limit; true when it finished in time without an error. */
-async function pingWithin(
-  ping: () => Promise<void>,
+/** Runs a task with a time limit; says whether it finished in time without an error, and what it returned. */
+async function within<T>(
+  task: () => Promise<T>,
   timeoutMs: number,
   onFailure: ((error: unknown) => void) | undefined,
-): Promise<boolean> {
+): Promise<{ ok: true; value: T } | { ok: false }> {
   let timer: ReturnType<typeof setTimeout> | undefined
   const limit = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`no answer within ${timeoutMs} ms`)), timeoutMs)
   })
   try {
-    await Promise.race([ping(), limit])
-    return true
+    return { ok: true, value: await Promise.race([task(), limit]) }
   } catch (error) {
     onFailure?.(error)
-    return false
+    return { ok: false }
   } finally {
     clearTimeout(timer)
   }
@@ -39,6 +45,8 @@ async function pingWithin(
 export type HealthCheckerOptions = {
   /** Resolves when the database answers, rejects when it does not. */
   ping: () => Promise<void>
+  /** Resolves true when some dash_* migration is not applied yet, false when all are; rejects when that cannot be told. */
+  migrationsBehind: () => Promise<boolean>
   /** The version of the build (empty when unknown). */
   version: () => string
   timeoutMs?: number
@@ -55,22 +63,31 @@ export type HealthCheckerOptions = {
 export function createHealthChecker(options: HealthCheckerOptions): () => Promise<HealthResult> {
   const {
     ping,
+    migrationsBehind,
     version,
     timeoutMs = HEALTH_PING_TIMEOUT_MS,
     cacheMs = HEALTH_CACHE_MS,
     now = Date.now,
     onFailure,
   } = options
+  /** The answer: the database first, and only when it answers, the migrations. */
+  async function answer(): Promise<HealthResult> {
+    const v = version() || 'unknown'
+    const db = await within(ping, timeoutMs, onFailure)
+    if (!db.ok) return { status: 503, body: { status: 'fail', version: v, db: 'fail', migrations: 'unknown' } }
+    const migrations = await within(migrationsBehind, timeoutMs, onFailure)
+    if (!migrations.ok)
+      return { status: 503, body: { status: 'degraded', version: v, db: 'ok', migrations: 'unknown' } }
+    if (migrations.value)
+      return { status: 503, body: { status: 'degraded', version: v, db: 'ok', migrations: 'behind' } }
+    return { status: 200, body: { status: 'ok', version: v, db: 'ok', migrations: 'ok' } }
+  }
   let cached: { at: number; result: HealthResult } | undefined
   let running: Promise<HealthResult> | undefined
   return () => {
     if (cached && now() - cached.at < cacheMs) return Promise.resolve(cached.result)
     running ??= (async (): Promise<HealthResult> => {
-      const dbOk = await pingWithin(ping, timeoutMs, onFailure)
-      const result: HealthResult = {
-        status: dbOk ? 200 : 503,
-        body: { status: dbOk ? 'ok' : 'fail', version: version() || 'unknown', db: dbOk ? 'ok' : 'fail' },
-      }
+      const result = await answer()
       cached = { at: now(), result }
       return result
     })().finally(() => {

@@ -138,6 +138,7 @@
     <a class="card" href="#rutin"><b>A. Deploy rilis baru</b><span>Sudah pernah dipasang. Empat langkah, sekitar lima menit.</span></a>
     <a class="card" href="#pertama"><b>B. Deploy pertama</b><span>Klien atau lingkungan baru. Dikerjakan sekali, dari server kosong sampai login.</span></a>
     <a class="card" href="#gagal"><b>C. Ada yang gagal</b><span>Arti pesan di layar, rollback, dan perbaikan yang paling sering.</span></a>
+    <a class="card" href="#rawat"><b>D. Perawatan sehari-hari</b><span>Ubah file env lalu restart, baca log, cek setelah server restart, bersihkan, cadangkan.</span></a>
   </div>
 
   <form class="fill" id="fill" onsubmit="return false" aria-labelledby="fill-title">
@@ -163,7 +164,8 @@
     <li><b>Buat paket.</b> <span class="pill p-lap">Laptop</span>
       <p>Semua perubahan harus sudah di-commit. Lalu:</p>
       <div class="cmd"><pre><code data-tpl="npm run release:pack -- {CLIENT} {ENV}">npm run release:pack -- demo staging</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
-      <p>Hasilnya ada di folder <code>release-packages/</code>: satu berkas <code>&lt;waktu&gt;-&lt;versi&gt;.tgz</code>. <b>Salin nama berkas itu ke kotak "Nama berkas paket" di atas.</b> Staging boleh dengan <code>--allow-dirty</code> bila belum sempat commit (versinya bertanda <code>-dirty</code>).</p>
+      <p>Hasilnya ada di folder <code>release-packages/</code>: satu berkas <code>&lt;waktu&gt;-&lt;versi&gt;.tgz</code>. <b>Salin nama berkas itu ke kotak "Nama berkas paket" di atas.</b> Paket server hanya bisa dibuat dari sebuah <b>tag</b> (<code>git checkout vX.Y.Z</code> lebih dulu): production dari tag stabil, staging dari tag stabil atau <code>vX.Y.Z-rc.N</code>. Cara membuat tag: <code>docs/release-runbook.md</code>.</p>
+      <p>Sebelum membuat paket: (1) bila ada migrasi database baru (folder <code>drizzle-dash/</code>), migrasinya harus <b>tambah-saja</b>: hanya tabel baru atau kolom baru yang boleh kosong, karena rilis lama tetap berjalan terhadap skema baru beberapa detik dan setelah rollback, jadi jangan menghapus, mengganti nama, atau mengubah tipe kolom yang masih dibaca; (2) di laptop, <code>npm ci</code> sudah pernah dijalankan di repositori ini.</p>
       <label class="chk"><input type="checkbox" data-chk="A1"> selesai</label></li>
     <li><b>Unggah.</b> <span class="pill p-both">Laptop lalu server</span>
       <p>Unggah berkas <code>.tgz</code> ke folder deploy di server dengan WinSCP atau <code>scp</code>, tujuannya:</p>
@@ -179,7 +181,7 @@ su - oxy -c 'node /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/o
       <label class="chk"><input type="checkbox" data-chk="A3"> selesai</label></li>
     <li><b>Cek.</b> <span class="pill p-srv">Server, sebagai root</span>
       <div class="cmd"><pre><code data-tpl="curl -s http://127.0.0.1:{PORT}{PREFIX}/health">curl -s http://127.0.0.1:5205/oxy-demo-staging-finance-dashboard/health</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
-      <p>Harus menjawab <code>{"status":"ok","version":"&lt;versi baru&gt;","db":"ok"}</code>. Lalu buka dashboard di browser dan muat ulang halaman (tab yang terbuka sebelum restart masih memakai berkas lama).</p>
+      <p>Harus menjawab <code>{"status":"ok","version":"&lt;versi baru&gt;","db":"ok","migrations":"ok"}</code>. Lalu buka dashboard di browser dan muat ulang halaman (tab yang terbuka sebelum restart masih memakai berkas lama). Berkas <code>.tgz</code> lama menumpuk di server; cara membersihkannya ada di D4.</p>
       <label class="chk"><input type="checkbox" data-chk="A4"> selesai</label></li>
   </ol>
   <div class="note"><b>Sebaiknya saat sepi.</b> Restart membuat aplikasi tidak menjawab beberapa detik sampai satu-dua menit. Tidak ada aturan jam, hanya saran.</div>
@@ -189,6 +191,18 @@ su - oxy -c 'node /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/o
   <h2 id="pertama">B. Deploy pertama untuk klien atau lingkungan baru</h2>
   <p>Dikerjakan <b>sekali</b> per klien dan lingkungan. Kerjakan berurutan dan centang yang sudah selesai (tersimpan di browser ini). Setelah selesai, deploy berikutnya cukup bagian A.</p>
   <div class="tools"><button type="button" id="chk-reset">Hapus semua centang</button></div>
+  <details><summary>Bedanya bila ini deployment production (bukan staging)</summary><div class="in">
+    <p>Langkah B sama, dengan nilai berbeda. Ubah isian "Lingkungan" menjadi <code>production</code> dan "Port" (kebiasaan: staging 52xx, production 51xx) di atas, dan perintah mengikuti. Hal lain yang perlu diingat:</p>
+    <ul>
+      <li><b>Mulai dari staging.</b> Pasang di staging dulu, baru production, satu klien pada satu waktu. Bila ada masalah, <code>--rollback</code> klien itu dan hentikan.</li>
+      <li><b>Paket production harus dari tag stabil</b> (<code>vX.Y.Z</code>) dan commit bersih.</li>
+      <li><b><code>CLIENT_ID</code> production = nama klien</b> (tanpa <code>-staging</code>), jadi awalan alamatnya <code>/oxy-&lt;klien&gt;-finance-dashboard</code>. <code>init-env</code> mengisinya otomatis.</li>
+      <li><b>Aturan file env production:</b> <code>APP_TODAY</code> tidak boleh ada, dan <code>LOG_LEVEL</code> tidak boleh <code>debug</code> atau <code>trace</code>. <code>env-check</code> menolak file yang melanggarnya, dan aplikasi menolak start.</li>
+      <li><b>Database terpisah dari staging</b> untuk klien yang sama. Bila sama, keduanya berbagi tabel <code>dash_*</code> dan membangun snapshot dua kali. Tidak ada pengaman yang mencegah file staging berisi alamat database production, jadi periksa <code>DATABASE_URL</code> dan nama perusahaan di sidebar.</li>
+      <li><b>Satu baris <code>sudoers</code> dan satu <code>systemctl enable</code> lagi</b> untuk layanan production (nama layanannya berbeda dari staging). Unit systemd tidak perlu dibuat ulang.</li>
+      <li><b>Pasang saat sepi.</b> Restart membuat aplikasi tidak menjawab beberapa detik sampai satu-dua menit.</li>
+    </ul>
+  </div></details>
 
   <h2 class="part">Bagian 1: menyiapkan server</h2>
   <ol class="steps">
@@ -602,6 +616,81 @@ location /oxy-demo-staging-finance-dashboard {
   <div class="cmd"><pre><code data-tpl="rm -r {ROOT}/.deploy.lock">rm -r /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/.deploy.lock</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
 
 
+  <h2 id="rawat">D. Perawatan sehari-hari</h2>
+  <p>Dipakai setelah dashboard berjalan: mengubah pengaturan, membaca log, memeriksa setelah server dihidupkan ulang, membersihkan, dan mencadangkan. Perintah server dijalankan sebagai <code>root</code>, seperti di bagian lain.</p>
+
+  <h3>D1. Mengubah nilai di file env, lalu restart</h3>
+  <p>Perubahan di file env <b>tidak perlu paket baru</b>, tetapi baru berlaku setelah layanan di-<code>restart</code> (systemd membaca file itu hanya saat menyalakan layanan; <code>reload</code> tidak cukup). Urutannya: ubah file, periksa, restart, cek.</p>
+  <ol class="steps">
+    <li><b>Ubah nilainya.</b> <span class="pill p-srv">Server, sebagai root</span>
+      <p>Dengan WinSCP (buka <code>finance-dashboard.env</code>, ubah, simpan) atau <code>vi</code>. Setelah menyimpan, pastikan izin dan pemiliknya tidak berubah:</p>
+      <div class="cmd"><pre><code data-tpl="ls -l {ROOT}/finance-dashboard.env">ls -l /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/finance-dashboard.env</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      <p>Harus <code>-rw-------</code> dengan pemilik <code>oxy oxy</code>. Bila berubah, kembalikan: <code>chown oxy:oxy</code> dan <code>chmod 600</code> pada berkas itu.</p>
+      <p><b>Jangan mengubah</b> <code>CLIENT_ID</code>, <code>PORT</code>, atau <code>APP_ENV</code>: ketiganya harus sama dengan paket dan nama folder deploy, dan <code>env-check</code> akan menolaknya. Mengganti <code>DATABASE_URL</code> berarti membaca database lain tanpa pengaman apa pun, jadi setelahnya pastikan <b>nama perusahaan di sidebar</b> benar.</p>
+      <label class="chk"><input type="checkbox" data-chk="D1a"> selesai</label></li>
+    <li><b>Periksa file.</b> <span class="pill p-srv">Server, sebagai root</span>
+      <div class="cmd"><pre><code data-tpl="su - oxy -c 'node {ROOT}/current/scripts/ops/env-check.mjs {ROOT}/finance-dashboard.env'">su - oxy -c 'node /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/current/scripts/ops/env-check.mjs /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/finance-dashboard.env'</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      <p>Hasil yang benar: <span class="good">env-check: OK (...)</span>. Pemeriksaan ini hanya menyebut nama kunci dan nomor baris, tidak pernah nilainya. Bila ada <code>ERROR</code>, perbaiki dulu: layanan yang di-restart dengan file salah tidak akan naik.</p>
+      <label class="chk"><input type="checkbox" data-chk="D1b"> selesai</label></li>
+    <li><b>Restart dan cek.</b> <span class="pill p-srv">Server, sebagai root</span>
+      <div class="cmd"><pre><code data-tpl="systemctl restart oxy-finance-dashboard@{INSTANCE}
+curl -s http://127.0.0.1:{PORT}{PREFIX}/health">systemctl restart oxy-finance-dashboard@demo-staging-finance-dashboard-5205
+curl -s http://127.0.0.1:5205/oxy-demo-staging-finance-dashboard/health</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+      <p>Harus menjawab <code>{"status":"ok",...}</code>. Aplikasi tidak menjawab beberapa detik selama restart, dan tab browser yang terbuka perlu dimuat ulang, jadi sebaiknya saat sepi. Bila tidak sehat, lihat log (D2).</p>
+      <label class="chk"><input type="checkbox" data-chk="D1c"> selesai</label></li>
+  </ol>
+  <details><summary>Mengganti rahasia sesi (SESSION_SECRET)</summary><div class="in">
+    <p>Jarang diperlukan (misalnya bila rahasia itu bocor). Setelah diganti dan di-restart, <b>semua pengguna keluar</b> dan harus login lagi. Perintah <code>create</code> milik <code>init-env</code> menolak menimpa file, jadi untuk ini ada perintah khusus yang hanya mengganti satu nilai:</p>
+    <div class="cmd"><pre><code data-tpl="su - oxy -c 'node {ROOT}/current/scripts/ops/init-env.mjs rotate-secret --file {ROOT}/finance-dashboard.env'">su - oxy -c 'node /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/current/scripts/ops/init-env.mjs rotate-secret --file /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/finance-dashboard.env'</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+    <p>Lalu periksa dan restart seperti di atas.</p>
+  </div></details>
+
+  <h3>D2. Membaca log aplikasi</h3>
+  <p>Ada dua sumber. <b>Log layanan</b> (<code>journalctl</code>) memuat apa yang terjadi saat aplikasi menyala atau mati. <b>Log aplikasi</b> ada di folder <code>logs/</code>, satu berkas per hari: <code>app.&lt;tanggal&gt;.&lt;nomor&gt;.log</code>, memuat setiap permintaan, login, dan galat. Isinya tidak pernah memuat kata sandi, nilai parameter SQL, atau nama pengguna yang diketik.</p>
+  <p>Bila pengguna melaporkan galat di layar, mintalah kode di <b>belakang tanda pagar</b> (<code>CODE#20261112-153451-wjgxs</code>). Bagian setelah tanda pagar adalah ID permintaan; cari seluruh barisnya:</p>
+  <div class="cmd"><pre><code data-tpl="su - oxy -c 'node --env-file={ROOT}/finance-dashboard.env {ROOT}/current/dist/ops/logs-find.mjs &lt;id-permintaan&gt;'">su - oxy -c 'node --env-file=/home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/finance-dashboard.env /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/current/dist/ops/logs-find.mjs &lt;id-permintaan&gt;'</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+  <p>Pilihan lain untuk perintah yang sama (ganti <code>&lt;id-permintaan&gt;</code>): <code>--level error</code> (hanya galat), <code>--since 14:00 --until 14:30</code> (rentang waktu), <code>--user &lt;id&gt;</code>, <code>--path /summary</code>, dan <code>--help</code>. Tanpa pilihan apa pun, ia menampilkan peringatan dan galat beberapa hari terakhir.</p>
+  <p>Tanpa alat pencari, lihat langsung:</p>
+  <div class="cmd"><pre><code data-tpl="ls -lh {ROOT}/logs
+tail -n 50 {ROOT}/logs/app.*.log
+journalctl -u oxy-finance-dashboard@{INSTANCE} -n 100 --no-pager">ls -lh /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/logs
+tail -n 50 /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/logs/app.*.log
+journalctl -u oxy-finance-dashboard@demo-staging-finance-dashboard-5205 -n 100 --no-pager</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+
+  <h3>D3. Setelah server dihidupkan ulang</h3>
+  <p>Layanan sudah didaftarkan (<code>systemctl enable</code>), jadi seharusnya menyala sendiri. Periksa:</p>
+  <div class="cmd"><pre><code data-tpl="systemctl is-enabled oxy-finance-dashboard@{INSTANCE} httpd crond
+systemctl is-active oxy-finance-dashboard@{INSTANCE} httpd crond
+curl -s http://127.0.0.1:{PORT}{PREFIX}/health">systemctl is-enabled oxy-finance-dashboard@demo-staging-finance-dashboard-5205 httpd crond
+systemctl is-active oxy-finance-dashboard@demo-staging-finance-dashboard-5205 httpd crond
+curl -s http://127.0.0.1:5205/oxy-demo-staging-finance-dashboard/health</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+  <p>Semuanya <code>enabled</code> dan <code>active</code>, dan <code>/health</code> menjawab <code>ok</code> (<code>"db":"ok"</code> berarti MySQL sudah menyala dan terjangkau). Bila <code>httpd</code> tidak ada di server Anda, abaikan barisnya. Bila dashboard menyala sebelum MySQL siap, <code>/health</code> sementara menjawab <code>503</code> lalu pulih sendiri setelah MySQL menyala; bila tidak pulih dalam beberapa menit, <code>systemctl restart</code> layanannya.</p>
+  <div class="note warn"><b>Belum teruji di server nyata:</b> perilaku setelah server dihidupkan ulang.</div>
+
+  <h3>D4. Membersihkan berkas paket lama</h3>
+  <p>Pemasang membersihkan folder rilis di server sendiri (menyisakan 5 terbaru ditambah rilis aktif dan sebelumnya). Berkas <code>.tgz</code> yang Anda unggah <b>tidak</b> ikut dihapus dan menumpuk. Folder rilis berdiri sendiri, jadi paket yang sudah terpasang aman dihapus. Lihat dulu yang akan terhapus, lalu hapus; dua paket terbaru disisakan:</p>
+  <div class="cmd"><pre><code data-tpl="ls -1t {ROOT}/*.tgz | tail -n +3">ls -1t /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/*.tgz | tail -n +3</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+  <div class="cmd"><pre><code data-tpl="ls -1t {ROOT}/*.tgz | tail -n +3 | xargs -r rm -f">ls -1t /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/*.tgz | tail -n +3 | xargs -r rm -f</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+  <p>Perintah pertama hanya menampilkan daftar; jalankan yang kedua bila daftarnya benar. Berkas <code>open-package.mjs</code> tidak ikut terhapus karena bukan <code>.tgz</code>.</p>
+
+  <h3>D5. Mencadangkan yang tidak ada di paket</h3>
+  <p>Kode aplikasi tidak perlu dicadangkan: setiap rilis adalah satu paket, dan paket baru selalu bisa dibuat dari repositori. Yang tidak ada di paket dan sulit dibuat ulang:</p>
+  <ul>
+    <li><b>File env</b> (<code>finance-dashboard.env</code>): memuat <code>SESSION_SECRET</code> dan alamat database.</li>
+    <li><b>Unit systemd</b> dan <b>aturan <code>sudoers</code></b>.</li>
+    <li><b>Konfigurasi <code>httpd</code></b> untuk domain Anda dan <b>jadwal perpanjangan</b> (<code>cron</code>).</li>
+    <li><b>Folder <code>/etc/letsencrypt</code></b> (sertifikat dan kuncinya; sertifikat juga bisa diterbitkan ulang).</li>
+    <li><b>Database</b> adalah milik klien dan dicadangkan dengan prosedur mereka. Tabel <code>dash_*</code> hanya data turunan yang dibangun ulang otomatis, jadi tidak perlu dicadangkan terpisah.</li>
+  </ul>
+  <div class="cmd"><pre><code data-tpl="tar -czf /root/cadangan-dashboard-$(date +%Y%m%d).tgz {ROOT}/finance-dashboard.env /etc/systemd/system/oxy-finance-dashboard@.service /etc/sudoers.d/oxy-finance-dashboard /etc/httpd/conf.d/{DOMAIN}.conf /etc/httpd/conf.d/{DOMAIN}-ssl.conf /etc/cron.d/certbot-{DOMAIN} /etc/letsencrypt
+chmod 600 /root/cadangan-dashboard-*.tgz
+ls -lh /root/cadangan-dashboard-*.tgz">tar -czf /root/cadangan-dashboard-$(date +%Y%m%d).tgz /home/oxy/web-server/oxy-demo-staging-finance-dashboard-5205/finance-dashboard.env /etc/systemd/system/oxy-finance-dashboard@.service /etc/sudoers.d/oxy-finance-dashboard /etc/httpd/conf.d/dashboard.contoh.com.conf /etc/httpd/conf.d/dashboard.contoh.com-ssl.conf /etc/cron.d/certbot-dashboard.contoh.com /etc/letsencrypt
+chmod 600 /root/cadangan-dashboard-*.tgz
+ls -lh /root/cadangan-dashboard-*.tgz</code></pre><button type="button" class="copy" aria-label="Salin perintah">Salin</button></div>
+  <div class="note warn"><b>Berkas cadangan itu memuat rahasia</b> (kata sandi database dan kunci sertifikat). Pindahkan ke tempat aman di luar server ini dan jangan diunggah ke tempat umum. Bila file yang disebut tidak ada di server Anda (misalnya tanpa <code>httpd</code>), <code>tar</code> menolak dan berhenti: hapus nama berkas itu dari perintah.</div>
+  <div class="note"><b>Catat sendiri, di luar repositori:</b> daftar deployment di server ini (klien, lingkungan, port, domain, tanggal pasang). Aturan proyek melarang nama klien dan server ditulis di repositori, jadi panduan ini hanya memuat contoh.</div>
+
+
   <h2 id="referensi">Referensi (tidak perlu dibaca untuk deploy)</h2>
   <p>Cara kerja di balik layar, diagram, dan peta file. Buka bagian yang ingin Anda pahami.</p>
   <details class="ref"><summary>Diagram deployment (UML): siapa berbicara dengan siapa</summary><div class="in">
@@ -630,7 +719,7 @@ location /oxy-demo-staging-finance-dashboard {
       <text class="tb" x="140" y="147" text-anchor="middle">Komputer pembangun</text>
       <rect class="cmp" x="24" y="162" width="232" height="58" rx="4"/>
       <text class="tb" x="36" y="182">Repo git</text>
-      <text class="tm" x="36" y="198">commit bersih (tag tidak wajib)</text>
+      <text class="tm" x="36" y="198">tag persis, commit bersih</text>
       <text class="tm" x="36" y="212">src/, scripts/, drizzle-dash/</text>
       <rect class="hot" x="24" y="232" width="232" height="124" rx="4"/>
       <text class="tb" x="36" y="252">npm run release:pack</text>
@@ -842,7 +931,7 @@ location /oxy-demo-staging-finance-dashboard {
     <thead><tr><th>Berkas</th><th>Fungsi</th><th>Jalan di</th></tr></thead><tbody>
       <tr><td><code>scripts/deploy/package.mjs</code></td><td>Perintah <code>npm run release:pack</code>. Hanya menyambungkan kenyataan (git, build, berkas) ke alur; tidak mengambil keputusan.</td><td><span class="pill p-lap">laptop</span></td></tr>
       <tr><td><code>scripts/deploy/package-flow.mjs</code></td><td>Urutan dan keputusan pembuatan paket: periksa permintaan dan versi, bangun, periksa build, buat paket, cetak langkah berikutnya.</td><td><span class="pill p-lap">laptop</span></td></tr>
-      <tr><td><code>scripts/deploy/package-rules.mjs</code></td><td>Aturan versi: commit harus bersih (staging boleh <code>--allow-dirty</code>), versi tidak boleh <code>unknown</code>. Tag tidak wajib.</td><td><span class="pill p-lap">laptop</span></td></tr>
+      <tr><td><code>scripts/deploy/package-rules.mjs</code></td><td>Aturan versi: commit bersih dan build tepat di tag (production tag stabil; staging stabil atau rc); <code>--local-only</code> untuk percobaan lokal.</td><td><span class="pill p-lap">laptop</span></td></tr>
       <tr><td><code>scripts/deploy/bundle-imports.mjs</code></td><td>Memastikan setiap paket yang di-<code>import</code> hasil build ada di <code>package-lock.json</code> sebagai paket produksi, supaya <code>npm ci --omit=dev</code> di server memasangnya.</td><td><span class="pill p-lap">laptop</span></td></tr>
       <tr><td><code>scripts/deploy/package-release.mjs</code></td><td>Menyalin isi rilis (tanpa file tes) dan membuat <code>.tgz</code> dengan <code>tar</code>.</td><td><span class="pill p-lap">laptop</span></td></tr>
       <tr><td><code>vite.ops.config.ts</code></td><td>Membundel <code>scripts/dash-*.ts</code> dan <code>logs-find.ts</code> menjadi <code>dist/ops/*.mjs</code> (<code>npm run build:ops</code>), jalan dengan Node biasa.</td><td><span class="pill p-lap">laptop</span></td></tr>
@@ -859,7 +948,7 @@ location /oxy-demo-staging-finance-dashboard {
       <tr><td><code>scripts/lib/release-layout.mjs</code></td><td>Aturan nama rilis, nama folder deploy (klien, lingkungan, port, unit systemd), alamat <code>/health</code>.</td><td><span class="pill p-both">keduanya</span></td></tr>
       <tr><td><code>scripts/lib/release-store.mjs</code></td><td>Pekerjaan pada disk: daftar rilis, memindahkan <code>current</code>/<code>previous</code> secara atomik, membersihkan rilis lama.</td><td><span class="pill p-srv">server</span></td></tr>
       <tr><td><code>scripts/ops/health-check.mjs</code>, <code>scripts/lib/health-wait.mjs</code></td><td>Menanyakan <code>/health</code> berulang sampai sehat dengan versi yang diharapkan, terus-menerus 10 detik, paling lama 120 detik.</td><td><span class="pill p-srv">server</span></td></tr>
-      <tr><td><code>src/server/health-core.ts</code>, <code>health.ts</code></td><td>Jawaban <code>GET &lt;awalan&gt;/health</code>: <code>{status, version, db}</code>, kode 200 atau 503, hasil dipakai 5 detik, tidak dicatat di log akses.</td><td><span class="pill p-app">aplikasi</span></td></tr>
+      <tr><td><code>src/server/health-core.ts</code>, <code>health.ts</code></td><td>Jawaban <code>GET &lt;awalan&gt;/health</code>: <code>{status, version, db, migrations}</code>, kode 200 atau 503, dan migrasi <code>dash_*</code> (<code>degraded</code> bila tertinggal), hasil dipakai 5 detik, tidak dicatat di log akses.</td><td><span class="pill p-app">aplikasi</span></td></tr>
       <tr><td><code>src/server-entry.ts</code></td><td>Memanggil penjawab <code>/health</code> sebelum pencatatan permintaan.</td><td><span class="pill p-app">aplikasi</span></td></tr>
       <tr><td><code>dist/ops/dash-migrate.mjs</code> dst. (hasil build)</td><td>Migrasi, refresh snapshot, dan pencari log yang jalan di server dengan <code>node --env-file=&lt;file env&gt;</code>.</td><td><span class="pill p-srv">server</span></td></tr>
       <tr><td><code>src/server/dash/migrate.ts</code></td><td>Perbaikan: database yang tidak terjangkau sekarang menjadi error, bukan dianggap "belum ada migrasi".</td><td><span class="pill p-app">aplikasi</span></td></tr>
@@ -871,7 +960,7 @@ location /oxy-demo-staging-finance-dashboard {
   <div class="tbl"><table>
     <thead><tr><th>Perintah</th><th>Fungsi</th></tr></thead><tbody>
       <tr><td><code>npm run release:pack -- &lt;klien&gt; &lt;staging|production&gt;</code></td><td>Membangun, memeriksa, dan membuat paket <code>.tgz</code> di <code>release-packages/</code>, lalu mencetak langkah berikutnya.</td></tr>
-      <tr><td><code>… --skip-build</code>, <code>--allow-dirty</code> (staging), <code>--out &lt;folder&gt;</code></td><td>Pakai <code>dist/</code> yang ada; kemas dengan perubahan yang belum di-commit; folder tujuan.</td></tr>
+      <tr><td><code>… --skip-build</code>, <code>--local-only</code>, <code>--out &lt;folder&gt;</code></td><td>Pakai <code>dist/</code> yang ada; paket percobaan dari commit apa pun (tidak bisa dipasang di server); folder tujuan.</td></tr>
       <tr><td><code>npm run build:client -- &lt;id&gt;</code> lalu <code>npm run build:ops</code></td><td>Membangun sendiri (urutan penting: yang pertama mengosongkan <code>dist/</code>).</td></tr>
       <tr><td><code>npm run smoke:build</code></td><td>Memeriksa hasil build tanpa database.</td></tr>
       <tr><td><code>npm run env:check -- &lt;file&gt;</code></td><td>Memeriksa file env.</td></tr>
@@ -886,8 +975,8 @@ location /oxy-demo-staging-finance-dashboard {
   </div></details>
   <details class="ref"><summary>Aturan</summary><div class="in">
 <ul>
-    <li><b>Commit bersih.</b> Paket hanya dibuat dari commit yang semua perubahannya sudah di-commit, supaya setiap rilis bisa dilacak ke satu commit. Staging boleh dengan <code>--allow-dirty</code>.</li>
-    <li><b>Tag tidak wajib.</b> Versi = nama tag bila ada, selain itu kode commit. Sistem ini belum punya skema nomor versi resmi.</li>
+    <li><b>Tag dan commit bersih.</b> Paket hanya dibuat dari commit yang bertanda tag dan semua perubahannya sudah di-commit, supaya setiap rilis bisa dilacak ke satu versi dan satu commit.</li>
+    <li><b>Tag SemVer.</b> Production hanya dari tag stabil (<code>vX.Y.Z</code>); staging dari tag stabil atau <code>vX.Y.Z-rc.N</code>; <code>--local-only</code> hanya untuk percobaan lokal (ditolak server). Panduan rilis: <code>docs/release-runbook.md</code>.</li>
     <li><b>Tanpa jendela jam.</b> Tidak ada aturan jam. Disarankan memasang di saat sepi: restart membuat aplikasi tidak menjawab beberapa detik sampai satu-dua menit, dan tab browser yang terbuka perlu dimuat ulang.</li>
     <li><b>Paket cocok dengan folder.</b> <code>CLIENT_ID</code> di paket harus sama dengan yang dikatakan nama folder deploy; paket staging tidak bisa masuk folder production.</li>
     <li><b>Migrasi tambah-saja.</b> Hanya tabel baru atau kolom baru yang boleh kosong. Jangan menghapus, mengganti nama, atau mengubah tipe kolom yang masih dibaca rilis sebelumnya.</li>

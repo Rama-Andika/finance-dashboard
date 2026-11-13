@@ -16,6 +16,7 @@ import {
   ListTree,
   Scale,
 } from 'lucide-react'
+import { APP_VERSION } from '~/lib/app-version/app-version'
 import { cn } from '~/lib/cn'
 import { keepEnabled } from '~/lib/feature-flags/filter'
 import { allFlagsOff, type FeatureFlagName } from '~/lib/feature-flags/registry'
@@ -126,6 +127,15 @@ export function SidebarNav({ onNavigate, className, isTabletCollapsed = false }:
       </div>
 
       <DataFreshness className={cn('flex-none', isTabletCollapsed && 'md:hidden lg:flex')} />
+      <div
+        className={cn(
+          'flex-none px-2 pt-2 text-xs leading-4 text-ink-muted',
+          isTabletCollapsed && 'md:hidden lg:block',
+        )}
+        title={t('ui.shell.appVersion')}
+      >
+        {APP_VERSION}
+      </div>
     </nav>
   )
 }

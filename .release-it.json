@@ -1,0 +1,38 @@
+{
+  "git": {
+    "requireBranch": "main",
+    "requireCleanWorkingDir": true,
+    "requireUpstream": true,
+    "commit": true,
+    "commitMessage": "chore(release): v${version}",
+    "tag": true,
+    "tagName": "v${version}",
+    "tagExclude": "*[-]*",
+    "push": true
+  },
+  "github": { "release": false },
+  "npm": { "publish": false, "skipChecks": true },
+  "plugins": {
+    "@release-it/conventional-changelog": {
+      "infile": "CHANGELOG.md",
+      "header": "# Changelog",
+      "ignoreRecommendedBump": true,
+      "preset": {
+        "name": "conventionalcommits",
+        "types": [
+          { "type": "feat", "section": "Features" },
+          { "type": "fix", "section": "Bug Fixes" },
+          { "type": "perf", "section": "Performance" },
+          { "type": "refactor", "hidden": true, "effect": "hidden" },
+          { "type": "docs", "hidden": true, "effect": "hidden" },
+          { "type": "style", "hidden": true, "effect": "hidden" },
+          { "type": "test", "hidden": true, "effect": "hidden" },
+          { "type": "chore", "hidden": true, "effect": "hidden" },
+          { "type": "build", "hidden": true, "effect": "hidden" },
+          { "type": "ci", "hidden": true, "effect": "hidden" },
+          { "type": "revert", "hidden": true, "effect": "hidden" }
+        ]
+      }
+    }
+  }
+}

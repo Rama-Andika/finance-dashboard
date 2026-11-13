@@ -214,6 +214,24 @@ describe('runInstall: refused before anything is changed', () => {
     )
   })
 
+  it('refuses a version that is not a release tag, and a release candidate for production', () => {
+    expect(refused({ buildInfo: { version: '1a2b3c4', clientId: 'acme-staging' } })).toContain('cannot go to staging')
+    expect(refused({ buildInfo: { version: 'v1.2.0-3-g1a2b3c4', clientId: 'acme-staging' } })).toContain(
+      'cannot go to staging',
+    )
+    expect(refused({ buildInfo: { version: 'v1.2.0-dirty', clientId: 'acme-staging' } })).toContain(
+      'cannot go to staging',
+    )
+    expect(refused({ place: PRODUCTION, buildInfo: { version: 'v1.2.0-rc.1', clientId: 'acme' } })).toContain(
+      'cannot go to production',
+    )
+  })
+
+  it('takes a release candidate for staging', () => {
+    const made = makeDeps({ buildInfo: { version: 'v1.2.0-rc.1', clientId: 'acme-staging' } })
+    expect(runInstall({ place: STAGING, deps: made.deps }).ok).toBe(true)
+  })
+
   it('says so when the environment file is missing, and takes no lock', () => {
     expect(refused({ envFile: false }, ['check-env-file'])).toContain('--prepare-only')
   })
